@@ -39,7 +39,7 @@ echo "[app] Starting sidecar server in background..."
 PORT="${FACTORY_SIDECAR_PORT}" \
   SIDECAR_PATH="${FACTORY_SIDECAR_PATH}" \
   WORKSPACE=/workspace \
-  node /workspace/sidecar-server.cjs &
+  /factory/sidecar &
 
 if [ -z "${FACTORY_STAGE_SCRIPT:-}" ]; then
   echo "[app] ERROR: FACTORY_STAGE_SCRIPT is not set." >&2

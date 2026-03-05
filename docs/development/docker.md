@@ -7,8 +7,8 @@ The factory uses several Docker images for the sandbox, coder agent, and test ru
 | Image                | Default tag                     | Purpose                                                    |
 | -------------------- | ------------------------------- | ---------------------------------------------------------- |
 | `factory-test-*`     | `factory-test-<profile>:latest` | Test runner containers; one per language/framework profile |
-| `factory-coder-base` | `factory-coder-base:latest`     | Base for coder images; contains factory-loop.sh only       |
-| `factory-coder`      | `factory-coder:latest`          | Extends coder-base; adds OpenHands (default coder agent)   |
+| `factory-coder-base` | `factory-coder-base:latest`     | Base for coder images; contains coder-start.sh only       |
+| `factory-coder`      | `factory-coder-node-pnpm-python:latest`| Extends coder-base; adds OpenHands (default coder agent)   |
 | `factory-stage`      | `factory-stage:latest`          | Stage/staging container image                              |
 
 ### Test runner profiles
@@ -70,7 +70,7 @@ The workflow uses `secrets.GITHUB_TOKEN`; no extra secrets are required for publ
 
 **Registry:** `ghcr.io/JuroOravec/safe-ai-factory`
 
-When `--test-image` or `--coder-image` is omitted, the orchestrator pulls from GHCR if the image is not already present locally. To pin a release:
+When `--test-image` or `--coder-image` is omitted, Docker pulls the default image from GHCR automatically when it is not present locally. To pin a release:
 
 ```bash
 # Test runners (use :latest or :v1.0.0 to pin a release)

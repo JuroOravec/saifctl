@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "ignoreFiles": [
     "src/blackbox/templates/**",
-    "src/orchestrator/sidecar-server.ts",
+    "src/orchestrator/sidecar/**",
     "openspec/**"
   ]
 }

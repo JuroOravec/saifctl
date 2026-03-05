@@ -1,4 +1,4 @@
-export type TarEntry = { filename: string; content: string; mode?: string };
+export type TarEntry = { filename: string; content: string | Buffer; mode?: string };
 
 /**
  * Creates a minimal tar archive containing one or more files.
@@ -20,7 +20,7 @@ export function createTarArchive(entries: TarEntry | TarEntry[]): Buffer {
  * Used internally by createTarArchive.
  */
 function createTarEntry({ filename, content, mode = '0000644' }: TarEntry): Buffer {
-  const contentBuffer = Buffer.from(content, 'utf8');
+  const contentBuffer = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8');
   const nameBuffer = Buffer.from(filename, 'utf8');
 
   // TAR header is 512 bytes
