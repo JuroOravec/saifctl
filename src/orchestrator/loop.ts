@@ -213,6 +213,7 @@ export async function runIterativeLoop(
           testSuites: result.testSuites,
           resolveAmbiguity,
           testProfile,
+          projectName,
         });
 
         if (arbiterResult.ambiguityResolved) {
@@ -274,6 +275,7 @@ export async function runIterativeLoop(
 // ---------------------------------------------------------------------------
 
 interface RunArbiterForFailureOpts {
+  projectName: string;
   repoRoot: string;
   changeName: string;
   openspecDir: string;
@@ -316,6 +318,7 @@ export async function runArbiterForFailure(
     testSuites,
     resolveAmbiguity,
     testProfile,
+    projectName,
   } = opts;
 
   const specPath = join(repoRoot, openspecDir, 'changes', changeName, 'specification.md');
@@ -409,7 +412,7 @@ export async function runArbiterForFailure(
   // then scaffold generates the spec files via the coder agent).
   console.log('[spec-arbiter] Regenerating blackbox design with updated spec...');
   try {
-    await runBlackboxDesign({ changeName, repoRoot, openspecDir, testProfile });
+    await runBlackboxDesign({ changeName, repoRoot, openspecDir, testProfile, projectName });
     await generateSpecTestScaffold({ changeName, repoRoot, openspecDir, testProfile });
     console.log('[spec-arbiter] Tests regenerated successfully.');
   } catch (err) {
@@ -542,7 +545,7 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
         execSync(`cp -r "${srcChangeDir}" "${destChangeDir}"`, { cwd: repoRoot });
       }
 
-      execSync(`pnpm openspec archive --yes ${changeName}`, { cwd: wtPath, env: gitEnv });
+      execSync(`npx openspec archive --yes ${changeName}`, { cwd: wtPath, env: gitEnv });
       const archiveChanges = execSync('git status --porcelain', { cwd: wtPath }).toString().trim();
       if (archiveChanges) {
         execSync('git add .', { cwd: wtPath, env: gitEnv });

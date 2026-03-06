@@ -1,9 +1,9 @@
 #!/usr/bin/env tsx
 /**
- * Init CLI — initialize OpenSpec + Shotgun for the factory.
+ * Init CLI — initialize OpenSpec + codebase indexer for the factory.
  *
  * Usage: saif init [options]
- *   Requires CONTEXT7_API_KEY and at least one LLM API key.
+ *   Requires at least one LLM API key.
  */
 
 import { execSync } from 'node:child_process';
@@ -13,12 +13,13 @@ import { resolve } from 'node:path';
 import { defineCommand, runMain } from 'citty';
 
 import { getRepoRoot } from '../../constants.js';
-import { requireContext7ApiKey, requireLlmApiKey, resolveProjectName } from '../utils.js';
+import { DEFAULT_INDEXER_PROFILE, resolveIndexerProfile } from '../../indexer-profiles/index.js';
+import { parseOpenspecDir, requireLlmApiKey, resolveProjectName } from '../utils.js';
 
 const initCommand = defineCommand({
   meta: {
     name: 'init',
-    description: 'Initialize OpenSpec + Shotgun (requires CONTEXT7_API_KEY)',
+    description: 'Initialize OpenSpec + codebase indexer',
   },
   args: {
     force: {
@@ -35,29 +36,34 @@ const initCommand = defineCommand({
       type: 'string',
       description: 'Path to openspec directory (default: openspec)',
     },
+    indexer: {
+      type: 'string',
+      description: `Indexer profile to use (default: ${DEFAULT_INDEXER_PROFILE.id})`,
+    },
   },
   async run({ args }) {
-    requireContext7ApiKey();
     requireLlmApiKey();
-    const context7Key = process.env.CONTEXT7_API_KEY!;
+
     const force = args.force === true;
-    const openspecDir =
-      typeof args['openspec-dir'] === 'string' && args['openspec-dir'].trim()
-        ? args['openspec-dir'].trim()
-        : 'openspec';
+    const openspecDir = parseOpenspecDir(args);
     const repoRoot = getRepoRoot();
+    const indexerProfile = resolveIndexerProfile(args.indexer);
+    const projectName = resolveProjectName(args, repoRoot);
 
-    const exec = (cmd: string) => execSync(cmd, { stdio: 'inherit', cwd: process.cwd() });
+    const exec = (cmd: string) => execSync(cmd, { stdio: 'inherit', cwd: repoRoot });
 
+    // Set up openspec directory
     if (force || !existsSync(resolve(repoRoot, openspecDir))) {
-      exec('pnpm openspec init');
+      exec('npx openspec init');
     } else {
-      console.log(`${openspecDir}/ exists, skipping pnpm openspec init (use -f to force)`);
+      console.log(`${openspecDir}/ exists, skipping openspec init (use -f to force)`);
     }
-    exec('uv run shotgun-sh config init');
-    exec(`uv run shotgun-sh config set-context7 --api-key ${context7Key}`);
-    const projName = resolveProjectName(args, repoRoot);
-    exec(`uv run shotgun-sh codebase index . --name ${projName}`);
+
+    console.log(
+      `\nIndexing codebase with ${indexerProfile.displayName} (project: ${projectName})...`,
+    );
+    await indexerProfile.init({ cwd: repoRoot, projectName });
+
     console.log('\nInit complete.');
   },
 });

@@ -19,15 +19,15 @@ function resolveProjectName(opts: { project?: string }): string {
   const fromOpt = typeof opts.project === 'string' ? opts.project.trim() : '';
   if (fromOpt) return fromOpt;
 
-  const repoRoot = resolve(process.cwd());
+  const projectRoot = resolve(process.cwd());
   try {
-    const pkg = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8')) as {
+    const pkg = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8')) as {
       name?: unknown;
     };
     if (typeof pkg.name === 'string' && pkg.name.trim()) return pkg.name.trim();
   } catch {
     throw new Error(
-      `Cannot determine project name: no package.json found at ${resolve(repoRoot, 'package.json')}. Specify -p/--project.`,
+      `Cannot determine project name: no package.json found at ${resolve(projectRoot, 'package.json')}. Specify -p/--project.`,
     );
   }
 

@@ -23,8 +23,9 @@ Cursor proved in early 2026 that autonomous AI agents can build an entire browse
 
 **Batteries-included:**
 - **14 Agentic CLI tools**
-- **5 Git providers**
 - **4 Programming languages**
+- **5 Git providers**
+- **1 Codebase indexing**
 
 All in a single, safe, spec-driven loop.
 
@@ -49,21 +50,21 @@ pnpm install
 saif init
 
 # 1. Scaffold proposal.md and edit it
-pnpm agents feat:new my-feature
+saif feat new -n add-login
 
 # 2. Generate Shotgun specs + black-box tests
-pnpm agents feat:design my-feature
+pnpm agents feat:design add-login
 
 # 3. Confirm tests fail
-pnpm agents feat:fail2pass my-feature
+pnpm agents feat:fail2pass add-login
 
 # 4. Run coding agent in loops in sandbox until tests pass
-pnpm agents feat:run my-feature
+pnpm agents feat:run add-login
 # Prefer Aider?
-# pnpm agents feat:run my-feature --agent aider
+# pnpm agents feat:run add-login --agent aider
 
 # 5. Mark this change as done and create a PR
-pnpm agents feat:finish my-feature --push origin --pr
+pnpm agents feat:finish add-login --push origin --pr
 ```
 
 ## Prerequisites
@@ -71,7 +72,6 @@ pnpm agents feat:finish my-feature --push origin --pr
 - Node.js 22+
 - Python 3.12+
 - Docker
-- Context7 API key
 - LLM API key
 
 ## Why use `safe-ai-factory`?
@@ -256,6 +256,53 @@ pnpm agents feat:assess my-feature --test-profile py-playwright
 
 See [docs/test-profiles.md](docs/test-profiles.md) for step-by-step usage.
 
+## Spec designers
+
+By default the factory uses **Shotgun** to turn your feature proposal into a full technical spec before any coding agent runs. Write one paragraph — get back `plan.md`, `specification.md`, `research.md`, and `tasks.md`, all grounded in your existing codebase patterns.
+
+Just like other parts of `safe-ai-factory`, this step is swappable.
+
+Use `--designer` to switch:
+
+```bash
+pnpm agents feat:design add-login
+# or explicitly:
+pnpm agents feat:design add-login --designer shotgun
+```
+
+| Designer | Switch with |
+|----------|-------------|
+| Shotgun (default) | `--designer shotgun` |
+
+[See all available designers and step-by-step usage here](./docs/designers/README.md).
+
+_NOTE: Currently Shotgun is the only supported option. If you want to add your tool, [write an issue](https://github.com/JuroOravec/safe-ai-factory/issues)_
+
+## Codebase indexers
+
+By default the factory uses **Shotgun** to index your codebase before generating specs. The indexer gives the Architect Agent accurate knowledge of your existing patterns — so it writes specs that reference real files and conventions, not guesses.
+
+Use `--indexer` to switch or disable:
+
+```bash
+# Index is built automatically during init:
+saif init
+
+# Use during spec generation:
+pnpm agents feat:design my-feature --indexer shotgun
+
+# Disable:
+pnpm agents feat:design my-feature --indexer none
+```
+
+| Indexer | Switch with |
+|---------|-------------|
+| Shotgun (default) | `--indexer shotgun` |
+
+[See all available indexers and step-by-step usage here](./docs/indexer/README.md).
+
+_NOTE: Currently Shotgun is the only supported option. If you want to add your tool, [write an issue](https://github.com/JuroOravec/safe-ai-factory/issues)_
+
 ## Commands
 
 <!-- TODO: COMMANDS IN DEPTH (ALL OPTIONS & WHAT THEY DO - OWN DOC FILE?) -->
@@ -270,7 +317,8 @@ See [docs/test-profiles.md](docs/test-profiles.md) for step-by-step usage.
 - [Agents](docs/agents/README.md)
 - [Sandbox profiles](./docs/sandbox-profiles.md)
 - [Test profiles](./docs/test-profiles.md)
-- [Shotgun](./docs/shotgun.md) - <!-- TODO -->
+- [Spec designers](./docs/designers/README.md)
+- [Codebase indexers](./docs/indexer/README.md)
 - [Commands](docs/commands/README.md) - <!-- TODO -->
 - [Environment variable](docs/env-vars.md) - <!-- TODO -->
 - [Source control integrations](docs/source-control.md)

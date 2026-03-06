@@ -732,6 +732,7 @@ async function runAssessCore(
           testSuites: result.testSuites,
           resolveAmbiguity,
           testProfile,
+          projectName,
         });
 
         if (arbiterResult.ambiguityResolved) {
