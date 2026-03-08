@@ -3,7 +3,10 @@
  * Feat CLI — feature workflow scaffolding.
  *
  * Usage: saif feat <subcommand> [options]
- *   new    Create scaffolding for a new feature (prompts for name if not given)
+ *   new           Create scaffolding for a new feature (prompts for name if not given)
+ *   design-specs  Generate specs from a feature's proposal only (first step of design).
+ *   design-tests  Generate tests from existing specs only (second step of design).
+ *   design        Generate specs and tests from a feature's proposal (full design workflow)
  *   Alias: saif feature
  */
 
@@ -19,17 +22,22 @@ import { generateSpecTestScaffold } from '../../blackbox/impl.js';
 import { getChangeDirAbsolute, getChangeDirRelative } from '../../constants.js';
 import { DEFAULT_DESIGNER_PROFILE } from '../../designer-profiles/index.js';
 import { DEFAULT_INDEXER_PROFILE } from '../../indexer-profiles/index.js';
+import type { ModelOverrides } from '../../llm-config.js';
 import {
   getFeatNameFromArgs,
   getFeatNameOrPrompt,
   parseDesignerProfile,
   parseIndexerProfile,
+  parseModelOverrides,
   parseOpenspecDir,
   parseProjectDir,
   parseTestProfile,
-  requireLlmApiKey,
   resolveProjectName,
 } from '../utils.js';
+
+/////////////////////////////////////////////
+// Shared CLI args
+/////////////////////////////////////////////
 
 // Shared feat args — spread into subcommands, override individual attrs as needed
 const featNameArg = {
@@ -68,6 +76,37 @@ const featProjectArg = {
   alias: 'p',
   description: 'Project name override for the indexer (default: package.json "name")',
 };
+const forceArg = {
+  type: 'boolean' as const,
+  alias: 'f' as const,
+  description: null,
+};
+
+// Shared model override args — spread into any subcommand that calls LLMs.
+const modelOverrideArgs = {
+  model: {
+    type: 'string' as const,
+    description:
+      'LLM model for all agents, e.g. anthropic/claude-3-5-sonnet-latest or openai/gpt-4o.',
+  },
+  'base-url': {
+    type: 'string' as const,
+    description: 'Base URL for all agents (only needed for custom/local endpoints).',
+  },
+  'agent-model': {
+    type: 'string' as const,
+    description:
+      'Per-agent model override, repeatable. Format: name=provider/model (e.g. blackbox-planner=openai/gpt-4o).',
+  },
+  'agent-base-url': {
+    type: 'string' as const,
+    description: 'Per-agent base URL override, repeatable. Format: name=url.',
+  },
+};
+
+/////////////////////////////////////////////
+// Commands
+/////////////////////////////////////////////
 
 const newCommand = defineCommand({
   meta: {
@@ -90,8 +129,6 @@ const newCommand = defineCommand({
     },
   },
   async run({ args }) {
-    requireLlmApiKey();
-
     const projectDir = parseProjectDir(args);
     const nonInteractive = args.yes === true;
     const namePreFill = getFeatNameFromArgs(args);
@@ -157,84 +194,148 @@ const newCommand = defineCommand({
   },
 });
 
-const designCommand = defineCommand({
-  meta: {
-    name: 'design',
+const designSpecsArgs = {
+  name: featNameArg,
+  yes: {
+    ...featYesArg,
     description:
-      'Run spec generation + black-box design and generate test scaffolding for a feature',
+      'Non-interactive mode. Requires --name/-n. Skips confirm when designer output exists; assumes redo.',
   },
-  args: {
-    name: featNameArg,
-    yes: {
-      ...featYesArg,
-      description:
-        'Non-interactive mode. Requires --name/-n. Skips confirm when designer output exists; assumes redo.',
-    },
-    model: {
-      type: 'string',
-      description: 'LLM model to pass to the designer profile.',
-    },
-    designer: featDesignerArg,
-    'test-profile': featTestProfileArg,
-    'openspec-dir': featOpenspecDirArg,
-    indexer: featIndexerArg,
-    project: featProjectArg,
-    'project-dir': featProjectDirArg,
+  force: {
+    ...forceArg,
+    description: 'Always re-run the designer, overwriting existing spec files without prompting.',
   },
-  async run({ args }) {
-    requireLlmApiKey();
+  ...modelOverrideArgs,
+  designer: featDesignerArg,
+  'openspec-dir': featOpenspecDirArg,
+  'project-dir': featProjectDirArg,
+};
 
-    const projectDir = parseProjectDir(args);
-    const nonInteractive = args.yes === true;
-    if (nonInteractive && !getFeatNameFromArgs(args)) {
-      console.error('Error: --name/-n is required when using --yes/-y');
-      process.exit(1);
-    }
-    const projectName = resolveProjectName(args, projectDir);
-    const featName = await getFeatNameOrPrompt(args, projectDir);
-    const openspecDir = parseOpenspecDir(args);
-    const testProfile = parseTestProfile(args);
-    const designerProfile = parseDesignerProfile(args);
-    const indexerProfile = parseIndexerProfile(args);
+async function _runDesignSpecs(args: {
+  name?: string;
+  yes?: boolean;
+  force?: boolean;
+  model?: string;
+  'base-url'?: string;
+  'agent-model'?: string | string[];
+  'agent-base-url'?: string | string[];
+  designer?: string;
+  'openspec-dir'?: string;
+  'project-dir'?: string;
+  [key: string]: unknown;
+}) {
+  const projectDir = parseProjectDir(args);
+  const nonInteractive = args.yes === true;
+  const force = args.force === true;
+  if (nonInteractive && !getFeatNameFromArgs(args)) {
+    console.error('Error: --name/-n is required when using --yes/-y');
+    process.exit(1);
+  }
+  const featName = await getFeatNameOrPrompt(args, projectDir);
+  const openspecDir = parseOpenspecDir(args);
+  const designerProfile = parseDesignerProfile(args);
 
-    const specDir = getChangeDirRelative({ openspecDir, changeName: featName });
-    const designerBaseOpts = { cwd: projectDir, featName, openspecDir };
+  const specDir = getChangeDirRelative({ openspecDir, changeName: featName });
+  const designerBaseOpts = { cwd: projectDir, featName, openspecDir };
 
-    // 1. Generate full specs and plan from user's proposal.
-    // 1a. Check if the designer has already run
-    let runDesigner = !(await designerProfile.hasRun(designerBaseOpts));
-    if (!runDesigner) {
-      // Allow non-interactive mode to override the prompt.
-      if (nonInteractive) {
-        runDesigner = true;
-      } else {
-        intro(`${designerProfile.displayName} output present`);
-        const redo = await confirm({
-          message: `${specDir} already has designer output. Redo ${designerProfile.displayName} spec generation?`,
-        });
-        outro('');
-        if (isCancel(redo)) {
-          cancel('Operation cancelled.');
-          process.exit(1);
-        }
-        runDesigner = redo === true;
-      }
-    }
-
-    // 1b. Run the designer if needed
-    if (runDesigner) {
-      console.log(`\n${designerProfile.displayName} (spec generation): ${featName}`);
-      await designerProfile.run({
-        ...designerBaseOpts,
-        model: typeof args.model === 'string' ? args.model.trim() : undefined,
-      });
+  // 1. Generate full specs and plan from user's proposal.
+  // 1a. Check if the designer has already run
+  let runDesigner = force || !(await designerProfile.hasRun(designerBaseOpts));
+  if (!runDesigner) {
+    // Allow non-interactive mode to override the prompt.
+    if (nonInteractive) {
+      runDesigner = true;
     } else {
-      console.log(`\nSkipping designer (${specDir} already has required spec files).`);
+      intro(`${designerProfile.displayName} output present`);
+      const redo = await confirm({
+        message: `${specDir} already has designer output. Redo ${designerProfile.displayName} spec generation?`,
+      });
+      outro('');
+      if (isCancel(redo)) {
+        cancel('Operation cancelled.');
+        process.exit(1);
+      }
+      runDesigner = redo === true;
     }
+  }
 
-    // 2. Generate tests from the specs.
+  // 1b. Run the designer if needed
+  if (runDesigner) {
+    console.log(`\n${designerProfile.displayName} (spec generation): ${featName}`);
+    await designerProfile.run({
+      ...designerBaseOpts,
+      model: typeof args.model === 'string' ? args.model.trim() : undefined,
+    });
+  } else {
+    console.log(`\nSkipping designer (${specDir} already has required spec files).`);
+  }
+
+  const overrides = parseModelOverrides(args);
+  return { featName, projectDir, openspecDir, overrides };
+}
+
+const designSpecsCommand = defineCommand({
+  meta: {
+    name: 'design-specs',
+    description: "Generate specs from features's proposal only (first step of design workflow)",
+  },
+  args: designSpecsArgs,
+  async run({ args }) {
+    await _runDesignSpecs(args);
+    console.log('\nDone.');
+  },
+});
+
+const designTestsArgs = {
+  name: featNameArg,
+  'openspec-dir': featOpenspecDirArg,
+  'project-dir': featProjectDirArg,
+  'test-profile': featTestProfileArg,
+  indexer: featIndexerArg,
+  project: featProjectArg,
+  'skip-catalog': {
+    type: 'boolean' as const,
+    description:
+      'Skip tests catalog generation and use the existing tests.json. Useful when only re-generating test files.',
+  },
+  force: {
+    ...forceArg,
+    description: 'Overwrite existing test scaffold files.',
+  },
+  ...modelOverrideArgs,
+};
+
+interface DesignTestsOptions {
+  featName: string;
+  projectDir: string;
+  openspecDir: string;
+  skipCatalog: boolean;
+  force: boolean;
+  overrides: ModelOverrides;
+  args: {
+    'test-profile'?: string;
+    indexer?: string;
+    project?: string;
+    [key: string]: unknown;
+  };
+}
+
+async function _runDesignTests({
+  featName,
+  projectDir,
+  openspecDir,
+  skipCatalog,
+  force,
+  overrides,
+  args,
+}: DesignTestsOptions) {
+  const projectName = resolveProjectName(args, projectDir);
+  const testProfile = parseTestProfile(args);
+  const indexerProfile = parseIndexerProfile(args);
+
+  if (!skipCatalog) {
     // 2a. Read specs and generate a plan of what to test as markdown and JSON.
-    console.log(`\nBlack Box Design + Impl: ${featName} (profile: ${testProfile.id})`);
+    console.log(`\nTests Catalog: ${featName} (profile: ${testProfile.id})`);
     if (indexerProfile) {
       console.log(`  Indexer: ${indexerProfile.displayName} (project: ${projectName})`);
     }
@@ -245,38 +346,94 @@ const designCommand = defineCommand({
       testProfile,
       indexerProfile,
       projectName,
+      overrides,
     });
     console.log(`  Test plan:  ${designResult.testPlanPath}`);
     console.log(`  Catalog:    ${designResult.catalogPath}`);
+  } else {
+    console.log(`\nSkipping catalog generation (--skip-catalog). Reading existing tests.json.`);
+  }
 
-    // 2b. Write actual tests from the test plan.
-    console.log(`\nGenerating spec files from catalog...`);
-    const implResult = await generateSpecTestScaffold({
-      changeName: featName,
+  // 2b. Write actual tests from the test plan.
+  console.log(`\nGenerating spec files from catalog...`);
+  const implResult = await generateSpecTestScaffold({
+    changeName: featName,
+    projectDir,
+    openspecDir,
+    force,
+    testProfile,
+    overrides,
+  });
+
+  console.log(`\nTest scaffolding complete:`);
+  console.log(`  Test cases:      ${implResult.testCaseCount}`);
+  if (implResult.generatedFiles.length > 0) {
+    console.log(`  Generated files: ${implResult.generatedFiles.length}`);
+    for (const f of implResult.generatedFiles) console.log(`    + ${f}`);
+  }
+  if (implResult.skippedFiles.length > 0) {
+    console.log(`  Skipped (exist): ${implResult.skippedFiles.length}`);
+    for (const f of implResult.skippedFiles) console.log(`    ~ ${f}`);
+  }
+
+  // 2c. Validate the generated tests.
+  await testProfile.validateFiles?.({
+    testsDir: implResult.testsDir,
+    generatedFiles: implResult.generatedFiles,
+    projectDir,
+    errMessage: `TypeScript validation failed. Fix the generated spec files or re-run feat design.`,
+  });
+}
+
+const designTestsCommand = defineCommand({
+  meta: {
+    name: 'design-tests',
+    description: 'Generate tests from existing specs (second step of design workflow)',
+  },
+  args: designTestsArgs,
+  async run({ args }) {
+    const projectDir = parseProjectDir(args);
+    const featName = await getFeatNameOrPrompt(args, projectDir);
+    const openspecDir = parseOpenspecDir(args);
+    const overrides = parseModelOverrides(args);
+
+    const skipCatalog = args['skip-catalog'] === true;
+    const force = args.force === true;
+    await _runDesignTests({
+      featName,
       projectDir,
       openspecDir,
-      testProfile,
+      skipCatalog,
+      force,
+      overrides,
+      args,
     });
 
-    console.log(`\nTest scaffolding complete:`);
-    console.log(`  Test cases:      ${implResult.testCaseCount}`);
-    if (implResult.generatedFiles.length > 0) {
-      console.log(`  Generated files: ${implResult.generatedFiles.length}`);
-      for (const f of implResult.generatedFiles) console.log(`    + ${f}`);
-    }
-    if (implResult.skippedFiles.length > 0) {
-      console.log(`  Skipped (exist): ${implResult.skippedFiles.length}`);
-      for (const f of implResult.skippedFiles) console.log(`    ~ ${f}`);
-    }
+    console.log('\nDone.');
+  },
+});
 
-    // 2c. Validate the generated tests.
-    await testProfile.validateFiles?.({
-      testsDir: implResult.testsDir,
-      generatedFiles: implResult.generatedFiles,
+const designCommand = defineCommand({
+  meta: {
+    name: 'design',
+    description: "Generate specs and tests from a feature's proposal (full design workflow)",
+  },
+  args: {
+    ...designSpecsArgs,
+    ...designTestsArgs,
+  },
+  async run({ args }) {
+    const { featName, projectDir, openspecDir, overrides } = await _runDesignSpecs(args);
+    const force = args.force === true;
+    await _runDesignTests({
+      featName,
       projectDir,
-      errMessage: `TypeScript validation failed. Fix the generated spec files or re-run feat design.`,
+      openspecDir,
+      skipCatalog: false,
+      force,
+      overrides,
+      args,
     });
-
     console.log('\nDone.');
   },
 });
@@ -288,6 +445,8 @@ const featCommand = defineCommand({
   },
   subCommands: {
     new: newCommand,
+    'design-specs': designSpecsCommand,
+    'design-tests': designTestsCommand,
     design: designCommand,
   },
 });

@@ -13,12 +13,7 @@ import { resolve } from 'node:path';
 import { defineCommand, runMain } from 'citty';
 
 import { DEFAULT_INDEXER_PROFILE, resolveIndexerProfile } from '../../indexer-profiles/index.js';
-import {
-  parseOpenspecDir,
-  parseProjectDir,
-  requireLlmApiKey,
-  resolveProjectName,
-} from '../utils.js';
+import { parseOpenspecDir, parseProjectDir, resolveProjectName } from '../utils.js';
 
 const initCommand = defineCommand({
   meta: {
@@ -50,8 +45,6 @@ const initCommand = defineCommand({
     },
   },
   async run({ args }) {
-    requireLlmApiKey();
-
     const force = args.force === true;
     const openspecDir = parseOpenspecDir(args);
     const projectDir = parseProjectDir(args);

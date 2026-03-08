@@ -11,6 +11,7 @@ import { chmodSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { GitProvider } from '../git/types.js';
+import { type ModelOverrides } from '../llm-config.js';
 import type { SupportedStackProfileId } from '../stack-profiles/index.js';
 import type { TestProfile } from '../test-profiles/types.js';
 import { CleanupRegistry, removeImageByTag, removeNetwork } from '../utils/docker.js';
@@ -22,8 +23,8 @@ import {
   extractRunId,
   getTestRunnerOpts,
   loadCatalog,
-  runArbiterForFailure,
   runIterativeLoop,
+  runResultsJudgeForFailure,
 } from './loop.js';
 import {
   applyPatch,
@@ -72,23 +73,15 @@ export interface OrchestratorOpts {
    */
   patchExclude?: PatchExcludeRule[];
   /**
-   * OpenHands LLM model override (e.g. 'anthropic/claude-sonnet-4-5').
-   * Falls back to LLM_MODEL env var.
+   * CLI-level LLM overrides (--model, --agent-model, --base-url, --agent-base-url).
+   *
+   * The orchestrator uses this to resolve the coder agent's model config via
+   * `resolveAgentLlmConfig('coder', 'coder', overrides)` and to pass overrides
+   * through to Mastra agents (results-judge, pr-summarizer, tests pipeline).
+   *
+   * When omitted, all agents fall back to env-var tier overrides then auto-discovery.
    */
-  model?: string;
-  /**
-   * LLM provider ID (e.g. 'anthropic', 'openai', 'openrouter').
-   * Forwarded as LLM_PROVIDER to agent scripts. Agents that require a provider to
-   * configure base URL or routing (e.g. opencode) read this variable. When omitted,
-   * agents may attempt to infer the provider from LLM_MODEL when possible.
-   * Falls back to LLM_PROVIDER env var.
-   */
-  provider?: string;
-  /**
-   * LLM base URL override (e.g. 'https://openrouter.ai/api/v1').
-   * Falls back to LLM_BASE_URL env var.
-   */
-  baseUrl?: string;
+  overrides: ModelOverrides;
   /**
    * Test Docker image tag (default: 'factory-test-<profileId>:latest').
    *
@@ -96,15 +89,15 @@ export interface OrchestratorOpts {
    */
   testImage: string;
   /**
-   * Controls how the Spec Arbiter handles assessment failures.
+   * Controls how the Results Judge handles assessment failures.
    *
-   * - `'off'`    — Arbiter is disabled; the loop uses the generic feedback message (default).
+   * - `'off'`    — Results Judge is disabled; the loop uses the generic feedback message (default).
    * - `'prompt'` — On ambiguous spec detection, pause and ask the human to confirm/edit the
    *               clarification before regenerating tests and continuing.
-   * - `'auto'`   — Fully autonomous: automatically append the Arbiter's proposed clarification
+   * - `'auto'`   — Fully autonomous: automatically append the Results Judge's proposed clarification
    *               to specification.md and regenerate runner.spec.ts without human input.
    *
-   * In both `'prompt'` and `'auto'` modes the Arbiter also produces a sanitized behavioral
+   * In both `'prompt'` and `'auto'` modes the Results Judge also produces a sanitized behavioral
    * hint for genuine failures, giving the agent better feedback without leaking holdout tests.
    */
   resolveAmbiguity: 'off' | 'prompt' | 'auto';
@@ -243,8 +236,9 @@ export interface OrchestratorOpts {
    * or inject into the host process env (--no-leash mode).
    *
    * Parsed from --env KEY=VALUE flags and --env-file <path> by the CLI.
-   * Reserved factory variables (FACTORY_*, WORKSPACE_BASE, LLM_API_KEY, LLM_MODEL, LLM_PROVIDER, LLM_BASE_URL)
-   * are silently filtered out by the runner to prevent accidental override.
+   * Reserved factory variables (FACTORY_*, WORKSPACE_BASE, LLM_API_KEY, LLM_MODEL,
+   * LLM_PROVIDER, LLM_BASE_URL) are silently filtered out by the runner to prevent
+   * accidental override.
    */
   agentEnv: Record<string, string>;
   /**
@@ -599,6 +593,7 @@ type AssessOpts = Pick<
   | 'push'
   | 'pr'
   | 'gitProvider'
+  | 'overrides'
 >;
 
 /**
@@ -631,6 +626,7 @@ async function runAssessCore(
     push,
     pr,
     gitProvider,
+    overrides,
   } = opts;
 
   if (!patchPath) {
@@ -713,6 +709,7 @@ async function runAssessCore(
           pr,
           gitProvider,
           openspecDir,
+          overrides,
         });
         return {
           success: true,
@@ -725,7 +722,7 @@ async function runAssessCore(
       console.log(`\n[orchestrator] Assessment attempt ${attempts} FAILED`);
 
       if (resolveAmbiguity !== 'off' && result.testSuites) {
-        const arbiterResult = await runArbiterForFailure({
+        const resultsJudgeResult = await runResultsJudgeForFailure({
           projectDir,
           changeName,
           openspecDir,
@@ -734,9 +731,10 @@ async function runAssessCore(
           resolveAmbiguity,
           testProfile,
           projectName,
+          overrides,
         });
 
-        if (arbiterResult.ambiguityResolved) {
+        if (resultsJudgeResult.ambiguityResolved) {
           // Spec updated and tests regenerated — retry the same patch against the new tests.
           // Don't count this attempt against assessRetries since the spec was at fault.
           console.log(

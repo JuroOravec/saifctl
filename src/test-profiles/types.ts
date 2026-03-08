@@ -58,7 +58,7 @@ export interface TestProfile {
   onDone?: (opts: OnDoneOpts) => void | Promise<void>;
 
   /**
-   * Optional hook called by feat:design and feat:test-gen after spec file generation.
+   * Optional hook called by "feat design" and "feat design-tests" after spec file generation.
    * Use for profile-specific validation (e.g. tsc for TypeScript).
    */
   validateFiles?: (opts: ValidateFilesOpts) => void | Promise<void>;

@@ -23,7 +23,7 @@ saif feature new [options]
 | `--desc`         | `-d`  | string  | Brief description. When omitted, prompts interactively.                                         |
 | `--yes`          | `-y`  | boolean | Non-interactive mode. Requires `--name`/`-n`. Skips all prompts; description defaults to empty. |
 | `--openspec-dir` | —     | string  | Path to openspec directory (default: `openspec`)                                                |
-| `--project-dir`  | —     | string  | Project directory (default: current working directory)                                         |
+| `--project-dir`  | —     | string  | Project directory (default: current working directory)                                          |
 
 ## Examples
 

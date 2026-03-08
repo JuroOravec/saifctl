@@ -32,6 +32,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { getChangeDirAbsolute, getSaifRoot } from '../constants.js';
+import { type LlmConfig } from '../llm-config.js';
 
 /** In-container workspace path that Leash bind-mounts the sandbox into. */
 const CONTAINER_WORKSPACE = '/workspace';
@@ -54,18 +55,13 @@ export interface RunAgentOpts {
    * Injected into the task prompt so the agent knows what failed.
    */
   errorFeedback?: string;
-  /** LLM model to use (e.g. 'anthropic/claude-sonnet-4-5'). Defaults to env var. */
-  model?: string;
   /**
-   * LLM provider ID (e.g. 'anthropic', 'openai', 'openrouter').
-   * Forwarded as LLM_PROVIDER to agent scripts. Agents that need a provider to
-   * configure base URL or routing (e.g. opencode) read this variable. When omitted,
-   * agents may infer the provider from LLM_MODEL when possible.
-   * Defaults to LLM_PROVIDER env var.
+   * Resolved LLM configuration for the coder agent running inside the container.
+   * Produced by `resolveAgentLlmConfig('coder', 'coder', overrides)` in the caller.
+   * The orchestrator injects this as LLM_MODEL / LLM_PROVIDER / LLM_API_KEY / LLM_BASE_URL
+   * into the container — that is the private contract between the orchestrator and agent scripts.
    */
-  provider?: string;
-  /** LLM base URL override (e.g. 'https://openrouter.ai/api/v1'). Defaults to LLM_BASE_URL env var. */
-  baseUrl?: string;
+  llmConfig: LlmConfig;
   /**
    * Openspec directory name (relative to codePath), e.g. 'openspec'.
    * Used to locate plan.md candidates. Resolved by caller (e.g. parseOpenspecDir).
@@ -121,8 +117,8 @@ export interface RunAgentOpts {
    *
    * Useful for agent-specific configuration (e.g. AIDER_MODEL, CLAUDE_API_KEY).
    * If a key conflicts with a reserved factory variable (FACTORY_*, WORKSPACE_BASE,
-   * LLM_API_KEY, LLM_MODEL, LLM_PROVIDER, LLM_BASE_URL), a warning is emitted and the user-supplied value is
-   * ignored to prevent breaking the factory loop.
+   * LLM_API_KEY, LLM_MODEL, LLM_PROVIDER, LLM_BASE_URL), a warning is emitted and the
+   * user-supplied value is ignored to prevent breaking the factory loop.
    */
   agentEnv: Record<string, string>;
   /**
@@ -222,9 +218,7 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
     sandboxBasePath,
     task,
     errorFeedback,
-    model,
-    provider,
-    baseUrl,
+    llmConfig,
     openspecDir,
     changeName,
     noLeash,
@@ -242,15 +236,13 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
 
   const taskPrompt = buildTaskPrompt({ codePath, task, openspecDir, changeName, errorFeedback });
 
-  const llmModel = model ?? process.env.LLM_MODEL ?? 'openrouter/anthropic/claude-sonnet-4.6';
-  const llmProvider = provider ?? process.env.LLM_PROVIDER;
-  const llmBaseUrl = baseUrl ?? process.env.LLM_BASE_URL;
-  const llmApiKey =
-    process.env.LLM_API_KEY ?? process.env.ANTHROPIC_API_KEY ?? process.env.OPENAI_API_KEY;
-
-  if (!llmApiKey) {
-    throw new Error('No LLM API key found. Set LLM_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY.');
-  }
+  // Build the generic LLM_* env vars that agent shell scripts expect.
+  // These are a private contract between the orchestrator and Leash containers —
+  // they are generated here from the resolved LlmConfig, not read from user env.
+  const llmModel = llmConfig.fullModelString;
+  const llmApiKey = llmConfig.apiKey;
+  const llmProvider = llmConfig.provider;
+  const llmBaseUrl = llmConfig.baseURL;
 
   let cmd: string;
   let args: string[];

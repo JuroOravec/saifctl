@@ -14,8 +14,9 @@ import { generateSpecTestScaffold } from '../blackbox/impl.js';
 import { TestCatalogSchema } from '../blackbox/schema.js';
 import { getChangeDirAbsolute } from '../constants.js';
 import type { GitProvider } from '../git/types.js';
+import { type ModelOverrides, resolveAgentLlmConfig } from '../llm-config.js';
 import { generatePRSummary } from '../mastra/agents/pr-summarizer.js';
-import { runSpecArbiter } from '../mastra/agents/spec-arbiter.js';
+import { runResultsJudge } from '../mastra/agents/results-judge.js';
 import type { TestProfile } from '../test-profiles/types.js';
 import type { CleanupRegistry } from '../utils/docker.js';
 import { runAgent } from './agent-runner.js';
@@ -46,9 +47,7 @@ export async function runIterativeLoop(
     projectDir,
     maxAttempts = 10,
     keepSandbox = false,
-    model,
-    provider,
-    baseUrl,
+    overrides,
     openspecDir,
     projectName,
     registry,
@@ -66,6 +65,10 @@ export async function runIterativeLoop(
     testScript,
     testProfile,
   } = opts;
+
+  // Resolve the coder agent's LLM config once per loop.
+  // The resolved config is injected into the Leash container as LLM_* env vars.
+  const coderLlmConfig = resolveAgentLlmConfig('coder', overrides);
   // Always exclude openspec/ and .git/hooks/ regardless of any additional caller-supplied rules.
   // openspec/: reward-hacking prevention (agent must not modify its own test specs).
   // .git/hooks/: prevents a malicious patch from installing hooks that execute on the host
@@ -105,9 +108,7 @@ export async function runIterativeLoop(
         sandboxBasePath: sandbox.sandboxBasePath,
         task,
         errorFeedback,
-        model,
-        provider,
-        baseUrl,
+        llmConfig: coderLlmConfig,
         openspecDir,
         changeName,
         noLeash,
@@ -181,6 +182,7 @@ export async function runIterativeLoop(
           pr,
           gitProvider,
           openspecDir,
+          overrides,
         });
         destroySandbox(sandbox.sandboxBasePath);
         sandboxDestroyed = true;
@@ -200,13 +202,13 @@ export async function runIterativeLoop(
       //    In both cases, we update the spec and regenerate tests.
       console.log(`\n[orchestrator] Attempt ${attempts} FAILED.`);
 
-      // Run the Spec Arbiter when enabled (prompt or auto mode).
+      // Run the Results Judge when enabled (prompt or auto mode).
       // We intentionally do NOT feed raw test runner output back to the agent:
       // the test runner runs the full suite (including hidden tests), so leaking
       // its stdout would reveal holdout details and let the agent fake the impl.
-      // The Arbiter sanitizes the failure reason before it reaches OpenHands.
+      // The Results Judge sanitizes the failure reason before it reaches OpenHands.
       if (resolveAmbiguity !== 'off' && result.testSuites) {
-        const arbiterResult = await runArbiterForFailure({
+        const resultsJudgeResult = await runResultsJudgeForFailure({
           projectName,
           projectDir,
           changeName,
@@ -215,9 +217,10 @@ export async function runIterativeLoop(
           testSuites: result.testSuites,
           resolveAmbiguity,
           testProfile,
+          overrides,
         });
 
-        if (arbiterResult.ambiguityResolved) {
+        if (resultsJudgeResult.ambiguityResolved) {
           // Spec was updated and tests regenerated — reset attempt counter so
           // the agent gets a fresh start with the improved spec.
           console.log(
@@ -226,17 +229,17 @@ export async function runIterativeLoop(
           attempts = 0;
           errorFeedback = '';
         } else {
-          // Genuine failure: use the Arbiter's sanitized hint if available,
+          // Genuine failure: use the Results Judge's sanitized hint if available,
           // otherwise fall back to the generic message.
           // NOTE: Never mention tests - the agent must not think it can fix the failure by changing tests
           //       that's why the error message is framed as something "external" that's out of reach for the agent.
           const base = 'An external service attempted to use this project and failed. ';
-          errorFeedback = arbiterResult.sanitizedHint
-            ? base + arbiterResult.sanitizedHint
+          errorFeedback = resultsJudgeResult.sanitizedHint
+            ? base + resultsJudgeResult.sanitizedHint
             : base + 'Re-read the plan and specification, and fix the implementation.';
         }
       } else {
-        // Arbiter disabled — use a message that doesn't hint at test internals.
+        // Results Judge disabled — use a message that doesn't hint at test internals.
         errorFeedback =
           'An external service attempted to use this project and failed. Re-read the plan and specification, and fix the implementation.';
         console.log('[orchestrator] Feedback withheld (holdout protection).');
@@ -272,10 +275,10 @@ export async function runIterativeLoop(
 }
 
 // ---------------------------------------------------------------------------
-// Spec Arbiter: judge ambiguity vs genuine failure on assessment failures
+// Results Judge: judge ambiguity vs genuine failure on assessment failures
 // ---------------------------------------------------------------------------
 
-interface RunArbiterForFailureOpts {
+interface RunResultsJudgeForFailureOpts {
   projectName: string;
   /** Absolute path to the project directory */
   projectDir: string;
@@ -286,9 +289,11 @@ interface RunArbiterForFailureOpts {
   patchPath: string;
   testSuites: VitestSuiteResult[];
   resolveAmbiguity: 'prompt' | 'auto';
+  /** CLI-level model overrides — forwarded to results-judge and tests pipeline. */
+  overrides: ModelOverrides;
 }
 
-interface ArbiterForFailureResult {
+interface ResultsJudgeForFailureResult {
   /** True when the spec was genuinely ambiguous AND the ambiguity was resolved */
   ambiguityResolved: boolean;
   /** Sanitized behavioral hint for the agent (empty if ambiguityResolved=true) */
@@ -309,9 +314,9 @@ interface ArbiterForFailureResult {
  * Returns `ambiguityResolved: true` when the spec was updated so the caller can
  * reset the attempt counter.
  */
-export async function runArbiterForFailure(
-  opts: RunArbiterForFailureOpts,
-): Promise<ArbiterForFailureResult> {
+export async function runResultsJudgeForFailure(
+  opts: RunResultsJudgeForFailureOpts,
+): Promise<ResultsJudgeForFailureResult> {
   const {
     projectDir,
     changeName,
@@ -321,6 +326,7 @@ export async function runArbiterForFailure(
     resolveAmbiguity,
     testProfile,
     projectName,
+    overrides,
   } = opts;
 
   const specPath = join(
@@ -336,38 +342,41 @@ export async function runArbiterForFailure(
     ? readFileSync(patchPath, 'utf8')
     : '(patch not found)';
 
-  console.log('[spec-arbiter] Running ambiguity check...');
+  console.log('[results-judge] Running ambiguity check...');
 
-  // Stream arbiter thinking in real-time (similar to [think]/[agent] style from OpenHands)
+  // Stream judge thinking in real-time (similar to [think]/[agent] style from OpenHands)
   let thinkBuf = '';
-  const onArbiterThought = (delta: string) => {
+  const onJudgeThought = (delta: string) => {
     thinkBuf += delta;
     const lines = thinkBuf.split('\n');
     thinkBuf = lines.pop() ?? '';
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed) process.stdout.write(`[arbiter:think] ${trimmed.slice(0, 200)}\n`);
+      if (trimmed) process.stdout.write(`[results-judge:think] ${trimmed.slice(0, 200)}\n`);
     }
   };
-  const onArbiterEvent = (chunk: { type: string; payload: unknown }) => {
+  const onJudgeEvent = (chunk: { type: string; payload: unknown }) => {
     if (chunk.type === 'tool-call') {
       const p = chunk.payload as { toolName?: string };
-      process.stdout.write(`[arbiter] tool: ${p.toolName ?? '?'}\n`);
+      process.stdout.write(`[results-judge] tool: ${p.toolName ?? '?'}\n`);
     }
   };
 
-  const verdict = await runSpecArbiter({
+  const verdict = await runResultsJudge({
     specContent,
     failingSuites: testSuites,
     patchContent,
-    onThought: onArbiterThought,
-    onEvent: onArbiterEvent,
+    overrides,
+    onThought: onJudgeThought,
+    onEvent: onJudgeEvent,
   });
   // Flush any remaining partial thought line
-  if (thinkBuf.trim()) process.stdout.write(`[arbiter:think] ${thinkBuf.trim().slice(0, 200)}\n`);
+  if (thinkBuf.trim()) {
+    process.stdout.write(`[results-judge:think] ${thinkBuf.trim().slice(0, 200)}\n`);
+  }
 
-  console.log(`[spec-arbiter] isAmbiguous=${verdict.isAmbiguous}`);
-  console.log(`[spec-arbiter] Reason: ${verdict.reason}`);
+  console.log(`[results-judge] isAmbiguous=${verdict.isAmbiguous}`);
+  console.log(`[results-judge] Reason: ${verdict.reason}`);
 
   if (!verdict.isAmbiguous) {
     return {
@@ -377,11 +386,11 @@ export async function runArbiterForFailure(
   }
 
   // --- Ambiguous spec detected ---
-  console.log(`[spec-arbiter] Proposed spec addition:\n  "${verdict.proposedSpecAddition}"`);
+  console.log(`[results-judge] Proposed spec addition:\n  "${verdict.proposedSpecAddition}"`);
 
   if (resolveAmbiguity === 'prompt') {
-    console.log(`\n[spec-arbiter] Ambiguity detected. Reason: ${verdict.reason}`);
-    console.log(`[spec-arbiter] Arbiter suggests: "${verdict.proposedSpecAddition}"`);
+    console.log(`\n[results-judge] Ambiguity detected. Reason: ${verdict.reason}`);
+    console.log(`[results-judge] Judge suggests: "${verdict.proposedSpecAddition}"`);
 
     const answer = await text({
       message: 'What is the correct behavior? (describe it; we will add it to specification.md)',
@@ -389,7 +398,7 @@ export async function runArbiterForFailure(
     });
 
     if (isCancel(answer) || !answer?.trim()) {
-      console.log('[spec-arbiter] Human skipped — treating failure as genuine.');
+      console.log('[results-judge] Human skipped — treating failure as genuine.');
       return {
         ambiguityResolved: false,
         sanitizedHint: verdict.sanitizedHintForAgent,
@@ -402,11 +411,11 @@ export async function runArbiterForFailure(
 
   // Append clarification to specification.md
   if (existsSync(specPath)) {
-    const addition = `\n\n<!-- Spec Arbiter clarification (auto-added) -->\n${verdict.proposedSpecAddition}\n`;
+    const addition = `\n\n<!-- Results Judge clarification (auto-added) -->\n${verdict.proposedSpecAddition}\n`;
     appendFileSync(specPath, addition, 'utf8');
-    console.log(`[spec-arbiter] Appended clarification to ${specPath}`);
+    console.log(`[results-judge] Appended clarification to ${specPath}`);
   } else {
-    console.warn('[spec-arbiter] specification.md not found — cannot update spec.');
+    console.warn('[results-judge] specification.md not found — cannot update spec.');
     return {
       ambiguityResolved: false,
       sanitizedHint: verdict.sanitizedHintForAgent,
@@ -415,13 +424,20 @@ export async function runArbiterForFailure(
 
   // Regenerate tests from the updated spec (design pipeline writes tests.json,
   // then scaffold generates the spec files via the coder agent).
-  console.log('[spec-arbiter] Regenerating blackbox design with updated spec...');
+  console.log('[results-judge] Regenerating tests with updated spec...');
   try {
-    await runBlackboxDesign({ changeName, projectDir, openspecDir, testProfile, projectName });
-    await generateSpecTestScaffold({ changeName, projectDir, openspecDir, testProfile });
-    console.log('[spec-arbiter] Tests regenerated successfully.');
+    await runBlackboxDesign({
+      changeName,
+      projectDir,
+      openspecDir,
+      testProfile,
+      projectName,
+      overrides,
+    });
+    await generateSpecTestScaffold({ changeName, projectDir, openspecDir, testProfile, overrides });
+    console.log('[results-judge] Tests regenerated successfully.');
   } catch (err) {
-    console.warn(`[spec-arbiter] Test regeneration failed (non-fatal): ${String(err)}`);
+    console.warn(`[results-judge] Test regeneration failed (non-fatal): ${String(err)}`);
     return {
       ambiguityResolved: false,
       sanitizedHint: verdict.sanitizedHintForAgent,
@@ -457,6 +473,8 @@ interface ApplyPatchOpts {
    * Used by the PR summarizer agent to read specification and proposal docs.
    */
   openspecDir: string;
+  /** CLI-level model overrides forwarded to the PR summarizer agent. */
+  overrides: ModelOverrides;
 }
 
 /**
@@ -476,7 +494,8 @@ interface ApplyPatchOpts {
  * is deleted, otherwise git's internal worktree registry gets stale entries.
  */
 export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
-  const { codePath, projectDir, changeName, runId, push, pr, gitProvider, openspecDir } = opts;
+  const { codePath, projectDir, changeName, runId, push, pr, gitProvider, openspecDir, overrides } =
+    opts;
 
   // patch.diff is written to sandboxBasePath (parent of codePath) by extractPatch,
   // deliberately outside the git working tree so `git clean -fd` cannot delete it.
@@ -585,6 +604,7 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
             openspecDir,
             projectDir,
             patchFile,
+            overrides,
           });
           prTitle = summary.title;
           prBody = summary.body + `\n\n---\n_Run ID: \`${runId}\`_`;

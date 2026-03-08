@@ -4,11 +4,6 @@ Initialize OpenSpec + Shotgun.
 
 One-time setup: creates the `openspec/` directory, configures Shotgun (optionally with Context7 for documentation lookup), and indexes the codebase for spec-driven workflows.
 
-## Requirements
-
-- **LLM API key** — One of: `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`
-- **CONTEXT7_API_KEY** — (optional) Set to enable Context7 documentation lookup in Shotgun.
-
 ## Usage
 
 ```bash
@@ -55,6 +50,13 @@ Use a custom project directory (e.g. when running from a parent monorepo):
 ```bash
 saif init --project-dir ./packages/my-app
 ```
+
+## Environment variables
+
+| Variable           | Required | Description                                                                                                      |
+| ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------- |
+| `SHOTGUN_PYTHON`   | no       | Path to the Python binary that has `shotgun-sh` installed (default: `python`). Example: `$(uv run which python)` |
+| `CONTEXT7_API_KEY` | no       | API key for Context7 documentation lookup inside Shotgun. Configured once via `saif init`.                       |
 
 ## What it does
 

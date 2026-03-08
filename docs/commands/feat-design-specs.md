@@ -1,0 +1,102 @@
+# saif feat design-specs
+
+Generate specs from a feature's proposal — the first step of `feat design` only.
+
+Runs the designer (e.g. Shotgun) to produce spec files from `proposal.md`. Use this when you want spec generation only, without proceeding to black-box test planning and scaffolding. The full `feat design` command runs this step first, then continues automatically.
+
+When `--name`/`-n` is omitted, prompts interactively with a list of existing changes.
+
+## Usage
+
+```bash
+saif feat design-specs [options]
+saif feature design-specs [options]
+```
+
+## Arguments
+
+| Argument           | Alias | Type    | Description                                                                                                                                 |
+| ------------------ | ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--name`           | `-n`  | string  | Feature name (kebab-case). Prompts with a list if omitted.                                                                                  |
+| `--yes`            | `-y`  | boolean | Non-interactive mode. Requires `--name`. Skips confirm when designer output exists; assumes redo.                                           |
+| `--force`          | `-f`  | boolean | Always re-run the designer, overwriting existing spec files without prompting.                                                              |
+| `--designer`       | —     | string  | Designer profile for spec generation (default: shotgun)                                                                                     |
+| `--model`          | —     | string  | LLM model for all agents (`provider/model`, e.g. `anthropic/claude-3-5-sonnet-latest`). Auto-detected from available API keys when omitted. |
+| `--base-url`       | —     | string  | LLM base URL override for all agents (e.g. `http://localhost:11434/v1` for Ollama).                                                         |
+| `--agent-model`    | —     | string  | Per-agent model override. Format: `<agent>=<provider/model>`. Can be repeated. See [models.md](../models.md) for agent names.               |
+| `--agent-base-url` | —     | string  | Per-agent base URL override. Format: `<agent>=<url>`. Can be repeated.                                                                      |
+| `--openspec-dir`   | —     | string  | Path to openspec directory (default: `openspec`)                                                                                            |
+| `--project-dir`    | —     | string  | Project directory (default: current working directory)                                                                                      |
+
+## Examples
+
+Interactive (prompts for feature name):
+
+```bash
+saif feat design-specs
+```
+
+With name:
+
+```bash
+saif feat design-specs -n add-login
+```
+
+With a specific designer and model:
+
+```bash
+saif feat design-specs --designer shotgun --model anthropic/claude-opus-4-5
+```
+
+With per-agent model overrides:
+
+```bash
+saif feat design-specs \
+  --agent-model tests-planner=anthropic/claude-3-5-sonnet-latest \
+  --agent-model results-judge=openai/gpt-4o
+```
+
+Non-interactive:
+
+```bash
+saif feat design-specs -y
+```
+
+Force re-run (overwrite existing spec files without prompting):
+
+```bash
+saif feat design-specs -f
+saif feat design-specs -n add-login --force
+```
+
+Custom project directory (e.g. when running from a parent monorepo):
+
+```bash
+saif feat design-specs --project-dir ./packages/my-app
+```
+
+## Environment variables
+
+| Variable           | Required | Description                                                                                                      |
+| ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------- |
+| `SHOTGUN_PYTHON`   | no       | Path to the Python binary that has `shotgun-sh` installed (default: `python`). Example: `$(uv run which python)` |
+| `CONTEXT7_API_KEY` | no       | API key for Context7 documentation lookup inside Shotgun. Configured once via `saif init`.                       |
+
+\*At least one LLM API key is required. The key to set depends on which provider you want to use. See [Models](../models.md) for auto-discovery rules.
+
+## What it does
+
+1. Checks if the designer has already run for this change; prompts to redo if so (skipped with `--yes`).
+2. Runs the designer (e.g. Shotgun) to research your codebase and produce enriched spec files in `openspec/changes/<name>/`.
+
+## Next steps
+
+To continue to test planning and scaffolding, run `saif feat design` (which includes this step), or run `saif feat design-tests` to generate tests from existing specs without re-running spec generation.
+
+## See also
+
+- [LLM configuration](../models.md) — Model flags, agent names, auto-discovery, and tier env vars
+- [feat design](feat-design.md) — Full design flow (spec gen + black-box design + test scaffolding)
+- [feat design-tests](feat-design-tests.md) — Black-box design + test scaffolding only (second step)
+- [feat new](feat-new.md) — Create a new change
+- [Designers](../designers/README.md)

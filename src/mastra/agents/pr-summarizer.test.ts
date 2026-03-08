@@ -21,9 +21,6 @@ const generateMock = vi.hoisted(() => vi.fn());
 vi.mock('@mastra/core/agent', () => ({
   Agent: vi.fn().mockImplementation(() => ({ generate: generateMock })),
 }));
-vi.mock('../../models.js', () => ({
-  fastModel: {},
-}));
 
 // Mock fs to control what files "exist" without touching disk.
 const mockFs = vi.hoisted(() => ({
@@ -39,10 +36,11 @@ function makeSummary(title: string, body: string): PRSummary {
 describe('generatePRSummary', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.OPENAI_API_KEY = 'sk-test';
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   const baseOpts = {
@@ -50,6 +48,7 @@ describe('generatePRSummary', () => {
     openspecDir: 'openspec',
     projectDir: '/repo',
     patchFile: '/sandbox/patch.diff',
+    overrides: { model: 'openai/gpt-4o' as const },
   };
 
   it('returns the agent structured output as PRSummary', async () => {

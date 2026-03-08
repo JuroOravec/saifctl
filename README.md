@@ -10,7 +10,7 @@ Cursor proved in early 2026 that autonomous AI agents can build an entire browse
 
 **Goal** - Swarm of AI agents that run in parallel. Kubernetes, Docker, or custom.
 
-**Current** - Sngle containerized AI agent running in loop. Docker-only.
+**Current** - Single containerized AI agent running in loop. Docker-only.
 
 ## You write the specs, AI writes the code.
 
@@ -22,6 +22,7 @@ Cursor proved in early 2026 that autonomous AI agents can build an entire browse
 - Prevents context rot with Ralph Wiggum loop.
 
 **Batteries-included:**
+- **21 LLM providers**
 - **14 Agentic CLI tools**
 - **4 Programming languages**
 - **5 Git providers**
@@ -52,13 +53,13 @@ saif init
 # 1. Scaffold proposal.md and edit it
 saif feat new
 
-# 2. Generate Shotgun specs + black-box tests
+# 2. Generate specs + generate tests
 pnpm agents feat:design
 
 # 3. Confirm tests fail
 pnpm agents feat:fail2pass
 
-# 4. Run coding agent in loops in sandbox until tests pass
+# 4. Run coding agent in sandbox until tests pass
 pnpm agents feat:run
 # Prefer Aider?
 # pnpm agents feat:run --agent aider
@@ -148,16 +149,21 @@ Multiple layers prevent the agent from faking a pass.
 
 1. **Language-agnostic:**
    - `safe-ai-factory` works with any programming language.
-   - How: Supply custom Docker images and installation scripts to adapt.
-   - Out of the box: NodeJS (default), Python. Go, Rust
+   - Included: NodeJS (default), Python. Go, Rust
+   - How: `--profile <id>` or supply custom Docker images and installation scripts to adapt.
+   - See [Sandbox profiles →](#sandbox-profiles)
 2. **Any agentic CLI:**
-   - Works with the agents you already use. No lock-in. Use OpenHands (default), Aider, Claude Code, Forge, GitHub Copilot CLI, Terminus, Codex, KiloCode, mini-SWE-agent, OpenCode, Deep Agents, or custom via `--agent-script`.
-   - How: `--agent <id>` or supply a custom agent script. See [Supported agents](#supported-agents).
+   - Included: OpenHands (default), Aider, Claude Code, Forge, GitHub Copilot CLI, Terminus, Codex, Gemini, Qwen, OpenCode, KiloCode, mini-SWE-agent, Deep Agents.
+   - How: `--agent <id>` or supply a custom agent script.
+   - See [Agents →](docs/agents/README.md)
 3. **Any LLM provider:**
-   - Common env variables are are auto-forwarded to the agent (`OPENAI_API_KEY`, ...)
-   - Custom providers/keys: Pass custom env vars individually or pass entire `.env` files.
+   - Included: Anthropic, OpenAI, Google, xAI, Mistral, DeepSeek, Groq, Cohere, Together, Fireworks, DeepInfra, Cerebras, Hugging Face, Moonshot AI, Alibaba, Vertex, Baseten, Perplexity, Vercel, OpenRouter, and Ollama.
+   - Set the matching API key (e.g. `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`) — the factory picks a default model automatically.
+   - Override via `--model anthropic/claude-sonnet-4-6` or target individual agents with `--agent-model coder=openai/o3`.
+   - See [LLM configuration →](docs/models.md)
 4. **Connect to any repository**
-   - Supports Github, Gitlab, Gitea, Bitbucket, and Azure Repos out of the box.
+   - Included: Github, Gitlab, Gitea, Bitbucket, and Azure Repos
+   - How: `--git-provider <id>`.
    - To connect, pass your API token as env vars (e.g. `GITHUB_TOKEN`, ...)
 
 ## The pipeline
@@ -194,26 +200,49 @@ See [docs/usage.md](docs/usage.md) for a step-by-step guide (create feature → 
 
 Open a PR (or push to remote branch) when tests pass: use `--push origin --pr`.
 
-See [docs/source-control.md](docs/source-control.md) for details. `safe-factory-ai` works with GitHub, GitLab, Bitbucket, Azure Repos, or Gitea.
+See [Source control docs](docs/source-control.md) for details. `safe-factory-ai` works with GitHub, GitLab, Bitbucket, Azure Repos, or Gitea.
 
-## Supported agents
+## Agent CLIs
 
-Use any CLI agent you prefer — we wrap it in our safety loop:
-
-| Agent | Switch with |
-|-------|-------------|
-| OpenHands (default) | `--agent openhands` |
-| Aider | `--agent aider` |
-| Claude Code | `--agent claude` |
-| Forge | `--agent forge` |
-| GitHub Copilot CLI | `--agent copilot` |
-| … | [See all 14 agents →](./docs/agents/README.md) |
+Use any CLI agent you prefer — we wrap it in our safety loop. See [Agents docs](docs/agents/README.md) for the full list and `--agent <id>` options.
 
 ```bash
-pnpm agents feat:run --agent aider
+saif feat run --agent aider
 ```
 
-**Custom agent?** Pass `--agent-script ./my-agent.sh` to use any CLI that reads tasks from stdin or env. No PR required.
+## Models
+
+Simply set the API key — the factory auto-detects the provider and picks a sensible default model:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...   # → claude-sonnet-4-6
+export OPENAI_API_KEY=sk-...          # → gpt-5.4
+export OPENROUTER_API_KEY=sk-or-...   # → anthropic/claude-sonnet-4-6 (via OpenRouter)
+```
+
+Set a single model for the entire command with `--model`:
+
+```bash
+saif feat run --model openai/o3
+saif feat run --model openrouter/meta-llama/llama-3.1-405b
+```
+
+Target a specific agent while keeping defaults for the rest:
+
+```bash
+# Use o3 for the coding agent, leave design agents on their defaults
+saif feat run --agent-model coder=openai/o3
+
+# Use a cheap model for PR summaries, strong model for everything else
+saif feat run \
+  --model anthropic/claude-sonnet-4-6 \
+  --agent-model pr-summarizer=openai/gpt-4o-mini
+```
+
+Six agents can be targeted individually via `--agent-model <name>=<provider/model>`:
+`coder`, `tests-planner`, `tests-catalog`, `tests-coder`, `results-judge`, `pr-summarizer`.
+
+See [Models docs](docs/models.md) for the full reference.
 
 ## Sandbox profiles
 
@@ -321,7 +350,6 @@ pnpm agents feat:run --cedar ./my-policy.cedar
 <!-- TODO: COMMANDS IN DEPTH (ALL OPTIONS & WHAT THEY DO - OWN DOC FILE?) -->
 <!-- TODO: COMMANDS IN DEPTH (ALL OPTIONS & WHAT THEY DO - OWN DOC FILE?) -->
 
-
 ## Reference
 
 - [Usage](./docs/usage.md) - <!-- TODO -->
@@ -333,7 +361,7 @@ pnpm agents feat:run --cedar ./my-policy.cedar
 - [Codebase indexers](./docs/indexer/README.md)
 - [Access control with Cedar](./docs/cedar-access-control.md)
 - [Commands](docs/commands/README.md) - <!-- TODO -->
-- [Environment variable](docs/env-vars.md) - <!-- TODO -->
+- [Environment variable](docs/env-vars.md)
 - [Source control integrations](docs/source-control.md)
 
 ## Development

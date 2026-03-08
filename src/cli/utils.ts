@@ -8,7 +8,6 @@ import { resolve } from 'node:path';
 
 import { cancel, intro, isCancel, outro, select } from '@clack/prompts';
 
-import { LLM_API_KEYS } from '../constants.js';
 import {
   DEFAULT_DESIGNER_PROFILE,
   type DesignerProfile,
@@ -19,22 +18,8 @@ import {
   type IndexerProfile,
   resolveIndexerProfile,
 } from '../indexer-profiles/index.js';
+import { type ModelOverrides } from '../llm-config.js';
 import { DEFAULT_PROFILE, resolveTestProfile, type TestProfile } from '../test-profiles/index.js';
-
-/**
- * Ensures at least one LLM API key is set. Throws if none are set.
- */
-export function requireLlmApiKey(): void {
-  const hasAny = LLM_API_KEYS.some((name) => {
-    const v = process.env[name];
-    return v != null && String(v).trim() !== '';
-  });
-  if (!hasAny) {
-    throw new Error(
-      `None of the LLM API keys are set. Set at least one of: ${LLM_API_KEYS.join(', ')}`,
-    );
-  }
-}
 
 /**
  * Validates that a change/feature name is safe (kebab-case).

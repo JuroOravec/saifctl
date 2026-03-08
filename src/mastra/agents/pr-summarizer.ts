@@ -5,7 +5,7 @@ import { Agent } from '@mastra/core/agent';
 import { z } from 'zod';
 
 import { getChangeDirAbsolute } from '../../constants.js';
-import { fastModel } from '../../models.js';
+import { type ModelOverrides, resolveAgentModel } from '../../llm-config.js';
 
 /** Maximum diff size (bytes) to pass verbatim; larger diffs are summarised to file headers only. */
 const MAX_DIFF_BYTES = 100_000;
@@ -26,14 +26,7 @@ export const PRSummarySchema = z.object({
 
 export type PRSummary = z.infer<typeof PRSummarySchema>;
 
-/**
- * PR Summarizer agent — single-shot summarization.
- * Uses fastModel: this is a summarization task, not deep reasoning.
- */
-export const prSummarizerAgent = new Agent({
-  name: 'PRSummarizer',
-  id: 'pr-summarizer',
-  instructions: `You are a technical writer for a software engineering team.
+const PR_SUMMARIZER_INSTRUCTIONS = `You are a technical writer for a software engineering team.
 
 Given an OpenSpec feature specification and a git diff, write a concise, informative GitHub Pull Request title and body.
 
@@ -58,9 +51,16 @@ Body rules:
   A bullet list of how to verify the change.
   Derive from the specification's acceptance criteria when available.
 
-Do NOT invent changes that are not in the diff. Do NOT add any section other than the three listed above.`,
-  model: fastModel,
-});
+Do NOT invent changes that are not in the diff. Do NOT add any section other than the three listed above.`;
+
+function createPRSummarizerAgent(overrides: ModelOverrides = {}) {
+  return new Agent({
+    name: 'PRSummarizer',
+    id: 'pr-summarizer',
+    instructions: PR_SUMMARIZER_INSTRUCTIONS,
+    model: resolveAgentModel('pr-summarizer', overrides),
+  });
+}
 
 function buildPRSummaryPrompt(opts: {
   changeName: string;
@@ -131,6 +131,8 @@ export interface GeneratePRSummaryOpts {
   projectDir: string;
   /** Absolute path to the patch.diff file written by extractPatch. */
   patchFile: string;
+  /** CLI-level model overrides (--model / --agent-model). */
+  overrides?: ModelOverrides;
 }
 
 /**
@@ -140,7 +142,8 @@ export interface GeneratePRSummaryOpts {
  * if the diff file is missing or the agent fails, the caller should use generic strings.
  */
 export async function generatePRSummary(opts: GeneratePRSummaryOpts): Promise<PRSummary> {
-  const { changeName, openspecDir, projectDir, patchFile } = opts;
+  const { changeName, openspecDir, projectDir, patchFile, overrides = {} } = opts;
+  const prSummarizerAgent = createPRSummarizerAgent(overrides);
 
   const changeDir = getChangeDirAbsolute({ cwd: projectDir, openspecDir, changeName });
 
