@@ -96,7 +96,8 @@ To continue to test planning and scaffolding, run `saif feat design` (which incl
 ## See also
 
 - [LLM configuration](../models.md) — Model flags, agent names, auto-discovery, and tier env vars
-- [feat design](feat-design.md) — Full design flow (spec gen + tests planning + tests generation)
+- [feat design](feat-design.md) — Full design flow (spec gen + tests planning + Fail2Pass)
 - [feat design-tests](feat-design-tests.md) — tests planning + test generation only (second step)
+- [feat design-fail2pass](feat-design-fail2pass.md) — Test validation only (third step)
 - [feat new](feat-new.md) — Create a new change
 - [Designers](../designers/README.md)

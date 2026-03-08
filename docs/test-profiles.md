@@ -10,7 +10,7 @@ You don't need to build anything. The factory ships pre-built test runner images
 
 A **test profile** is a language and framework combination (e.g. TypeScript + Vitest, Python + pytest) that the factory uses in two places:
 
-1. **Test generation** — When the factory generates tests for your feature (`feat:design`), the profile determines in what language the code gets generated.
+1. **Test generation** — When the factory generates tests for your feature (`saif feat design`), the profile determines in what language the code gets generated.
 
    For example, `node-vitest` produces `*.spec.ts` files with Vitest; `python-pytest` produces `test_*.py` files with pytest.
 
@@ -20,16 +20,16 @@ A **test profile** is a language and framework combination (e.g. TypeScript + Vi
 
 Use `--test-profile` to pick a profile. The default is `node-vitest`.
 
-The profile must match on both generation and execution. If you ran `feat:design` with `python-pytest`, use the same profile for `feat:run` too.
+The profile must match on both generation and execution. If you ran `saif feat design` with `python-pytest`, use the same profile for `feat:run` too.
 
 ---
 
 ## Generating tests
 
-Run `feat:design` to let AI agent write tests for your feature:
+Run `saif feat design` to let AI agent write tests for your feature:
 
 ```bash
-pnpm agents feat:design --test-profile python-pytest
+saif feat design --test-profile python-pytest
 ```
 
 Docker pulls the test runner image from GHCR. Nothing to configure. No `docker build` needed for default images.
@@ -168,10 +168,10 @@ Images are tagged with each release (e.g. `v1.0.0`). Use `:latest` for the bleed
 
 ## Changing profiles
 
-If you already ran `feat:design` with one profile (e.g. `node-vitest`) and then switch to another (e.g. `python-pytest`), you must re-run `feat:design` with `--force` flag to regenerate the test scaffold.
+If you already ran `saif feat design` with one profile (e.g. `node-vitest`) and then switch to another (e.g. `python-pytest`), you must re-run `saif feat design` with `--force` flag to regenerate the test scaffold.
 
 That will overwrite existing test files, so back up any custom edits first.
 
 ```sh
-pnpm agents feat:design --test-profile python-pytest --force
+saif feat design --test-profile python-pytest --force
 ```

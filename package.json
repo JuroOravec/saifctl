@@ -40,7 +40,7 @@
     "saif:feat:design": "tsx src/cli/commands/feat.ts design",
     "saif:feat:design-specs": "tsx src/cli/commands/feat.ts design-specs",
     "saif:feat:design-tests": "tsx src/cli/commands/feat.ts design-tests",
-    "agents:feat:fail2pass": "pnpm agents feat:fail2pass",
+    "saif:feat:design-fail2pass": "tsx src/cli/commands/feat.ts design-fail2pass",
     "agents:feat:run": "pnpm agents feat:run --model openrouter/anthropic/claude-sonnet-4.6",
     "agents:feat:continue": "pnpm agents feat:continue --model openrouter/anthropic/claude-sonnet-4.6",
     "agents:feat:assess": "pnpm agents feat:assess",

@@ -50,14 +50,14 @@ saif init --indexer shotgun
 
 This parses your repository and builds a semantic graph the agents can query.
 
-### 2. Connect to index when generating specs and tests — `feat:design`
+### 2. Connect to index when generating specs and tests — `feat design`
 
-The indexer is used automatically when you run `feat:design`:
+The indexer is used automatically when you run `feat design`:
 
 ```bash
-pnpm agents feat:design
+saif feat design
 # or explicitly:
-pnpm agents feat:design --indexer shotgun
+saif feat design --indexer shotgun
 ```
 
 The Architect and tests-writing agents query the index as they write specs and tests, grounding every decision in your actual codebase.
@@ -67,14 +67,14 @@ The Architect and tests-writing agents query the index as they write specs and t
 Pass `--indexer none` to skip the indexer entirely — useful for quick runs or when the index hasn't been built yet:
 
 ```bash
-pnpm agents feat:design --indexer none
+saif feat design --indexer none
 ```
 
 ---
 
 ## The `--project` flag
 
-The project name ties the index built during `saif init` to the index queried during `feat:design`. It defaults to the `name` field in your `package.json`.
+The project name ties the index built during `saif init` to the index queried during `saif feat design`. It defaults to the `name` field in your `package.json`.
 
 Override it with `-p / --project` when you have multiple indexed codebases or no `package.json`:
 

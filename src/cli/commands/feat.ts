@@ -3,10 +3,11 @@
  * Feat CLI — feature workflow scaffolding.
  *
  * Usage: saif feat <subcommand> [options]
- *   new           Create scaffolding for a new feature (prompts for name if not given)
- *   design-specs  Generate specs from a feature's proposal only (first step of design).
- *   design-tests  Generate tests from existing specs only (second step of design).
- *   design        Generate specs and tests from a feature's proposal (full design workflow)
+ *   new               Create scaffolding for a new feature (prompts for name if not given)
+ *   design-specs      Generate specs from a feature's proposal only (first step of design).
+ *   design-tests      Generate tests from existing specs only (second step of design).
+ *   design-fail2pass  Verify generated tests. Runs tests against main; at least one feature test must fail (third step of design workflow).
+ *   design            Generate specs, tests, and validate the tests (full design workflow)
  *   Alias: saif feature
  */
 
@@ -23,15 +24,26 @@ import { generateTests } from '../../design-tests/write.js';
 import { DEFAULT_DESIGNER_PROFILE } from '../../designer-profiles/index.js';
 import { DEFAULT_INDEXER_PROFILE } from '../../indexer-profiles/index.js';
 import type { ModelOverrides } from '../../llm-config.js';
+import { runFail2Pass } from '../../orchestrator/modes.js';
+import { DEFAULT_SANDBOX_BASE_DIR } from '../../orchestrator/sandbox.js';
 import {
   getFeatNameFromArgs,
   getFeatNameOrPrompt,
+  type OrchestratorArgs,
+  parseAgentScripts,
   parseDesignerProfile,
+  parseGateScript,
   parseIndexerProfile,
   parseModelOverrides,
   parseOpenspecDir,
   parseProjectDir,
+  parseSandboxBaseDir,
+  parseSandboxProfile,
+  parseStageScript,
+  parseStartupScript,
+  parseTestImage,
   parseTestProfile,
+  parseTestScript,
   resolveProjectName,
 } from '../utils.js';
 
@@ -80,6 +92,64 @@ const forceArg = {
   type: 'boolean' as const,
   alias: 'f' as const,
   description: null,
+};
+
+// Assessment-only args — used by design-fail2pass, assess (staging + test runner, no coder agent)
+const featAssessmentArgs = {
+  'sandbox-base-dir': {
+    type: 'string' as const,
+    description: `Base directory for sandbox entries (default: ${DEFAULT_SANDBOX_BASE_DIR})`,
+  },
+  profile: {
+    type: 'string' as const,
+    description:
+      'Sandbox profile for the project. Sets defaults for startup-script and stage-script.',
+  },
+  'test-script': {
+    type: 'string' as const,
+    description: 'Path to a shell script that overrides test.sh inside the Test Runner container.',
+  },
+  'test-image': {
+    type: 'string' as const,
+    description: 'Test runner Docker image tag (default: factory-test-<profile>:latest).',
+  },
+  'startup-script': {
+    type: 'string' as const,
+    description:
+      'Path to a shell script run once to install workspace deps (pnpm install, pip install, etc.).',
+  },
+  'stage-script': {
+    type: 'string' as const,
+    description:
+      'Path to a shell script mounted into the staging container. Must handle app startup.',
+  },
+};
+
+// Agent args — used by run, continue (coder container). NOT used by design-fail2pass.
+const featAgentArgs = {
+  'gate-script': {
+    type: 'string' as const,
+    description:
+      'Path to a shell script run inside the Leash container after each round. Defaults to profile gate.',
+  },
+  agent: {
+    type: 'string' as const,
+    description: 'Agent profile (default: openhands). Used for gate script resolution.',
+  },
+  'agent-script': {
+    type: 'string' as const,
+    description: 'Path to the coding agent script. Overrides profile default.',
+  },
+  'agent-start-script': {
+    type: 'string' as const,
+    description: 'Path to the agent startup script. Overrides profile default.',
+  },
+};
+
+// Full orchestrator args — featAssessmentArgs + featAgentArgs. Used by run, continue when migrated.
+export const featOrchestratorArgs = {
+  ...featAssessmentArgs,
+  ...featAgentArgs,
 };
 
 // Shared model override args — spread into any subcommand that calls LLMs.
@@ -413,26 +483,122 @@ const designTestsCommand = defineCommand({
   },
 });
 
+// ---------------------------------------------------------------------------
+// design-fail2pass: Fail2Pass verification
+// ---------------------------------------------------------------------------
+
+const designFail2passArgs = {
+  name: featNameArg,
+  'openspec-dir': featOpenspecDirArg,
+  'project-dir': featProjectDirArg,
+  project: featProjectArg,
+  'test-profile': featTestProfileArg,
+  ...featAssessmentArgs,
+};
+
+type DesignFail2passArgs = OrchestratorArgs & {
+  'sandbox-base-dir'?: string;
+  'test-profile'?: string;
+  project?: string;
+};
+
+async function _runDesignFail2pass(opts: {
+  featName: string;
+  projectDir: string;
+  openspecDir: string;
+  args: DesignFail2passArgs;
+}): Promise<void> {
+  const { featName, projectDir, openspecDir, args } = opts;
+  const sandboxBaseDir = parseSandboxBaseDir(args);
+
+  const projectName = resolveProjectName(args, projectDir);
+  const sandboxProfile = parseSandboxProfile(args);
+  const testProfile = parseTestProfile(args);
+  const testImage = parseTestImage(args, testProfile.id);
+
+  const [gateScript, startupScript, stageScript, { agentStartScript, agentScript }, testScript] =
+    await Promise.all([
+      parseGateScript({ args, projectDir }),
+      parseStartupScript({ args, projectDir }),
+      parseStageScript({ args, projectDir }),
+      parseAgentScripts({ args, projectDir }),
+      parseTestScript({ args, projectDir, profileId: testProfile.id }),
+    ]);
+
+  console.log(`\nFail2Pass verification: ${featName}`);
+  const result = await runFail2Pass({
+    sandboxProfileId: sandboxProfile.id,
+    changeName: featName,
+    projectDir,
+    openspecDir,
+    sandboxBaseDir,
+    projectName,
+    testImage,
+    gateScript,
+    agentStartScript,
+    agentScript,
+    stageScript,
+    testScript,
+    startupScript,
+  });
+
+  console.log(`\n${result.message}`);
+  if (!result.success) process.exit(1);
+}
+
+const designFail2passCommand = defineCommand({
+  meta: {
+    name: 'design-fail2pass',
+    description:
+      'Validate generated tests. Runs tests against main; at least one feature test must fail (third step of design workflow).',
+  },
+  args: designFail2passArgs,
+  async run({ args }) {
+    const projectDir = parseProjectDir(args);
+    const featName = await getFeatNameOrPrompt(args, projectDir);
+    const openspecDir = parseOpenspecDir(args);
+    await _runDesignFail2pass({
+      featName,
+      projectDir,
+      openspecDir,
+      args: args as DesignFail2passArgs,
+    });
+    console.log('\nDone.');
+  },
+});
+
+// design-tests args for feat design (excludes --skip-catalog; full design always runs catalog)
+const { 'skip-catalog': _skipCatalog, ...designTestsArgsForDesign } = designTestsArgs;
+
 const designCommand = defineCommand({
   meta: {
     name: 'design',
-    description: "Generate specs and tests from a feature's proposal (full design workflow)",
+    description: 'Generate specs, tests, and validate the tests (full design workflow)',
   },
   args: {
     ...designSpecsArgs,
-    ...designTestsArgs,
+    ...designTestsArgsForDesign,
+    ...designFail2passArgs,
   },
   async run({ args }) {
+    // 1. Generate specs
     const { featName, projectDir, openspecDir, overrides } = await _runDesignSpecs(args);
-    const force = args.force === true;
+    // 2. Generate tests
     await _runDesignTests({
       featName,
       projectDir,
       openspecDir,
       skipCatalog: false,
-      force,
+      force: !!args.force,
       overrides,
       args,
+    });
+    // 3. Verify tests (expect them to fail)
+    await _runDesignFail2pass({
+      featName,
+      projectDir,
+      openspecDir,
+      args: args as DesignFail2passArgs,
     });
     console.log('\nDone.');
   },
@@ -447,6 +613,7 @@ const featCommand = defineCommand({
     new: newCommand,
     'design-specs': designSpecsCommand,
     'design-tests': designTestsCommand,
+    'design-fail2pass': designFail2passCommand,
     design: designCommand,
   },
 });

@@ -3,11 +3,17 @@
  */
 
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { cancel, intro, isCancel, outro, select } from '@clack/prompts';
 
+import {
+  DEFAULT_AGENT_PROFILE,
+  resolveAgentProfile,
+  resolveAgentScriptPath,
+  resolveAgentStartScriptPath,
+} from '../agent-profiles/index.js';
 import {
   DEFAULT_DESIGNER_PROFILE,
   type DesignerProfile,
@@ -19,7 +25,44 @@ import {
   resolveIndexerProfile,
 } from '../indexer-profiles/index.js';
 import { type ModelOverrides } from '../llm-config.js';
-import { DEFAULT_PROFILE, resolveTestProfile, type TestProfile } from '../test-profiles/index.js';
+import { DEFAULT_SANDBOX_BASE_DIR } from '../orchestrator/sandbox.js';
+import {
+  DEFAULT_SANDBOX_PROFILE,
+  readSandboxGateScript,
+  readSandboxStageScript,
+  readSandboxStartupScript,
+  resolveSandboxProfile,
+  type SandboxProfile,
+} from '../sandbox-profiles/index.js';
+import {
+  DEFAULT_PROFILE,
+  resolveTestProfile,
+  resolveTestScriptPath,
+  type SupportedProfileId,
+  type TestProfile,
+} from '../test-profiles/index.js';
+
+/**
+ * Resolves the sandbox base directory from --sandbox-base-dir.
+ * Returns DEFAULT_SANDBOX_BASE_DIR when omitted or empty.
+ */
+export function parseSandboxBaseDir(args: { 'sandbox-base-dir'?: string }): string {
+  const raw = args['sandbox-base-dir'];
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : DEFAULT_SANDBOX_BASE_DIR;
+}
+
+/** Args shape for orchestrator commands (design-fail2pass, run, continue, assess, etc.) */
+export interface OrchestratorArgs {
+  profile?: string;
+  'test-script'?: string;
+  'test-image'?: string;
+  'startup-script'?: string;
+  'gate-script'?: string;
+  'stage-script'?: string;
+  agent?: string;
+  'agent-script'?: string;
+  'agent-start-script'?: string;
+}
 
 /**
  * Validates that a change/feature name is safe (kebab-case).
@@ -176,6 +219,160 @@ export function parseTestProfile(args: { 'test-profile'?: string }): TestProfile
     console.error(`Error: ${String(err instanceof Error ? err.message : err)}`);
     process.exit(1);
   }
+}
+
+/** Validates that a Docker image tag is safe to interpolate into shell commands. */
+export function validateImageTag(tag: string, flagName: string): void {
+  if (!/^[a-zA-Z0-9_.\-:/@]+$/.test(tag)) {
+    console.error(
+      `Invalid ${flagName} value: "${tag}". ` +
+        `Image tags must contain only letters, digits, hyphens, underscores, dots, colons, slashes, and @ signs.`,
+    );
+    process.exit(1);
+  }
+}
+
+/** Resolves the sandbox profile from --profile. Returns DEFAULT_SANDBOX_PROFILE when omitted. */
+export function parseSandboxProfile(args: OrchestratorArgs): SandboxProfile {
+  const raw = typeof args.profile === 'string' ? args.profile.trim() : '';
+  if (!raw) return DEFAULT_SANDBOX_PROFILE;
+  try {
+    return resolveSandboxProfile(raw);
+  } catch (err) {
+    console.error(`Error: ${String(err instanceof Error ? err.message : err)}`);
+    process.exit(1);
+  }
+}
+
+/** Returns the test image tag. Defaults to factory-test-<profileId>:latest. */
+export function parseTestImage(args: OrchestratorArgs, profileId: string): string {
+  const v = args['test-image'];
+  const tag = typeof v === 'string' && v.trim() ? v.trim() : `factory-test-${profileId}:latest`;
+  validateImageTag(tag, '--test-image');
+  return tag;
+}
+
+/** Reads startup script from --startup-script or profile default. */
+export async function parseStartupScript(opts: {
+  args: OrchestratorArgs;
+  projectDir: string;
+}): Promise<string> {
+  const { args, projectDir } = opts;
+  const raw = args['startup-script'];
+  if (typeof raw !== 'string' || !raw.trim()) {
+    const profile = parseSandboxProfile(args);
+    return readSandboxStartupScript(profile.id);
+  }
+  const scriptPath = resolve(projectDir, raw.trim());
+  if (!existsSync(scriptPath)) {
+    console.error(`Error: --startup-script file not found: ${scriptPath}`);
+    process.exit(1);
+  }
+  return readFileSync(scriptPath, 'utf8');
+}
+
+/** Reads gate script from --gate-script or profile default. */
+export async function parseGateScript(opts: {
+  args: OrchestratorArgs;
+  projectDir: string;
+}): Promise<string> {
+  const { args, projectDir } = opts;
+  const raw = args['gate-script'];
+  const profile = parseSandboxProfile(args);
+  if (typeof raw !== 'string' || !raw.trim()) {
+    return readSandboxGateScript(profile.id);
+  }
+  const scriptPath = resolve(projectDir, raw.trim());
+  if (!existsSync(scriptPath)) {
+    console.error(`Error: --gate-script file not found: ${scriptPath}`);
+    process.exit(1);
+  }
+  return readFileSync(scriptPath, 'utf8');
+}
+
+/** Reads stage script from --stage-script or profile default. */
+export async function parseStageScript(opts: {
+  args: OrchestratorArgs;
+  projectDir: string;
+}): Promise<string> {
+  const { args, projectDir } = opts;
+  const raw = args['stage-script'];
+  const profile = parseSandboxProfile(args);
+  if (typeof raw !== 'string' || !raw.trim()) {
+    return readSandboxStageScript(profile.id);
+  }
+  const scriptPath = resolve(projectDir, raw.trim());
+  if (!existsSync(scriptPath)) {
+    console.error(`Error: --stage-script file not found: ${scriptPath}`);
+    process.exit(1);
+  }
+  return readFileSync(scriptPath, 'utf8');
+}
+
+/** Reads agent scripts from --agent-script / --agent-start-script or profile defaults. */
+export async function parseAgentScripts(opts: {
+  args: OrchestratorArgs;
+  projectDir: string;
+}): Promise<{ agentStartScript: string; agentScript: string }> {
+  const { args, projectDir } = opts;
+  const rawAgent = typeof args.agent === 'string' ? args.agent.trim() : '';
+  const agentProfile = !rawAgent
+    ? DEFAULT_AGENT_PROFILE
+    : (() => {
+        try {
+          return resolveAgentProfile(rawAgent);
+        } catch (err) {
+          console.error(`Error: ${String(err instanceof Error ? err.message : err)}`);
+          process.exit(1);
+        }
+      })();
+
+  const rawStart = args['agent-start-script'];
+  const agentStartScript =
+    typeof rawStart === 'string' && rawStart.trim()
+      ? (() => {
+          const p = resolve(projectDir, rawStart.trim());
+          if (!existsSync(p)) {
+            console.error(`Error: --agent-start-script file not found: ${p}`);
+            process.exit(1);
+          }
+          return readFileSync(p, 'utf8');
+        })()
+      : readFileSync(resolveAgentStartScriptPath(agentProfile.id), 'utf8');
+
+  const rawScript = args['agent-script'];
+  const agentScript =
+    typeof rawScript === 'string' && rawScript.trim()
+      ? (() => {
+          const p = resolve(projectDir, rawScript.trim());
+          if (!existsSync(p)) {
+            console.error(`Error: --agent-script file not found: ${p}`);
+            process.exit(1);
+          }
+          return readFileSync(p, 'utf8');
+        })()
+      : readFileSync(resolveAgentScriptPath(agentProfile.id), 'utf8');
+
+  return { agentStartScript, agentScript };
+}
+
+/** Reads test script from --test-script or profile default. */
+export async function parseTestScript(opts: {
+  args: OrchestratorArgs;
+  projectDir: string;
+  profileId: SupportedProfileId;
+}): Promise<string> {
+  const { args, projectDir, profileId } = opts;
+  const raw = args['test-script'];
+  if (typeof raw !== 'string' || !raw.trim()) {
+    return readFileSync(resolveTestScriptPath(profileId), 'utf8');
+  }
+  const scriptPath = resolve(projectDir, raw.trim());
+  if (!existsSync(scriptPath)) {
+    console.error(`Error: --test-script file not found: ${scriptPath}`);
+    process.exit(1);
+  }
+  return readFileSync(scriptPath, 'utf8');
 }
 
 /**

@@ -73,7 +73,7 @@ export interface GenerateTestsResult {
  * For Rust, also emits public/mod.rs and hidden/mod.rs declaring all generated modules
  * so `cargo test` can discover them.
  *
- * Expects tests.json to already exist (produced by `agents feat:design`).
+ * Expects tests.json to already exist (produced by `saif feat design`).
  */
 export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTestsResult> {
   const {
@@ -96,8 +96,7 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
 
   if (!existsSync(catalogPath)) {
     throw new Error(
-      `tests.json not found at ${catalogPath}. ` +
-        `Run 'pnpm agents feat:design -n ${changeName}' first.`,
+      `tests.json not found at ${catalogPath}. Run 'saif feat design -n ${changeName}' first.`,
     );
   }
 

@@ -26,7 +26,7 @@ saif feature design-tests [options]
 | `--agent-base-url` | —     | string  | Per-agent base URL override. Format: `<agent>=<url>`. Can be repeated.                                                                      |
 | `--openspec-dir`   | —     | string  | Path to openspec directory (default: `openspec`)                                                                                            |
 | `--project-dir`    | —     | string  | Project directory (default: current working directory)                                                                                      |
-| `--test-profile`   | —     | string  | Test profile id (default: node-vitest)                                                                                                        |
+| `--test-profile`   | —     | string  | Test profile id (default: node-vitest)                                                                                                      |
 | `--indexer`        | —     | string  | Indexer profile for codebase search (default: shotgun). Pass `none` to disable.                                                             |
 | `--project`        | `-p`  | string  | Project name override for the indexer (default: package.json "name")                                                                        |
 
@@ -98,8 +98,9 @@ saif feat design-tests \
 ## See also
 
 - [LLM configuration](../models.md) — Model flags, agent names, auto-discovery, and tier env vars
-- [feat design](feat-design.md) — Full design flow (spec gen + tests design + tests generation)
+- [feat design](feat-design.md) — Full design flow (spec gen + tests design + tests validation)
 - [feat design-specs](feat-design-specs.md) — Spec gen only (first step)
+- [feat design-fail2pass](feat-design-fail2pass.md) — Tests validation only (third step)
 - [feat new](feat-new.md) — Create a new change
 - [Test profiles](../test-profiles.md)
 - [Indexer](../indexer/README.md)

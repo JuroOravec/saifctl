@@ -73,7 +73,7 @@ export OPENAI_API_KEY=sk-or-...   # your OpenRouter key
 
 ## What it produces
 
-Running `feat:design` with the Shotgun designer writes four files into `openspec/changes/<feature>/`:
+Running `saif feat design` with the Shotgun designer writes four files into `openspec/changes/<feature>/`:
 
 | File               | Purpose                                                                          |
 | ------------------ | -------------------------------------------------------------------------------- |

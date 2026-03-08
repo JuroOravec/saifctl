@@ -13,7 +13,7 @@ import { rm as rmAsync } from 'node:fs/promises';
 import { defineCommand, runMain } from 'citty';
 
 import { DEFAULT_SANDBOX_BASE_DIR } from '../../orchestrator/sandbox.js';
-import { parseProjectDir, resolveProjectName } from '../utils.js';
+import { parseProjectDir, parseSandboxBaseDir, resolveProjectName } from '../utils.js';
 
 const listCommand = defineCommand({
   meta: {
@@ -33,10 +33,7 @@ const listCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const sandboxBase =
-      typeof args['sandbox-base-dir'] === 'string' && args['sandbox-base-dir'].trim()
-        ? args['sandbox-base-dir'].trim()
-        : DEFAULT_SANDBOX_BASE_DIR;
+    const sandboxBase = parseSandboxBaseDir(args);
     const listAll = args.all === true;
 
     if (!existsSync(sandboxBase)) {
@@ -95,10 +92,7 @@ const clearCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const sandboxBase =
-      typeof args['sandbox-base-dir'] === 'string' && args['sandbox-base-dir'].trim()
-        ? args['sandbox-base-dir'].trim()
-        : DEFAULT_SANDBOX_BASE_DIR;
+    const sandboxBase = parseSandboxBaseDir(args);
     const clearAll = args.all === true;
 
     if (!existsSync(sandboxBase)) {

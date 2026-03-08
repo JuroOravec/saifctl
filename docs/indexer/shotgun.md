@@ -104,7 +104,7 @@ The factory reads `SHOTGUN_PYTHON` and substitutes it wherever it would otherwis
 
 1. **Index** — During `saif init`, Shotgun uses [tree-sitter](https://tree-sitter.github.io) to parse your repository into an AST-aware codebase graph. It understands structure: classes, interfaces, function exports, imports, and dependency chains.
 
-2. **Query** — During `feat:design`, the factory's agents call the index with natural-language questions. The graph returns specific code chunks, file paths, and relationships.
+2. **Query** — During `saif feat design`, the factory's agents call the index with natural-language questions. The graph returns specific code chunks, file paths, and relationships.
 
 3. **Ground the spec** — The Architect Agent uses those answers to write a `spec.md` and `plan.md` constrained strictly to your existing patterns. No invented imports, no phantom file paths.
 

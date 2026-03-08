@@ -3,7 +3,7 @@
 #
 # CONTRACT — this script defines the interface between the Orchestrator and the Test Runner image.
 # It is always bind-mounted into the container at /usr/local/bin/test.sh (read-only).
-# Override by passing --test-script <path> to feat:run / feat:continue / feat:assess / feat:fail2pass.
+# Override by passing --test-script <path> to feat:run / feat:continue / feat:assess / design-fail2pass.
 #
 # Environment variables provided by the Orchestrator (all required):
 #

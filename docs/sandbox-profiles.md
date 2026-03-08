@@ -90,3 +90,40 @@ pnpm agents feat:run \
 ```
 
 See [openspec/specs/software-factory/swf-comp-d-sandbox.md](../openspec/specs/software-factory/swf-comp-d-sandbox.md) for the sandbox contract.
+
+---
+
+## Commands by profile
+
+Sandbox profiles dictate what commands are ran for installation or to start the app for black box testing.
+
+Use the reference below to know what commands to expose.
+
+For example, NodeJS web apps should define a `start` script, because the profile calls `npm run start`.
+
+| Profile              | Startup (installation)                                                                           | Stage (app start)                                                                                        |
+| -------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `go`                 | `go mod download` (if go.mod)                                                                    | Procfile `web:` → sh -c; else main.go → `go build` + exec; else cmd/ → `go build ./cmd/...`; else `wait` |
+| `go-node`            | `go mod download` (if go.mod)                                                                    | Same as `go`                                                                                             |
+| `go-node-python`     | `go mod download` (if go.mod)                                                                    | Same as `go`                                                                                             |
+| `go-python`          | `go mod download` (if go.mod)                                                                    | Same as `go`                                                                                             |
+| `node-npm`           | `npm ci` or `npm install` (fallback)                                                             | `npm run start` if package.json has start script; else `wait`                                            |
+| `node-npm-python`    | `npm ci` or `npm install` (fallback)                                                             | Same as `node-npm`                                                                                       |
+| `node-pnpm`          | `pnpm install --frozen-lockfile` or `pnpm install` (fallback)                                    | `pnpm run start` if package.json has start script; else `wait`                                           |
+| `node-pnpm-python`   | `pnpm install --frozen-lockfile` or `pnpm install` (fallback)                                    | Same as `node-pnpm`                                                                                      |
+| `node-yarn`          | `yarn install --frozen-lockfile` or `yarn install` (fallback)                                    | `yarn run start` if package.json has start script; else `wait`                                           |
+| `node-yarn-python`   | `yarn install --frozen-lockfile` or `yarn install` (fallback)                                    | Same as `node-yarn`                                                                                      |
+| `node-bun`           | `bun install --frozen` or `bun install` (fallback)                                               | `bun run start` if package.json has start script; else `wait`                                            |
+| `node-bun-python`    | `bun install --frozen` or `bun install` (fallback)                                               | Same as `node-bun`                                                                                       |
+| `python-pip`         | `uv sync` (if uv + pyproject.toml) or `pip install -r requirements.txt` (conditional)            | Procfile `web:` → sh -c; else app.py/main.py → `python`; else `wait`                                     |
+| `python-pip-node`    | Same as `python-pip`                                                                             | Same as `python-pip`                                                                                     |
+| `python-poetry`      | `poetry install` (if pyproject.toml)                                                             | Procfile → sh -c; else app.py/main.py → `poetry run python` or `python`; else `wait`                     |
+| `python-poetry-node` | Same as `python-poetry`                                                                          | Same as `python-poetry`                                                                                  |
+| `python-uv`          | `uv sync` (if pyproject.toml) or `uv pip install -r requirements.txt` (conditional)              | Procfile → sh -c; else app.py/main.py → `uv run python` or `python`; else `wait`                         |
+| `python-uv-node`     | Same as `python-uv`                                                                              | Same as `python-uv`                                                                                      |
+| `python-conda`       | `conda env update -n base -f environment.yml` or `pip install -r requirements.txt` (conditional) | Procfile → sh -c; else app.py/main.py → `python`; else `wait`                                            |
+| `python-conda-node`  | Same as `python-conda`                                                                           | Same as `python-conda`                                                                                   |
+| `rust`               | `cargo fetch` (if Cargo.toml)                                                                    | Procfile `web:` → sh -c; else `cargo run --release`; else `wait`                                         |
+| `rust-node`          | `cargo fetch` (if Cargo.toml)                                                                    | Same as `rust`                                                                                           |
+| `rust-node-python`   | `cargo fetch` (if Cargo.toml)                                                                    | Same as `rust`                                                                                           |
+| `rust-python`        | `cargo fetch` (if Cargo.toml)                                                                    | Same as `rust`                                                                                           |

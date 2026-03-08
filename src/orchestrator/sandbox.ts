@@ -22,15 +22,12 @@
 
 import { execSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
 import { minimatch } from 'minimatch';
 
 import { getChangeDirAbsolute } from '../constants.js';
 import type { TestCatalog } from '../design-tests/schema.js';
-
-const _orchestratorDir = dirname(fileURLToPath(import.meta.url));
 
 export interface SandboxPaths {
   /** /tmp/factory-sandbox/{proj}-{feat}-{runId} */
@@ -88,7 +85,7 @@ export interface CreateSandboxOpts {
    * Base directory where sandbox entries are created.
    * Defaults to `/tmp/factory-sandbox`.
    */
-  sandboxBaseDir?: string;
+  sandboxBaseDir: string;
   /**
    * Content of the gate script to write into the sandbox as `gate.sh`.
    * The script is mounted read-only at `/factory/gate.sh` inside the coder container
@@ -163,7 +160,7 @@ export function createSandbox(opts: CreateSandboxOpts): SandboxPaths {
     projectDir,
     openspecDir,
     projectName,
-    sandboxBaseDir = DEFAULT_SANDBOX_BASE_DIR,
+    sandboxBaseDir,
     gateScript,
     startupScript,
     agentStartScript,
@@ -197,7 +194,7 @@ export function createSandbox(opts: CreateSandboxOpts): SandboxPaths {
   );
   if (!existsSync(testsJsonPath)) {
     throw new Error(
-      `tests.json not found at ${testsJsonPath}. Run 'pnpm agents feat:design -n ${changeName}' first.`,
+      `tests.json not found at ${testsJsonPath}. Run 'saif feat design -n ${changeName}' first.`,
     );
   }
   const catalog = JSON.parse(readFileSync(testsJsonPath, 'utf8')) as TestCatalog;

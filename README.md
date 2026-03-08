@@ -54,13 +54,10 @@ saif init
 # 1. Scaffold proposal.md and edit it
 saif feat new
 
-# 2. Generate specs + generate tests
-pnpm agents feat:design
+# 2. Generate specs + generate & validate tests
+saif feat design
 
-# 3. Confirm tests fail
-pnpm agents feat:fail2pass
-
-# 4. Run coding agent in sandbox until tests pass
+# 3. Run coding agent in sandbox until tests pass
 pnpm agents feat:run
 # Prefer Aider?
 # pnpm agents feat:run --agent aider
@@ -295,9 +292,9 @@ Just like other parts of `safe-ai-factory`, this step is swappable.
 Use `--designer` to switch:
 
 ```bash
-pnpm agents feat:design
+saif feat design
 # or explicitly:
-pnpm agents feat:design --designer shotgun
+saif feat design --designer shotgun
 ```
 
 | Designer          | Switch with          |
@@ -319,10 +316,10 @@ Use `--indexer` to switch or disable:
 saif init
 
 # Use during spec generation:
-pnpm agents feat:design --indexer shotgun
+saif feat design --indexer shotgun
 
 # Disable:
-pnpm agents feat:design --indexer none
+saif feat design --indexer none
 ```
 
 | Indexer           | Switch with         |
