@@ -275,6 +275,144 @@ describe('createSandbox + destroySandbox (integration)', () => {
       }
     }
   });
+
+  it('works with nested features (auth)/login', () => {
+    const projectDir = mkdtempSync(join(process.cwd(), 'createSandbox-project-'));
+    const sandboxBaseDir = mkdtempSync(join(process.cwd(), 'createSandbox-sandbox-'));
+    try {
+      // 1. Build dummy codebase with nested feature saif/features/(auth)/login
+      writeFileSync(join(projectDir, '.gitignore'), 'node_modules\n');
+      execSync('git init', { cwd: projectDir });
+      writeFileSync(join(projectDir, 'README.md'), 'dummy');
+      execSync('git add README.md', { cwd: projectDir });
+      execSync('git commit -m "Initial"', {
+        cwd: projectDir,
+        env: {
+          ...process.env,
+          GIT_AUTHOR_NAME: 'test',
+          GIT_AUTHOR_EMAIL: 'test@test',
+          GIT_COMMITTER_NAME: 'test',
+          GIT_COMMITTER_EMAIL: 'test@test',
+        },
+      });
+
+      const saifDir = 'saif';
+      const NESTED_CATALOG = {
+        ...TEST_CATALOG,
+        featureName: '(auth)/login',
+        featureDir: 'saif/features/(auth)/login',
+        testCases: [
+          {
+            id: 'tc-public-001',
+            title: 'Public test',
+            description: 'Happy path',
+            tracesTo: [],
+            category: 'happy_path',
+            visibility: 'public',
+            entrypoint: 'public/login.spec.ts',
+          },
+          {
+            id: 'tc-hidden-001',
+            title: 'Hidden test',
+            description: 'Holdout',
+            tracesTo: [],
+            category: 'boundary',
+            visibility: 'hidden',
+            entrypoint: 'hidden/holdout.spec.ts',
+          },
+        ],
+      };
+
+      const loginTests = join(projectDir, saifDir, 'features', '(auth)', 'login', 'tests');
+      mkdirSync(join(loginTests, 'public'), { recursive: true });
+      mkdirSync(join(loginTests, 'hidden'), { recursive: true });
+      writeFileSync(join(loginTests, 'tests.json'), JSON.stringify(NESTED_CATALOG, null, 2));
+      writeFileSync(
+        join(loginTests, 'public', 'login.spec.ts'),
+        "import { expect } from 'vitest';\n",
+      );
+      writeFileSync(
+        join(loginTests, 'hidden', 'holdout.spec.ts'),
+        "import { expect } from 'vitest';\n",
+      );
+
+      // Another nested feature with hidden dir to verify removeAllHiddenDirs cleans all
+      const profileHidden = join(
+        projectDir,
+        saifDir,
+        'features',
+        '(core)',
+        'profile',
+        'tests',
+        'hidden',
+      );
+      mkdirSync(profileHidden, { recursive: true });
+      writeFileSync(join(profileHidden, 'edge.spec.ts'), "import { expect } from 'vitest';\n");
+
+      const feature = resolveFeature({
+        input: '(auth)/login',
+        projectDir,
+        saifDir,
+      });
+      const paths = createSandbox({
+        feature,
+        projectDir,
+        saifDir,
+        projectName: 'test-proj',
+        sandboxBaseDir,
+        runId: 'def456',
+        gateScript: GATE_SCRIPT,
+        startupScript: STARTUP_SCRIPT,
+        agentStartScript: AGENT_START_SCRIPT,
+        agentScript: AGENT_SCRIPT,
+        stageScript: STAGE_SCRIPT,
+      });
+
+      const codePath = paths.codePath;
+      const sandboxBasePath = paths.sandboxBasePath;
+
+      // 2. Assert nested feature path resolved (slug used in dir name)
+      expect(feature.name).toBe('auth-login');
+      expect(paths.sandboxBasePath).toContain('test-proj-auth-login-def456');
+
+      // 3. Assert hidden dirs removed for nested features
+      expect(
+        existsSync(join(codePath, saifDir, 'features', '(auth)', 'login', 'tests', 'hidden')),
+      ).toBe(false);
+      expect(
+        existsSync(join(codePath, saifDir, 'features', '(core)', 'profile', 'tests', 'hidden')),
+      ).toBe(false);
+      expect(
+        existsSync(join(codePath, saifDir, 'features', '(auth)', 'login', 'tests', 'public')),
+      ).toBe(true);
+
+      // 4. Assert tests.json contains only public test cases
+      const copiedCatalog = JSON.parse(
+        readFileSync(
+          join(codePath, saifDir, 'features', '(auth)', 'login', 'tests', 'tests.json'),
+          'utf8',
+        ),
+      );
+      expect(copiedCatalog.testCases).toHaveLength(1);
+      expect(copiedCatalog.testCases[0].visibility).toBe('public');
+      expect(copiedCatalog.testCases[0].id).toBe('tc-public-001');
+
+      // 5. Assert clean git
+      const commitCount = execSync('git rev-list --count HEAD', { cwd: codePath })
+        .toString()
+        .trim();
+      expect(commitCount).toBe('1');
+
+      // 6. Destroy sandbox
+      destroySandbox(sandboxBasePath);
+      expect(existsSync(sandboxBasePath)).toBe(false);
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true });
+      if (existsSync(sandboxBaseDir)) {
+        rmSync(sandboxBaseDir, { recursive: true, force: true });
+      }
+    }
+  });
 });
 
 /**
