@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0f0f0f;
+  --foreground: #ededed;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+.terminal-gradient {
+  background: linear-gradient(180deg, rgba(0, 255, 102, 0.05) 0%, rgba(15, 15, 15, 0) 100%);
+}
+
+.glow-green {
+  box-shadow: 0 0 20px rgba(0, 255, 102, 0.2);
+}
+
+.border-glow:hover {
+  border-color: rgba(0, 255, 102, 0.5);
+  box-shadow: 0 0 15px rgba(0, 255, 102, 0.1);
+  transition: all 0.3s ease;
+}
