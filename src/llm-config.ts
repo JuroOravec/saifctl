@@ -49,6 +49,33 @@ import { createVercel } from '@ai-sdk/vercel';
 import { createXai } from '@ai-sdk/xai';
 
 // ---------------------------------------------------------------------------
+// Supported agent names
+// ---------------------------------------------------------------------------
+
+/**
+ * Canonical agent names that use LLM models.
+ * Used to validate agent keys in --model, --base-url, and config.defaults.agentModels/agentBaseUrls.
+ *
+ * Add new names here when introducing agents that call resolveAgentLlmConfig/resolveAgentModel.
+ */
+export const SUPPORTED_AGENT_NAMES = [
+  'coder',
+  'results-judge',
+  'pr-summarizer',
+  'tests-catalog',
+  'tests-writer',
+] as const;
+
+export type SupportedAgentName = (typeof SUPPORTED_AGENT_NAMES)[number];
+
+/** Set for O(1) validation. */
+const SUPPORTED_AGENT_NAMES_SET = new Set<string>(SUPPORTED_AGENT_NAMES);
+
+export function isSupportedAgentName(name: string): boolean {
+  return SUPPORTED_AGENT_NAMES_SET.has(name);
+}
+
+// ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
@@ -328,6 +355,11 @@ function parseModelString(raw: string): { provider: string; modelId: string } {
  * @param overrides - Parsed CLI flags (from `parseModelOverrides()`).
  */
 export function resolveAgentLlmConfig(agentName: string, overrides: ModelOverrides): LlmConfig {
+  if (!isSupportedAgentName(agentName)) {
+    throw new Error(
+      `Unknown agent "${agentName}". Supported: ${SUPPORTED_AGENT_NAMES.join(', ')}.`,
+    );
+  }
   // 1. Per-agent CLI flag
   const agentModelRaw = overrides.agentModels?.[agentName];
   // 2. Global CLI flag

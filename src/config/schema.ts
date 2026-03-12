@@ -8,6 +8,9 @@
 
 import { z } from 'zod';
 
+import { isSupportedAgentName, SUPPORTED_AGENT_NAMES } from '../llm-config.js';
+import { isSupportedStorageKey, SUPPORTED_STORAGE_KEYS } from '../run-storage/types.js';
+
 export const saifConfigDefaultsSchema = z.object({
   // Run params
   maxRuns: z.number().int().positive().optional(),
@@ -27,12 +30,37 @@ export const saifConfigDefaultsSchema = z.object({
   // Model overrides (object form)
   globalModel: z.string().optional(),
   globalBaseUrl: z.string().optional(),
-  agentModels: z.record(z.string(), z.string()).optional(),
-  agentBaseUrls: z.record(z.string(), z.string()).optional(),
+  agentModels: z
+    .record(z.string(), z.string())
+    .optional()
+    .refine(
+      (record) => record === undefined || Object.keys(record).every((k) => isSupportedAgentName(k)),
+      {
+        message: `agentModels keys must be one of: ${SUPPORTED_AGENT_NAMES.join(', ')}`,
+      },
+    ),
+  agentBaseUrls: z
+    .record(z.string(), z.string())
+    .optional()
+    .refine(
+      (record) => record === undefined || Object.keys(record).every((k) => isSupportedAgentName(k)),
+      {
+        message: `agentBaseUrls keys must be one of: ${SUPPORTED_AGENT_NAMES.join(', ')}`,
+      },
+    ),
 
   // Storage (object form)
   globalStorage: z.string().optional(),
-  storages: z.record(z.string(), z.string()).optional(),
+  storages: z
+    .record(z.string(), z.string())
+    .optional()
+    .refine(
+      (record) =>
+        record === undefined || Object.keys(record).every((k) => isSupportedStorageKey(k)),
+      {
+        message: `storages keys must be one of: ${SUPPORTED_STORAGE_KEYS.join(', ')}`,
+      },
+    ),
 
   // Profile IDs
   testProfile: z.string().optional(),
