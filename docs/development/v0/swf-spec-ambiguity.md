@@ -40,7 +40,8 @@ After each tests failure, when `--resolve-ambiguity` is `prompt` or `ai`, the or
 
 1. **Feature specification** — Contents of `specification.md` (and shotgun spec files)
 2. **Failing test details** — From results.xml (JUnit XML report): test names, descriptions, failure messages
-3. **Implementation patch** — The git diff of the agent's changes
+
+The Judge does _not_ receive the implementation patch (git diff). Agent-controlled content would enable prompt-injection attacks to bias spec updates away from user intent.
 
 ### Results Judge Output (JSON)
 
@@ -98,30 +99,30 @@ Tests FAILED
 │ resolveAmbiguity === 'off' ?             │
 └─────────────────────────────────────────┘
        │                    │
-       │ Yes                 │ No (prompt or ai)
+       │ Yes                │ No (prompt or ai)
        ▼                    ▼
 ┌─────────────────┐   ┌─────────────────────────────────────────┐
-│ Generic message │   │ Run Results Judge (spec + failures + patch)│
+│ Generic message │   │ Run Results Judge (spec + failures)     │
 │ No Results Judge│   └─────────────────────────────────────────┘
-└─────────────────┘                    │
+└─────────────────┘                      │
        │                                 ▼
        │                    ┌───────────────────────────────────┐
-       │                    │ Results Judge says isAmbiguous?    │
+       │                    │ Results Judge says isAmbiguous?   │
        │                    └───────────────────────────────────┘
        │                                 │
        │                    No (genuine) │          Yes
        │                                 ▼          ▼
        │                    ┌────────────────┐  ┌──────────────────────┐
-       │                    │ Use sanitized  │  │ prompt mode?           │
-       │                    │ hint as        │  │ Ask human to confirm   │
+       │                    │ Use sanitized  │  │ prompt mode?         │
+       │                    │ hint as        │  │ Ask human to confirm │
        │                    │ errorFeedback  │  └──────────────────────┘
        │                    └────────────────┘          │
-       │                                 │     Accept │ Decline
+       │                                 │       Accept │ Decline
        │                                 │          ▼    ▼
        │                                 │  ┌─────────┐ ┌─────────────┐
-       │                                 │  │ Append  │ │ Use hint;    │
-       │                                 │  │ to spec │ │ treat as     │
-       │                                 │  │ Re-run  │ │ genuine      │
+       │                                 │  │ Append  │ │ Use hint;   │
+       │                                 │  │ to spec │ │ treat as    │
+       │                                 │  │ Re-run  │ │ genuine     │
        │                                 │  │ design  │ └─────────────┘
        │                                 │  │ Reset   │
        │                                 │  │ attempts│
@@ -129,8 +130,8 @@ Tests FAILED
        │                                 │       (ai: same path, no prompt)
        ▼                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ Reset sandbox (git reset --hard, git clean -fd)                  │
-│ Continue loop with errorFeedback                                 │
+│ Reset sandbox (git reset --hard, git clean -fd)                 │
+│ Continue loop with errorFeedback                                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 

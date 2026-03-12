@@ -15,12 +15,12 @@ import { generateTests } from '../design-tests/write.js';
 import { generatePRSummary } from '../git/agents/pr-summarizer.js';
 import type { GitProvider } from '../git/types.js';
 import { type ModelOverrides, resolveAgentLlmConfig } from '../llm-config.js';
-import { runResultsJudge } from '../mastra/agents/results-judge.js';
 import type { SupportedSandboxProfileId } from '../sandbox-profiles/types.js';
 import type { Feature } from '../specs/discover.js';
 import type { TestProfile } from '../test-profiles/types.js';
 import type { CleanupRegistry } from '../utils/docker.js';
 import { runAgent } from './agent-runner.js';
+import { runResultsJudge } from './agents/results-judge.js';
 import {
   type AssertionSuiteResult,
   runTeststWithContainers,
@@ -364,7 +364,6 @@ export async function runIterativeLoop(
             projectName,
             projectDir,
             feature,
-            patchPath,
             testSuites: result.testSuites,
             resolveAmbiguity,
             testProfile,
@@ -428,8 +427,6 @@ interface RunResultsJudgeForFailureOpts {
   projectDir: string;
   feature: Feature;
   testProfile: TestProfile;
-  /** Content of the extracted patch for this attempt */
-  patchPath: string;
   testSuites: AssertionSuiteResult[];
   /**
    * Decides action when tests fail due to ambiguous specs:
@@ -465,26 +462,13 @@ interface ResultsJudgeForFailureResult {
 export async function runResultsJudgeForFailure(
   opts: RunResultsJudgeForFailureOpts,
 ): Promise<ResultsJudgeForFailureResult> {
-  const {
-    projectDir,
-    feature,
-    patchPath,
-    testSuites,
-    resolveAmbiguity,
-    testProfile,
-    projectName,
-    overrides,
-  } = opts;
+  const { projectDir, feature, testSuites, resolveAmbiguity, testProfile, projectName, overrides } =
+    opts;
 
   const specPath = join(feature.absolutePath, 'specification.md');
   const specContent = existsSync(specPath)
     ? readFileSync(specPath, 'utf8')
     : '(specification.md not found)';
-
-  // Read the patch content (patchPath points to sandbox/patch.diff)
-  const patchContent = existsSync(patchPath)
-    ? readFileSync(patchPath, 'utf8')
-    : '(patch not found)';
 
   console.log('[results-judge] Running ambiguity check...');
 
@@ -509,7 +493,6 @@ export async function runResultsJudgeForFailure(
   const verdict = await runResultsJudge({
     specContent,
     failingSuites: testSuites,
-    patchContent,
     overrides,
     onThought: onJudgeThought,
     onEvent: onJudgeEvent,

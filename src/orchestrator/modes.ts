@@ -600,7 +600,6 @@ async function runTestsCore(
         const resultsJudgeResult = await runResultsJudgeForFailure({
           projectDir,
           feature,
-          patchPath,
           testSuites: result.testSuites,
           resolveAmbiguity,
           testProfile,
