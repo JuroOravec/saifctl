@@ -74,9 +74,36 @@ Then open `http://localhost:3000/safe-ai-factory/` (the basePath must match in p
 
 If you use a custom domain pointing at GitHub Pages:
 
-1. Configure the custom domain in **Settings** → **Pages**.
-2. In `web/next.config.ts`, set `basePath: ''` (or remove it) so assets load from the root.
-3. Rebuild and redeploy.
+**1. Add the domain in GitHub**
+
+- Go to **Settings** → **Pages**.
+- Under **Custom domain**, enter your domain (e.g. `safeaifactory.com`).
+- Click **Save**. GitHub may show "DNS check unsuccessful" initially — that's expected until your registrar propagates the records.
+
+**2. Configure DNS at your registrar (e.g. Namecheap)**
+
+Add these records (replace `yourusername` with your GitHub username):
+
+| Type  | Host  | Value                     |
+| ----- | ----- | ------------------------- |
+| A     | `@`   | `185.199.108.153`         |
+| A     | `@`   | `185.199.109.153`         |
+| A     | `@`   | `185.199.110.153`         |
+| A     | `@`   | `185.199.111.153`         |
+| CNAME | `www` | `yourusername.github.io.` |
+
+Remove any existing A or CNAME records for `@` or `www` (e.g. parking/redirect records).
+
+**3. Wait for propagation**
+
+DNS changes can take 15–60 minutes. Periodically click **Check again** in GitHub Pages settings. Once the DNS check passes, the **Enforce HTTPS** checkbox becomes available — check it to serve the site over HTTPS (certificate provisioning may take a few extra minutes).
+
+**4. Update Next.js config and redeploy**
+
+- In `web/next.config.ts`, set `basePath: ''` (or remove it) so assets load from the root.
+- Rebuild and redeploy.
+
+**Optional:** For IPv6 support, add AAAA records for `@` with values `2606:50c0:8000::153`, `2606:50c0:8001::153`, `2606:50c0:8002::153`, `2606:50c0:8003::153`. GitHub usernames in the CNAME value are case-insensitive.
 
 ### Different repository
 
@@ -89,9 +116,10 @@ If the site is deployed from a different repo (e.g. the parent `agents` repo):
 
 ## Troubleshooting
 
-| Issue                                        | Cause                            | Fix                                                                                                                       |
-| -------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| 404 on assets (blank page, broken CSS/JS)    | Wrong `basePath`                 | Ensure `basePath` matches the Pages URL path. For `owner.github.io/safe-ai-factory/`, use `basePath: '/safe-ai-factory'`. |
-| Workflow not running                         | Pages source not set to Actions  | In **Settings** → **Pages**, set Source to **GitHub Actions**.                                                            |
-| Build fails: "Module has no exported member" | Missing export                   | Ensure shared types (e.g. `SectionId`) are exported from their public modules (e.g. `lib/analytics/index.ts`).            |
-| Build fails: lockfile/cache confusion        | Monorepo with multiple lockfiles | `outputFileTracingRoot` in `next.config.ts` pins the root to `web/`; keep it.                                             |
+| Issue                                          | Cause                                  | Fix                                                                                                                                      |
+| ---------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| DNS check unsuccessful / NotServedByPagesError | Propagation delay or wrong DNS records | Verify A records resolve with `dig yourdomain.com`. If correct, wait 15–60 min and click **Check again**. Ensure no conflicting records. |
+| 404 on assets (blank page, broken CSS/JS)      | Wrong `basePath`                       | Ensure `basePath` matches the Pages URL path. For `owner.github.io/safe-ai-factory/`, use `basePath: '/safe-ai-factory'`.                |
+| Workflow not running                           | Pages source not set to Actions        | In **Settings** → **Pages**, set Source to **GitHub Actions**.                                                                           |
+| Build fails: "Module has no exported member"   | Missing export                         | Ensure shared types (e.g. `SectionId`) are exported from their public modules (e.g. `lib/analytics/index.ts`).                           |
+| Build fails: lockfile/cache confusion          | Monorepo with multiple lockfiles       | `outputFileTracingRoot` in `next.config.ts` pins the root to `web/`; keep it.                                                            |

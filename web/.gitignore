@@ -16,6 +16,7 @@ out/
 # Environment
 .env
 .env.*
+!.env.local.example
 
 # IDE
 .idea/

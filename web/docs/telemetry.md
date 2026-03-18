@@ -22,7 +22,7 @@ These events directly measure whether the landing page converts visitors into le
 | ------------------- | ------------------------------------------------------------ | --------------------------------- |
 | `waitlist_open`     | Any "Book a Demo" / "Request Early Access" button is clicked | Measures CTA click-through intent |
 | `waitlist_submit`   | Email is successfully saved to Supabase                      | Measures actual conversion        |
-| `github_star_click` | "Star SAIFAC on GitHub" is clicked in the post-submit step     | Measures double-CTA effectiveness |
+| `github_star_click` | "Star SAIFAC on GitHub" is clicked in the post-submit step   | Measures double-CTA effectiveness |
 
 **Key ratio:** `waitlist_submit / waitlist_open` = form conversion rate.  
 Low ratio → investigate form friction (copy, trust, load time).  
@@ -145,8 +145,8 @@ TypeScript will then require the correct props wherever `track('my_new_event', .
 
 ### Environment variables
 
-| Variable                       | Required      | Description                                                                           |
-| ------------------------------ | ------------- | ------------------------------------------------------------------------------------- |
+| Variable                       | Required      | Description                                                                                  |
+| ------------------------------ | ------------- | -------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | Yes (in prod) | Your site's domain, e.g. `safeaifactory.com`. Leave empty to disable analytics in local dev. |
 
 Set in `.env.local` (copy from `.env.local.example`).
