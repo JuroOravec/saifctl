@@ -1,10 +1,22 @@
 {
   "name": "safe-ai-factory",
   "version": "0.0.0",
-  "description": "Agentic Swarms for Engineering Teams: Spec-driven AI factory. Use with any agentic CLI. Language-agnostic. Safe by design.",
+  "description": "Safety harness for autonomous AI agents: Spec-driven AI factory. Use with any agentic CLI. Language-agnostic. Safe by design.",
   "private": false,
   "type": "module",
   "license": "MIT",
+  "homepage": "https://safeaifactory.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JuroOravec/safe-ai-factory.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JuroOravec/safe-ai-factory/issues"
+  },
+  "author": "Juro Oravec (https://github.com/JuroOravec)",
+  "funding": {
+    "url": "https://github.com/sponsors/JuroOravec"
+  },
   "packageManager": "pnpm@9.15.0",
   "engines": {
     "node": ">=20"
@@ -20,6 +32,23 @@
   },
   "files": [
     "dist"
+  ],
+  "keywords": [
+    "ai-agents",
+    "agentic",
+    "autonomous-agents",
+    "spec-driven",
+    "safe-ai",
+    "sandbox",
+    "zero-trust",
+    "code-generation",
+    "ai-coding",
+    "software-factory",
+    "tdd",
+    "cli",
+    "docker",
+    "typescript",
+    "llm"
   ],
   "scripts": {
     "build": "tsup",

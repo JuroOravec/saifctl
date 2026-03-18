@@ -1,75 +1,60 @@
-# SAIFAC: Agentic Swarms for Engineering Teams
+# SAIFAC: Safety harness for autonomous AI agents
+
+[![Website](https://img.shields.io/badge/Website-safeaifactory.com-blue)](https://safeaifactory.com)
+[![license](https://img.shields.io/npm/l/safe-ai-factory)](https://github.com/JuroOravec/safe-ai-factory/blob/main/LICENSE)
+[![npm version](https://img.shields.io/npm/v/safe-ai-factory)](https://www.npmjs.com/package/safe-ai-factory)
+[![npm downloads](https://img.shields.io/npm/dm/safe-ai-factory)](https://www.npmjs.com/package/safe-ai-factory)
+[![GitHub stars](https://img.shields.io/github/stars/JuroOravec/safe-ai-factory)](https://github.com/JuroOravec/safe-ai-factory)
 
 **Spec-driven AI factory. Use with any agentic CLI. Language-agnostic. Safe by design.**
 
-_Like [GasTown](https://github.com/steveyegge/gastown), but safe, controlled, and working for you._
+_Like [GasTown](https://github.com/steveyegge/gastown), but agents can't cheat, leak, wreak havoc._
 
-> ⚠️ **Status: Alpha.** SAIFAC is under active development. It works well for early adopters, but expect rough edges. Currently supports Docker on Linux/macOS. Kubernetes (Helm) support is planned in the future. See the [Roadmap](https://github.com/users/JuroOravec/projects/3) for what's coming next.
+Full feature preview at [safeaifactory.com](https://safeaifactory.com).
 
-> _[**Sponsor this project**](https://github.com/sponsors/JuroOravec) to ensure its continued development._
+> ⚠️ **Status: Alpha.** SAIFAC is under active development. See the [Roadmap](https://github.com/users/JuroOravec/projects/3) for what's coming next.
+>
+> _[**Sponsor this project**](https://github.com/sponsors/JuroOravec)_
 
 ---
 
-**The era of babysitting AI is over. Welcome to the industrial revolution of software engineering.**
-
-Cursor proved it: autonomous AI agents can build [entire applications](https://cursor.com/blog/scaling-agents) from scratch. But they did it behind closed doors, at massive cost. **safe-ai-factory (SAIFAC)** is the open-source infrastructure handing that exact superpower to your engineering team today.
-
-If your senior developers are still hand-holding Copilot, wrestling with context windows, or reviewing 400-line PRs of hallucinated AI drift - **you are already falling behind.**
-
-While your team argues over boilerplate, a 3-person startup using SAIFAC is shipping at the velocity of a 30-person enterprise. They aren't writing code. They are spawning swarms of autonomous agents, locking them in sandboxes, and letting them grind until the tests pass.
-
-**This is the 10x performance multiplier.** And it's available right now.
-
-## Stop Coding. Start Specifying.
-
-SAIFAC fundamentally flips how your team works. You shift from writing messy code to writing crystal-clear specifications.
+## Stop Coding. Start Spec'ing.
 
 **`safe-ai-factory` implements state-of-the-art (early 2026) architecture for Agentic engineering.**
 
-**SAIFAC's Ironclad Guarantee:** (see [Security & Isolation](./docs/security.md))
+**SAIFAC Guarantee:**
 
-- **The AI builds _exactly_ what you asked for.** It is locked in a loop and physically cannot stop until your new TDD tests pass.
-- **The AI can't break previously-built features.** All features built with SAIFAC are protected by tests. AI can't break or change them. Regressions are mechanically impossible.
-- **The AI breaks _nothing_ on your machine.** It runs in a zero-trust, sandboxed Docker environment. Your existing codebase is untouchable until you approve the final, pristine PR.
+- **The AI builds _exactly_ what you asked for.**
+  - The agent is locked in a loop and physically cannot stop until your new TDD tests pass.
+- **The AI can't break previously-built features.**
+  - All features built with SAIFAC are protected by tests. AI can't break or change them. Regressions are mechanically impossible.
+- **The AI breaks _nothing_ on your machine.**
+  - The agent runs in a zero-trust, sandboxed Docker environment. Your existing codebase is safe.
 
-Give your team the ability to spin up an army of relentless, tireless AI developers on demand. They plug straight into the agents you already use (Claude Code, Aider, OpenHands) and the stack you already run (Node, Python, Go, Rust).
+Read more on [Security & Isolation](./docs/security.md).
 
-## The "Runaway AI" Problem, Solved.
+## The Gauntlet: Merge with Confidence
 
-Why isn't every team doing this yet? Because autonomous agents looping 50 times on a codebase are dangerous. They get confused, they rewrite tests to fake a pass (reward hacking), and they obliterate existing code.
+The AI agent is trapped in a rigorous convergence loop. Every time it writes code, it must survive three stages before opening a PR:
 
-Most teams are terrified to let AI loose on their repo. SAIFAC gives you a bulletproof vest. You can run agents fully unsupervised with **Five Degrees of Security**:
+1. **The Gate:** Your linters, type-checkers, and other static analysis tools.
+2. **The Reviewer:** Adversarial AI that scrutinizes the diff to ensure it matches the spec without taking shortcuts.
+3. **Holdout Tests:** Hidden tests. Agent can't see them. Can't fake a pass.
 
-1. **Docker Isolation:** The agent never touches your host machine. Secrets and `.git` are hidden.
-2. **Read-Only Tests:** The agent is physically blocked from modifying the tests it's graded against. Zero reward hacking.
-3. **Network Leash:** You have full control over outbound calls. No data leaks.
-4. **No state leakage:** The agent's memory is wiped clean every iteration. State lives in Git.
-5. **Human in the Loop:** You only review the final, passing PR. No intermediate garbage.
+You only get notified when the code emerges victorious.
 
-## The Workflow That Obliterates Competitors
+## Batteries-Included
 
-1. **The 1-Paragraph Idea:** You write a tiny proposal: _"Add user login."_
-2. **The Autonomous Architect:** SAIFAC's Spec Designer scans your repo, learns your unique patterns, and outputs a production-ready architectural spec.
-3. **The Iron Contract:** SAIFAC generates rock-solid TDD tests against the spec.
-4. **Unleash the Swarm:** You hit `saifac feat run`. Go grab a coffee. The agent codes, the test runner grades, the loop repeats. It fails, it learns, it fixes.
-5. **You Merge:** The orchestrator automatically opens a pristine Pull Request when the tests pass. You only review the final outcome.
+SAIFAC supports out of the box:
 
-**Result:** Features shipped in minutes, not sprints.
+- All major LLM providers + OpenRouter + OpenAI-compatible APIs
+- 14 Agentic CLI tools
+- 4 Programming languages (Node.js, Python, Go, Rust)
+- All major Git providers
 
-## Batteries-Included Infrastructure
+## Deployment
 
-Don't waste months building your own AI evaluation harness while your competitors are already using ours. SAIFAC is ready for production today:
-
-- **21 LLM providers** supported out-of-the-box
-- **14 Agentic CLI tools** ready to deploy
-- **4 Programming languages** natively supported (Node.js, Python, Go, Rust)
-- **5 Git providers** integrated for seamless PRs
-
-### Future: Fleet Mode
-
-SAIF is designed for scale. While it runs locally today, the architecture natively decouples the CLI client from the orchestration engine. Upcoming releases will introduce **Fleet Mode**, allowing you to deploy the SAIF orchestrator to your Kubernetes cluster. EMs will get total fleet visibility, aggregated compute metrics, and centralized control, while ICs continue using the lightweight CLI.
-
-The transition to agent-driven engineering isn't coming. It's already here. **Are you building the factory, or competing against it?**
+SAIFAC runs as a CLI that spins up coding agents in ephemeral Docker containers on your machine. Self-hosted and Kubernetes (Helm) deployment support is underway.
 
 <youtube video>
 
@@ -127,7 +112,7 @@ The SAIFAC VSCode extension provides a dedicated sidebar panel to manage your en
 
 ## A fully customizable factory
 
-SAIFAC isn't a black box. It's a modular factory where you control every step of the workflow. Swap, customize, or disable to fit your team's exact needs:
+Every component of SAIFAC is fully modular. You can swap, customize, or disable to fit your team's needs:
 
 - Want to use a different LLMs for coding and designing agents? Easy.
 - Want to use your custom Playwright setup for testing? Done.
