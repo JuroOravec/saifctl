@@ -31,7 +31,6 @@ const LEASH_URL = 'https://github.com/strongdm/leash';
 const CEDAR_POLICY_URL = 'https://www.cedarpolicy.com/';
 const DOCS_URL = GITHUB_DOCS_USAGE; // TODO
 const CLI_REFERENCE_URL = GITHUB_DOCS_USAGE; // TODO
-const _WAITLIST_URL = '#'; // TODO: remove once all CTAs use the modal
 const VSCODE_EXTENSION_URL = '#vscode'; // TODO
 const VSCODE_EXTENSION_DOCS_URL = '#vscode'; // TODO
 
@@ -950,6 +949,11 @@ export default function Home() {
                     target="_blank"
                   >
                     GitHub
+                  </a>
+                </li>
+                <li>
+                  <a href="/privacy" className="hover:text-white transition-colors">
+                    Privacy Policy
                   </a>
                 </li>
               </ul>
