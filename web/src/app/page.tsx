@@ -174,7 +174,7 @@ export default function Home() {
             onClick={() => setWaitlistOpen(true)}
             className="px-4 py-1.5 bg-[#00FF66] hover:bg-[#00e05a] text-black font-medium rounded-md transition-colors font-mono text-sm"
           >
-            Book a Demo
+            Get Early Access
           </button>
         </div>
       </nav>
@@ -229,7 +229,7 @@ export default function Home() {
                   onClick={() => setWaitlistOpen(true)}
                   className="px-6 py-3 bg-[#00FF66] hover:bg-[#00e05a] text-black font-bold rounded-md transition-colors"
                 >
-                  Book a Demo
+                  Get Early Access
                 </button>
                 <a
                   href={GITHUB_REPO_TRY_IT}
@@ -863,7 +863,7 @@ export default function Home() {
               onClick={() => setWaitlistOpen(true)}
               className="px-8 py-4 bg-[#00FF66] hover:bg-[#00e05a] text-black font-bold rounded-md transition-colors text-lg"
             >
-              Book a Demo
+              Get Early Access
             </button>
             <a
               href={GITHUB_DOCS_USAGE}
