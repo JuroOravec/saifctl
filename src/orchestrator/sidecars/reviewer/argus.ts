@@ -5,12 +5,12 @@
  * Binaries are stored at src/orchestrator/argus/out/argus-linux-{arch}.
  */
 
-import { existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { mkdirSync, readdirSync } from 'node:fs';
 import { arch } from 'node:os';
 import { join } from 'node:path';
 
 import { getSaifRoot } from '../../../constants.js';
-import { spawnAsync } from '../../../utils/io.js';
+import { pathExists, spawnAsync } from '../../../utils/io.js';
 
 const ARGUS_VERSION = '0.5.2';
 /** GitHub release tag. Argus uses argus-review-vX.Y.Z for the review CLI. */
@@ -40,7 +40,7 @@ function getBinaryPath(hostArch: 'arm64' | 'x64'): string {
  */
 export async function ensureArgusBinary(hostArch: 'arm64' | 'x64'): Promise<string> {
   const binaryPath = getBinaryPath(hostArch);
-  if (existsSync(binaryPath)) {
+  if (await pathExists(binaryPath)) {
     return binaryPath;
   }
 

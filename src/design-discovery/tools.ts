@@ -6,7 +6,6 @@
  * Ad-hoc: Loads JS/TS files via jiti; each file's default export must be an object of tools.
  */
 
-import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { createTool, type Tool } from '@mastra/core/tools';
@@ -17,6 +16,7 @@ import { z } from 'zod';
 
 import type { DiscoveryOptions } from '../cli/utils.js';
 import { getSaifRoot } from '../constants.js';
+import { pathExists } from '../utils/io.js';
 
 const jitiInstance = createJiti(resolve(getSaifRoot(), 'src', 'design-discovery', 'tools.ts'), {
   interopDefault: true,
@@ -91,7 +91,7 @@ async function loadMcpTools(mcpName: string, urlOrValue: string): Promise<Record
  */
 async function loadFileTools(filePath: string, projectDir: string): Promise<Record<string, Tool>> {
   const absolutePath = resolve(projectDir, filePath);
-  if (!existsSync(absolutePath)) {
+  if (!(await pathExists(absolutePath))) {
     console.error(`Error: discovery tool file not found: ${absolutePath}`);
     process.exit(1);
   }

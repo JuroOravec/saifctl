@@ -5,7 +5,7 @@
  * save-on-Ctrl+C artifact persistence, and merging restored config with CLI overrides.
  */
 
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -23,6 +23,7 @@ import {
   gitWorktreeAdd,
   gitWorktreeRemove,
 } from '../utils/git.js';
+import { pathExists } from '../utils/io.js';
 import { type IterativeLoopOpts, type RunStorageContext } from './loop.js';
 import type { OrchestratorOpts } from './modes.js';
 import type { Sandbox } from './sandbox.js';
@@ -191,7 +192,7 @@ export async function saveRunOnError(params: CreateSaveRunHandlerParams): Promis
   const runId = sandbox.runId;
   const patchPath = join(sandbox.sandboxBasePath, 'patch.diff');
 
-  if (!existsSync(patchPath)) return;
+  if (!(await pathExists(patchPath))) return;
 
   const runPatchDiff = readFileSync(patchPath, 'utf8');
   if (!runPatchDiff.trim()) return;
@@ -227,11 +228,11 @@ export interface MergeResumeOptsParams {
  * Merges deserialized config from the stored artifact with CLI opts.
  * User gets all original settings by default but can override via CLI.
  */
-export function mergeResumeOpts(params: MergeResumeOptsParams): OrchestratorOpts {
+export async function mergeResumeOpts(params: MergeResumeOptsParams): Promise<OrchestratorOpts> {
   const { artifact, opts, overrides, worktreePath } = params;
   const { baseCommitSha, basePatchDiff } = artifact;
   const deserialized = deserializeArtifactConfig(artifact.config);
-  const feature = resolveFeature({
+  const feature = await resolveFeature({
     input: deserialized.featureName,
     projectDir: opts.projectDir,
     saifDir: deserialized.saifDir,

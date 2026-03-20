@@ -11,7 +11,7 @@
  * By default existing files are never overwritten. Pass force: true to overwrite.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { getSaifRoot } from '../constants.js';
@@ -19,6 +19,7 @@ import { type ModelOverrides } from '../llm-config.js';
 import type { Feature } from '../specs/discover.js';
 import { type TestProfile } from '../test-profiles/index.js';
 import type { DrainableChunk } from '../utils/drain-stream.js';
+import { pathExists } from '../utils/io.js';
 import { runTestsWriterAgent } from './agents/tests-writer.js';
 import { TestCatalogSchema } from './schema.js';
 
@@ -86,7 +87,7 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
   const testsDir = join(feature.absolutePath, 'tests');
   const catalogPath = join(testsDir, 'tests.json');
 
-  if (!existsSync(catalogPath)) {
+  if (!(await pathExists(catalogPath))) {
     throw new Error(
       `tests.json not found at ${catalogPath}. Run 'saifac feat design -n ${feature.name}' first.`,
     );
@@ -110,7 +111,7 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
 
   // Write shared helpers from the profile's template — skip if already exists (unless force).
   const helpersPath = join(testsDir, testProfile.helpersFilename);
-  if (!existsSync(helpersPath) || force) {
+  if (!(await pathExists(helpersPath)) || force) {
     const helpersTemplate = readTemplate(testProfile.id, testProfile.helpersFilename);
     writeFileSync(helpersPath, helpersTemplate, 'utf8');
     console.log(`[design-tests:write] Written ${helpersPath}`);
@@ -121,7 +122,7 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
   // Write sidecar health checks from the profile's template, if the profile has one.
   if (testProfile.infraFilename) {
     const infraPath = join(testsDir, testProfile.infraFilename);
-    if (!existsSync(infraPath) || force) {
+    if (!(await pathExists(infraPath)) || force) {
       const infraTemplate = readTemplate(testProfile.id, testProfile.infraFilename);
       writeFileSync(infraPath, infraTemplate, 'utf8');
       console.log(`[design-tests:write] Written ${infraPath}`);
@@ -160,7 +161,7 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
       batch.map(async ([entrypoint, testCases]) => {
         const specPath = join(testsDir, entrypoint);
 
-        if (existsSync(specPath) && !force) {
+        if ((await pathExists(specPath)) && !force) {
           console.log(`[design-tests:write] Skipped ${entrypoint} (already exists)`);
           skippedFiles.push(entrypoint);
           return;

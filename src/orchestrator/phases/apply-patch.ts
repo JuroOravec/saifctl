@@ -2,7 +2,7 @@
  * Phase: apply-patch — apply sandbox patch to host via git worktree.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { generatePRSummary } from '../../git/agents/pr-summarizer.js';
@@ -19,6 +19,7 @@ import {
   gitWorktreePrune,
   gitWorktreeRemove,
 } from '../../utils/git.js';
+import { pathExists } from '../../utils/io.js';
 
 export type { OrchestratorResult } from '../loop.js';
 
@@ -68,7 +69,7 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
   const sandboxBasePath = join(codePath, '..');
   const patchFile = join(sandboxBasePath, 'patch.diff');
 
-  if (!existsSync(patchFile)) {
+  if (!(await pathExists(patchFile))) {
     console.warn('[orchestrator] No patch.diff found in sandbox; skipping host apply');
     return;
   }

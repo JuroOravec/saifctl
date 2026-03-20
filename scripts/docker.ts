@@ -10,7 +10,7 @@
  *   clear            Remove factory containers/images (scoped to project; --all: everything)
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { defineCommand, runMain } from 'citty';
@@ -31,7 +31,7 @@ import {
   SUPPORTED_PROFILES,
   type TestProfile,
 } from '../src/test-profiles/index.js';
-import { spawnAsync, spawnCapture } from '../src/utils/io.js';
+import { pathExists, spawnAsync, spawnCapture } from '../src/utils/io.js';
 
 function parseProjectName(opts: { project?: string }): string {
   const fromOpt =
@@ -96,7 +96,7 @@ const testBuildCommand = defineCommand({
       if (!buildAll) validateImageTag(tag, '--test-image');
 
       const dockerfilePath = resolveTestDockerfilePath(profile.id);
-      if (!existsSync(dockerfilePath)) {
+      if (!(await pathExists(dockerfilePath))) {
         console.error(`${dockerfilePath} not found for profile ${profile.id}`);
         process.exit(1);
       }
@@ -142,7 +142,7 @@ const coderBaseBuildCommand = defineCommand({
     if (args['coder-base-image']) validateImageTag(tag, '--coder-base-image');
 
     const dockerfilePath = resolve(repoRoot, 'Dockerfile.coder-base');
-    if (!existsSync(dockerfilePath)) {
+    if (!(await pathExists(dockerfilePath))) {
       console.error(`Dockerfile.coder-base not found at ${dockerfilePath}`);
       process.exit(1);
     }
@@ -206,7 +206,7 @@ const coderBuildCommand = defineCommand({
       if (!buildAll && args['coder-image']) validateImageTag(tag, '--coder-image');
 
       const dockerfilePath = resolveSandboxCoderDockerfilePath(profile.id);
-      if (!existsSync(dockerfilePath)) {
+      if (!(await pathExists(dockerfilePath))) {
         console.error(`${dockerfilePath} not found for profile ${profile.id}`);
         process.exit(1);
       }
@@ -274,7 +274,7 @@ const stageBuildCommand = defineCommand({
       if (!buildAll && args['stage-image']) validateImageTag(tag, '--stage-image');
 
       const dockerfilePath = resolveSandboxStageDockerfilePath(profile.id);
-      if (!existsSync(dockerfilePath)) {
+      if (!(await pathExists(dockerfilePath))) {
         console.error(`${dockerfilePath} not found for profile ${profile.id}`);
         process.exit(1);
       }

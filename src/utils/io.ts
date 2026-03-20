@@ -1,4 +1,15 @@
 import { spawn, type StdioOptions } from 'node:child_process';
+import { access } from 'node:fs/promises';
+
+/** True if `path` is reachable (same idea as {@link import('node:fs').existsSync}). */
+export async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export interface SpawnAsyncOpts {
   command: string;

@@ -129,12 +129,16 @@ export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifTreeIte
 
   private async getFeatures(projectPath: string): Promise<FeatureItem[]> {
     let saifBase = path.join(projectPath, 'saifac');
-    if (!fs.existsSync(saifBase)) {
+    try {
+      await fs.promises.access(saifBase);
+    } catch {
       saifBase = path.join(projectPath, 'saifac');
     }
 
     const featuresDirPath = path.join(saifBase, 'features');
-    if (!fs.existsSync(featuresDirPath)) {
+    try {
+      await fs.promises.access(featuresDirPath);
+    } catch {
       return [];
     }
 

@@ -7,7 +7,7 @@
  * Outputs are written to saifac/features/<featureName>/tests/
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { Tool } from '@mastra/core/tools';
@@ -17,6 +17,7 @@ import { type ModelOverrides } from '../llm-config.js';
 import type { Feature } from '../specs/discover.js';
 import { type TestProfile } from '../test-profiles/index.js';
 import { type DrainableChunk, drainFullStream } from '../utils/drain-stream.js';
+import { pathExists } from '../utils/io.js';
 import { runCatalogAgent } from './agents/tests-catalog.js';
 import { buildPlannerPrompt, createTestsPlannerAgent } from './agents/tests-planner.js';
 import type { TestCatalog } from './schema.js';
@@ -60,16 +61,16 @@ export interface RunTestsDesignResult {
  * Reads all spec files from the feature directory (recursively, text files only).
  * Returns a map of relative path → file content.
  */
-function readFeatureFiles(featureDir: string): Record<string, string> {
+async function readFeatureFiles(featureDir: string): Promise<Record<string, string>> {
   const files: Record<string, string> = {};
 
-  function walk(dir: string, prefix: string): void {
-    if (!existsSync(dir)) return;
+  async function walk(dir: string, prefix: string): Promise<void> {
+    if (!(await pathExists(dir))) return;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const fullPath = join(dir, entry.name);
       const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
       if (entry.isDirectory()) {
-        walk(fullPath, relPath);
+        await walk(fullPath, relPath);
       } else if (entry.isFile() && /\.(md|json|txt|yaml|yml)$/.test(entry.name)) {
         try {
           files[relPath] = readFileSync(fullPath, 'utf8');
@@ -80,7 +81,7 @@ function readFeatureFiles(featureDir: string): Record<string, string> {
     }
   }
 
-  walk(featureDir, '');
+  await walk(featureDir, '');
   return files;
 }
 
@@ -149,7 +150,7 @@ export async function runDesignTests(opts: RunTestsDesignOpts): Promise<RunTests
   const testsDir = join(feature.absolutePath, 'tests');
 
   console.log(`[design-tests:plan] Reading spec files from ${feature.absolutePath}`);
-  const featureFiles = readFeatureFiles(feature.absolutePath);
+  const featureFiles = await readFeatureFiles(feature.absolutePath);
 
   if (Object.keys(featureFiles).length === 0) {
     throw new Error(

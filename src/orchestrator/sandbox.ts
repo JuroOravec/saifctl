@@ -21,14 +21,7 @@
  *       ...rest of repo...
  */
 
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs';
+import { chmodSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { minimatch } from 'minimatch';
@@ -44,12 +37,12 @@ import {
   gitInit,
   gitResetHard,
 } from '../utils/git.js';
-import { spawnAsync } from '../utils/io.js';
+import { pathExists, spawnAsync } from '../utils/io.js';
 
 /** Recursively removes all directories named "hidden" under baseDir. Exported for testing. */
 export async function removeAllHiddenDirs(baseDir: string): Promise<number> {
   let removed = 0;
-  if (!existsSync(baseDir)) return removed;
+  if (!(await pathExists(baseDir))) return removed;
 
   const entries = readdirSync(baseDir, { withFileTypes: true });
   for (const entry of entries) {
@@ -237,7 +230,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
 
   // Read the test catalog to discover which tests are hidden.
   const testsJsonPath = join(feature.absolutePath, 'tests', 'tests.json');
-  if (!existsSync(testsJsonPath)) {
+  if (!(await pathExists(testsJsonPath))) {
     throw new Error(
       `tests.json not found at ${testsJsonPath}. Run 'saifac feat design -n ${feature.name}' first.`,
     );
@@ -439,7 +432,7 @@ function isExcluded(filePath: string, rules: PatchExcludeRule[]): boolean {
  * Used by 'test' mode to inject a candidate implementation.
  */
 export async function applyPatch(codePath: string, patchPath: string): Promise<void> {
-  if (!existsSync(patchPath)) {
+  if (!(await pathExists(patchPath))) {
     throw new Error(`Patch file not found: ${patchPath}`);
   }
   console.log(`[sandbox] Applying patch from ${patchPath}`);

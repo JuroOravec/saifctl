@@ -58,57 +58,57 @@ describe('discover-features', () => {
   });
 
   describe('discoverFeatures', () => {
-    it('finds flat features', () => {
+    it('finds flat features', async () => {
       mkdirSync(join(TEST_BASE, 'saifac'), { recursive: true });
       createDir('saifac/features/my-feat');
       createDir('saifac/features/add-login');
 
-      const map = discoverFeatures(TEST_BASE, 'saifac');
+      const map = await discoverFeatures(TEST_BASE, 'saifac');
       expect(map.size).toBe(2);
       expect(map.get('my-feat')).toContain('my-feat');
       expect(map.get('add-login')).toContain('add-login');
     });
 
-    it('finds features inside groups with path-based IDs', () => {
+    it('finds features inside groups with path-based IDs', async () => {
       mkdirSync(join(TEST_BASE, 'saifac'), { recursive: true });
       createDir('saifac/features/(auth)/login');
       createDir('saifac/features/(auth)/logout');
       createDir('saifac/features/(core)/profile');
 
-      const map = discoverFeatures(TEST_BASE, 'saifac');
+      const map = await discoverFeatures(TEST_BASE, 'saifac');
       expect(map.size).toBe(3);
       expect(map.get('(auth)/login')).toContain('login');
       expect(map.get('(auth)/logout')).toContain('logout');
       expect(map.get('(core)/profile')).toContain('profile');
     });
 
-    it('treats same leaf name in different groups as distinct features', () => {
+    it('treats same leaf name in different groups as distinct features', async () => {
       mkdirSync(join(TEST_BASE, 'saifac'), { recursive: true });
       createDir('saifac/features/(auth)/router');
       createDir('saifac/features/(user)/router');
 
-      const map = discoverFeatures(TEST_BASE, 'saifac');
+      const map = await discoverFeatures(TEST_BASE, 'saifac');
       expect(map.size).toBe(2);
       expect(map.get('(auth)/router')).toBeDefined();
       expect(map.get('(user)/router')).toBeDefined();
     });
 
-    it('includes all non-group dirs (path-based)', () => {
+    it('includes all non-group dirs (path-based)', async () => {
       mkdirSync(join(TEST_BASE, 'saifac'), { recursive: true });
       createDir('saifac/features/valid-feat');
       mkdirSync(join(TEST_BASE, 'saifac', 'features', 'no-spec'), { recursive: true });
 
-      const map = discoverFeatures(TEST_BASE, 'saifac');
+      const map = await discoverFeatures(TEST_BASE, 'saifac');
       expect(map.size).toBe(2);
       expect(map.has('valid-feat')).toBe(true);
       expect(map.has('no-spec')).toBe(true);
     });
 
-    it('scans saifac/features', () => {
+    it('scans saifac/features', async () => {
       mkdirSync(join(TEST_BASE, 'saifac'), { recursive: true });
       createDir('saifac/features/feat-a');
 
-      const map = discoverFeatures(TEST_BASE, 'saifac');
+      const map = await discoverFeatures(TEST_BASE, 'saifac');
       expect(map.size).toBe(1);
       expect(map.get('feat-a')).toContain('feat-a');
     });

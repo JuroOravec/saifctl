@@ -35,7 +35,7 @@ const initCommand = defineCommand({
     const indexerProfile = resolveIndexerProfile(args.indexer);
     const projectName = resolveProjectName(args, projectDir);
 
-    const scaffolded = scaffoldSaifConfig(saifDir, projectDir);
+    const scaffolded = await scaffoldSaifConfig(saifDir, projectDir);
     if (scaffolded) {
       console.log(`\nCreated ${saifDir}/config.ts (no config found).`);
     }

@@ -23,19 +23,19 @@ describe('loadSaifConfig', () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  it('returns empty config when saifac dir does not exist', () => {
-    const config = loadSaifConfig('saifac', projectDir);
+  it('returns empty config when saifac dir does not exist', async () => {
+    const config = await loadSaifConfig('saifac', projectDir);
     expect(config).toEqual({});
   });
 
-  it('returns empty config when saifac dir exists but has no config file', () => {
+  it('returns empty config when saifac dir exists but has no config file', async () => {
     const saifDir = join(projectDir, 'saifac');
     mkdirSync(saifDir, { recursive: true });
-    const config = loadSaifConfig('saifac', projectDir);
+    const config = await loadSaifConfig('saifac', projectDir);
     expect(config).toEqual({});
   });
 
-  it('loads config.json and parses defaults', () => {
+  it('loads config.json and parses defaults', async () => {
     const saifDir = join(projectDir, 'saifac');
     mkdirSync(saifDir, { recursive: true });
     writeFileSync(
@@ -50,7 +50,7 @@ describe('loadSaifConfig', () => {
       }),
     );
 
-    const config = loadSaifConfig('saifac', projectDir);
+    const config = await loadSaifConfig('saifac', projectDir);
     expect(config.defaults).toBeDefined();
     expect(config.defaults?.maxRuns).toBe(10);
     expect(config.defaults?.testRetries).toBe(2);
@@ -58,7 +58,7 @@ describe('loadSaifConfig', () => {
     expect(config.defaults?.globalModel).toBe('anthropic/claude-sonnet-4');
   });
 
-  it('loads config.js (CommonJS-style export)', () => {
+  it('loads config.js (CommonJS-style export)', async () => {
     const saifDir = join(projectDir, 'saifac');
     mkdirSync(saifDir, { recursive: true });
     // cosmiconfig loads .js; we use module.exports
@@ -67,23 +67,23 @@ describe('loadSaifConfig', () => {
       "module.exports = { defaults: { maxRuns: 7, globalStorage: 'memory' } };",
     );
 
-    const config = loadSaifConfig('saifac', projectDir);
+    const config = await loadSaifConfig('saifac', projectDir);
     expect(config.defaults?.maxRuns).toBe(7);
     expect(config.defaults?.globalStorage).toBe('memory');
   });
 
-  it('prefers config.json when both config.json and config.js exist', () => {
+  it('prefers config.json when both config.json and config.js exist', async () => {
     const saifDir = join(projectDir, 'saifac');
     mkdirSync(saifDir, { recursive: true });
     writeFileSync(join(saifDir, 'config.json'), JSON.stringify({ defaults: { maxRuns: 3 } }));
     writeFileSync(join(saifDir, 'config.js'), 'module.exports = { defaults: { maxRuns: 99 } };');
 
-    const config = loadSaifConfig('saifac', projectDir);
+    const config = await loadSaifConfig('saifac', projectDir);
     // cosmiconfig search order: config.json is typically before config.js in searchPlaces
     expect([3, 99]).toContain(config.defaults?.maxRuns);
   });
 
-  it('parses storage as globalStorage and storages', () => {
+  it('parses storage as globalStorage and storages', async () => {
     const saifDir = join(projectDir, 'saifac');
     mkdirSync(saifDir, { recursive: true });
     writeFileSync(
@@ -96,12 +96,12 @@ describe('loadSaifConfig', () => {
       }),
     );
 
-    const config = loadSaifConfig('saifac', projectDir);
+    const config = await loadSaifConfig('saifac', projectDir);
     expect(config.defaults?.globalStorage).toBe('s3');
     expect(config.defaults?.storages).toEqual({ runs: 'local', tasks: 's3://bucket/tasks' });
   });
 
-  it('parses agentEnv object', () => {
+  it('parses agentEnv object', async () => {
     const saifDir = join(projectDir, 'saifac');
     mkdirSync(saifDir, { recursive: true });
     writeFileSync(
@@ -113,14 +113,14 @@ describe('loadSaifConfig', () => {
       }),
     );
 
-    const config = loadSaifConfig('saifac', projectDir);
+    const config = await loadSaifConfig('saifac', projectDir);
     expect(config.defaults?.agentEnv).toEqual({
       OPENAI_API_KEY: 'sk-test',
       CUSTOM_VAR: 'value',
     });
   });
 
-  it('exits on invalid config (wrong type)', () => {
+  it('exits on invalid config (wrong type)', async () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never);
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -131,7 +131,7 @@ describe('loadSaifConfig', () => {
       JSON.stringify({ defaults: { maxRuns: 'not-a-number' } }),
     );
 
-    loadSaifConfig('saifac', projectDir);
+    await loadSaifConfig('saifac', projectDir);
 
     expect(exitSpy).toHaveBeenCalledWith(1);
     expect(consoleSpy).toHaveBeenCalled();

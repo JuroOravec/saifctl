@@ -11,8 +11,10 @@
  *   saifac/features/(user)/router/       -> feature: (user)/router  (distinct from above)
  */
 
-import { existsSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
+
+import { pathExists } from '../utils/io.js';
 
 /** Canonical feature descriptor. Paths computed once, passed through. */
 export interface Feature {
@@ -52,13 +54,16 @@ export function featureNameToSafeSlug(featureName: string): string {
  *
  * @returns Map<featureId, absolutePath> where featureId is the relative path
  */
-export function discoverFeatures(projectDir: string, saifDir: string): Map<string, string> {
+export async function discoverFeatures(
+  projectDir: string,
+  saifDir: string,
+): Promise<Map<string, string>> {
   const baseDir = join(projectDir, saifDir, 'features');
 
   const features = new Map<string, string>();
 
-  function scan(currentPath: string, relativePrefix: string): void {
-    if (!existsSync(currentPath)) return;
+  async function scan(currentPath: string, relativePrefix: string): Promise<void> {
+    if (!(await pathExists(currentPath))) return;
 
     const entries = readdirSync(currentPath, { withFileTypes: true });
 
@@ -69,14 +74,14 @@ export function discoverFeatures(projectDir: string, saifDir: string): Map<strin
       const relativePath = relativePrefix ? `${relativePrefix}/${entry.name}` : entry.name;
 
       if (isGroupDir(entry.name)) {
-        scan(fullPath, relativePath);
+        await scan(fullPath, relativePath);
       } else {
         features.set(relativePath, fullPath);
       }
     }
   }
 
-  scan(baseDir, '');
+  await scan(baseDir, '');
   return features;
 }
 
@@ -104,13 +109,13 @@ function resolveInputToSlug(input: string, map: Map<string, string>): string {
  *
  * @throws Error if the feature is not found.
  */
-export function resolveFeature(opts: {
+export async function resolveFeature(opts: {
   input: string;
   projectDir: string;
   saifDir: string;
-}): Feature {
+}): Promise<Feature> {
   const { input, projectDir, saifDir } = opts;
-  const map = discoverFeatures(projectDir, saifDir);
+  const map = await discoverFeatures(projectDir, saifDir);
   const slug = resolveInputToSlug(input, map);
   const byDisplay = map.get(input);
   const absolutePath = byDisplay ?? findPathBySlug(map, slug)!;

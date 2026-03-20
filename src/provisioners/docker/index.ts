@@ -15,7 +15,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { arch } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -30,7 +30,7 @@ import {
 } from '../../sandbox-profiles/index.js';
 import type { Feature } from '../../specs/discover.js';
 import { createTarArchive } from '../../utils/archive.js';
-import { spawnAsync, spawnWait } from '../../utils/io.js';
+import { pathExists, spawnAsync, spawnWait } from '../../utils/io.js';
 import type {
   AgentResult,
   Provisioner,
@@ -97,7 +97,7 @@ const STAGING_START_SCRIPT = readFileSync(
 
 const CODER_START_SCRIPT = join(getSaifRoot(), 'src', 'orchestrator', 'scripts', 'coder-start.sh');
 
-const SIDECAR_BINARY = loadSidecarBinary();
+let sidecarBinaryCache: Buffer | null = null;
 
 /** In-container workspace path that Leash bind-mounts the sandbox into. */
 const CONTAINER_WORKSPACE = '/workspace';
@@ -197,7 +197,7 @@ export class DockerProvisioner implements Provisioner {
       this.composeProjectName = `saifac-${runId.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
       const absoluteFile = resolve(projectDir, this.composeFile);
 
-      if (!existsSync(absoluteFile)) {
+      if (!(await pathExists(absoluteFile))) {
         throw new Error(
           `[docker] Compose file not found: "${this.composeFile}" (resolved: ${absoluteFile}). ` +
             `Check environments.coding.file or environments.staging.file in saifac/config.ts.`,
@@ -287,8 +287,9 @@ export class DockerProvisioner implements Provisioner {
     });
 
     // Inject sidecar binary and staging-start.sh via putArchive (preserves +x bit)
+    const sidecarBinary = await getSidecarBinary();
     const tarBuffer = createTarArchive([
-      { filename: 'sidecar', content: SIDECAR_BINARY, mode: '0000755' },
+      { filename: 'sidecar', content: sidecarBinary, mode: '0000755' },
       { filename: 'staging-start.sh', content: STAGING_START_SCRIPT, mode: '0000755' },
     ]);
     await container.putArchive(tarBuffer, { path: '/factory' });
@@ -337,11 +338,17 @@ export class DockerProvisioner implements Provisioner {
     const helpersFile = join(testsDir, 'helpers.ts');
     const infraFile = join(testsDir, 'infra.spec.ts');
 
+    const [hasPublic, hasHidden, hasHelpers, hasInfra] = await Promise.all([
+      pathExists(publicDir),
+      pathExists(hiddenDir),
+      pathExists(helpersFile),
+      pathExists(infraFile),
+    ]);
     const binds = [
-      ...(existsSync(publicDir) ? [`${publicDir}:${containerTestsDir}/public:ro`] : []),
-      ...(existsSync(hiddenDir) ? [`${hiddenDir}:${containerTestsDir}/hidden:ro`] : []),
-      ...(existsSync(helpersFile) ? [`${helpersFile}:${containerTestsDir}/helpers.ts:ro`] : []),
-      ...(existsSync(infraFile) ? [`${infraFile}:${containerTestsDir}/infra.spec.ts:ro`] : []),
+      ...(hasPublic ? [`${publicDir}:${containerTestsDir}/public:ro`] : []),
+      ...(hasHidden ? [`${hiddenDir}:${containerTestsDir}/hidden:ro`] : []),
+      ...(hasHelpers ? [`${helpersFile}:${containerTestsDir}/helpers.ts:ro`] : []),
+      ...(hasInfra ? [`${infraFile}:${containerTestsDir}/infra.spec.ts:ro`] : []),
       `${testScriptPath}:/usr/local/bin/test.sh:ro`,
     ];
 
@@ -432,7 +439,7 @@ export class DockerProvisioner implements Provisioner {
     }
 
     const testSuites =
-      reportPath && existsSync(reportPath) ? parseJUnitXmlFromFile(reportPath) : undefined;
+      reportPath && (await pathExists(reportPath)) ? parseJUnitXmlFromFile(reportPath) : undefined;
 
     return {
       status: StatusCode === 0 ? 'passed' : 'failed',
@@ -468,7 +475,7 @@ export class DockerProvisioner implements Provisioner {
     } = opts;
 
     const safeAgentEnv = filterAgentEnv(agentEnv);
-    const taskPrompt = buildTaskPrompt({ codePath, task, saifDir, feature, errorFeedback });
+    const taskPrompt = await buildTaskPrompt({ codePath, task, saifDir, feature, errorFeedback });
     const llmModel = llmConfig.fullModelString;
     const llmApiKey = llmConfig.apiKey;
     const llmProvider = llmConfig.provider;
@@ -562,7 +569,7 @@ export class DockerProvisioner implements Provisioner {
         }
       }
 
-      if (existsSync(cedarPolicyPath)) {
+      if (await pathExists(cedarPolicyPath)) {
         leashArgs.push('--policy', cedarPolicyPath);
         console.log(`[agent-runner] Cedar policy: ${cedarPolicyPath}`);
       } else {
@@ -773,7 +780,7 @@ export class DockerProvisioner implements Provisioner {
 
     if (dockerfile) {
       dockerfilePath = resolve(projectDir, dockerfile);
-      if (!existsSync(dockerfilePath)) {
+      if (!(await pathExists(dockerfilePath))) {
         throw new Error(
           `[docker] config environments.staging.app.build.dockerfile "${dockerfile}" not found at ${dockerfilePath}`,
         );
@@ -781,7 +788,7 @@ export class DockerProvisioner implements Provisioner {
       console.log(`[docker] Using custom Dockerfile: ${dockerfilePath}`);
     } else {
       dockerfilePath = resolveSandboxStageDockerfilePath(sandboxProfileId);
-      if (!existsSync(dockerfilePath)) {
+      if (!(await pathExists(dockerfilePath))) {
         throw new Error(
           `[docker] Profile "${sandboxProfileId}" requires Dockerfile.stage at ${dockerfilePath} but it is missing.`,
         );
@@ -1123,7 +1130,7 @@ interface BuildTaskPromptOpts {
   errorFeedback?: string;
 }
 
-function buildTaskPrompt(opts: BuildTaskPromptOpts): string {
+async function buildTaskPrompt(opts: BuildTaskPromptOpts): Promise<string> {
   const { codePath, task, saifDir, feature, errorFeedback } = opts;
   let planContent = '';
 
@@ -1132,7 +1139,7 @@ function buildTaskPrompt(opts: BuildTaskPromptOpts): string {
   planCandidates.push(join(codePath, 'plan.md'));
 
   for (const p of planCandidates) {
-    if (existsSync(p)) {
+    if (await pathExists(p)) {
       planContent = readFileSync(p, 'utf8');
       break;
     }
@@ -1160,7 +1167,10 @@ function buildTaskPrompt(opts: BuildTaskPromptOpts): string {
 // Sidecar binary loader (moved from staging.ts)
 // ---------------------------------------------------------------------------
 
-function loadSidecarBinary(): Buffer {
+async function getSidecarBinary(): Promise<Buffer> {
+  // Loaded lazily to avoid blocking startup.
+  if (sidecarBinaryCache) return sidecarBinaryCache;
+
   const hostArch = arch();
   const binaryName = hostArch === 'arm64' ? 'sidecar-linux-arm64' : 'sidecar-linux-amd64';
   const binaryPath = join(
@@ -1173,7 +1183,7 @@ function loadSidecarBinary(): Buffer {
     binaryName,
   );
 
-  if (!existsSync(binaryPath)) {
+  if (!(await pathExists(binaryPath))) {
     throw new Error(
       `[sidecar] Pre-compiled sidecar binary not found at ${binaryPath}. ` +
         `Run: cd src/orchestrator/sidecars/cli-over-http && ` +
@@ -1181,7 +1191,8 @@ function loadSidecarBinary(): Buffer {
     );
   }
 
-  return readFileSync(binaryPath);
+  sidecarBinaryCache = readFileSync(binaryPath);
+  return sidecarBinaryCache;
 }
 
 function sleep(ms: number): Promise<void> {

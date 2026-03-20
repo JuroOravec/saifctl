@@ -14,7 +14,7 @@
  *   Alias: saifac feature
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { cancel, confirm, intro, isCancel, outro, text } from '@clack/prompts';
@@ -35,6 +35,7 @@ import type { ModelOverrides } from '../../llm-config.js';
 import { runDebug, runFail2Pass, runStart } from '../../orchestrator/modes.js';
 import { readSandboxGateScript } from '../../sandbox-profiles/index.js';
 import type { Feature } from '../../specs/discover.js';
+import { pathExists } from '../../utils/io.js';
 import {
   featRunArgs,
   featTestsArgs,
@@ -265,7 +266,7 @@ async function _runDesignDiscovery(args: {
 }) {
   const projectDir = parseProjectDir(args);
   const saifDir = parseSaifDir(args);
-  const config = loadSaifConfig(saifDir, projectDir);
+  const config = await loadSaifConfig(saifDir, projectDir);
   const feature = await getFeatOrPrompt(args, projectDir);
   const discovery = parseDiscoveryOptions(args, projectDir, config);
   if (!shouldRunDiscovery(discovery)) {
@@ -298,7 +299,7 @@ async function _runDesignSpecs(args: {
 }) {
   const projectDir = parseProjectDir(args);
   const saifDir = parseSaifDir(args);
-  const config = loadSaifConfig(saifDir, projectDir);
+  const config = await loadSaifConfig(saifDir, projectDir);
   const nonInteractive = args.yes === true;
   const force = args.force === true;
   if (nonInteractive && !getFeatNameFromArgs(args)) {
@@ -336,9 +337,11 @@ async function _runDesignSpecs(args: {
   const proposalPath = join(feature.absolutePath, 'proposal.md');
   const discoveryPath = join(feature.absolutePath, 'discovery.md');
   let designerPrompt: string | undefined;
-  if (existsSync(proposalPath) || existsSync(discoveryPath)) {
-    const proposalContent = existsSync(proposalPath) ? readFileSync(proposalPath, 'utf8') : '';
-    const discoveryContent = existsSync(discoveryPath) ? readFileSync(discoveryPath, 'utf8') : '';
+  const hasProposal = await pathExists(proposalPath);
+  const hasDiscovery = await pathExists(discoveryPath);
+  if (hasProposal || hasDiscovery) {
+    const proposalContent = hasProposal ? readFileSync(proposalPath, 'utf8') : '';
+    const discoveryContent = hasDiscovery ? readFileSync(discoveryPath, 'utf8') : '';
     designerPrompt =
       proposalContent +
       (discoveryContent
@@ -497,7 +500,7 @@ const designTestsCommand = defineCommand({
   async run({ args }) {
     const projectDir = parseProjectDir(args);
     const saifDir = parseSaifDir(args);
-    const config = loadSaifConfig(saifDir, projectDir);
+    const config = await loadSaifConfig(saifDir, projectDir);
     const feature = await getFeatOrPrompt(args, projectDir);
     const overrides = parseModelOverrides(args, config);
 
@@ -594,7 +597,7 @@ const designFail2passCommand = defineCommand({
   async run({ args }) {
     const projectDir = parseProjectDir(args);
     const saifDir = parseSaifDir(args);
-    const config = loadSaifConfig(saifDir, projectDir);
+    const config = await loadSaifConfig(saifDir, projectDir);
     const feature = await getFeatOrPrompt(args, projectDir);
     await _runDesignFail2pass({
       feature,
@@ -624,7 +627,7 @@ const designCommand = defineCommand({
   async run({ args }) {
     const projectDir = parseProjectDir(args);
     const saifDir = parseSaifDir(args);
-    const config = loadSaifConfig(saifDir, projectDir);
+    const config = await loadSaifConfig(saifDir, projectDir);
     const discovery = parseDiscoveryOptions(args, projectDir, config);
 
     // 0. Design-discovery (when mcps or tools configured)
@@ -701,7 +704,7 @@ const runCommand = defineCommand({
 export const parseRunArgs = async (args: ParsedArgsFromCommand<typeof runCommand>) => {
   const projectDir = parseProjectDir(args);
   const saifDir = parseSaifDir(args);
-  const config = loadSaifConfig(saifDir, projectDir);
+  const config = await loadSaifConfig(saifDir, projectDir);
 
   const feature = await getFeatOrPrompt(args, projectDir);
   const runArgs = args as FeatRunArgs;
@@ -736,7 +739,7 @@ export const parseRunArgs = async (args: ParsedArgsFromCommand<typeof runCommand
 
   const gateRetries = parseGateRetries(runArgs, config);
   const reviewerEnabled = parseReviewerEnabled(runArgs, config);
-  const agentEnv = parseAgentEnv({ args: runArgs, projectDir, config });
+  const agentEnv = await parseAgentEnv({ args: runArgs, projectDir, config });
   const agentLogFormat = parseAgentLogFormat(runArgs, agentProfile, config);
   const push = parsePush(runArgs, config);
   const pr = parsePr(runArgs, config);
@@ -818,7 +821,7 @@ const debugCommand = defineCommand({
   async run({ args }) {
     const projectDir = parseProjectDir(args);
     const saifDir = parseSaifDir(args);
-    const config = loadSaifConfig(saifDir, projectDir);
+    const config = await loadSaifConfig(saifDir, projectDir);
     const feature = await getFeatOrPrompt(args, projectDir);
     const sandboxBaseDir = parseSandboxBaseDir(args, config);
     const projectName = resolveProjectName(args, projectDir, config);
@@ -829,7 +832,7 @@ const debugCommand = defineCommand({
       parseStageScript({ args, projectDir, config }),
     ]);
 
-    const gateScript = readSandboxGateScript(sandboxProfile.id);
+    const gateScript = await readSandboxGateScript(sandboxProfile.id);
     const agentStartScript = readFileSync(
       resolveAgentStartScriptPath(DEFAULT_AGENT_PROFILE.id),
       'utf8',

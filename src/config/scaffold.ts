@@ -2,8 +2,10 @@
  * Scaffold config.ts when no config file exists.
  */
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+
+import { pathExists } from '../utils/io.js';
 
 const CONFIG_TEMPLATE = `import type { SaifConfig } from 'safe-ai-factory';
 
@@ -63,16 +65,16 @@ const SEARCH_PLACES = [
  * @param projectDir - Project root
  * @returns true if a config was scaffolded, false if one already existed
  */
-export function scaffoldSaifConfig(saifDir: string, projectDir: string): boolean {
+export async function scaffoldSaifConfig(saifDir: string, projectDir: string): Promise<boolean> {
   const configDir = resolve(projectDir, saifDir);
 
   for (const name of SEARCH_PLACES) {
-    if (existsSync(resolve(configDir, name))) {
+    if (await pathExists(resolve(configDir, name))) {
       return false; // config already exists
     }
   }
 
-  if (!existsSync(configDir)) {
+  if (!(await pathExists(configDir))) {
     mkdirSync(configDir, { recursive: true });
   }
 

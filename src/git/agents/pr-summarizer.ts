@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { Agent } from '@mastra/core/agent';
@@ -89,9 +89,9 @@ function buildPRSummaryPrompt(opts: {
   return sections.join('\n\n');
 }
 
-function readFileSafe(path: string): string {
+async function readFileSafe(path: string): Promise<string> {
   try {
-    return existsSync(path) ? readFileSync(path, 'utf8') : '';
+    return await readFile(path, 'utf8');
   } catch {
     return '';
   }
@@ -138,11 +138,11 @@ export async function generatePRSummary(opts: GeneratePRSummaryOpts): Promise<PR
   const { feature, patchFile, overrides = {} } = opts;
   const prSummarizerAgent = createPRSummarizerAgent(overrides);
 
-  const specContent = readFileSafe(join(feature.absolutePath, 'specification.md'));
-  const proposalContent = readFileSafe(join(feature.absolutePath, 'proposal.md'));
-  const tasksContent = readFileSafe(join(feature.absolutePath, 'tasks.md'));
+  const specContent = await readFileSafe(join(feature.absolutePath, 'specification.md'));
+  const proposalContent = await readFileSafe(join(feature.absolutePath, 'proposal.md'));
+  const tasksContent = await readFileSafe(join(feature.absolutePath, 'tasks.md'));
 
-  let diffContent = readFileSafe(patchFile);
+  let diffContent = await readFileSafe(patchFile);
   if (!diffContent) {
     // patchFile might not exist (e.g. empty commit); fall back to empty
     diffContent = '(no diff available)';

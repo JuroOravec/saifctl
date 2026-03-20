@@ -12,10 +12,11 @@
  *   - gate.sh           → validates the workspace after each agent round (language-specific checks)
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { getSaifRoot } from '../constants.js';
+import { pathExists } from '../utils/io.js';
 import { goProfile } from './go/profile.js';
 import { goNodeProfile } from './go-node/profile.js';
 import { goNodePythonProfile } from './go-node-python/profile.js';
@@ -92,27 +93,31 @@ export function resolveSandboxStageDockerfilePath(profileId: SupportedSandboxPro
 }
 
 /** Reads and returns the content of startup.sh for the given profile id. */
-export function readSandboxStartupScript(profileId: SupportedSandboxProfileId): string {
+export async function readSandboxStartupScript(
+  profileId: SupportedSandboxProfileId,
+): Promise<string> {
   const filepath = join(_sandboxProfilesDir, profileId, 'startup.sh');
-  if (!existsSync(filepath)) {
+  if (!(await pathExists(filepath))) {
     throw new Error(`Startup script not found for profile ${profileId}: ${filepath}`);
   }
   return readFileSync(filepath, 'utf8');
 }
 
 /** Reads and returns the content of stage.sh for the given profile id. */
-export function readSandboxStageScript(profileId: SupportedSandboxProfileId): string {
+export async function readSandboxStageScript(
+  profileId: SupportedSandboxProfileId,
+): Promise<string> {
   const filepath = join(_sandboxProfilesDir, profileId, 'stage.sh');
-  if (!existsSync(filepath)) {
+  if (!(await pathExists(filepath))) {
     throw new Error(`Stage script not found for profile ${profileId}: ${filepath}`);
   }
   return readFileSync(filepath, 'utf8');
 }
 
 /** Reads and returns the content of gate.sh for the given profile id. */
-export function readSandboxGateScript(profileId: SupportedSandboxProfileId): string {
+export async function readSandboxGateScript(profileId: SupportedSandboxProfileId): Promise<string> {
   const filepath = join(_sandboxProfilesDir, profileId, 'gate.sh');
-  if (!existsSync(filepath)) {
+  if (!(await pathExists(filepath))) {
     throw new Error(`Gate script not found for profile ${profileId}: ${filepath}`);
   }
   return readFileSync(filepath, 'utf8');

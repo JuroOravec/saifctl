@@ -9,8 +9,6 @@
  *   - The agent falling back to empty result throws.
  */
 
-import { type existsSync } from 'node:fs';
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { generatePRSummary, type PRSummary } from './pr-summarizer.js';
@@ -22,12 +20,10 @@ vi.mock('@mastra/core/agent', () => ({
   Agent: vi.fn().mockImplementation(() => ({ generate: generateMock })),
 }));
 
-// Mock fs to control what files "exist" without touching disk.
-const mockFs = vi.hoisted(() => ({
-  existsSync: vi.fn<typeof existsSync>(),
-  readFileSync: vi.fn<(path: string, encoding: string) => string>(),
+const readFileMock = vi.hoisted(() => vi.fn<(path: string) => Promise<Buffer | string>>());
+vi.mock('node:fs/promises', () => ({
+  readFile: readFileMock,
 }));
-vi.mock('node:fs', () => mockFs);
 
 function makeSummary(title: string, body: string): PRSummary {
   return { title, body };
@@ -61,8 +57,7 @@ describe('generatePRSummary', () => {
       '## Summary\nAdds a greet command.\n\n## Changes\n- scripts/commands/greet.ts\n\n## Testing\n- Run pnpm greet Alice',
     );
 
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.readFileSync.mockReturnValue('file content');
+    readFileMock.mockResolvedValue('file content');
     generateMock.mockResolvedValue({ object: expected });
 
     const result = await generatePRSummary(baseOpts);
@@ -72,8 +67,7 @@ describe('generatePRSummary', () => {
   });
 
   it('calls generate once with structuredOutput schema', async () => {
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.readFileSync.mockReturnValue('content');
+    readFileMock.mockResolvedValue('content');
     generateMock.mockResolvedValue({
       object: makeSummary('feat(x): something', '## Summary\nOk'),
     });
@@ -86,8 +80,7 @@ describe('generatePRSummary', () => {
   });
 
   it('includes featureName and diff content in the prompt', async () => {
-    mockFs.existsSync.mockImplementation((p: unknown) => p === baseOpts.patchFile);
-    mockFs.readFileSync.mockImplementation((p: unknown) => {
+    readFileMock.mockImplementation(async (p: string) => {
       if (p === baseOpts.patchFile) return 'diff --git a/foo.ts b/foo.ts\n+const x = 1;';
       return '';
     });
@@ -104,11 +97,11 @@ describe('generatePRSummary', () => {
   });
 
   it('handles missing spec files gracefully without crashing', async () => {
-    // patchFile exists; spec files do not
-    mockFs.existsSync.mockImplementation((p: unknown) => p === baseOpts.patchFile);
-    mockFs.readFileSync.mockImplementation((p: unknown) => {
+    readFileMock.mockImplementation(async (p: string) => {
       if (p === baseOpts.patchFile) return 'diff --git a/x.ts b/x.ts\n+1';
-      return '';
+      const err = new Error('ENOENT') as NodeJS.ErrnoException;
+      err.code = 'ENOENT';
+      throw err;
     });
     generateMock.mockResolvedValue({
       object: makeSummary('feat(greet-cmd): minimal', '## Summary\nOk'),
@@ -118,8 +111,9 @@ describe('generatePRSummary', () => {
   });
 
   it('uses "(no diff available)" when patch file is missing', async () => {
-    mockFs.existsSync.mockReturnValue(false);
-    mockFs.readFileSync.mockReturnValue('');
+    const err = new Error('ENOENT') as NodeJS.ErrnoException;
+    err.code = 'ENOENT';
+    readFileMock.mockRejectedValue(err);
     generateMock.mockResolvedValue({
       object: makeSummary('feat(x): y', '## Summary\nOk'),
     });
@@ -135,10 +129,11 @@ describe('generatePRSummary', () => {
     const bigDiff =
       'diff --git a/big.ts b/big.ts\n--- a/big.ts\n+++ b/big.ts\n' + '+xxxx\n'.repeat(40_000);
 
-    mockFs.existsSync.mockImplementation((p: unknown) => p === baseOpts.patchFile);
-    mockFs.readFileSync.mockImplementation((p: unknown) => {
+    readFileMock.mockImplementation(async (p: string) => {
       if (p === baseOpts.patchFile) return bigDiff;
-      return '';
+      const e = new Error('ENOENT') as NodeJS.ErrnoException;
+      e.code = 'ENOENT';
+      throw e;
     });
     generateMock.mockResolvedValue({
       object: makeSummary('feat(x): big', '## Summary\nOk'),
@@ -155,16 +150,18 @@ describe('generatePRSummary', () => {
   });
 
   it('throws when agent returns empty title', async () => {
-    mockFs.existsSync.mockReturnValue(false);
-    mockFs.readFileSync.mockReturnValue('');
+    const err = new Error('ENOENT') as NodeJS.ErrnoException;
+    err.code = 'ENOENT';
+    readFileMock.mockRejectedValue(err);
     generateMock.mockResolvedValue({ object: { title: '', body: 'some body' } });
 
     await expect(generatePRSummary(baseOpts)).rejects.toThrow('empty title or body');
   });
 
   it('throws when agent returns empty body', async () => {
-    mockFs.existsSync.mockReturnValue(false);
-    mockFs.readFileSync.mockReturnValue('');
+    const err = new Error('ENOENT') as NodeJS.ErrnoException;
+    err.code = 'ENOENT';
+    readFileMock.mockRejectedValue(err);
     generateMock.mockResolvedValue({ object: { title: 'feat(x): y', body: '' } });
 
     await expect(generatePRSummary(baseOpts)).rejects.toThrow('empty title or body');

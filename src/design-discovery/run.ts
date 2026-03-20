@@ -4,7 +4,7 @@
  * Only runs when discoveryMcps or discoveryTools are configured.
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { DiscoveryOptions } from '../cli/utils.js';
@@ -12,6 +12,7 @@ import type { ModelOverrides } from '../llm-config.js';
 import type { Feature } from '../specs/discover.js';
 import { type DrainableChunk, drainFullStream } from '../utils/drain-stream.js';
 import { createDiscoveryAgent } from './agent.js';
+import { pathExists } from '../utils/io.js';
 import { loadDiscoveryTools } from './tools.js';
 
 export interface RunDiscoveryOpts {
@@ -29,9 +30,9 @@ const DISCOVERY_FILENAME = 'discovery.md';
 /**
  * Resolves the discovery prompt: inline string or file content.
  */
-function resolveDiscoveryPrompt(opts: DiscoveryOptions): string | undefined {
+async function resolveDiscoveryPrompt(opts: DiscoveryOptions): Promise<string | undefined> {
   if (opts.prompt?.trim()) return opts.prompt.trim();
-  if (opts.promptFile && existsSync(opts.promptFile)) {
+  if (opts.promptFile && (await pathExists(opts.promptFile))) {
     return readFileSync(opts.promptFile, 'utf8').trim();
   }
   return undefined;
@@ -44,11 +45,11 @@ export async function runDiscovery(opts: RunDiscoveryOpts): Promise<string> {
   const { feature, projectDir, discovery, overrides = {}, onThought, onEvent, abortSignal } = opts;
 
   const proposalPath = join(feature.absolutePath, 'proposal.md');
-  const proposalContent = existsSync(proposalPath)
+  const proposalContent = (await pathExists(proposalPath))
     ? readFileSync(proposalPath, 'utf8')
     : 'No proposal.md found.';
 
-  const userPrompt = resolveDiscoveryPrompt(discovery);
+  const userPrompt = await resolveDiscoveryPrompt(discovery);
 
   const tools = await loadDiscoveryTools(discovery, projectDir);
   if (Object.keys(tools).length === 0) {

@@ -35,13 +35,13 @@
  *   The on-failure handler saves a RunArtifact so `saifac run resume <runId>` works.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { JsonValue } from '@hatchet-dev/typescript-sdk/v1/types.js';
 import { z } from 'zod';
 
-import { runVagueSpecsCheckerForFailure } from '../../orchestrator/loop.js';
+import { buildInitialTask, runVagueSpecsCheckerForFailure } from '../../orchestrator/loop.js';
 import { getSandboxSourceDir } from '../../orchestrator/modes.js';
 import { applyPatchToHost } from '../../orchestrator/phases/apply-patch.js';
 import { runAgentPhase } from '../../orchestrator/phases/run-agent-phase.js';
@@ -49,9 +49,9 @@ import { runTestPhase } from '../../orchestrator/phases/run-test-phase.js';
 import { createSandbox, destroySandbox, type Sandbox } from '../../orchestrator/sandbox.js';
 import { buildRunArtifact } from '../../runs/index.js';
 import { gitClean, gitResetHard } from '../../utils/git.js';
+import { pathExists } from '../../utils/io.js';
 import { getHatchetClient } from '../client.js';
 import { deserializeOrchestratorOpts } from '../utils/serialize-opts.js';
-import { buildInitialTaskForWorkflow } from '../utils/task-builder.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for step I/O (addresses step 1.5)
@@ -321,7 +321,7 @@ export function createFeatRunWorkflow() {
       const opts = deserializeOrchestratorOpts(input.serializedOpts);
       const { maxRuns, feature, saifDir, resume } = opts;
 
-      const task = buildInitialTaskForWorkflow({ feature, saifDir });
+      const task = await buildInitialTask({ feature, saifDir });
 
       let errorFeedback = resume?.initialErrorFeedback ?? '';
       let lastPatchContent = '';
@@ -457,7 +457,7 @@ export function createFeatRunWorkflow() {
       }
 
       const patchPath = join(sandboxRaw.sandboxBasePath, 'patch.diff');
-      const runPatchDiff = existsSync(patchPath) ? readFileSync(patchPath, 'utf8') : '';
+      const runPatchDiff = (await pathExists(patchPath)) ? readFileSync(patchPath, 'utf8') : '';
       if (!runPatchDiff.trim()) return;
 
       let loopResult: ConvergenceOutput | null = null;

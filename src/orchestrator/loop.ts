@@ -3,7 +3,7 @@
  * Used by mode 'start' (and 'resume' via runStartCore).
  */
 
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { isCancel, text } from '@clack/prompts';
@@ -30,6 +30,7 @@ import type { Feature } from '../specs/discover.js';
 import type { TestProfile } from '../test-profiles/types.js';
 import type { CleanupRegistry } from '../utils/cleanup.js';
 import { gitApply, gitClean, gitResetHard } from '../utils/git.js';
+import { pathExists } from '../utils/io.js';
 import { runVagueSpecsChecker } from './agents/vague-specs-check.js';
 import { applyPatchToHost } from './phases/apply-patch.js';
 import { destroySandbox, extractPatch, type PatchExcludeRule, type Sandbox } from './sandbox.js';
@@ -281,7 +282,7 @@ export async function runIterativeLoop(
     testScript,
   });
 
-  const task = buildInitialTask({ feature, saifDir });
+  const task = await buildInitialTask({ feature, saifDir });
 
   const cleanupAndSaveRun = async (input: { didSucceed: boolean }) => {
     const { didSucceed } = input;
@@ -592,7 +593,7 @@ export async function runVagueSpecsCheckerForFailure(
     opts;
 
   const specPath = join(feature.absolutePath, 'specification.md');
-  const specContent = existsSync(specPath)
+  const specContent = (await pathExists(specPath))
     ? readFileSync(specPath, 'utf8')
     : '(specification.md not found)';
 
@@ -665,7 +666,7 @@ export async function runVagueSpecsCheckerForFailure(
   }
 
   // Append clarification to specification.md
-  if (existsSync(specPath)) {
+  if (await pathExists(specPath)) {
     const addition = `\n\n<!-- Vague Specs Checker clarification (auto-added) -->\n${verdict.proposedSpecAddition}\n`;
     appendFileSync(specPath, addition, 'utf8');
     console.log(`[vague-specs-check] Appended clarification to ${specPath}`);
@@ -706,7 +707,7 @@ interface BuildInitialTaskOpts {
   saifDir: string;
 }
 
-function buildInitialTask(opts: BuildInitialTaskOpts): string {
+export async function buildInitialTask(opts: BuildInitialTaskOpts): Promise<string> {
   const { feature, saifDir } = opts;
   const planPath = join(feature.absolutePath, 'plan.md');
   const specPath = join(feature.absolutePath, 'specification.md');
@@ -717,11 +718,11 @@ function buildInitialTask(opts: BuildInitialTaskOpts): string {
     'When complete, ensure the code compiles and passes linting.',
   ];
 
-  if (existsSync(planPath)) {
+  if (await pathExists(planPath)) {
     parts.push('', '## Plan', '', readFileSync(planPath, 'utf8'));
   }
 
-  if (existsSync(specPath)) {
+  if (await pathExists(specPath)) {
     parts.push('', '## Specification', '', readFileSync(specPath, 'utf8'));
   }
 
@@ -736,10 +737,10 @@ interface LoadCatalogOpts {
   feature: Feature;
 }
 
-export function loadCatalog(opts: LoadCatalogOpts) {
+export async function loadCatalog(opts: LoadCatalogOpts) {
   const { feature } = opts;
   const testsJsonPath = join(feature.absolutePath, 'tests', 'tests.json');
-  if (!existsSync(testsJsonPath)) {
+  if (!(await pathExists(testsJsonPath))) {
     throw new Error(
       `tests.json not found at ${testsJsonPath}. Run 'saifac feat design -n ${feature.name}' first.`,
     );

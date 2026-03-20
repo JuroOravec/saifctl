@@ -5,11 +5,11 @@
  * Returns empty defaults when no config file exists.
  */
 
-import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { cosmiconfigSync } from 'cosmiconfig';
 
+import { pathExists } from '../utils/io.js';
 import { type SaifConfig, saifConfigSchema } from './schema.js';
 
 const EXPLORER = cosmiconfigSync('saifac', {
@@ -33,9 +33,9 @@ const EXPLORER = cosmiconfigSync('saifac', {
  * @param projectDir - Project root (for resolving relative saifDir when needed)
  * @returns Parsed and validated config, or empty defaults if no file found
  */
-export function loadSaifConfig(saifDir: string, projectDir: string): SaifConfig {
+export async function loadSaifConfig(saifDir: string, projectDir: string): Promise<SaifConfig> {
   const configDir = resolve(projectDir, saifDir);
-  if (!existsSync(configDir)) {
+  if (!(await pathExists(configDir))) {
     return {};
   }
 

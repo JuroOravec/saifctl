@@ -5,21 +5,14 @@
  * or the filesystem. Also includes filesystem-based tests for removeAllHiddenDirs.
  */
 
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { resolveFeature } from '../specs/discover.js';
 import { git, gitAdd, gitCommit, gitInit } from '../utils/git.js';
+import { pathExists } from '../utils/io.js';
 import { createSandbox, destroySandbox, filterPatchHunks, removeAllHiddenDirs } from './sandbox.js';
 
 const PATCH_TWO_FILES = `\
@@ -84,10 +77,10 @@ describe('removeAllHiddenDirs', () => {
       const removed = await removeAllHiddenDirs(tmp);
 
       expect(removed).toBe(3);
-      expect(existsSync(join(tmp, 'feat-a', 'tests', 'hidden'))).toBe(false);
-      expect(existsSync(join(tmp, 'feat-b', 'tests', 'hidden'))).toBe(false);
-      expect(existsSync(join(tmp, 'feat-c', 'nested', 'hidden'))).toBe(false);
-      expect(existsSync(join(tmp, 'feat-a', 'tests', 'public'))).toBe(true);
+      expect(await pathExists(join(tmp, 'feat-a', 'tests', 'hidden'))).toBe(false);
+      expect(await pathExists(join(tmp, 'feat-b', 'tests', 'hidden'))).toBe(false);
+      expect(await pathExists(join(tmp, 'feat-c', 'nested', 'hidden'))).toBe(false);
+      expect(await pathExists(join(tmp, 'feat-a', 'tests', 'public'))).toBe(true);
     } finally {
       rmSync(tmp, { recursive: true });
     }
@@ -196,7 +189,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
       mkdirSync(otherFeatureHidden, { recursive: true });
       writeFileSync(join(otherFeatureHidden, 'edge.spec.ts'), "import { expect } from 'vitest';\n");
 
-      const feature = resolveFeature({
+      const feature = await resolveFeature({
         input: 'my-feature',
         projectDir,
         saifDir: 'saifac',
@@ -219,15 +212,15 @@ describe('createSandbox + destroySandbox (integration)', () => {
       const sandboxBasePath = paths.sandboxBasePath;
 
       // 3. Assert hidden dirs are removed
-      expect(existsSync(join(codePath, saifDir, 'features', 'my-feature', 'tests', 'hidden'))).toBe(
-        false,
-      );
       expect(
-        existsSync(join(codePath, saifDir, 'features', 'other-feature', 'tests', 'hidden')),
+        await pathExists(join(codePath, saifDir, 'features', 'my-feature', 'tests', 'hidden')),
       ).toBe(false);
-      expect(existsSync(join(codePath, saifDir, 'features', 'my-feature', 'tests', 'public'))).toBe(
-        true,
-      );
+      expect(
+        await pathExists(join(codePath, saifDir, 'features', 'other-feature', 'tests', 'hidden')),
+      ).toBe(false);
+      expect(
+        await pathExists(join(codePath, saifDir, 'features', 'my-feature', 'tests', 'public')),
+      ).toBe(true);
 
       // 4. Assert tests.json contains only public test cases
       const copiedCatalog = JSON.parse(
@@ -249,7 +242,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
       expect(lastMsg).toBe('Base state');
 
       // 6. Assert .git from source was NOT copied (fresh init), and code has .git
-      expect(existsSync(join(codePath, '.git'))).toBe(true);
+      expect(await pathExists(join(codePath, '.git'))).toBe(true);
 
       // 7. Assert mounted scripts exist with correct content and are executable
       const scripts: [string, string][] = [
@@ -268,10 +261,10 @@ describe('createSandbox + destroySandbox (integration)', () => {
       await destroySandbox(sandboxBasePath);
 
       // 9. Assert sandbox dir is gone
-      expect(existsSync(sandboxBasePath)).toBe(false);
+      expect(await pathExists(sandboxBasePath)).toBe(false);
     } finally {
       rmSync(projectDir, { recursive: true, force: true });
-      if (existsSync(sandboxBaseDir)) {
+      if (await pathExists(sandboxBaseDir)) {
         rmSync(sandboxBaseDir, { recursive: true, force: true });
       }
     }
@@ -351,7 +344,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
       mkdirSync(profileHidden, { recursive: true });
       writeFileSync(join(profileHidden, 'edge.spec.ts'), "import { expect } from 'vitest';\n");
 
-      const feature = resolveFeature({
+      const feature = await resolveFeature({
         input: '(auth)/login',
         projectDir,
         saifDir,
@@ -379,13 +372,15 @@ describe('createSandbox + destroySandbox (integration)', () => {
 
       // 3. Assert hidden dirs removed for nested features
       expect(
-        existsSync(join(codePath, saifDir, 'features', '(auth)', 'login', 'tests', 'hidden')),
+        await pathExists(join(codePath, saifDir, 'features', '(auth)', 'login', 'tests', 'hidden')),
       ).toBe(false);
       expect(
-        existsSync(join(codePath, saifDir, 'features', '(core)', 'profile', 'tests', 'hidden')),
+        await pathExists(
+          join(codePath, saifDir, 'features', '(core)', 'profile', 'tests', 'hidden'),
+        ),
       ).toBe(false);
       expect(
-        existsSync(join(codePath, saifDir, 'features', '(auth)', 'login', 'tests', 'public')),
+        await pathExists(join(codePath, saifDir, 'features', '(auth)', 'login', 'tests', 'public')),
       ).toBe(true);
 
       // 4. Assert tests.json contains only public test cases
@@ -407,10 +402,10 @@ describe('createSandbox + destroySandbox (integration)', () => {
 
       // 6. Destroy sandbox
       await destroySandbox(sandboxBasePath);
-      expect(existsSync(sandboxBasePath)).toBe(false);
+      expect(await pathExists(sandboxBasePath)).toBe(false);
     } finally {
       rmSync(projectDir, { recursive: true, force: true });
-      if (existsSync(sandboxBaseDir)) {
+      if (await pathExists(sandboxBaseDir)) {
         rmSync(sandboxBaseDir, { recursive: true, force: true });
       }
     }

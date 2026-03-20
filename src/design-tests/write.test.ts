@@ -5,7 +5,7 @@
  * to return a deterministic TypeScript stub. Real filesystem is used via temp dirs.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveFeature } from '../specs/discover.js';
 import { DEFAULT_PROFILE } from '../test-profiles/index.js';
+import { pathExists } from '../utils/io.js';
 import { generateTests } from './write.js';
 
 // ---------------------------------------------------------------------------
@@ -76,14 +77,14 @@ describe('generateTests', () => {
   const saifDir = 'saifac';
   const featureName = 'test-feature';
 
-  beforeEach(() => {
+  beforeEach(async () => {
     projectDir = makeTempDir();
     const featureDir = join(projectDir, saifDir, 'features', featureName);
     mkdirSync(featureDir, { recursive: true });
     const testsDir = join(featureDir, 'tests');
     mkdirSync(testsDir, { recursive: true });
     writeFileSync(join(testsDir, 'tests.json'), imperativeCatalog(), 'utf8');
-    feature = resolveFeature({ input: featureName, projectDir, saifDir });
+    feature = await resolveFeature({ input: featureName, projectDir, saifDir });
   });
 
   it('writes helpers.ts', async () => {
@@ -92,7 +93,7 @@ describe('generateTests', () => {
       testProfile: DEFAULT_PROFILE,
     });
     const helpersPath = join(result.testsDir, 'helpers.ts');
-    expect(existsSync(helpersPath)).toBe(true);
+    expect(await pathExists(helpersPath)).toBe(true);
     const content = readFileSync(helpersPath, 'utf8');
     expect(content).toContain('execSidecar');
     expect(content).toContain('baseUrl');
@@ -104,7 +105,7 @@ describe('generateTests', () => {
       testProfile: DEFAULT_PROFILE,
     });
     const infraPath = join(result.testsDir, 'infra.spec.ts');
-    expect(existsSync(infraPath)).toBe(true);
+    expect(await pathExists(infraPath)).toBe(true);
     const content = readFileSync(infraPath, 'utf8');
     expect(content).toContain('sidecar:health');
   });
@@ -118,8 +119,8 @@ describe('generateTests', () => {
     const publicSpec = join(result.testsDir, 'public', 'happy.spec.ts');
     const hiddenSpec = join(result.testsDir, 'hidden', 'boundary.spec.ts');
 
-    expect(existsSync(publicSpec)).toBe(true);
-    expect(existsSync(hiddenSpec)).toBe(true);
+    expect(await pathExists(publicSpec)).toBe(true);
+    expect(await pathExists(hiddenSpec)).toBe(true);
   });
 
   it('reports generated and skipped files', async () => {
@@ -193,7 +194,7 @@ describe('generateTests', () => {
       feature,
       testProfile: DEFAULT_PROFILE,
     });
-    expect(existsSync(join(result.testsDir, 'infra.spec.ts'))).toBe(true);
+    expect(await pathExists(join(result.testsDir, 'infra.spec.ts'))).toBe(true);
   });
 });
 
@@ -206,7 +207,7 @@ describe('generateTests (error cases)', () => {
     const projectDir = makeTempDir();
     const featureDir = join(projectDir, 'saifac', 'features', 'missing');
     mkdirSync(featureDir, { recursive: true });
-    const feature = resolveFeature({ input: 'missing', projectDir, saifDir: 'saifac' });
+    const feature = await resolveFeature({ input: 'missing', projectDir, saifDir: 'saifac' });
     await expect(
       generateTests({
         feature,
@@ -222,7 +223,7 @@ describe('generateTests (error cases)', () => {
     const testsDir = join(featureDir, 'tests');
     mkdirSync(testsDir, { recursive: true });
     writeFileSync(join(testsDir, 'tests.json'), '{"invalid": true}', 'utf8');
-    const feature = resolveFeature({ input: 'bad-feature', projectDir, saifDir: 'saifac' });
+    const feature = await resolveFeature({ input: 'bad-feature', projectDir, saifDir: 'saifac' });
     await expect(
       generateTests({
         feature,

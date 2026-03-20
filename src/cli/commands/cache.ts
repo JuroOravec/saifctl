@@ -7,12 +7,13 @@
  *   clear   Remove sandbox entries for this project (--all: everything)
  */
 
-import { existsSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { rm as rmAsync } from 'node:fs/promises';
 
 import { defineCommand, runMain } from 'citty';
 
 import { DEFAULT_SANDBOX_BASE_DIR } from '../../orchestrator/sandbox.js';
+import { pathExists } from '../../utils/io.js';
 import { projectDirArg, sandboxBaseDirArg } from '../args.js';
 import { parseProjectDir, parseSandboxBaseDir, resolveProjectName } from '../utils.js';
 
@@ -31,7 +32,7 @@ const listCommand = defineCommand({
     const sandboxBase = parseSandboxBaseDir(args);
     const listAll = args.all === true;
 
-    if (!existsSync(sandboxBase)) {
+    if (!(await pathExists(sandboxBase))) {
       console.log(`${sandboxBase} does not exist — no entries found.`);
       return;
     }
@@ -90,7 +91,7 @@ const clearCommand = defineCommand({
     const sandboxBase = parseSandboxBaseDir(args);
     const clearAll = args.all === true;
 
-    if (!existsSync(sandboxBase)) {
+    if (!(await pathExists(sandboxBase))) {
       console.log(`${sandboxBase} does not exist — nothing to clear.`);
       return;
     }

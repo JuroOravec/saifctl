@@ -7,7 +7,6 @@
  *  4. test       — Apply a candidate patch to a fresh sandbox and run mutual verification
  */
 
-import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { getHatchetClient } from '../hatchet/client.js';
@@ -21,6 +20,7 @@ import { createProvisioner } from '../provisioners/index.js';
 import { type TestsResult } from '../provisioners/types.js';
 import type { RunStorage } from '../runs/index.js';
 import { CleanupRegistry } from '../utils/cleanup.js';
+import { pathExists } from '../utils/io.js';
 import {
   type IterativeLoopOpts,
   type OrchestratorResult,
@@ -492,7 +492,7 @@ async function runResumeCore(
   //
   // NOTE: This also sets `resume.sandboxSourceDir` to `worktreePath`. Thus, telling
   // runStartCore to use the worktree as the sandbox source directory.
-  const mergedOpts = mergeResumeOpts({
+  const mergedOpts = await mergeResumeOpts({
     artifact,
     opts,
     overrides,
@@ -584,7 +584,7 @@ async function runTestsCore(
   if (!patchPath) {
     throw new Error("mode='test' requires --patch pointing to a patch file.");
   }
-  if (!existsSync(patchPath)) {
+  if (!(await pathExists(patchPath))) {
     throw new Error(`Patch file not found: ${patchPath}`);
   }
 

@@ -2,7 +2,7 @@
  * Shared CLI helpers used across command implementations.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { cancel, intro, isCancel, outro, select } from '@clack/prompts';
@@ -57,6 +57,7 @@ import {
   type SupportedProfileId,
   type TestProfile,
 } from '../test-profiles/index.js';
+import { pathExists } from '../utils/io.js';
 
 /**
  * Resolves the sandbox base directory from --sandbox-base-dir.
@@ -284,7 +285,7 @@ export async function getFeatOrPrompt(
   projectDir: string,
 ): Promise<Feature> {
   const saifDir = parseSaifDir(args);
-  const featuresMap = discoverFeatures(projectDir, saifDir);
+  const featuresMap = await discoverFeatures(projectDir, saifDir);
   const features = [...featuresMap.keys()];
 
   if (features.length === 0) {
@@ -293,7 +294,7 @@ export async function getFeatOrPrompt(
   }
 
   const fromArgs = getFeatNameFromArgs(args);
-  if (fromArgs) return resolveFeature({ input: fromArgs, projectDir, saifDir });
+  if (fromArgs) return await resolveFeature({ input: fromArgs, projectDir, saifDir });
 
   features.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
@@ -307,7 +308,7 @@ export async function getFeatOrPrompt(
     cancel('Operation cancelled.');
     process.exit(1);
   }
-  return resolveFeature({ input: result as string, projectDir, saifDir });
+  return await resolveFeature({ input: result as string, projectDir, saifDir });
 }
 
 /**
@@ -421,10 +422,10 @@ export async function parseStartupScript(opts: {
   const raw = args['startup-script'] || config?.defaults?.startupScript;
   if (typeof raw !== 'string' || !raw.trim()) {
     const profile = parseSandboxProfile(args, config);
-    return readSandboxStartupScript(profile.id);
+    return await readSandboxStartupScript(profile.id);
   }
   const scriptPath = resolve(projectDir, raw.trim());
-  if (!existsSync(scriptPath)) {
+  if (!(await pathExists(scriptPath))) {
     console.error(`Error: --startup-script file not found: ${scriptPath}`);
     process.exit(1);
   }
@@ -441,10 +442,10 @@ export async function parseGateScript(opts: {
   const raw = args['gate-script'] || config?.defaults?.gateScript;
   const profile = parseSandboxProfile(args, config);
   if (typeof raw !== 'string' || !raw.trim()) {
-    return readSandboxGateScript(profile.id);
+    return await readSandboxGateScript(profile.id);
   }
   const scriptPath = resolve(projectDir, raw.trim());
-  if (!existsSync(scriptPath)) {
+  if (!(await pathExists(scriptPath))) {
     console.error(`Error: --gate-script file not found: ${scriptPath}`);
     process.exit(1);
   }
@@ -461,10 +462,10 @@ export async function parseStageScript(opts: {
   const raw = args['stage-script'] || config?.defaults?.stageScript;
   const profile = parseSandboxProfile(args, config);
   if (typeof raw !== 'string' || !raw.trim()) {
-    return readSandboxStageScript(profile.id);
+    return await readSandboxStageScript(profile.id);
   }
   const scriptPath = resolve(projectDir, raw.trim());
-  if (!existsSync(scriptPath)) {
+  if (!(await pathExists(scriptPath))) {
     console.error(`Error: --stage-script file not found: ${scriptPath}`);
     process.exit(1);
   }
@@ -481,30 +482,30 @@ export async function parseAgentScripts(opts: {
   const agentProfile = parseAgentProfile(args, config);
 
   const rawStart = args['agent-start-script'];
-  const agentStartScript =
-    typeof rawStart === 'string' && rawStart.trim()
-      ? (() => {
-          const p = resolve(projectDir, rawStart.trim());
-          if (!existsSync(p)) {
-            console.error(`Error: --agent-start-script file not found: ${p}`);
-            process.exit(1);
-          }
-          return readFileSync(p, 'utf8');
-        })()
-      : readFileSync(resolveAgentStartScriptPath(agentProfile.id), 'utf8');
+  let agentStartScript: string;
+  if (typeof rawStart === 'string' && rawStart.trim()) {
+    const p = resolve(projectDir, rawStart.trim());
+    if (!(await pathExists(p))) {
+      console.error(`Error: --agent-start-script file not found: ${p}`);
+      process.exit(1);
+    }
+    agentStartScript = readFileSync(p, 'utf8');
+  } else {
+    agentStartScript = readFileSync(resolveAgentStartScriptPath(agentProfile.id), 'utf8');
+  }
 
   const rawScript = args['agent-script'];
-  const agentScript =
-    typeof rawScript === 'string' && rawScript.trim()
-      ? (() => {
-          const p = resolve(projectDir, rawScript.trim());
-          if (!existsSync(p)) {
-            console.error(`Error: --agent-script file not found: ${p}`);
-            process.exit(1);
-          }
-          return readFileSync(p, 'utf8');
-        })()
-      : readFileSync(resolveAgentScriptPath(agentProfile.id), 'utf8');
+  let agentScript: string;
+  if (typeof rawScript === 'string' && rawScript.trim()) {
+    const p = resolve(projectDir, rawScript.trim());
+    if (!(await pathExists(p))) {
+      console.error(`Error: --agent-script file not found: ${p}`);
+      process.exit(1);
+    }
+    agentScript = readFileSync(p, 'utf8');
+  } else {
+    agentScript = readFileSync(resolveAgentScriptPath(agentProfile.id), 'utf8');
+  }
 
   return { agentStartScript, agentScript };
 }
@@ -522,7 +523,7 @@ export async function parseTestScript(opts: {
     return readFileSync(resolveTestScriptPath(profileId), 'utf8');
   }
   const scriptPath = resolve(projectDir, raw.trim());
-  if (!existsSync(scriptPath)) {
+  if (!(await pathExists(scriptPath))) {
     console.error(`Error: --test-script file not found: ${scriptPath}`);
     process.exit(1);
   }
@@ -737,11 +738,11 @@ export function parseReviewerEnabled(
  * - --agent-env-file single path or comma-separated paths merged left-to-right (e.g. ./a.env,./b.env)
  * - config agentEnv
  */
-export function parseAgentEnv(opts: {
+export async function parseAgentEnv(opts: {
   args: FeatRunArgs;
   projectDir: string;
   config?: SaifConfig;
-}): Record<string, string> {
+}): Promise<Record<string, string>> {
   const { args, projectDir, config } = opts;
   // Merge order (lowest → highest priority):
   //   1. environments.coding.agentEnvironment — service-level baseline from config
@@ -765,7 +766,10 @@ export function parseAgentEnv(opts: {
     const resolved = paths.map((p) => resolve(projectDir, p));
 
     // Check if all paths exist
-    const missing = resolved.filter((p) => !existsSync(p));
+    const missing: string[] = [];
+    for (const p of resolved) {
+      if (!(await pathExists(p))) missing.push(p);
+    }
     if (missing.length > 0) {
       console.error(`Error: --agent-env-file: file(s) not found: ${missing.join(', ')}`);
       process.exit(1);
