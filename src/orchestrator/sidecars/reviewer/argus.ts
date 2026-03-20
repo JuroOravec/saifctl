@@ -5,7 +5,7 @@
  * Binaries are stored at src/orchestrator/argus/out/argus-linux-{arch}.
  */
 
-import { mkdir, readdir } from 'node:fs/promises';
+import { chmod, mkdir, readdir, rm } from 'node:fs/promises';
 import { arch } from 'node:os';
 import { join } from 'node:path';
 
@@ -84,13 +84,15 @@ export async function ensureArgusBinary(hostArch: 'arm64' | 'x64'): Promise<stri
   // Find the binary (could be at root or in a subdir)
   const extracted = await findArgusBinary(tmpExtract);
   if (!extracted) {
-    await spawnAsync({ command: 'rm', args: ['-rf', tmpExtract, tmpTar], cwd: process.cwd() });
+    await rm(tmpExtract, { recursive: true, force: true });
+    await rm(tmpTar, { recursive: true, force: true });
     throw new Error(`Could not find argus binary in archive from ${url}`);
   }
 
   await spawnAsync({ command: 'mv', args: [extracted, binaryPath], cwd: process.cwd() });
-  await spawnAsync({ command: 'chmod', args: ['+x', binaryPath], cwd: process.cwd() });
-  await spawnAsync({ command: 'rm', args: ['-rf', tmpExtract, tmpTar], cwd: process.cwd() });
+  await chmod(binaryPath, 0o755);
+  await rm(tmpExtract, { recursive: true, force: true });
+  await rm(tmpTar, { recursive: true, force: true });
 
   console.log(`[argus] Installed to ${binaryPath}`);
   return binaryPath;

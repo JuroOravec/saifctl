@@ -5,8 +5,7 @@
  * or the filesystem. Also includes filesystem-based tests for removeAllHiddenDirs.
  */
 
-import { mkdtempSync, rmSync, statSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -62,7 +61,7 @@ describe('filterPatchHunks', () => {
 
 describe('removeAllHiddenDirs', () => {
   it('removes all hidden/ dirs recursively under baseDir', async () => {
-    const tmp = mkdtempSync(join(process.cwd(), 'sandbox-test-'));
+    const tmp = await mkdtemp(join(process.cwd(), 'sandbox-test-'));
     try {
       // feat-a/tests/public, feat-a/tests/hidden
       await mkdir(join(tmp, 'feat-a', 'tests', 'public'), { recursive: true });
@@ -83,7 +82,7 @@ describe('removeAllHiddenDirs', () => {
       expect(await pathExists(join(tmp, 'feat-c', 'nested', 'hidden'))).toBe(false);
       expect(await pathExists(join(tmp, 'feat-a', 'tests', 'public'))).toBe(true);
     } finally {
-      rmSync(tmp, { recursive: true });
+      await rm(tmp, { recursive: true, force: true });
     }
   });
 
@@ -93,7 +92,7 @@ describe('removeAllHiddenDirs', () => {
   });
 
   it('returns 0 when no hidden dirs are present', async () => {
-    const tmp = mkdtempSync(join(process.cwd(), 'sandbox-test-'));
+    const tmp = await mkdtemp(join(process.cwd(), 'sandbox-test-'));
     try {
       await mkdir(join(tmp, 'feat', 'tests', 'public'), { recursive: true });
       await writeUtf8(join(tmp, 'feat', 'tests', 'public', 'foo.spec.ts'), '');
@@ -102,7 +101,7 @@ describe('removeAllHiddenDirs', () => {
 
       expect(removed).toBe(0);
     } finally {
-      rmSync(tmp, { recursive: true });
+      await rm(tmp, { recursive: true, force: true });
     }
   });
 });
@@ -145,8 +144,8 @@ describe('createSandbox + destroySandbox (integration)', () => {
   const STAGE_SCRIPT = '#!/bin/sh\necho "stage"';
 
   it('creates sandbox with hidden dirs removed, clean git, and mounted scripts; destroySandbox cleans up', async () => {
-    const projectDir = mkdtempSync(join(process.cwd(), 'createSandbox-project-'));
-    const sandboxBaseDir = mkdtempSync(join(process.cwd(), 'createSandbox-sandbox-'));
+    const projectDir = await mkdtemp(join(process.cwd(), 'createSandbox-project-'));
+    const sandboxBaseDir = await mkdtemp(join(process.cwd(), 'createSandbox-sandbox-'));
     try {
       // 1. Build dummy codebase: .git, .gitignore, saifac/features with public + hidden tests
       await writeUtf8(join(projectDir, '.gitignore'), 'node_modules\n');
@@ -255,7 +254,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
       ];
       for (const [p, content] of scripts) {
         expect(await readUtf8(p)).toBe(content);
-        expect((statSync(p).mode & 0o111) !== 0).toBe(true);
+        expect(((await stat(p)).mode & 0o111) !== 0).toBe(true);
       }
 
       // 8. Destroy sandbox
@@ -264,16 +263,16 @@ describe('createSandbox + destroySandbox (integration)', () => {
       // 9. Assert sandbox dir is gone
       expect(await pathExists(sandboxBasePath)).toBe(false);
     } finally {
-      rmSync(projectDir, { recursive: true, force: true });
+      await rm(projectDir, { recursive: true, force: true });
       if (await pathExists(sandboxBaseDir)) {
-        rmSync(sandboxBaseDir, { recursive: true, force: true });
+        await rm(sandboxBaseDir, { recursive: true, force: true });
       }
     }
   });
 
   it('works with nested features (auth)/login', async () => {
-    const projectDir = mkdtempSync(join(process.cwd(), 'createSandbox-project-'));
-    const sandboxBaseDir = mkdtempSync(join(process.cwd(), 'createSandbox-sandbox-'));
+    const projectDir = await mkdtemp(join(process.cwd(), 'createSandbox-project-'));
+    const sandboxBaseDir = await mkdtemp(join(process.cwd(), 'createSandbox-sandbox-'));
     try {
       // 1. Build dummy codebase with nested feature saifac/features/(auth)/login
       await writeUtf8(join(projectDir, '.gitignore'), 'node_modules\n');
@@ -404,9 +403,9 @@ describe('createSandbox + destroySandbox (integration)', () => {
       await destroySandbox(sandboxBasePath);
       expect(await pathExists(sandboxBasePath)).toBe(false);
     } finally {
-      rmSync(projectDir, { recursive: true, force: true });
+      await rm(projectDir, { recursive: true, force: true });
       if (await pathExists(sandboxBaseDir)) {
-        rmSync(sandboxBaseDir, { recursive: true, force: true });
+        await rm(sandboxBaseDir, { recursive: true, force: true });
       }
     }
   });

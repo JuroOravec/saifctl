@@ -19,7 +19,7 @@ The original design document contained several Critical and High vulnerabilities
 **Original severity:** CRITICAL  
 **Current status:** ✅ Resolved
 
-**The original flaw:** The design fed raw test runner `stderr` back to OpenHands via `execSync` with shell string interpolation, allowing a malicious agent to inject arbitrary shell commands on the host.
+**The original flaw:** The design fed raw test runner `stderr` back to OpenHands via a **synchronous** subprocess call (`execSync`) with shell string interpolation, allowing a malicious agent to inject arbitrary shell commands on the host.
 
 **How it was fixed:**
 
@@ -129,7 +129,7 @@ This is belt-and-suspenders: the sandbox's `.git` directory is owned by the orch
 **Original severity:** LOW
 **Current status:** ✅ Resolved
 
-**The flaw:** The orchestrator accepts user input for Docker image tags via CLI flags like `--test-image` and `--coder-image`. These string values are directly interpolated into `execSync` shell commands (e.g., `docker build -f ... -t "${tag}"`). A human user could supply a malicious flag containing double quotes and shell metacharacters (e.g., `--test-image 'my-image"; rm -rf /; "'`) to execute arbitrary commands on their own host machine. Because this requires the user to self-sabotage, it is low severity, but it violates defense-in-depth principles.
+**The flaw:** The orchestrator accepts user input for Docker image tags via CLI flags like `--test-image` and `--coder-image`. Early designs interpolated these strings into **shell** one-liners (e.g. `execSync(\`docker build ... -t "${tag}"\`)`). A human user could supply a malicious flag containing double quotes and shell metacharacters (e.g., `--test-image 'my-image"; rm -rf /; "'`) to execute arbitrary commands on their own host machine. Because this requires the user to self-sabotage, it is low severity, but it violates defense-in-depth principles. The implementation avoids this by validating tags and using non-shell **`spawn(command, args, …)`**-style invocation where possible.
 
 **How it was fixed:**
 
@@ -145,7 +145,7 @@ Validation was added at two layers:
 
 | #   | Finding                                  | Original Severity | Status                                                            |
 | --- | ---------------------------------------- | ----------------- | ----------------------------------------------------------------- |
-| 1   | `stderr` → `execSync` shell injection    | CRITICAL          | ✅ Resolved — `spawn()` + sanitized feedback                      |
+| 1   | `stderr` → shell injection via sync `exec` | CRITICAL       | ✅ Resolved — `spawn()` + sanitized feedback                      |
 | 2   | `git apply` hook injection               | CRITICAL          | ✅ Resolved — patch filter + pre-apply guard                      |
 | 3   | Docker socket mount → host root          | CRITICAL          | ✅ Resolved — HTTP sidecar, no socket mount                       |
 | 4   | Path traversal via `featureName`         | HIGH              | ✅ Resolved — strict regex at CLI boundary                        |

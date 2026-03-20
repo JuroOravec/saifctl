@@ -89,7 +89,7 @@ This is where we enforce the "Perfect Black Box" to prevent reward hacking. We m
 
 12. **Archive & Merge:**
     - The Orchestrator applies `patch.diff` to the actual host repository.
-    - It triggers `/opsx:archive` (via `child_process.execSync`) so OpenSpec updates the master documentation.
+    - It triggers `/opsx:archive` via an **async** subprocess helper (e.g. `child_process.exec` from `node:child_process/promises`, or `spawn` with Promises) so OpenSpec updates the master documentation — avoid blocking `execSync` in real implementations.
     - It uses the GitHub API (via `octokit`) to open a Pull Request.
     - It removes the entire disposable sandbox (`rm -rf /tmp/factory-sandbox/{feat}-{runId}/`). Holdout tests lived in that directory alongside `code/`; no separate `/tmp/factory-holdouts/` folder.
 
@@ -120,11 +120,14 @@ Here is a more robust pseudocode sketch of the core loop. It addresses the pract
    When Leash is enabled, we mount the `code/` directory into the Leash coder container; with `--dangerous-debug`, the agent runs on the host with `code/` as its cwd. In both cases, the agent never sees hidden tests, eliminating test-hacking.
 
 ```typescript
-import { execSync } from 'child_process';
+import { exec } from 'node:child_process/promises';
 import Docker from 'dockerode';
-import * as fs from 'fs';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
 const docker = new Docker();
+/** Shell for one-liners in this pseudocode (Unix-oriented). Prefer `spawn` + argv in production. */
+const sh = '/bin/bash';
 
 /**
  * STEP 1: GENERATION (Human-in-the-Loop)
@@ -133,8 +136,9 @@ const docker = new Docker();
  */
 async function generateSpecsAndTests(featureName: string, proposalPath: string) {
   console.log('Generating architecture plan...');
-  execSync(`shotgun specify --input ${proposalPath}`);
-  const plan = fs.readFileSync('plan.md', 'utf-8');
+  await exec(`shotgun specify --input ${proposalPath}`, { shell: sh });
+
+  const plan = await readFile('plan.md', 'utf-8');
 
   console.log('Generating strict TDD constraints...');
   const tests = await runBlackBoxTestingAgent(plan);
@@ -142,8 +146,8 @@ async function generateSpecsAndTests(featureName: string, proposalPath: string) 
   const publicTestPath = `saifac/features/${featureName}/tests/public.spec.ts`;
   const holdoutTestPath = `saifac/features/${featureName}/tests/holdout.spec.ts`;
 
-  fs.writeFileSync(publicTestPath, tests.publicTests);
-  fs.writeFileSync(holdoutTestPath, tests.holdoutTests);
+  await writeFile(publicTestPath, tests.publicTests);
+  await writeFile(holdoutTestPath, tests.holdoutTests);
 
   console.log(
     `Generation complete. Please review plan.md, ${publicTestPath}, and ${holdoutTestPath}.`,
@@ -169,23 +173,24 @@ async function runFactoryFloor(featureName: string) {
 
   // NOTE 2: A production script must wrap this entire execution block in a
   // try/finally block to guarantee the disposable sandbox is deleted
-  // (rm -rf) even if a terminal command throws an unexpected error.
+  // (`await rm(sandboxBasePath, { recursive: true, force: true })`) even if a command throws.
 
   // 1. Setup via Pure File Copy
   // We create a structure where the agent only mounts the inner "code" directory
   // so the holdout test is physically outside its container.
   console.log(`Creating isolated sandbox at ${sandboxBasePath}...`);
-  execSync(`mkdir -p ${codePath}`);
+  await mkdir(codePath, { recursive: true });
 
   // Copy the repo into the inner "code" directory
-  execSync(`rsync -a --filter=':- .gitignore' ${hostRepoPath}/ ${codePath}/`);
+  await exec(`rsync -a --filter=':- .gitignore' ${hostRepoPath}/ ${codePath}/`, { shell: sh });
 
   // Move the holdout test OUT of the code directory so the agent cannot see it
-  execSync(`mv ${codePath}/${relativeHoldoutPath} ${sandboxBasePath}/${holdoutTestName}`);
+  await exec(`mv ${codePath}/${relativeHoldoutPath} ${sandboxBasePath}/${holdoutTestName}`, {
+    shell: sh,
+  });
 
-  process.chdir(codePath);
-  execSync('git init'); // Initialize a fresh local git repo for diffing
-  execSync('git add . && git commit -m "Base state"');
+  await exec('git init', { cwd: codePath }); // fresh local git repo for diffing
+  await exec('git add . && git commit -m "Base state"', { cwd: codePath, shell: sh });
 
   // 2. Sanity Check (Fail2Pass)
   // In a real implementation, this would use the same three-container Black-Box flow:
@@ -193,14 +198,16 @@ async function runFactoryFloor(featureName: string) {
   // Here we show a simplified check; adjust for your test harness (Playwright, Newman, etc.).
   try {
     // We temporarily copy the holdout back in to test it, then remove it
-    execSync(`cp ${sandboxBasePath}/${holdoutTestName} ${codePath}/${relativeHoldoutPath}`);
-    execSync(`npm install && npm run test -- ./${relativeHoldoutPath}`);
+    await exec(`cp ${sandboxBasePath}/${holdoutTestName} ${codePath}/${relativeHoldoutPath}`, {
+      shell: sh,
+    });
+    await exec(`npm install && npm run test -- ./${relativeHoldoutPath}`, { cwd: codePath, shell: sh });
     console.error('Holdout test passed on main branch. Aborting.');
     return;
   } catch (e) {
     console.log('Fail2Pass confirmed. Tests correctly fail.');
   } finally {
-    execSync(`rm ${codePath}/${relativeHoldoutPath}`);
+    await rm(path.join(codePath, relativeHoldoutPath), { force: true });
   }
 
   let success = false;
@@ -219,12 +226,12 @@ async function runFactoryFloor(featureName: string) {
     const openhandsCmd = dangerousDebug
       ? `openhands --headless --workspace-dir "${codePath}" -t "Implement plan.md. Fix errors: ${errorFeedback}"`
       : `npx leash --no-interactive --image factory-coder-node-pnpm-python:latest --volume "${codePath}:/workspace" --policy leash-policy.cedar openhands --headless --always-approve -t "Implement plan.md. Fix errors: ${errorFeedback}"`;
-    execSync(openhandsCmd);
+    await exec(openhandsCmd, { cwd: codePath, shell: sh, maxBuffer: 1024 * 1024 * 64 });
 
     // Extract Artifact (Patch)
-    execSync('git add .');
-    execSync('git diff HEAD > patch.diff');
-    execSync('git reset --hard HEAD'); // Reset sandbox state for next attempt
+    await exec('git add .', { cwd: codePath });
+    await exec('git diff HEAD > patch.diff', { cwd: codePath, shell: sh });
+    await exec('git reset --hard HEAD', { cwd: codePath }); // Reset sandbox state for next attempt
 
     // 4. Mutual Verification (The Test Runner & The Air Gap)
     console.log('Running Mutual Verification...');
@@ -293,19 +300,17 @@ async function runFactoryFloor(featureName: string) {
   }
 
   // 5. Teardown
-  process.chdir(hostRepoPath);
-
   if (success) {
     // Apply patch to the REAL host repository
-    execSync(`git apply ${codePath}/patch.diff`);
-    execSync('git add . && git commit -m "Auto-generated feature"');
-    execSync('/opsx:archive'); // Update Master Specs
-    execSync('git push origin HEAD');
+    await exec(`git apply ${codePath}/patch.diff`, { cwd: hostRepoPath, shell: sh });
+    await exec('git add . && git commit -m "Auto-generated feature"', { cwd: hostRepoPath, shell: sh });
+    await exec('/opsx:archive', { cwd: hostRepoPath, shell: sh }); // Update Master Specs
+    await exec('git push origin HEAD', { cwd: hostRepoPath, shell: sh });
     createPullRequest();
   }
 
   // Throw the disposable sandbox in the trash
-  execSync(`rm -rf ${sandboxBasePath}`);
+  await rm(sandboxBasePath, { recursive: true, force: true });
 }
 ```
 

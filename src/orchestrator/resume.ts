@@ -5,8 +5,7 @@
  * save-on-Ctrl+C artifact persistence, and merging restored config with CLI overrides.
  */
 
-import { unlinkSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import {
@@ -124,7 +123,7 @@ export async function createResumeWorktree(
     const tmpPath = join(worktreePath, '.saifac-apply.patch');
     await writeUtf8(tmpPath, diff);
     await gitApply({ cwd: worktreePath, env: gitEnv, patchFile: tmpPath });
-    unlinkSync(tmpPath);
+    await unlink(tmpPath);
   };
 
   try {

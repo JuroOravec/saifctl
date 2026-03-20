@@ -1,5 +1,4 @@
-import { rmSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -21,8 +20,8 @@ describe('loadSaifConfig', () => {
     projectDir = await makeTempDir();
   });
 
-  afterEach(() => {
-    rmSync(projectDir, { recursive: true, force: true });
+  afterEach(async () => {
+    await rm(projectDir, { recursive: true, force: true });
   });
 
   it('returns empty config when saifac dir does not exist', async () => {

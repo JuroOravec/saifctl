@@ -1,5 +1,4 @@
-import { rmSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -16,9 +15,9 @@ async function createDir(relPath: string): Promise<string> {
 }
 
 describe('discover-features', () => {
-  afterEach(() => {
+  afterEach(async () => {
     try {
-      rmSync(TEST_BASE, { recursive: true, force: true });
+      await rm(TEST_BASE, { recursive: true, force: true });
     } catch {
       // ignore
     }

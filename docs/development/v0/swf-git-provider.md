@@ -254,7 +254,6 @@ To add support for a new hosting provider (e.g. Gitea, Azure DevOps) or a custom
 Create a new file under `src/git/providers/`, e.g. `gitea.ts`:
 
 ```typescript
-import { execSync } from 'node:child_process';
 import type { GitProvider, PullRequestOpts } from '../types.js';
 
 export class GiteaProvider implements GitProvider {

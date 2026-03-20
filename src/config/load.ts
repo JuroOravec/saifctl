@@ -7,16 +7,16 @@
 
 import { resolve } from 'node:path';
 
-import { cosmiconfigSync } from 'cosmiconfig';
+import { cosmiconfig } from 'cosmiconfig';
 
 import { pathExists } from '../utils/io.js';
 import { type SaifConfig, saifConfigSchema } from './schema.js';
 
-const EXPLORER = cosmiconfigSync('saifac', {
+const EXPLORER = cosmiconfig('saifac', {
   searchPlaces: [
     'config.ts',
     'config.js',
-    // 'config.mjs', // TODO: Change Cosmiconfig to async to support
+    'config.mjs',
     'config.json',
     'config.yaml',
     'config.yml',
@@ -39,7 +39,7 @@ export async function loadSaifConfig(saifDir: string, projectDir: string): Promi
     return {};
   }
 
-  const result = EXPLORER.search(configDir);
+  const result = await EXPLORER.search(configDir);
   if (!result?.config) {
     return {};
   }

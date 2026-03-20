@@ -21,8 +21,7 @@
  *       ...rest of repo...
  */
 
-import { chmodSync } from 'node:fs';
-import { mkdir, readdir } from 'node:fs/promises';
+import { chmod, mkdir, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { minimatch } from 'minimatch';
@@ -50,7 +49,7 @@ export async function removeAllHiddenDirs(baseDir: string): Promise<number> {
     if (!entry.isDirectory()) continue;
     const fullPath = join(baseDir, entry.name);
     if (entry.name === 'hidden') {
-      await spawnAsync({ command: 'rm', args: ['-rf', fullPath], cwd: process.cwd() });
+      await rm(fullPath, { recursive: true, force: true });
       removed++;
     } else {
       removed += await removeAllHiddenDirs(fullPath);
@@ -282,31 +281,31 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   // Write gate.sh: user-supplied content or the built-in pnpm check default.
   // Mounted read-only at /factory/gate.sh inside the coder container.
   await writeUtf8(gatePath, gateScript);
-  chmodSync(gatePath, 0o755);
+  await chmod(gatePath, 0o755);
   console.log(`[sandbox] Gate script written to ${gatePath}`);
 
   // Write startup.sh — always present; mounted read-only at /factory/startup.sh.
   // Set via --profile or --startup-script.
   await writeUtf8(startupPath, startupScript);
-  chmodSync(startupPath, 0o755);
+  await chmod(startupPath, 0o755);
   console.log(`[sandbox] Startup script written to ${startupPath}`);
 
   // Write agent-start.sh — mounted read-only at /factory/agent-start.sh.
   // Run once after project startup, before the agent loop. Used to install the agent.
   await writeUtf8(agentStartPath, agentStartScript);
-  chmodSync(agentStartPath, 0o755);
+  await chmod(agentStartPath, 0o755);
   console.log(`[sandbox] Agent start script written to ${agentStartPath}`);
 
   // Write agent.sh — mounted read-only at /factory/agent.sh.
   // Defaults to the agent profile's agent.sh (OpenHands). Override with --agent-script.
   await writeUtf8(agentPath, agentScript);
-  chmodSync(agentPath, 0o755);
+  await chmod(agentPath, 0o755);
   console.log(`[sandbox] Agent script written to ${agentPath}`);
 
   // Write stage.sh — mounted read-only in the staging container at /factory/stage.sh.
   // Set via --profile or --stage-script.
   await writeUtf8(stagePath, stageScript);
-  chmodSync(stagePath, 0o755);
+  await chmod(stagePath, 0o755);
   console.log(`[sandbox] Stage script written to ${stagePath}`);
 
   return {
@@ -327,11 +326,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
  */
 export async function destroySandbox(sandboxBasePath: string): Promise<void> {
   console.log(`[sandbox] Removing sandbox ${sandboxBasePath}`);
-  await spawnAsync({
-    command: 'rm',
-    args: ['-rf', sandboxBasePath],
-    cwd: process.cwd(),
-  });
+  await rm(sandboxBasePath, { recursive: true, force: true });
 }
 
 /** A pattern used to exclude files from the extracted patch. */
