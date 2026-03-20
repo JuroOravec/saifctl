@@ -174,7 +174,7 @@ Once `container.start()` is called, the container runs `/bin/sh /factory/staging
 
 2. /factory/sidecar &
    Start the sidecar in the background.
-   It binds to 0.0.0.0:$FACTORY_SIDECAR_PORT immediately.
+   It binds to 0.0.0.0:$SAIFAC_SIDECAR_PORT immediately.
 
 3. sh /factory/stage.sh
    Run the profile's staging script.
@@ -216,7 +216,7 @@ The sidecar is configured entirely through environment variables, set by `stagin
 | `SIDECAR_PATH` | `/exec`      | HTTP path for the exec endpoint            |
 | `WORKSPACE`    | `/workspace` | Working directory for all spawned commands |
 
-These values come from `saifac/config.ts` (`environments.staging.app`) and are injected by the orchestrator as container environment variables (`FACTORY_SIDECAR_PORT`, `FACTORY_SIDECAR_PATH`).
+These values come from `saifac/config.ts` (`environments.staging.app`) and are injected by the orchestrator as container environment variables (`SAIFAC_SIDECAR_PORT`, `SAIFAC_SIDECAR_PATH`).
 
 ---
 

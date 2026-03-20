@@ -1,8 +1,8 @@
 #!/bin/bash
-# Aider agent script — runs Aider with the task read from $FACTORY_TASK_PATH.
+# Aider agent script — runs Aider with the task read from $SAIFAC_TASK_PATH.
 #
 # Part of the aider agent profile. Selected via --agent aider.
-# coder-start.sh writes the current task to $FACTORY_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
 #
 # Aider is installed by agent-start.sh (pipx) before the loop begins.
 #
@@ -46,7 +46,7 @@ fi
 
 aider \
   --model "$LLM_MODEL" \
-  --message-file "$FACTORY_TASK_PATH" \
+  --message-file "$SAIFAC_TASK_PATH" \
   --yes \
   --no-auto-commits \
   --no-check-update \

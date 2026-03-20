@@ -1,8 +1,8 @@
 #!/bin/bash
-# Gemini CLI agent script — runs Gemini with the task read from $FACTORY_TASK_PATH.
+# Gemini CLI agent script — runs Gemini with the task read from $SAIFAC_TASK_PATH.
 #
 # Part of the gemini agent profile. Selected via --agent gemini.
-# coder-start.sh writes the current task to $FACTORY_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
 #
 # CLI reference: https://geminicli.com/docs/reference/configuration/#command-line-arguments
 #
@@ -41,4 +41,4 @@ gemini \
   --model "$LLM_MODEL" \
   --yolo \
   --output-format stream-json \
-  "$(cat "$FACTORY_TASK_PATH")"
+  "$(cat "$SAIFAC_TASK_PATH")"

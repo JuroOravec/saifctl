@@ -1,8 +1,8 @@
 #!/bin/bash
-# Claude Code agent script — runs Claude with the task read from $FACTORY_TASK_PATH.
+# Claude Code agent script — runs Claude with the task read from $SAIFAC_TASK_PATH.
 #
 # Part of the claude agent profile. Selected via --agent claude.
-# coder-start.sh writes the current task to $FACTORY_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
 #
 # CLI reference: https://code.claude.com/docs/en/cli-reference
 #
@@ -36,7 +36,7 @@ set -euo pipefail
 export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-$LLM_API_KEY}"
 
 claude \
-  -p "$(cat "$FACTORY_TASK_PATH")" \
+  -p "$(cat "$SAIFAC_TASK_PATH")" \
   --model "$LLM_MODEL" \
   --dangerously-skip-permissions \
   --output-format stream-json \

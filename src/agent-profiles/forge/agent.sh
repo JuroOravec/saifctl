@@ -1,8 +1,8 @@
 #!/bin/bash
-# Forge Code agent script — runs forge with the task read from $FACTORY_TASK_PATH.
+# Forge Code agent script — runs forge with the task read from $SAIFAC_TASK_PATH.
 #
 # Part of the forge agent profile. Selected via --agent forge.
-# coder-start.sh writes the current task to $FACTORY_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
 #
 # Forge is a compiled Rust binary that runs fully headlessly with no interactive prompts required.
 #
@@ -91,4 +91,4 @@ fi
 forge \
   --agent forge \
   --verbose \
-  -p "$(cat "$FACTORY_TASK_PATH")"
+  -p "$(cat "$SAIFAC_TASK_PATH")"

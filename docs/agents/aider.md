@@ -9,7 +9,7 @@
 ```bash
 aider \
   --model "$LLM_MODEL" \
-  --message-file "$FACTORY_TASK_PATH" \
+  --message-file "$SAIFAC_TASK_PATH" \
   --yes \
   --no-auto-commits \
   --no-check-update \

@@ -2,7 +2,7 @@
 # mini-SWE-agent setup script — installs mini-swe-agent via pipx.
 #
 # Runs once inside the coder container after the project startup script
-# and before the agent loop begins (FACTORY_AGENT_START_SCRIPT in coder-start.sh).
+# and before the agent loop begins (SAIFAC_AGENT_START_SCRIPT in coder-start.sh).
 #
 # Requirements: Python 3 and pipx must be available in the coder image.
 # If they are not present (e.g. a Node-only image), this script will fail with

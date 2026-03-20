@@ -8,7 +8,7 @@
 
 ```bash
 terminus \
-  "$(cat "$FACTORY_TASK_PATH")" \
+  "$(cat "$SAIFAC_TASK_PATH")" \
   --model "$LLM_MODEL" \
   --parser json \
   --temperature 0.7

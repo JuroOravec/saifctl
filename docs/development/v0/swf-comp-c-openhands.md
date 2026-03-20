@@ -54,7 +54,7 @@ When integrating OpenHands into the Software Factory loop, we run it headlessly 
 **Via Docker:**
 
 ```bash
-export FACTORY_WORKSPACE_BASE=$(pwd)
+export SAIFAC_WORKSPACE_BASE=$(pwd)
 export LLM_MODEL="anthropic/claude-3-5-sonnet-20241022"
 export LLM_API_KEY="your-api-key-here"
 # Optional: export LLM_PROVIDER="anthropic"  # for opencode and similar agents when LLM_MODEL is not provider/model format
@@ -62,13 +62,13 @@ export LLM_API_KEY="your-api-key-here"
 
 docker run -it --pull=always \
   -e SANDBOX_USER_ID=$(id -u) \
-  -e WORKSPACE_MOUNT_PATH=$FACTORY_WORKSPACE_BASE \
+  -e WORKSPACE_MOUNT_PATH=$SAIFAC_WORKSPACE_BASE \
   -e LLM_API_KEY=$LLM_API_KEY \
   -e LLM_MODEL=$LLM_MODEL \
   ${LLM_PROVIDER:+-e LLM_PROVIDER=$LLM_PROVIDER} \
   ${LLM_BASE_URL:+-e LLM_BASE_URL=$LLM_BASE_URL} \
   -e LOG_ALL_EVENTS=true \
-  -v $FACTORY_WORKSPACE_BASE:/opt/FACTORY_WORKSPACE_BASE \
+  -v $SAIFAC_WORKSPACE_BASE:/opt/SAIFAC_WORKSPACE_BASE \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v ~/.openhands-state:/.openhands-state \
   --add-host host.docker.internal:host-gateway \

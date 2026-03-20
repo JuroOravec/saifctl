@@ -83,7 +83,7 @@ export interface Sandbox {
   agentStartPath: string;
   /**
    * sandboxBasePath/agent.sh — agent runner script; mounted :ro at /factory/agent.sh.
-   * coder-start.sh invokes this once per inner round with the task in $FACTORY_TASK_PATH.
+   * coder-start.sh invokes this once per inner round with the task in $SAIFAC_TASK_PATH.
    * Resolved from the agent profile (openhands by default). Override with --agent-script.
    */
   agentPath: string;
@@ -156,7 +156,7 @@ export interface CreateSandboxOpts {
    * The script is mounted read-only at `/factory/agent.sh` inside the coder container
    * and invoked by `coder-start.sh` once per inner round.
    *
-   * The script must read the task from `$FACTORY_TASK_PATH` and run the desired
+   * The script must read the task from `$SAIFAC_TASK_PATH` and run the desired
    * coding agent (OpenHands, Aider, Claude Code, Codex, etc.).
    *
    * Resolved from the agent profile's agent.sh (openhands by default).

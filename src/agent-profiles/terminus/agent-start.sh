@@ -2,7 +2,7 @@
 # Terminus agent setup script — installs terminus-ai via pipx.
 #
 # Runs once inside the coder container after the project startup script
-# and before the agent loop begins (FACTORY_AGENT_START_SCRIPT in coder-start.sh).
+# and before the agent loop begins (SAIFAC_AGENT_START_SCRIPT in coder-start.sh).
 #
 # Requirements:
 #   - Python 3.12+  (Terminus requires >=3.12; earlier versions are not supported)

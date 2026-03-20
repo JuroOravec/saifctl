@@ -15,7 +15,7 @@ export interface SidecarResponse {
 /**
  * Execute a command in the staging container via the HTTP sidecar.
  *
- * FACTORY_SIDECAR_URL is injected by the Orchestrator (e.g. http://staging:8080/exec).
+ * SAIFAC_SIDECAR_URL is injected by the Orchestrator (e.g. http://staging:8080/exec).
  * Falls back to localhost for local development without the Orchestrator.
  */
 export async function execSidecar(
@@ -23,7 +23,7 @@ export async function execSidecar(
   args: string[] = [],
   env: Record<string, string> = {},
 ): Promise<SidecarResponse> {
-  const url = process.env.FACTORY_SIDECAR_URL ?? 'http://localhost:8080/exec';
+  const url = process.env.SAIFAC_SIDECAR_URL ?? 'http://localhost:8080/exec';
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -36,11 +36,11 @@ export async function execSidecar(
 /**
  * Returns the base URL for the web application in the staging container.
  *
- * FACTORY_TARGET_URL is injected by the Orchestrator. Falls back to staging:3000
+ * SAIFAC_TARGET_URL is injected by the Orchestrator. Falls back to staging:3000
  * for local development without the Orchestrator.
  */
 export function baseUrl(): string {
-  return process.env.FACTORY_TARGET_URL ?? 'http://staging:3000';
+  return process.env.SAIFAC_TARGET_URL ?? 'http://staging:3000';
 }
 
 /**

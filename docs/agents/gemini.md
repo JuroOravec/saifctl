@@ -11,7 +11,7 @@ gemini \
   --model "$LLM_MODEL" \
   --yolo \
   --output-format stream-json \
-  "$(cat "$FACTORY_TASK_PATH")"
+  "$(cat "$SAIFAC_TASK_PATH")"
 ```
 
 The prompt is passed as a positional argument (not `-p`, which is `--profile`).

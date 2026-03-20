@@ -11,7 +11,7 @@ forge config set model "$LLM_MODEL"
 forge \
   --agent forge \
   --verbose \
-  -p "$(cat "$FACTORY_TASK_PATH")"
+  -p "$(cat "$SAIFAC_TASK_PATH")"
 ```
 
 Forge has no `--model` flag; we set the model via config before running.

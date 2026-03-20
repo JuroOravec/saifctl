@@ -1,8 +1,8 @@
 #!/bin/bash
-# Qwen Code agent script — runs Qwen with the task read from $FACTORY_TASK_PATH.
+# Qwen Code agent script — runs Qwen with the task read from $SAIFAC_TASK_PATH.
 #
 # Part of the qwen agent profile. Selected via --agent qwen.
-# coder-start.sh writes the current task to $FACTORY_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
 #
 # CLI reference: https://qwenlm.github.io/qwen-code-docs/en/users/features/headless/
 #
@@ -40,7 +40,7 @@ if [ -n "${LLM_BASE_URL:-}" ]; then
 fi
 
 qwen \
-  --prompt "$(cat "$FACTORY_TASK_PATH")" \
+  --prompt "$(cat "$SAIFAC_TASK_PATH")" \
   --model "$LLM_MODEL" \
   --yolo \
   --output-format stream-json

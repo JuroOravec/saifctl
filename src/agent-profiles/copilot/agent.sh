@@ -1,8 +1,8 @@
 #!/bin/bash
-# Copilot CLI agent script — runs GitHub Copilot CLI with the task read from $FACTORY_TASK_PATH.
+# Copilot CLI agent script — runs GitHub Copilot CLI with the task read from $SAIFAC_TASK_PATH.
 #
 # Part of the copilot agent profile. Selected via --agent copilot.
-# coder-start.sh writes the current task to $FACTORY_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
 #
 # CLI reference: https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli
 #
@@ -57,7 +57,7 @@ if [ -n "${LLM_MODEL:-}" ]; then
 fi
 
 copilot \
-  --prompt "$(cat "$FACTORY_TASK_PATH")" \
+  --prompt "$(cat "$SAIFAC_TASK_PATH")" \
   "${_model_flag[@]}" \
   --allow-all \
   --no-ask-user \

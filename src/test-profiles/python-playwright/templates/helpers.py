@@ -29,10 +29,10 @@ def exec_sidecar(
 ) -> SidecarResponse:
     """Execute a command in the staging container via the HTTP sidecar.
 
-    FACTORY_SIDECAR_URL is injected by the Orchestrator (e.g. http://staging:8080/exec).
+    SAIFAC_SIDECAR_URL is injected by the Orchestrator (e.g. http://staging:8080/exec).
     Falls back to localhost for local development without the Orchestrator.
     """
-    url = os.environ.get("FACTORY_SIDECAR_URL", "http://localhost:8080/exec")
+    url = os.environ.get("SAIFAC_SIDECAR_URL", "http://localhost:8080/exec")
     payload: dict[str, Any] = {"cmd": cmd, "args": args or [], "env": env or {}}
     resp = requests.post(url, json=payload, timeout=30)
     resp.raise_for_status()
@@ -47,10 +47,10 @@ def exec_sidecar(
 def base_url() -> str:
     """Returns the base URL for the web application in the staging container.
 
-    FACTORY_TARGET_URL is injected by the Orchestrator. Falls back to staging:3000
+    SAIFAC_TARGET_URL is injected by the Orchestrator. Falls back to staging:3000
     for local development without the Orchestrator.
     """
-    return os.environ.get("FACTORY_TARGET_URL", "http://staging:3000")
+    return os.environ.get("SAIFAC_TARGET_URL", "http://staging:3000")
 
 
 def http_request(

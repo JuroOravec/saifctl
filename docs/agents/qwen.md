@@ -8,7 +8,7 @@
 
 ```bash
 qwen \
-  --prompt "$(cat "$FACTORY_TASK_PATH")" \
+  --prompt "$(cat "$SAIFAC_TASK_PATH")" \
   --model "$LLM_MODEL" \
   --yolo \
   --output-format stream-json

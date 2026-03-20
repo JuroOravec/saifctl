@@ -2,7 +2,7 @@
 # OpenHands agent setup script — installs OpenHands if not already present.
 #
 # Runs once inside the coder container after the project startup script and
-# before the agent loop begins (FACTORY_AGENT_START_SCRIPT in coder-start.sh).
+# before the agent loop begins (SAIFAC_AGENT_START_SCRIPT in coder-start.sh).
 #
 # Installation order (first tool found wins):
 #   1. uv tool install openhands   — preferred: fast, isolated, reproducible

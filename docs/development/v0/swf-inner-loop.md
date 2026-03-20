@@ -46,14 +46,14 @@ A shell script that wraps each agent invocation with a post-run validation step.
 
 **Behaviour:**
 
-1. Read environment variables: `FACTORY_INITIAL_TASK`, `FACTORY_GATE_RETRIES`, `FACTORY_GATE_SCRIPT`, `FACTORY_AGENT_SCRIPT`
-2. Run `FACTORY_STARTUP_SCRIPT` once.
-3. Loop up to `FACTORY_GATE_RETRIES` times (default: 5):
-   - Write `$current_task` to `$FACTORY_TASK_PATH` (default: `/workspace/.factory_task.md`)
-   - Invoke the agent script: `bash "$FACTORY_AGENT_SCRIPT"` — the script must read the task from `$FACTORY_TASK_PATH`
-   - If `FACTORY_GATE_SCRIPT` (or `/factory/gate.sh`) does not exist → treat as gate pass (gate_exit=0)
+1. Read environment variables: `SAIFAC_INITIAL_TASK`, `SAIFAC_GATE_RETRIES`, `SAIFAC_GATE_SCRIPT`, `SAIFAC_AGENT_SCRIPT`
+2. Run `SAIFAC_STARTUP_SCRIPT` once.
+3. Loop up to `SAIFAC_GATE_RETRIES` times (default: 5):
+   - Write `$current_task` to `$SAIFAC_TASK_PATH` (default: `/workspace/.factory_task.md`)
+   - Invoke the agent script: `bash "$SAIFAC_AGENT_SCRIPT"` — the script must read the task from `$SAIFAC_TASK_PATH`
+   - If `SAIFAC_GATE_SCRIPT` (or `/factory/gate.sh`) does not exist → treat as gate pass (gate_exit=0)
    - Else run the gate script, capture stdout+stderr and exit code
-   - If gate exits 0: run the semantic reviewer (if `FACTORY_REVIEWER_SCRIPT` is set and exists). If reviewer passes → exit 0 (success). If reviewer fails → append output and loop again
+   - If gate exits 0: run the semantic reviewer (if `SAIFAC_REVIEWER_SCRIPT` is set and exists). If reviewer passes → exit 0 (success). If reviewer fails → append output and loop again
    - If gate exits non-zero → append the output to `current_task` as "## Validation Failed — Fix Before Finishing" and loop again
 4. If max rounds exhausted without gate/reviewer passing → exit 1
 
@@ -61,13 +61,13 @@ A shell script that wraps each agent invocation with a post-run validation step.
 
 | Variable                  | Required | Default                       | Description                                                            |
 | ------------------------- | -------- | ----------------------------- | ---------------------------------------------------------------------- |
-| `FACTORY_INITIAL_TASK`    | yes      | —                             | Full task prompt; written to `FACTORY_TASK_PATH` each round            |
-| `FACTORY_GATE_RETRIES`    | no       | 5                             | Max inner loop rounds before giving up                                 |
-| `FACTORY_GATE_SCRIPT`     | no       | `/factory/gate.sh`            | Path to the gate script                                                |
-| `FACTORY_REVIEWER_SCRIPT` | no       | —                             | Path to the semantic reviewer script; when set, runs after gate passes |
-| `FACTORY_AGENT_SCRIPT`    | no       | `/factory/agent.sh`           | Path to the agent runner script                                        |
-| `FACTORY_TASK_PATH`       | no       | `/workspace/.factory_task.md` | Path where the current task is written before each invocation          |
-| `FACTORY_STARTUP_SCRIPT`  | yes      | —                             | Path to a script run once before the agent loop                        |
+| `SAIFAC_INITIAL_TASK`    | yes      | —                             | Full task prompt; written to `SAIFAC_TASK_PATH` each round            |
+| `SAIFAC_GATE_RETRIES`    | no       | 5                             | Max inner loop rounds before giving up                                 |
+| `SAIFAC_GATE_SCRIPT`     | no       | `/factory/gate.sh`            | Path to the gate script                                                |
+| `SAIFAC_REVIEWER_SCRIPT` | no       | —                             | Path to the semantic reviewer script; when set, runs after gate passes |
+| `SAIFAC_AGENT_SCRIPT`    | no       | `/factory/agent.sh`           | Path to the agent runner script                                        |
+| `SAIFAC_TASK_PATH`       | no       | `/workspace/.factory_task.md` | Path where the current task is written before each invocation          |
+| `SAIFAC_STARTUP_SCRIPT`  | yes      | —                             | Path to a script run once before the agent loop                        |
 
 ### 2. `Dockerfile.coder`
 
@@ -89,7 +89,7 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 - **Loaded at runtime:** The CLI's `parseGateScript(ctx, profile)` calls `readSandboxGateScript(profile.id)` when `--gate-script` is not set.
 - **Profiles:** Every profile must have a `gate.sh`. Node has a no-op placeholder (warns to use `--gate-script`); Go and Rust have language-specific defaults (e.g. `go vet`+`go test`, `cargo check`+`clippy`+`test`).
 
-**Note:** In Leash (container) mode, `/workspace` is the mounted sandbox. In `--dangerous-debug` mode, `/workspace` does not exist on the host; users running without Leash should provide a custom gate that uses the current directory or `$FACTORY_WORKSPACE_BASE`.
+**Note:** In Leash (container) mode, `/workspace` is the mounted sandbox. In `--dangerous-debug` mode, `/workspace` does not exist on the host; users running without Leash should provide a custom gate that uses the current directory or `$SAIFAC_WORKSPACE_BASE`.
 
 ### 4. Sandbox (`sandbox.ts`)
 
@@ -111,15 +111,15 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 
 - Mount `sandboxBasePath/gate.sh` at `/factory/gate.sh` with `:ro` (read-only)
 - Mount `sandboxBasePath/agent.sh` at `/factory/agent.sh` with `:ro` (read-only)
-- Pass `FACTORY_INITIAL_TASK`, `FACTORY_GATE_RETRIES`, `FACTORY_AGENT_SCRIPT`, `FACTORY_WORKSPACE_BASE` as environment variables
+- Pass `SAIFAC_INITIAL_TASK`, `SAIFAC_GATE_RETRIES`, `SAIFAC_AGENT_SCRIPT`, `SAIFAC_WORKSPACE_BASE` as environment variables
 - Invoke `/factory/coder-start.sh` as the container command (not the agent directly)
 
 **Dangerous-debug mode:**
 
 - Run `bash src/orchestrator/scripts/coder-start.sh` from the repo root on the host
 - Set `spawnCwd` to `codePath` (the sandbox code directory)
-- Set `FACTORY_GATE_SCRIPT` to `sandboxBasePath/gate.sh` (host path)
-- Set `FACTORY_AGENT_SCRIPT` to `sandboxBasePath/agent.sh` (host path)
+- Set `SAIFAC_GATE_SCRIPT` to `sandboxBasePath/gate.sh` (host path)
+- Set `SAIFAC_AGENT_SCRIPT` to `sandboxBasePath/agent.sh` (host path)
 - Same inner loop behaviour; the agent and the gate run on the host
 
 ### 6. Orchestrator (`modes.ts`)
@@ -144,7 +144,7 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 | ------------------------- | -------------------------------------------------------------------------------------- | -------------------- |
 | `--gate-script`           | Path to a shell script to use as the gate                                              | Profile's `gate.sh`  |
 | `--gate-retries`          | Max gate retries per run                                                               | 10                   |
-| `--agent-script`          | Path to a bash script that runs the coding agent; reads task from `$FACTORY_TASK_PATH` | Built-in (OpenHands) |
+| `--agent-script`          | Path to a bash script that runs the coding agent; reads task from `$SAIFAC_TASK_PATH` | Built-in (OpenHands) |
 | `--agent-env KEY=VALUE`   | Extra env var to forward into the agent container (repeatable)                         | —                    |
 | `--agent-env-file <path>` | Path to a `.env` file with extra env vars to forward                                   | —                    |
 | `--agent-log-format`      | How to parse agent stdout: `openhands` (JSON events) or `raw` (line stream)            | `openhands`          |
@@ -184,7 +184,7 @@ After sandbox creation:
 - The gate runs inside the container with access to `/workspace` only — no host-side trust surface, no HTTP, no bind-mount race conditions.
 - The **Test Runner** (hidden tests) remains the authoritative enforcement layer. The gate is purely a cheap early-exit that catches deterministic failures before the expensive Docker build and test runner run.
 - The agent **can observe** gate output — it is fed back as task feedback. This is intentional: the feedback comes from the user's own public check, not from hidden tests.
-- **`agentEnv`** reserved-key filtering: factory internal variables (`FACTORY_*`, `LLM_*`, `REVIEWER_LLM_*`) cannot be overridden by user-supplied `--agent-env` flags. The runner emits a warning and ignores them.
+- **`agentEnv`** reserved-key filtering: factory internal variables (`SAIFAC_*`, `LLM_*`, `REVIEWER_LLM_*`) cannot be overridden by user-supplied `--agent-env` flags. The runner emits a warning and ignores them.
 
 ---
 
@@ -230,7 +230,7 @@ saifac feat run --gate-retries 3
 # aider-runner.sh
 #!/bin/bash
 set -euo pipefail
-aider --message-file "$FACTORY_TASK_PATH" --yes
+aider --message-file "$SAIFAC_TASK_PATH" --yes
 
 saifac feat run --agent-script ./aider-runner.sh --agent-log-format raw
 ```
@@ -241,7 +241,7 @@ saifac feat run --agent-script ./aider-runner.sh --agent-log-format raw
 # claude-runner.sh
 #!/bin/bash
 set -euo pipefail
-claude --print "$(cat "$FACTORY_TASK_PATH")"
+claude --print "$(cat "$SAIFAC_TASK_PATH")"
 
 saifac feat run --agent-script ./claude-runner.sh --agent-log-format raw
 ```

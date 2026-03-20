@@ -11,7 +11,7 @@ OPENCODE_PERMISSION='{"*":"allow"}' \
 opencode run \
   --model "$LLM_MODEL" \
   --format json \
-  "$(cat "$FACTORY_TASK_PATH")"
+  "$(cat "$SAIFAC_TASK_PATH")"
 ```
 
 ## Notes

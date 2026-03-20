@@ -49,7 +49,7 @@ npx leash --no-interactive --verbose
       --image factory-coder-node-pnpm-python:latest
       --volume /tmp/factory-sandbox/<feat>-<runId>/code:/workspace
       --policy leash-policy.cedar
-      --agent-env LLM_MODEL=... --agent-env LLM_API_KEY=... [-e LLM_PROVIDER=...] [-e LLM_BASE_URL=...] --agent-env FACTORY_WORKSPACE_BASE=/workspace
+      --agent-env LLM_MODEL=... --agent-env LLM_API_KEY=... [-e LLM_PROVIDER=...] [-e LLM_BASE_URL=...] --agent-env SAIFAC_WORKSPACE_BASE=/workspace
       --agent-env LEASH_E2E=1 --agent-env LEASH_BOOTSTRAP_SKIP_ENFORCE=1
       openhands --headless --always-approve --override-with-envs --json -t "..."
 ```

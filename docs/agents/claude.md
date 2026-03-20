@@ -8,7 +8,7 @@
 
 ```bash
 claude \
-  -p "$(cat "$FACTORY_TASK_PATH")" \
+  -p "$(cat "$SAIFAC_TASK_PATH")" \
   --model "$LLM_MODEL" \
   --dangerously-skip-permissions \
   --output-format stream-json \

@@ -12,7 +12,7 @@ codex exec \
   --dangerously-bypass-approvals-and-sandbox \
   --json \
   --ephemeral \
-  - < "$FACTORY_TASK_PATH"
+  - < "$SAIFAC_TASK_PATH"
 ```
 
 ## Notes

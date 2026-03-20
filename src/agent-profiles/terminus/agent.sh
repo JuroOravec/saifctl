@@ -1,8 +1,8 @@
 #!/bin/bash
-# Terminus agent script — runs Terminus with the task read from $FACTORY_TASK_PATH.
+# Terminus agent script — runs Terminus with the task read from $SAIFAC_TASK_PATH.
 #
 # Part of the terminus agent profile. Selected via --agent terminus.
-# coder-start.sh writes the current task to $FACTORY_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
 #
 # PyPI:           https://pypi.org/project/terminus-ai/
 # Harbor docs:    https://harborframework.com/docs/agents/terminus-2
@@ -98,7 +98,7 @@ if [ -n "${LLM_BASE_URL:-}" ]; then
 fi
 
 terminus \
-  "$(cat "$FACTORY_TASK_PATH")" \
+  "$(cat "$SAIFAC_TASK_PATH")" \
   --model "$LLM_MODEL" \
   "${_api_base_flag[@]}" \
   --parser json \

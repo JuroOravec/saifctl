@@ -81,7 +81,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
    * Content of the agent script to write into the sandbox as `agent.sh`.
    * Mounted read-only at `/factory/agent.sh` inside the coder container and invoked
    * by `coder-start.sh` once per inner round. The script must read the task from
-   * `$FACTORY_TASK_PATH`.
+   * `$SAIFAC_TASK_PATH`.
    *
    * Resolved by the CLI: defaults to the agent profile's agent.sh (OpenHands) when
    * --agent and --agent-script are not set.

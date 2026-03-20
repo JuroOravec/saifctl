@@ -8,7 +8,7 @@ This document describes how to use a coding agent other than OpenHands with the 
 
 The factory loop runs a **user-supplied agent script** once per inner round. That script:
 
-1. **Reads the task** from the environment variable `$FACTORY_TASK_PATH` (a markdown file)
+1. **Reads the task** from the environment variable `$SAIFAC_TASK_PATH` (a markdown file)
 2. **Invokes your preferred agent** (Aider, Claude Code, etc.) with the task
 3. **Exits** when the agent completes
 
@@ -18,26 +18,26 @@ The task file is written by `coder-start.sh` before each invocation, so you don'
 
 ## Step 1: Write an Agent Runner Script
 
-Create a bash script that runs your agent. The script **must** read the task from `$FACTORY_TASK_PATH`.
+Create a bash script that runs your agent. The script **must** read the task from `$SAIFAC_TASK_PATH`.
 
 ### Example: Aider
 
 ```bash
 #!/bin/bash
-# aider-runner.sh — run Aider with the task from $FACTORY_TASK_PATH
+# aider-runner.sh — run Aider with the task from $SAIFAC_TASK_PATH
 set -euo pipefail
 
-aider --message-file "$FACTORY_TASK_PATH" --yes
+aider --message-file "$SAIFAC_TASK_PATH" --yes
 ```
 
 ### Example: Claude Code
 
 ```bash
 #!/bin/bash
-# claude-runner.sh — run Claude Code with the task from $FACTORY_TASK_PATH
+# claude-runner.sh — run Claude Code with the task from $SAIFAC_TASK_PATH
 set -euo pipefail
 
-claude --print "$(cat "$FACTORY_TASK_PATH")"
+claude --print "$(cat "$SAIFAC_TASK_PATH")"
 ```
 
 ### Example: Custom Python Script
@@ -47,14 +47,14 @@ claude --print "$(cat "$FACTORY_TASK_PATH")"
 # my-agent-runner.sh
 set -euo pipefail
 
-python ./scripts/my-agent.py --task-file "$FACTORY_TASK_PATH"
+python ./scripts/my-agent.py --task-file "$SAIFAC_TASK_PATH"
 ```
 
 ### Contract Your Script Must Honour
 
 | Requirement                         | Description                                                                                                                                                                    |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Read task from `$FACTORY_TASK_PATH` | The factory writes the full task (plan + optional error feedback) to this file before each invocation. Do **not** pass the task via `-t "..."` or similar — use the file path. |
+| Read task from `$SAIFAC_TASK_PATH` | The factory writes the full task (plan + optional error feedback) to this file before each invocation. Do **not** pass the task via `-t "..."` or similar — use the file path. |
 | Work in the workspace               | In Leash mode the workspace is `/workspace`. In `--dangerous-debug` mode it is the current working directory (sandbox `code/`). Your agent must edit files in that directory.  |
 | Exit on completion                  | Exit code 0 when done, non-zero on failure. The factory uses the exit code to decide whether to run the gate.                                                                  |
 | Use env vars for config             | Your agent can read `LLM_MODEL`, `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`, and any extra vars you pass via `--agent-env` or `--agent-env-file`.                           |
@@ -171,7 +171,7 @@ saifac feat run \
   --agent-env-file ./agent.env
 ```
 
-**Reserved variables**: The factory filters out `FACTORY_*`, `LLM_*`, `REVIEWER_LLM_*`. If you pass them via `--agent-env`, they are ignored with a warning.
+**Reserved variables**: The factory filters out `SAIFAC_*`, `LLM_*`, `REVIEWER_LLM_*`. If you pass them via `--agent-env`, they are ignored with a warning.
 
 ---
 
@@ -215,7 +215,7 @@ For `saifac run resume`, the same flags apply — you can change the agent scrip
    ```bash
    #!/bin/bash
    set -euo pipefail
-   aider --message-file "$FACTORY_TASK_PATH" --yes
+   aider --message-file "$SAIFAC_TASK_PATH" --yes
    ```
 
 2. **Create a startup script** that installs Aider (`startup-with-aider.sh`):
@@ -262,8 +262,8 @@ saifac feat run \
 
 In this mode:
 
-- The workspace is the sandbox `code/` directory (path passed as `FACTORY_WORKSPACE_BASE`)
-- `$FACTORY_TASK_PATH` points to `{sandbox}/code/.factory_task.md`
+- The workspace is the sandbox `code/` directory (path passed as `SAIFAC_WORKSPACE_BASE`)
+- `$SAIFAC_TASK_PATH` points to `{sandbox}/code/.factory_task.md`
 - Your agent must be installed on the host
 
 ---
@@ -273,8 +273,8 @@ In this mode:
 | Issue                        | Cause                                                            | Fix                                                                                     |
 | ---------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `agent script not found`     | The path to `--agent-script` is wrong or the file isn't readable | Use an absolute path or a path relative to the repo root; ensure the file exists        |
-| Agent receives empty task    | `$FACTORY_TASK_PATH` is unset or wrong                           | Don't override `FACTORY_TASK_PATH` via `--agent-env`; the factory sets it automatically |
-| `--agent-env` var is ignored | Variable is reserved                                             | Don't pass `FACTORY_*`, `LLM_*`, `REVIEWER_LLM_*` via `--agent-env`                     |
+| Agent receives empty task    | `$SAIFAC_TASK_PATH` is unset or wrong                           | Don't override `SAIFAC_TASK_PATH` via `--agent-env`; the factory sets it automatically |
+| `--agent-env` var is ignored | Variable is reserved                                             | Don't pass `SAIFAC_*`, `LLM_*`, `REVIEWER_LLM_*` via `--agent-env`                     |
 | Agent not found in container | Agent isn't installed in the coder image or startup script       | Install in `--startup-script` or build a custom `--coder-image`                         |
 | Garbled or missing output    | Using default `openhands` log format with a non-OpenHands agent  | Add `--agent-log-format raw`                                                            |
 

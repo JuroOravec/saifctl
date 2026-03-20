@@ -151,8 +151,8 @@ This test sends a request to run `pnpm run greeting` in the staging container an
 ```typescript
 import { describe, it, expect } from 'vitest';
 
-// Orchestrator injects FACTORY_TARGET_URL (e.g. http://staging:8080/exec for sidecar, http://staging:3000 for web)
-const TARGET_URL = process.env.FACTORY_TARGET_URL ?? 'http://localhost:8080/exec';
+// Orchestrator injects SAIFAC_TARGET_URL (e.g. http://staging:8080/exec for sidecar, http://staging:3000 for web)
+const TARGET_URL = process.env.SAIFAC_TARGET_URL ?? 'http://localhost:8080/exec';
 
 async function execInAgent(cmd: string, args: string[] = [], env: Record<string, string> = {}) {
   const res = await fetch(TARGET_URL, {
@@ -192,7 +192,7 @@ describe('greeting command (via sidecar)', () => {
 });
 ```
 
-The Orchestrator injects `FACTORY_TARGET_URL` into the Test Runner container (e.g. `http://staging:8080/exec` for the sidecar, or `http://staging:3000` for a web server). Tests read `process.env.FACTORY_TARGET_URL`. For local development without the Orchestrator, fall back to `http://localhost:8080/exec`.
+The Orchestrator injects `SAIFAC_TARGET_URL` into the Test Runner container (e.g. `http://staging:8080/exec` for the sidecar, or `http://staging:3000` for a web server). Tests read `process.env.SAIFAC_TARGET_URL`. For local development without the Orchestrator, fall back to `http://localhost:8080/exec`.
 
 ---
 

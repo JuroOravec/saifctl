@@ -25,10 +25,10 @@ var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 // ExecSidecar executes a command in the staging container via the HTTP sidecar.
 //
-// FACTORY_SIDECAR_URL is injected by the Orchestrator (e.g. http://staging:8080/exec).
+// SAIFAC_SIDECAR_URL is injected by the Orchestrator (e.g. http://staging:8080/exec).
 // Falls back to localhost for local development without the Orchestrator.
 func ExecSidecar(cmd string, args []string, env map[string]string) (*SidecarResponse, error) {
-	url := os.Getenv("FACTORY_SIDECAR_URL")
+	url := os.Getenv("SAIFAC_SIDECAR_URL")
 	if url == "" {
 		url = "http://localhost:8080/exec"
 	}
@@ -64,9 +64,9 @@ func ExecSidecar(cmd string, args []string, env map[string]string) (*SidecarResp
 
 // BaseURL returns the base URL for the web application in the staging container.
 //
-// FACTORY_TARGET_URL is injected by the Orchestrator. Falls back to staging:3000.
+// SAIFAC_TARGET_URL is injected by the Orchestrator. Falls back to staging:3000.
 func BaseURL() string {
-	if u := os.Getenv("FACTORY_TARGET_URL"); u != "" {
+	if u := os.Getenv("SAIFAC_TARGET_URL"); u != "" {
 		return u
 	}
 	return "http://staging:3000"

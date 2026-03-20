@@ -125,7 +125,7 @@ export interface IterativeLoopOpts {
   gitProvider: GitProvider;
   /**
    * Maximum number of gate retries (agent → gate → feedback) per run.
-   * Forwarded as FACTORY_GATE_RETRIES to coder-start.sh.
+   * Forwarded as SAIFAC_GATE_RETRIES to coder-start.sh.
    *
    * Resolved by the CLI: defaults to 10 when --gate-retries is not set.
    */
@@ -135,7 +135,7 @@ export interface IterativeLoopOpts {
    * or inject into the host process env (--dangerous-debug mode).
    *
    * Parsed from --agent-env KEY=VALUE flags and --agent-env-file <path> by the CLI.
-   * Reserved factory variables (FACTORY_*, LLM_*, REVIEWER_LLM_*) are silently filtered out
+   * Reserved factory variables (SAIFAC_*, LLM_*, REVIEWER_LLM_*) are silently filtered out
    * by the runner to prevent accidental override.
    */
   agentEnv: Record<string, string>;

@@ -5,7 +5,7 @@
  * Validates the sidecar HTTP→exec path before feature tests run.
  * These tests are NOT in the feature spec and cannot be tampered with by the coder.
  *
- * Uses FACTORY_SIDECAR_URL (injected by the Orchestrator). The sidecar runs in every
+ * Uses SAIFAC_SIDECAR_URL (injected by the Orchestrator). The sidecar runs in every
  * staging container regardless of project type.
  */
 import { test, expect } from '@playwright/test';

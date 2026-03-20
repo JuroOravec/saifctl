@@ -29,7 +29,7 @@ We address these with two pluggable lifecycle hooks and a layered Docker image d
 
 ### 2. Gate script (`/factory/gate.sh`)
 
-**Runs:** After each agent invocation, up to `FACTORY_GATE_RETRIES` times per outer attempt.
+**Runs:** After each agent invocation, up to `SAIFAC_GATE_RETRIES` times per outer attempt.
 
 **Purpose:** Quick validation to short-circuit the outer tests. Examples: `npm run check`, `pnpm check`, `pytest tests/unit/`, `cargo clippy`.
 
@@ -72,12 +72,12 @@ We separate concerns into two images:
 
 | Variable                 | Required | Default               | Description                                  |
 | ------------------------ | -------- | --------------------- | -------------------------------------------- |
-| `FACTORY_INITIAL_TASK`   | yes      | —                     | Full task prompt for the agent               |
-| `FACTORY_GATE_RETRIES`   | no       | 5                     | Max inner gate-retry rounds before giving up |
-| `FACTORY_GATE_SCRIPT`    | no       | `/factory/gate.sh`    | Path to the gate script                      |
-| `FACTORY_STARTUP_SCRIPT` | yes      | `/factory/startup.sh` | Path to the startup script. Must exist.      |
+| `SAIFAC_INITIAL_TASK`   | yes      | —                     | Full task prompt for the agent               |
+| `SAIFAC_GATE_RETRIES`   | no       | 5                     | Max inner gate-retry rounds before giving up |
+| `SAIFAC_GATE_SCRIPT`    | no       | `/factory/gate.sh`    | Path to the gate script                      |
+| `SAIFAC_STARTUP_SCRIPT` | yes      | `/factory/startup.sh` | Path to the startup script. Must exist.      |
 
-`FACTORY_STARTUP_SCRIPT` is always set by the orchestrator. It points to `/factory/startup.sh`, which the orchestrator writes from the profile's installation script (or from `--startup-script` when provided). `coder-start.sh` will error if the file is missing.
+`SAIFAC_STARTUP_SCRIPT` is always set by the orchestrator. It points to `/factory/startup.sh`, which the orchestrator writes from the profile's installation script (or from `--startup-script` when provided). `coder-start.sh` will error if the file is missing.
 
 ---
 

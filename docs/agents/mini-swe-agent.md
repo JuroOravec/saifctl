@@ -8,7 +8,7 @@
 
 ```bash
 mini \
-  -t "$(cat "$FACTORY_TASK_PATH")" \
+  -t "$(cat "$SAIFAC_TASK_PATH")" \
   --yolo \
   --exit-immediately
 ```

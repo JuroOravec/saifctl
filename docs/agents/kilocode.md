@@ -10,7 +10,7 @@
 export OPENCODE_CONFIG_CONTENT='{"model":"$LLM_MODEL","permission":"allow","autoupdate":false,...}'
 kilo run \
   --auto \
-  "$(cat "$FACTORY_TASK_PATH")"
+  "$(cat "$SAIFAC_TASK_PATH")"
 ```
 
 Provider config (apiKey, baseURL) is injected via `OPENCODE_CONFIG_CONTENT` as JSON.

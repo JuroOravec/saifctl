@@ -290,11 +290,11 @@ export class DockerProvisioner implements Provisioner {
       },
       Env: [
         ...appEnvEntries,
-        `FACTORY_FEATURE_NAME=${feature.name}`,
-        `FACTORY_SIDECAR_PORT=${containerConfig.sidecarPort}`,
-        `FACTORY_SIDECAR_PATH=${containerConfig.sidecarPath}`,
-        `FACTORY_STARTUP_SCRIPT=/factory/startup.sh`,
-        `FACTORY_STAGE_SCRIPT=/factory/stage.sh`,
+        `SAIFAC_FEATURE_NAME=${feature.name}`,
+        `SAIFAC_SIDECAR_PORT=${containerConfig.sidecarPort}`,
+        `SAIFAC_SIDECAR_PATH=${containerConfig.sidecarPath}`,
+        `SAIFAC_STARTUP_SCRIPT=/factory/startup.sh`,
+        `SAIFAC_STAGE_SCRIPT=/factory/stage.sh`,
       ],
       WorkingDir: '/workspace',
     });
@@ -381,11 +381,11 @@ export class DockerProvisioner implements Provisioner {
         CapDrop: ['ALL'],
       },
       Env: [
-        `FACTORY_TARGET_URL=${stagingHandle.targetUrl}`,
-        `FACTORY_SIDECAR_URL=${stagingHandle.sidecarUrl}`,
-        `FACTORY_FEATURE_NAME=${feature.name}`,
-        `FACTORY_TESTS_DIR=${containerTestsDir}`,
-        `FACTORY_OUTPUT_FILE=${containerOutputFile}`,
+        `SAIFAC_TARGET_URL=${stagingHandle.targetUrl}`,
+        `SAIFAC_SIDECAR_URL=${stagingHandle.sidecarUrl}`,
+        `SAIFAC_FEATURE_NAME=${feature.name}`,
+        `SAIFAC_TESTS_DIR=${containerTestsDir}`,
+        `SAIFAC_OUTPUT_FILE=${containerOutputFile}`,
       ],
       WorkingDir: '/workspace',
     });
@@ -517,14 +517,14 @@ export class DockerProvisioner implements Provisioner {
         LLM_API_KEY: llmApiKey,
         ...(llmProvider ? { LLM_PROVIDER: llmProvider } : {}),
         ...(llmBaseUrl ? { LLM_BASE_URL: llmBaseUrl } : {}),
-        FACTORY_WORKSPACE_BASE: codePath,
-        FACTORY_INITIAL_TASK: taskPrompt,
-        FACTORY_GATE_RETRIES: String(gateRetries),
-        FACTORY_STARTUP_SCRIPT: startupPath,
-        FACTORY_AGENT_START_SCRIPT: agentStartPath,
-        FACTORY_GATE_SCRIPT: `${sandboxBasePath}/gate.sh`,
-        FACTORY_AGENT_SCRIPT: agentPath,
-        FACTORY_TASK_PATH: join(codePath, '.factory_task.md'),
+        SAIFAC_WORKSPACE_BASE: codePath,
+        SAIFAC_INITIAL_TASK: taskPrompt,
+        SAIFAC_GATE_RETRIES: String(gateRetries),
+        SAIFAC_STARTUP_SCRIPT: startupPath,
+        SAIFAC_AGENT_START_SCRIPT: agentStartPath,
+        SAIFAC_GATE_SCRIPT: `${sandboxBasePath}/gate.sh`,
+        SAIFAC_AGENT_SCRIPT: agentPath,
+        SAIFAC_TASK_PATH: join(codePath, '.factory_task.md'),
       };
       consola.log('[agent-runner] Mode: dangerous-debug (host execution, filesystem sandbox only)');
     } else {
@@ -576,7 +576,7 @@ export class DockerProvisioner implements Provisioner {
           '--volume',
           `${reviewer.argusBinaryPath}:/usr/local/bin/argus:ro`,
         );
-        envForward.FACTORY_REVIEWER_SCRIPT = '/factory/reviewer.sh';
+        envForward.SAIFAC_REVIEWER_SCRIPT = '/factory/reviewer.sh';
         envForward.REVIEWER_LLM_PROVIDER = reviewer.llmConfig.provider;
         envForward.REVIEWER_LLM_MODEL = reviewer.llmConfig.fullModelString;
         envForward.REVIEWER_LLM_API_KEY = reviewer.llmConfig.apiKey;
@@ -598,17 +598,17 @@ export class DockerProvisioner implements Provisioner {
 
       leashArgs.push(
         '--env',
-        `FACTORY_WORKSPACE_BASE=${CONTAINER_WORKSPACE}`,
+        `SAIFAC_WORKSPACE_BASE=${CONTAINER_WORKSPACE}`,
         '--env',
-        `FACTORY_INITIAL_TASK=${taskPrompt}`,
+        `SAIFAC_INITIAL_TASK=${taskPrompt}`,
         '--env',
-        `FACTORY_GATE_RETRIES=${gateRetries}`,
+        `SAIFAC_GATE_RETRIES=${gateRetries}`,
         '--env',
-        `FACTORY_STARTUP_SCRIPT=/factory/startup.sh`,
+        `SAIFAC_STARTUP_SCRIPT=/factory/startup.sh`,
         '--env',
-        `FACTORY_AGENT_START_SCRIPT=/factory/agent-start.sh`,
+        `SAIFAC_AGENT_START_SCRIPT=/factory/agent-start.sh`,
         '--env',
-        `FACTORY_AGENT_SCRIPT=/factory/agent.sh`,
+        `SAIFAC_AGENT_SCRIPT=/factory/agent.sh`,
         '/factory/coder-start.sh',
       );
 
@@ -626,7 +626,7 @@ export class DockerProvisioner implements Provisioner {
         const eq = a.indexOf('=');
         const k = a.slice(0, eq);
         if (SENSITIVE_ENV_KEYS.has(k)) return `${k}=****`;
-        if (k === 'FACTORY_INITIAL_TASK') return `${k}=<task (${a.length - eq - 1} chars)>`;
+        if (k === 'SAIFAC_INITIAL_TASK') return `${k}=<task (${a.length - eq - 1} chars)>`;
         return a;
       });
 

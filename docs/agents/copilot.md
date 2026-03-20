@@ -8,7 +8,7 @@
 
 ```bash
 copilot \
-  --prompt "$(cat "$FACTORY_TASK_PATH")" \
+  --prompt "$(cat "$SAIFAC_TASK_PATH")" \
   --allow-all \
   --no-ask-user \
   --no-auto-update \

@@ -2,7 +2,7 @@
 # Deep Agents CLI setup script — installs deepagents-cli via uv tool.
 #
 # Runs once inside the coder container after the project startup script
-# and before the agent loop begins (FACTORY_AGENT_START_SCRIPT in coder-start.sh).
+# and before the agent loop begins (SAIFAC_AGENT_START_SCRIPT in coder-start.sh).
 #
 # deepagents-cli is a Python package distributed via PyPI.
 # uv is the preferred installer; pip/pipx are used as fallbacks.

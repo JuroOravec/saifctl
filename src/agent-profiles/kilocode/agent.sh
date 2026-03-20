@@ -1,8 +1,8 @@
 #!/bin/bash
-# Kilo Code CLI agent script — runs kilo with the task read from $FACTORY_TASK_PATH.
+# Kilo Code CLI agent script — runs kilo with the task read from $SAIFAC_TASK_PATH.
 #
 # Part of the kilocode agent profile. Selected via --agent kilocode.
-# coder-start.sh writes the current task to $FACTORY_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
 #
 # Kilo CLI is a fork of OpenCode and inherits its config/provider model.
 # CLI reference:    https://kilocode.ai/docs/cli
@@ -99,4 +99,4 @@ export OPENCODE_CONFIG_CONTENT="{${_model_fragment}\"permission\":\"allow\",\"au
 
 kilo run \
   --auto \
-  "$(cat "$FACTORY_TASK_PATH")"
+  "$(cat "$SAIFAC_TASK_PATH")"

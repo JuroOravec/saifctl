@@ -268,7 +268,7 @@ async function runFactoryFloor(featureName: string) {
       ],
       HostConfig: { Links: [`app-${runId}:app`] }, // Network link to Staging container
       Env: [
-        `FACTORY_TARGET_URL=http://staging:3000`, // Point tests at Staging container's web server or HTTP Sidecar Wrapper
+        `SAIFAC_TARGET_URL=http://staging:3000`, // Point tests at Staging container's web server or HTTP Sidecar Wrapper
       ],
       Cmd: [
         '/bin/bash',

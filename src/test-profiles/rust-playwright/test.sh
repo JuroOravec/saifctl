@@ -7,21 +7,21 @@
 #
 # Environment variables provided by the Orchestrator (all required):
 #
-#   FACTORY_TARGET_URL    URL of the application under test.
-#   FACTORY_SIDECAR_URL   URL of the HTTP sidecar.
-#   FACTORY_FEATURE_NAME  Name of the Saifac feature being tested.
-#   FACTORY_TESTS_DIR     Absolute path inside the container where test files are mounted.
-#   FACTORY_OUTPUT_FILE   Absolute path where this script must write the JUnit XML report.
+#   SAIFAC_TARGET_URL    URL of the application under test.
+#   SAIFAC_SIDECAR_URL   URL of the HTTP sidecar.
+#   SAIFAC_FEATURE_NAME  Name of the Saifac feature being tested.
+#   SAIFAC_TESTS_DIR     Absolute path inside the container where test files are mounted.
+#   SAIFAC_OUTPUT_FILE   Absolute path where this script must write the JUnit XML report.
 
 set -e
 
-echo "[test-runner] FACTORY_TARGET_URL:   ${FACTORY_TARGET_URL}"
-echo "[test-runner] FACTORY_SIDECAR_URL:  ${FACTORY_SIDECAR_URL}"
-echo "[test-runner] FACTORY_FEATURE_NAME: ${FACTORY_FEATURE_NAME}"
-echo "[test-runner] FACTORY_TESTS_DIR:    ${FACTORY_TESTS_DIR}"
-echo "[test-runner] FACTORY_OUTPUT_FILE:  ${FACTORY_OUTPUT_FILE}"
+echo "[test-runner] SAIFAC_TARGET_URL:   ${SAIFAC_TARGET_URL}"
+echo "[test-runner] SAIFAC_SIDECAR_URL:  ${SAIFAC_SIDECAR_URL}"
+echo "[test-runner] SAIFAC_FEATURE_NAME: ${SAIFAC_FEATURE_NAME}"
+echo "[test-runner] SAIFAC_TESTS_DIR:    ${SAIFAC_TESTS_DIR}"
+echo "[test-runner] SAIFAC_OUTPUT_FILE:  ${SAIFAC_OUTPUT_FILE}"
 
-cd "${FACTORY_TESTS_DIR}"
+cd "${SAIFAC_TESTS_DIR}"
 
 # cargo-nextest produces JUnit XML natively.
 # --profile ci must be defined in .cargo/nextest.toml (or nextest.toml) in the test crate.
@@ -29,4 +29,4 @@ cd "${FACTORY_TESTS_DIR}"
 exec cargo nextest run \
   --profile ci \
   --test-output immediate-final \
-  --junit-path "${FACTORY_OUTPUT_FILE}"
+  --junit-path "${SAIFAC_OUTPUT_FILE}"

@@ -7,15 +7,15 @@
 #   REVIEWER_LLM_MODEL      — e.g. claude-3-opus-20240229
 #   REVIEWER_LLM_API_KEY    — API key for the provider
 #   REVIEWER_LLM_BASE_URL   — optional; for OpenAI-compatible custom endpoints
-#   FACTORY_TASK_PATH       — path to the task file (contains user prompt for verification)
-#   FACTORY_WORKSPACE_BASE  — /workspace (coder container)
+#   SAIFAC_TASK_PATH       — path to the task file (contains user prompt for verification)
+#   SAIFAC_WORKSPACE_BASE  — /workspace (coder container)
 #
-# Invoked by gate.sh after static checks pass when FACTORY_REVIEWER_SCRIPT is set.
+# Invoked by gate.sh after static checks pass when SAIFAC_REVIEWER_SCRIPT is set.
 
 set -e
 
-WORKSPACE="${FACTORY_WORKSPACE_BASE:-/workspace}"
-TASK_PATH="${FACTORY_TASK_PATH:-${WORKSPACE}/.factory_task.md}"
+WORKSPACE="${SAIFAC_WORKSPACE_BASE:-/workspace}"
+TASK_PATH="${SAIFAC_TASK_PATH:-${WORKSPACE}/.factory_task.md}"
 
 # Read the task for the rule prompt (first 2000 chars to avoid huge prompts)
 if [ -f "$TASK_PATH" ]; then

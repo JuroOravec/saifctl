@@ -1,8 +1,8 @@
 #!/bin/bash
-# mini-SWE-agent script — runs `mini` with the task read from $FACTORY_TASK_PATH.
+# mini-SWE-agent script — runs `mini` with the task read from $SAIFAC_TASK_PATH.
 #
 # Part of the mini-swe-agent profile. Selected via --agent mini-swe-agent.
-# coder-start.sh writes the current task to $FACTORY_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
 #
 # CLI reference:    https://mini-swe-agent.com/latest/usage/mini/
 # Global config:    https://mini-swe-agent.com/latest/advanced/global_configuration/
@@ -108,7 +108,7 @@ fi
 export MSWEA_COST_TRACKING="${MSWEA_COST_TRACKING:-ignore_errors}"
 
 mini \
-  -t "$(cat "$FACTORY_TASK_PATH")" \
+  -t "$(cat "$SAIFAC_TASK_PATH")" \
   --yolo \
   --exit-immediately \
   "${_model_flag[@]}" \

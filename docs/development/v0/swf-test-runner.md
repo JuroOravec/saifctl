@@ -55,11 +55,11 @@ The Orchestrator passes these environment variables to the Test Runner container
 
 | Variable               | Description                                                                                                                                                          |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `FACTORY_TARGET_URL`   | URL of the application under test. For CLI projects = sidecar URL; for web projects = app base URL (e.g. `http://staging:3000`).                                     |
-| `FACTORY_SIDECAR_URL`  | URL of the HTTP sidecar that executes CLI commands. Format: `http://staging:<port><path>` (e.g. `http://staging:8080/exec`). Always defined — even for web projects. |
-| `FACTORY_FEATURE_NAME` | SAIFAC feature name (e.g. `greet-cmd`).                                                                                                                              |
-| `FACTORY_TESTS_DIR`    | Absolute path inside the container where test files are mounted. Default: `/tests`.                                                                                  |
-| `FACTORY_OUTPUT_FILE`  | Absolute path where the container **must write the JUnit XML report**. Default: `/test-runner-output/results.xml`.                                                   |
+| `SAIFAC_TARGET_URL`   | URL of the application under test. For CLI projects = sidecar URL; for web projects = app base URL (e.g. `http://staging:3000`).                                     |
+| `SAIFAC_SIDECAR_URL`  | URL of the HTTP sidecar that executes CLI commands. Format: `http://staging:<port><path>` (e.g. `http://staging:8080/exec`). Always defined — even for web projects. |
+| `SAIFAC_FEATURE_NAME` | SAIFAC feature name (e.g. `greet-cmd`).                                                                                                                              |
+| `SAIFAC_TESTS_DIR`    | Absolute path inside the container where test files are mounted. Default: `/tests`.                                                                                  |
+| `SAIFAC_OUTPUT_FILE`  | Absolute path where the container **must write the JUnit XML report**. Default: `/test-runner-output/results.xml`.                                                   |
 
 ### Volume Mounts
 
@@ -88,7 +88,7 @@ Each of `public/`, `hidden/`, `helpers.ts`, and `infra.spec.ts` is mounted only 
 ### Output File Contract
 
 - **Format:** JUnit XML.
-- **Path:** Written to `$FACTORY_OUTPUT_FILE` (default `/test-runner-output/results.xml`).
+- **Path:** Written to `$SAIFAC_OUTPUT_FILE` (default `/test-runner-output/results.xml`).
 - **Bind-mount:** `reportDir` on the host maps to `/test-runner-output` in the container, so the Orchestrator reads `{reportDir}/results.xml` after the container exits.
 - **Absent file:** If the runner crashes before producing output, the file may be absent; the Orchestrator handles this gracefully (falls back to exit code only).
 
@@ -110,7 +110,7 @@ The Test Runner communicates with the Staging container **only over HTTP** on a 
 
 For CLI/non-web projects, the sidecar wraps command execution:
 
-**Request:** `POST` to `FACTORY_SIDECAR_URL` (e.g. `http://staging:8080/exec`):
+**Request:** `POST` to `SAIFAC_SIDECAR_URL` (e.g. `http://staging:8080/exec`):
 
 ```json
 {
@@ -130,11 +130,11 @@ For CLI/non-web projects, the sidecar wraps command execution:
 }
 ```
 
-Tests use `helpers.ts` → `execSidecar({ cmd, args, env })`, which reads `FACTORY_SIDECAR_URL` from the environment (injected by the Orchestrator).
+Tests use `helpers.ts` → `execSidecar({ cmd, args, env })`, which reads `SAIFAC_SIDECAR_URL` from the environment (injected by the Orchestrator).
 
 ### Web App (Web Projects)
 
-For web projects, `tests.json` sets `containers.staging.baseUrl` (e.g. `http://staging:3000`). `FACTORY_TARGET_URL` is set to that value. Tests use `helpers.ts` → `baseUrl()` and `httpRequest()` to hit endpoints directly.
+For web projects, `tests.json` sets `containers.staging.baseUrl` (e.g. `http://staging:3000`). `SAIFAC_TARGET_URL` is set to that value. Tests use `helpers.ts` → `baseUrl()` and `httpRequest()` to hit endpoints directly.
 
 ---
 
@@ -144,7 +144,7 @@ For web projects, `tests.json` sets `containers.staging.baseUrl` (e.g. `http://s
 tests/
 ├── tests.json      # Test catalog (visibility, entrypoints, containers config)
 ├── tests.md        # Human-readable test plan (design phase)
-├── helpers.ts      # execSidecar, baseUrl, httpRequest (read FACTORY_* env vars)
+├── helpers.ts      # execSidecar, baseUrl, httpRequest (read SAIFAC_* env vars)
 ├── infra.spec.ts   # Sidecar health checks (CLI only)
 ├── public/         # Public specs (visible to coder)
 │   └── *.spec.ts
@@ -152,7 +152,7 @@ tests/
     └── *.spec.ts
 ```
 
-The Orchestrator mounts these into the Test Runner. The default `test-default.sh` runs Vitest with `--root "${FACTORY_TESTS_DIR}"` and `--outputFile="${FACTORY_OUTPUT_FILE}"`.
+The Orchestrator mounts these into the Test Runner. The default `test-default.sh` runs Vitest with `--root "${SAIFAC_TESTS_DIR}"` and `--outputFile="${SAIFAC_OUTPUT_FILE}"`.
 
 ---
 
@@ -194,9 +194,9 @@ saifac feat run --test-script ./my-test.sh
 
 `my-test.sh` must:
 
-1. Read `FACTORY_TARGET_URL`, `FACTORY_SIDECAR_URL`, `FACTORY_TESTS_DIR`, `FACTORY_OUTPUT_FILE`.
+1. Read `SAIFAC_TARGET_URL`, `SAIFAC_SIDECAR_URL`, `SAIFAC_TESTS_DIR`, `SAIFAC_OUTPUT_FILE`.
 2. Run your test command.
-3. Write JUnit XML to `$FACTORY_OUTPUT_FILE`.
+3. Write JUnit XML to `$SAIFAC_OUTPUT_FILE`.
 4. Exit 0 on pass, non-zero on fail.
 
 Example — run a subset of specs:
@@ -204,8 +204,8 @@ Example — run a subset of specs:
 ```sh
 #!/bin/sh
 set -e
-cd "${FACTORY_TESTS_DIR}"
-exec npx vitest run --reporter=junit --outputFile="${FACTORY_OUTPUT_FILE}" public/
+cd "${SAIFAC_TESTS_DIR}"
+exec npx vitest run --reporter=junit --outputFile="${SAIFAC_OUTPUT_FILE}" public/
 ```
 
 ### Option 2: Custom Test Runner Image + Default test.sh
@@ -233,14 +233,14 @@ Custom `test-pytest.sh` (pass via `--test-script`):
 ```sh
 #!/bin/sh
 set -e
-cd "${FACTORY_TESTS_DIR}"
+cd "${SAIFAC_TESTS_DIR}"
 # Run all Python specs; infra would be infra_spec.py if you have one
-exec pytest -v --junitxml="${FACTORY_OUTPUT_FILE}" public/ hidden/
+exec pytest -v --junitxml="${SAIFAC_OUTPUT_FILE}" public/ hidden/
 ```
 
 Your Python tests must:
 
-- Import `FACTORY_SIDECAR_URL` / `FACTORY_TARGET_URL` from `os.environ` and use them to call the sidecar or web app.
+- Import `SAIFAC_SIDECAR_URL` / `SAIFAC_TARGET_URL` from `os.environ` and use them to call the sidecar or web app.
 - Emit JUnit XML (e.g. `pytest --junitxml=...`).
 
 Build and run (only needed for custom setups; for standard pytest use `--test-profile python-pytest` with the GHCR image):
@@ -254,9 +254,9 @@ saifac feat run --test-image my-test-python --test-script ./test-pytest.sh
 
 Your image can have its own `CMD` and ignore the bind-mounted `test.sh`. You must still:
 
-1. Read `FACTORY_TARGET_URL`, `FACTORY_SIDECAR_URL`, `FACTORY_TESTS_DIR`, `FACTORY_OUTPUT_FILE`.
+1. Read `SAIFAC_TARGET_URL`, `SAIFAC_SIDECAR_URL`, `SAIFAC_TESTS_DIR`, `SAIFAC_OUTPUT_FILE`.
 2. Run tests in `/tests/public/`, `/tests/hidden/`, etc.
-3. Write JUnit XML to `$FACTORY_OUTPUT_FILE`.
+3. Write JUnit XML to `$SAIFAC_OUTPUT_FILE`.
 4. Exit 0 on pass, non-zero on fail.
 
 **Example: Go Tests**
@@ -278,12 +278,12 @@ CMD ["/usr/local/bin/run-tests.sh"]
 ```sh
 #!/bin/sh
 set -e
-cd "${FACTORY_TESTS_DIR}"
-go test -v -json 2>&1 | go-junit-report > "${FACTORY_OUTPUT_FILE}"
-# Or use gotestsum: gotestsum --junitfile "${FACTORY_OUTPUT_FILE}" ./...
+cd "${SAIFAC_TESTS_DIR}"
+go test -v -json 2>&1 | go-junit-report > "${SAIFAC_OUTPUT_FILE}"
+# Or use gotestsum: gotestsum --junitfile "${SAIFAC_OUTPUT_FILE}" ./...
 ```
 
-Your Go tests use `os.Getenv("FACTORY_SIDECAR_URL")` to call the sidecar. Build and run (for standard Go use `--test-profile go-gotest` with the GHCR image):
+Your Go tests use `os.Getenv("SAIFAC_SIDECAR_URL")` to call the sidecar. Build and run (for standard Go use `--test-profile go-gotest` with the GHCR image):
 
 ```bash
 docker build -f Dockerfile.test.go -t my-test-go .
@@ -307,7 +307,7 @@ WORKDIR /workspace
 CMD ["/bin/sh", "/usr/local/bin/test.sh"]
 ```
 
-Use `--test-script` with a script that runs Playwright/Vitest browser tests. Your tests hit `FACTORY_TARGET_URL` (e.g. `http://staging:3000`) for the web app.
+Use `--test-script` with a script that runs Playwright/Vitest browser tests. Your tests hit `SAIFAC_TARGET_URL` (e.g. `http://staging:3000`) for the web app.
 
 ---
 
@@ -338,13 +338,13 @@ For supported profiles, prefer GHCR images. Custom images must exist locally or 
 
 ## Helpers Contract for Tests
 
-Tests (in any language) that run inside the Test Runner receive `FACTORY_SIDECAR_URL` and `FACTORY_TARGET_URL` from the environment. The default `helpers.ts` (TypeScript) uses them:
+Tests (in any language) that run inside the Test Runner receive `SAIFAC_SIDECAR_URL` and `SAIFAC_TARGET_URL` from the environment. The default `helpers.ts` (TypeScript) uses them:
 
-- `execSidecar({ cmd, args, env })` → `POST` to `FACTORY_SIDECAR_URL` with `{ cmd, args, env }`.
-- `baseUrl()` → returns `FACTORY_TARGET_URL`.
+- `execSidecar({ cmd, args, env })` → `POST` to `SAIFAC_SIDECAR_URL` with `{ cmd, args, env }`.
+- `baseUrl()` → returns `SAIFAC_TARGET_URL`.
 - `httpRequest({ method, path, body })` → `fetch(baseUrl() + path, ...)`.
 
-For non-JS tests (Python, Go, etc.), implement equivalent helpers that read `os.environ["FACTORY_SIDECAR_URL"]` and `os.environ["FACTORY_TARGET_URL"]`. The sidecar request/response format is fixed (see [swf-comp-b-black-box-testing.md](./swf-comp-b-black-box-testing.md)).
+For non-JS tests (Python, Go, etc.), implement equivalent helpers that read `os.environ["SAIFAC_SIDECAR_URL"]` and `os.environ["SAIFAC_TARGET_URL"]`. The sidecar request/response format is fixed (see [swf-comp-b-black-box-testing.md](./swf-comp-b-black-box-testing.md)).
 
 ---
 

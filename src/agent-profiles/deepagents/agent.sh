@@ -1,8 +1,8 @@
 #!/bin/bash
-# Deep Agents CLI agent script — runs `deepagents` with the task read from $FACTORY_TASK_PATH.
+# Deep Agents CLI agent script — runs `deepagents` with the task read from $SAIFAC_TASK_PATH.
 #
 # Part of the deepagents agent profile. Selected via --agent deepagents.
-# coder-start.sh writes the current task to $FACTORY_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
 #
 # deepagents-cli is installed by agent-start.sh before the loop begins.
 #
@@ -147,7 +147,7 @@ fi
 
 deepagents \
   --agent factory \
-  -n "$(cat "$FACTORY_TASK_PATH")" \
+  -n "$(cat "$SAIFAC_TASK_PATH")" \
   --auto-approve \
   --shell-allow-list recommended \
   "${_model_flag[@]}"

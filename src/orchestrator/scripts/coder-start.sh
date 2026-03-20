@@ -4,49 +4,49 @@
 # Runs the agent script, then calls /factory/gate.sh (injected read-only per-run).
 # If the gate passes (exit 0), the container exits successfully.
 # If the gate fails, the failure output is appended to the task prompt and
-# the agent is re-invoked, up to FACTORY_GATE_RETRIES times.
+# the agent is re-invoked, up to SAIFAC_GATE_RETRIES times.
 #
 # Environment variables:
-#   FACTORY_INITIAL_TASK        — the full task prompt (required)
-#   FACTORY_GATE_RETRIES        — max inner rounds before giving up (default: 5)
-#   FACTORY_GATE_SCRIPT         — path to the gate script (default: /factory/gate.sh)
-#   FACTORY_STARTUP_SCRIPT      — path to the installation script (required); run once before
+#   SAIFAC_INITIAL_TASK        — the full task prompt (required)
+#   SAIFAC_GATE_RETRIES        — max inner rounds before giving up (default: 5)
+#   SAIFAC_GATE_SCRIPT         — path to the gate script (default: /factory/gate.sh)
+#   SAIFAC_STARTUP_SCRIPT      — path to the installation script (required); run once before
 #                                 the agent loop. Set via --profile (default: node-pnpm-python) or
 #                                 --startup-script.
-#   FACTORY_AGENT_START_SCRIPT  — (optional) path to an agent setup script; run once after
+#   SAIFAC_AGENT_START_SCRIPT  — (optional) path to an agent setup script; run once after
 #                                 the startup script and before the agent loop. Use to
 #                                 install the coding agent (e.g. pipx install aider-chat).
 #                                 When unset or empty, this step is skipped.
-#   FACTORY_AGENT_SCRIPT        — path to the agent script (default: /factory/agent.sh)
+#   SAIFAC_AGENT_SCRIPT        — path to the agent script (default: /factory/agent.sh)
 #                                 The script is called once per inner round. It must read
-#                                 the task from $FACTORY_TASK_PATH and run the coding agent.
-#   FACTORY_TASK_PATH           — path where the current task prompt is written before each
+#                                 the task from $SAIFAC_TASK_PATH and run the coding agent.
+#   SAIFAC_TASK_PATH           — path where the current task prompt is written before each
 #                                 agent invocation (default: /workspace/.factory_task.md).
 #                                 Agent scripts should read from this file rather than from
 #                                 command-line arguments to avoid escaping and length issues.
-#   FACTORY_REVIEWER_SCRIPT     — (optional) path to semantic reviewer script. When set and
+#   SAIFAC_REVIEWER_SCRIPT     — (optional) path to semantic reviewer script. When set and
 #                                 present, runs after the gate passes. If it fails, the round
 #                                 is treated as a gate failure and the agent retries.
 
 set -euo pipefail
 
-GATE_SCRIPT="${FACTORY_GATE_SCRIPT:-/factory/gate.sh}"
-AGENT_SCRIPT="${FACTORY_AGENT_SCRIPT:-/factory/agent.sh}"
-GATE_RETRIES="${FACTORY_GATE_RETRIES:-5}"
-TASK_PATH="${FACTORY_TASK_PATH:-/workspace/.factory_task.md}"
+GATE_SCRIPT="${SAIFAC_GATE_SCRIPT:-/factory/gate.sh}"
+AGENT_SCRIPT="${SAIFAC_AGENT_SCRIPT:-/factory/agent.sh}"
+GATE_RETRIES="${SAIFAC_GATE_RETRIES:-5}"
+TASK_PATH="${SAIFAC_TASK_PATH:-/workspace/.factory_task.md}"
 
-if [ -z "${FACTORY_INITIAL_TASK:-}" ]; then
-  echo "[coder-start] ERROR: FACTORY_INITIAL_TASK is not set." >&2
+if [ -z "${SAIFAC_INITIAL_TASK:-}" ]; then
+  echo "[coder-start] ERROR: SAIFAC_INITIAL_TASK is not set." >&2
   exit 1
 fi
 
-if [ -z "${FACTORY_STARTUP_SCRIPT:-}" ]; then
-  echo "[coder-start] ERROR: FACTORY_STARTUP_SCRIPT is not set." >&2
+if [ -z "${SAIFAC_STARTUP_SCRIPT:-}" ]; then
+  echo "[coder-start] ERROR: SAIFAC_STARTUP_SCRIPT is not set." >&2
   exit 1
 fi
 
-if [ ! -f "$FACTORY_STARTUP_SCRIPT" ]; then
-  echo "[coder-start] ERROR: startup script not found: $FACTORY_STARTUP_SCRIPT" >&2
+if [ ! -f "$SAIFAC_STARTUP_SCRIPT" ]; then
+  echo "[coder-start] ERROR: startup script not found: $SAIFAC_STARTUP_SCRIPT" >&2
   exit 1
 fi
 
@@ -55,21 +55,21 @@ if [ ! -f "$AGENT_SCRIPT" ]; then
   exit 1
 fi
 
-echo "[coder-start] Running startup script: $FACTORY_STARTUP_SCRIPT"
-bash "$FACTORY_STARTUP_SCRIPT"
+echo "[coder-start] Running startup script: $SAIFAC_STARTUP_SCRIPT"
+bash "$SAIFAC_STARTUP_SCRIPT"
 echo "[coder-start] Startup script completed."
 
-if [ -n "${FACTORY_AGENT_START_SCRIPT:-}" ]; then
-  if [ ! -f "$FACTORY_AGENT_START_SCRIPT" ]; then
-    echo "[coder-start] ERROR: agent start script not found: $FACTORY_AGENT_START_SCRIPT" >&2
+if [ -n "${SAIFAC_AGENT_START_SCRIPT:-}" ]; then
+  if [ ! -f "$SAIFAC_AGENT_START_SCRIPT" ]; then
+    echo "[coder-start] ERROR: agent start script not found: $SAIFAC_AGENT_START_SCRIPT" >&2
     exit 1
   fi
-  echo "[coder-start] Running agent setup script: $FACTORY_AGENT_START_SCRIPT"
-  bash "$FACTORY_AGENT_START_SCRIPT"
+  echo "[coder-start] Running agent setup script: $SAIFAC_AGENT_START_SCRIPT"
+  bash "$SAIFAC_AGENT_START_SCRIPT"
   echo "[coder-start] Agent setup script completed."
 fi
 
-INITIAL_TASK="$FACTORY_INITIAL_TASK"
+INITIAL_TASK="$SAIFAC_INITIAL_TASK"
 round=0
 current_task="$INITIAL_TASK"
 
@@ -77,9 +77,9 @@ while [ "$round" -lt "$GATE_RETRIES" ]; do
   round=$((round + 1))
   echo "[coder-start] ===== Round $round/$GATE_RETRIES ====="
 
-  # Write the current task to FACTORY_TASK_PATH so the agent script can read it.
+  # Write the current task to SAIFAC_TASK_PATH so the agent script can read it.
   # Agent scripts must consume the task from this file (not from env var or CLI args).
-  export FACTORY_TASK_PATH="$TASK_PATH"
+  export SAIFAC_TASK_PATH="$TASK_PATH"
   mkdir -p "$(dirname "$TASK_PATH")"
   printf '%s' "$current_task" > "$TASK_PATH"
 
@@ -103,13 +103,13 @@ while [ "$round" -lt "$GATE_RETRIES" ]; do
   # User-supplied gate script succeeded, now let's run the semantic reviewer (argus-ai) if enabled.
   if [ "$gate_exit" -eq 0 ]; then
     # No reviewer configured — gate passed, we're done.
-    if [ -z "${FACTORY_REVIEWER_SCRIPT:-}" ] || [ ! -f "${FACTORY_REVIEWER_SCRIPT}" ]; then
+    if [ -z "${SAIFAC_REVIEWER_SCRIPT:-}" ] || [ ! -f "${SAIFAC_REVIEWER_SCRIPT}" ]; then
       echo "[coder-start] Gate PASSED."
       exit 0
     fi
     # Reviewer enabled — run it.
-    echo "[coder-start] Running semantic reviewer: $FACTORY_REVIEWER_SCRIPT"
-    gate_output=$("$FACTORY_REVIEWER_SCRIPT" 2>&1) && gate_exit=0 || gate_exit=$?
+    echo "[coder-start] Running semantic reviewer: $SAIFAC_REVIEWER_SCRIPT"
+    gate_output=$("$SAIFAC_REVIEWER_SCRIPT" 2>&1) && gate_exit=0 || gate_exit=$?
     if [ "$gate_exit" -eq 0 ]; then
       # Both gate and reviewer passed, we're done.
       echo "[coder-start] Gate PASSED (static checks + reviewer)."

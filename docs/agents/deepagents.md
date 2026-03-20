@@ -9,7 +9,7 @@
 ```bash
 deepagents \
   --agent factory \
-  -n "$(cat "$FACTORY_TASK_PATH")" \
+  -n "$(cat "$SAIFAC_TASK_PATH")" \
   --auto-approve \
   --shell-allow-list recommended
 ```

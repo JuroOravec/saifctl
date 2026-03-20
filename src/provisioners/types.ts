@@ -142,7 +142,7 @@ export interface RunTestsOpts {
    * /usr/local/bin/test.sh inside the Test Runner container (read-only).
    */
   testScriptPath: string;
-  /** Used to derive FACTORY_TARGET_URL and FACTORY_SIDECAR_URL for the test runner. */
+  /** Used to derive SAIFAC_TARGET_URL and SAIFAC_SIDECAR_URL for the test runner. */
   stagingHandle: StagingHandle;
   feature: Feature;
   projectName: string;
@@ -176,7 +176,7 @@ export interface RunAgentOpts {
   cedarPolicyPath: string;
   /** Docker image for the coder container. Ignored when dangerousDebug=true. */
   coderImage: string;
-  /** Maximum gate iterations per agent run. Forwarded as FACTORY_GATE_RETRIES. */
+  /** Maximum gate iterations per agent run. Forwarded as SAIFAC_GATE_RETRIES. */
   gateRetries: number;
   /** Absolute host path to startup.sh. Mounted at /factory/startup.sh. */
   startupPath: string;
@@ -185,7 +185,7 @@ export interface RunAgentOpts {
   /** Absolute host path to agent.sh. Mounted at /factory/agent.sh. */
   agentPath: string;
   /**
-   * User-supplied extra env vars. Reserved FACTORY_* and LLM_* keys are silently
+   * User-supplied extra env vars. Reserved SAIFAC_* and LLM_* keys are silently
    * filtered out by the runner before forwarding.
    */
   agentEnv: Record<string, string>;

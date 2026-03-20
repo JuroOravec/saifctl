@@ -25,14 +25,14 @@ struct SidecarRequest<'a> {
 
 /// Execute a command in the staging container via the HTTP sidecar.
 ///
-/// `FACTORY_SIDECAR_URL` is injected by the Orchestrator (e.g. `http://staging:8080/exec`).
+/// `SAIFAC_SIDECAR_URL` is injected by the Orchestrator (e.g. `http://staging:8080/exec`).
 /// Falls back to `http://localhost:8080/exec` for local development.
 pub fn exec_sidecar(
     cmd: &str,
     args: &[&str],
     env: HashMap<&str, &str>,
 ) -> Result<SidecarResponse, Box<dyn std::error::Error>> {
-    let url = env::var("FACTORY_SIDECAR_URL")
+    let url = env::var("SAIFAC_SIDECAR_URL")
         .unwrap_or_else(|_| "http://localhost:8080/exec".to_string());
 
     let payload = SidecarRequest { cmd, args, env };
@@ -48,9 +48,9 @@ pub fn exec_sidecar(
 
 /// Returns the base URL for the web application in the staging container.
 ///
-/// `FACTORY_TARGET_URL` is injected by the Orchestrator. Falls back to `http://staging:3000`.
+/// `SAIFAC_TARGET_URL` is injected by the Orchestrator. Falls back to `http://staging:3000`.
 pub fn base_url() -> String {
-    env::var("FACTORY_TARGET_URL").unwrap_or_else(|_| "http://staging:3000".to_string())
+    env::var("SAIFAC_TARGET_URL").unwrap_or_else(|_| "http://staging:3000".to_string())
 }
 
 /// Make an HTTP request to the staging container web application.

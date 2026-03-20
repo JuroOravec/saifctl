@@ -7,7 +7,7 @@
 ## How we call it
 
 ```bash
-openhands --headless --always-approve --override-with-envs --json -t "$(cat "$FACTORY_TASK_PATH")"
+openhands --headless --always-approve --override-with-envs --json -t "$(cat "$SAIFAC_TASK_PATH")"
 ```
 
 ## Notes

@@ -1,8 +1,8 @@
 #!/bin/bash
-# OpenCode agent script — runs OpenCode with the task read from $FACTORY_TASK_PATH.
+# OpenCode agent script — runs OpenCode with the task read from $SAIFAC_TASK_PATH.
 #
 # Part of the opencode agent profile. Selected via --agent opencode.
-# coder-start.sh writes the current task to $FACTORY_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
 #
 # CLI reference:   https://opencode.ai/docs/cli/
 # Config ref:      https://opencode.ai/docs/config/
@@ -79,4 +79,4 @@ OPENCODE_PERMISSION='{"*":"allow"}' \
 opencode run \
   --model "$LLM_MODEL" \
   --format json \
-  "$(cat "$FACTORY_TASK_PATH")"
+  "$(cat "$SAIFAC_TASK_PATH")"

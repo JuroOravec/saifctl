@@ -1,8 +1,8 @@
 #!/bin/bash
-# Codex agent script — runs Codex with the task read from $FACTORY_TASK_PATH.
+# Codex agent script — runs Codex with the task read from $SAIFAC_TASK_PATH.
 #
 # Part of the codex agent profile. Selected via --agent codex.
-# coder-start.sh writes the current task to $FACTORY_TASK_PATH before each invocation.
+# coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
 #
 # CLI reference: https://developers.openai.com/codex/cli/reference
 #
@@ -40,4 +40,4 @@ codex exec \
   --dangerously-bypass-approvals-and-sandbox \
   --json \
   --ephemeral \
-  - < "$FACTORY_TASK_PATH"
+  - < "$SAIFAC_TASK_PATH"

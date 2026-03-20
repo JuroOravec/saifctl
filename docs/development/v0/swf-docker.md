@@ -17,7 +17,7 @@ Both the **Test Runner** and the **Staging Container** use pre-built or per-run 
 | **Default**            | Pre-built images from `ghcr.io/JuroOravec/safe-ai-factory` (e.g. `factory-test-node-vitest:latest`); pulled if not present locally                                          |
 | **Override**           | `saifac feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/factory-test-python-pytest:latest`                                                                         |
 | **Build manually**     | `pnpm docker build test` or `pnpm docker build test --all` — for development or offline use                                                                                 |
-| **Custom image**       | `saifac feat run --test-image my-test:v2` — bring any image that implements the Test Runner container contract (reads env vars, writes JUnit XML to `FACTORY_OUTPUT_FILE`). |
+| **Custom image**       | `saifac feat run --test-image my-test:v2` — bring any image that implements the Test Runner container contract (reads env vars, writes JUnit XML to `SAIFAC_OUTPUT_FILE`). |
 | **Custom test script** | `--test-script <path>` — override the default `test-default.sh` with a custom script; always bind-mounted at `/usr/local/bin/test.sh`, never baked into the image.          |
 
 **Configuration:** CLI flags only — no environment variables.
@@ -165,11 +165,11 @@ The **test runner script** (`test.sh`) is always bind-mounted at `/usr/local/bin
 
 | Variable               | Description                                                                                                              |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `FACTORY_TARGET_URL`   | URL of the application under test. For CLI projects this is the sidecar URL; for web projects the app's base URL.        |
-| `FACTORY_SIDECAR_URL`  | URL of the HTTP sidecar that wraps CLI command execution (always defined, even for web projects).                        |
-| `FACTORY_FEATURE_NAME` | Name of the feature being tested (e.g. `greet-cmd`).                                                                     |
-| `FACTORY_TESTS_DIR`    | Absolute path inside the container where test files are mounted. Default: `/tests`.                                      |
-| `FACTORY_OUTPUT_FILE`  | Absolute path where the container **must write the JUnit XML results file**. Default: `/test-runner-output/results.xml`. |
+| `SAIFAC_TARGET_URL`   | URL of the application under test. For CLI projects this is the sidecar URL; for web projects the app's base URL.        |
+| `SAIFAC_SIDECAR_URL`  | URL of the HTTP sidecar that wraps CLI command execution (always defined, even for web projects).                        |
+| `SAIFAC_FEATURE_NAME` | Name of the feature being tested (e.g. `greet-cmd`).                                                                     |
+| `SAIFAC_TESTS_DIR`    | Absolute path inside the container where test files are mounted. Default: `/tests`.                                      |
+| `SAIFAC_OUTPUT_FILE`  | Absolute path where the container **must write the JUnit XML results file**. Default: `/test-runner-output/results.xml`. |
 
 **Volume mounts:**
 
@@ -187,7 +187,7 @@ The **test runner script** (`test.sh`) is always bind-mounted at `/usr/local/bin
 - `0` — all tests passed.
 - non-zero — one or more tests failed (or runner error).
 
-**Output file:** JUnit XML written to `FACTORY_OUTPUT_FILE`. If the runner crashes before producing output the file may be absent; the Orchestrator handles this gracefully.
+**Output file:** JUnit XML written to `SAIFAC_OUTPUT_FILE`. If the runner crashes before producing output the file may be absent; the Orchestrator handles this gracefully.
 
 ### Pre-Built Test Runner Images
 
@@ -202,7 +202,7 @@ You can bring your own Test Runner image (e.g. with Playwright, a different lang
 
 - **Use the mounted script:** Set `CMD ["/bin/sh", "/usr/local/bin/test.sh"]` — same as the default. The script reads env vars, runs vitest (or whatever your custom `--test-script` does), and writes JUnit XML.
 - **Override per-run:** Pass `--test-script <path>` to use your own script content; it replaces the default for that run.
-- **Ignore the mount:** Set a different `CMD` to run your own logic. You must still write JUnit XML to `$FACTORY_OUTPUT_FILE` and obey the exit code contract; otherwise the Orchestrator will not parse results correctly.
+- **Ignore the mount:** Set a different `CMD` to run your own logic. You must still write JUnit XML to `$SAIFAC_OUTPUT_FILE` and obey the exit code contract; otherwise the Orchestrator will not parse results correctly.
 
 Pass `--test-image <your-image>` to `saifac feat run` / `feat:test` / `saifac feat design-fail2pass`.
 
@@ -225,7 +225,7 @@ No `npm install` step. The container starts and runs tests in seconds.
 ### Output
 
 - **Verbose logs:** Streamed to container stdout (visible in orchestrator logs).
-- **JUnit XML report:** Written by the container to `FACTORY_OUTPUT_FILE` (`/test-runner-output/results.xml`), which is bind-mounted to the sandbox root on the host. The Orchestrator reads this file after the container exits for per-suite analysis (e.g. `hasFeatureSuccessfullyFailed` to ignore infra health-check failures in fail2pass).
+- **JUnit XML report:** Written by the container to `SAIFAC_OUTPUT_FILE` (`/test-runner-output/results.xml`), which is bind-mounted to the sandbox root on the host. The Orchestrator reads this file after the container exits for per-suite analysis (e.g. `hasFeatureSuccessfullyFailed` to ignore infra health-check failures in fail2pass).
 
 ---
 

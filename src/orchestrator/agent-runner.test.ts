@@ -16,20 +16,20 @@ describe('filterAgentEnv', () => {
     expect(filterAgentEnv(input)).toEqual(input);
   });
 
-  it('strips FACTORY_INITIAL_TASK', () => {
-    const result = filterAgentEnv({ FACTORY_INITIAL_TASK: 'evil', SAFE: 'ok' });
-    expect(result).not.toHaveProperty('FACTORY_INITIAL_TASK');
+  it('strips SAIFAC_INITIAL_TASK', () => {
+    const result = filterAgentEnv({ SAIFAC_INITIAL_TASK: 'evil', SAFE: 'ok' });
+    expect(result).not.toHaveProperty('SAIFAC_INITIAL_TASK');
     expect(result).toHaveProperty('SAFE', 'ok');
   });
 
-  it('strips all reserved FACTORY_* keys', () => {
+  it('strips all reserved SAIFAC_* keys', () => {
     const reserved: Record<string, string> = {
-      FACTORY_INITIAL_TASK: '1',
-      FACTORY_GATE_RETRIES: '2',
-      FACTORY_GATE_SCRIPT: '3',
-      FACTORY_STARTUP_SCRIPT: '4',
-      FACTORY_AGENT_SCRIPT: '5',
-      FACTORY_TASK_PATH: '6',
+      SAIFAC_INITIAL_TASK: '1',
+      SAIFAC_GATE_RETRIES: '2',
+      SAIFAC_GATE_SCRIPT: '3',
+      SAIFAC_STARTUP_SCRIPT: '4',
+      SAIFAC_AGENT_SCRIPT: '5',
+      SAIFAC_TASK_PATH: '6',
     };
     const result = filterAgentEnv({ ...reserved, USER_KEY: 'keep' });
     for (const key of Object.keys(reserved)) {
@@ -38,16 +38,16 @@ describe('filterAgentEnv', () => {
     expect(result).toHaveProperty('USER_KEY', 'keep');
   });
 
-  it('strips any FACTORY_ prefixed key (prefix-based blocking)', () => {
-    const result = filterAgentEnv({ FACTORY_FUTURE_VAR: 'x', FACTORY_CUSTOM: 'y', SAFE: 'z' });
-    expect(result).not.toHaveProperty('FACTORY_FUTURE_VAR');
-    expect(result).not.toHaveProperty('FACTORY_CUSTOM');
+  it('strips any SAIFAC_ prefixed key (prefix-based blocking)', () => {
+    const result = filterAgentEnv({ SAIFAC_FUTURE_VAR: 'x', SAIFAC_CUSTOM: 'y', SAFE: 'z' });
+    expect(result).not.toHaveProperty('SAIFAC_FUTURE_VAR');
+    expect(result).not.toHaveProperty('SAIFAC_CUSTOM');
     expect(result).toHaveProperty('SAFE', 'z');
   });
 
-  it('strips FACTORY_WORKSPACE_BASE', () => {
-    const result = filterAgentEnv({ FACTORY_WORKSPACE_BASE: '/workspace', KEEP: 'yes' });
-    expect(result).not.toHaveProperty('FACTORY_WORKSPACE_BASE');
+  it('strips SAIFAC_WORKSPACE_BASE', () => {
+    const result = filterAgentEnv({ SAIFAC_WORKSPACE_BASE: '/workspace', KEEP: 'yes' });
+    expect(result).not.toHaveProperty('SAIFAC_WORKSPACE_BASE');
     expect(result).toHaveProperty('KEEP', 'yes');
   });
 
@@ -83,15 +83,15 @@ describe('filterAgentEnv', () => {
 
   it('emits a consola.warn for each stripped key', () => {
     const warn = vi.spyOn(consola, 'warn').mockImplementation(() => {});
-    filterAgentEnv({ FACTORY_INITIAL_TASK: 'x', LLM_API_KEY: 'y', SAFE: 'z' });
+    filterAgentEnv({ SAIFAC_INITIAL_TASK: 'x', LLM_API_KEY: 'y', SAFE: 'z' });
     expect(warn).toHaveBeenCalledTimes(2);
-    expect(warn.mock.calls[0][0]).toContain('FACTORY_INITIAL_TASK');
+    expect(warn.mock.calls[0][0]).toContain('SAIFAC_INITIAL_TASK');
     expect(warn.mock.calls[1][0]).toContain('LLM_API_KEY');
     warn.mockRestore();
   });
 
   it('returns an empty object when all keys are reserved', () => {
-    const result = filterAgentEnv({ FACTORY_INITIAL_TASK: 'x', FACTORY_WORKSPACE_BASE: 'y' });
+    const result = filterAgentEnv({ SAIFAC_INITIAL_TASK: 'x', SAIFAC_WORKSPACE_BASE: 'y' });
     expect(result).toEqual({});
   });
 

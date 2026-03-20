@@ -12,15 +12,15 @@ import { consola } from '../../logger.js';
  * Reserved env var prefixes and keys that must not be overridden by agentEnv.
  */
 const RESERVED_ENV_KEYS = new Set([
-  'FACTORY_INITIAL_TASK',
-  'FACTORY_GATE_RETRIES',
-  'FACTORY_GATE_SCRIPT',
-  'FACTORY_REVIEWER_SCRIPT',
-  'FACTORY_STARTUP_SCRIPT',
-  'FACTORY_AGENT_START_SCRIPT',
-  'FACTORY_AGENT_SCRIPT',
-  'FACTORY_TASK_PATH',
-  'FACTORY_WORKSPACE_BASE',
+  'SAIFAC_INITIAL_TASK',
+  'SAIFAC_GATE_RETRIES',
+  'SAIFAC_GATE_SCRIPT',
+  'SAIFAC_REVIEWER_SCRIPT',
+  'SAIFAC_STARTUP_SCRIPT',
+  'SAIFAC_AGENT_START_SCRIPT',
+  'SAIFAC_AGENT_SCRIPT',
+  'SAIFAC_TASK_PATH',
+  'SAIFAC_WORKSPACE_BASE',
   'LLM_API_KEY',
   'LLM_MODEL',
   'LLM_PROVIDER',
@@ -38,7 +38,7 @@ const RESERVED_ENV_KEYS = new Set([
 export function filterAgentEnv(agentEnv: Record<string, string>): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [key, val] of Object.entries(agentEnv)) {
-    if (key.startsWith('FACTORY_') || RESERVED_ENV_KEYS.has(key)) {
+    if (key.startsWith('SAIFAC_') || RESERVED_ENV_KEYS.has(key)) {
       consola.warn(
         `[agent-runner] WARNING: --agent-env ${key} is a reserved factory variable and will be ignored.`,
       );
