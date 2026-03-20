@@ -1,0 +1,4 @@
+[submodule "vendor/argus"]
+	path = vendor/argus
+	url = https://github.com/JuroOravec/argus.git
+	branch = main

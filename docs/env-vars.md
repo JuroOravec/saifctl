@@ -102,3 +102,17 @@ in-process mode. See [Hatchet integration](hatchet.md) for setup instructions.
 | ---------------------- | ----------------------------------------------------------------- |
 | `HATCHET_CLIENT_TOKEN` | API token from the Hatchet dashboard. Enables Hatchet.            |
 | `HATCHET_SERVER_URL`   | gRPC address of the Hatchet server. Defaults to `localhost:7077`. |
+
+## Reviewer binary cache (host)
+
+The semantic reviewer is a Rust binary that's injected into the container.
+
+SAIFAC downloads the Argus binary on the **host** before mounting it into the container.
+
+The binary is cached under `/tmp/saifac/bin/` as versioned files, e.g. `argus-linux-arm64-v0.5.4`.
+
+| Variable                  | Description                                                                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SAIF_REVIEWER_BIN_DIR`   | Directory for cached Argus binaries, named `argus-linux-amd64-v<semver>` / `argus-linux-arm64-v<semver>`. Default: `/tmp/saifac/bin`. |
+
+See [Semantic reviewer](./reviewer.md).

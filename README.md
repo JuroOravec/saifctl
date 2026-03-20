@@ -118,7 +118,13 @@ Dive into the details of what you can customize in the [Features guide](./docs/f
 
 ## Development
 
-See our [Development guide](docs/development.md)
+See our [Development guides](docs/development/)
+
+Clone with submodules:
+
+```bash
+git clone --recurse-submodules https://github.com/JuroOravec/safe-ai-factory.git
+```
 
 ## License
 

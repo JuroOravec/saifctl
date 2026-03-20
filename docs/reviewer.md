@@ -72,19 +72,19 @@ Argus provides best practices for semantic code review:
 - Reviewer can search the codebase to understand call stacks across files.
 - Reviewer compares the diff against the original task.
 
-The factory downloads Argus binary for your architecture on first run and mounts it into the container alongside a script (`reviewer.sh`).
+The factory downloads the Argus Linux binary for the current architecture on first use and caches it under `/tmp/saifac/bin/`. The binary is mounted into the container alongside a script (`reviewer.sh`). See `vendor/README.md`.
 
 If Argus spots an issue, it prints findings like `- file.ts:42: Missing error handling` which the factory feeds back into the prompt for the next agent iteration.
 
 ## Troubleshooting
 
-- **"Failed to download binary from..."**  
-  The factory fetches Argus from GitHub releases. If GitHub is unreachable or the specific architecture release is missing, the run will fail. Use `--no-reviewer` to bypass it.
+- **Argus binary download failed**  
+  SAIF auto-downloads the binary on first use. If the download fails, check `https://github.com/JuroOravec/argus/releases` for the expected tag and assets. Clear `/tmp/saifac/bin/argus-linux-*` (or your `SAIF_REVIEWER_BIN_DIR`) and retry. Use `--no-reviewer` to bypass.
 - **Reviewer passes but tests fail**  
   The reviewer verifies _intent and logic_ from the git diff. It does not actually execute your code or tests. Tests verification runs in the next stage after the reviewer passes.
 
 ## See Also
 
-- [Environment variables](env-vars.md) — `REVIEWER_LLM_*` and container vars
+- [Environment variables](env-vars.md) — `SAIF_REVIEWER_BIN_DIR`, `REVIEWER_LLM_*`, and container vars
 - [Models](models.md) — Agent reference and `--model` usage
 - [Meru143/argus](https://github.com/Meru143/argus) — Argus semantic review tool

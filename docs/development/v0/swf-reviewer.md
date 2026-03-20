@@ -29,7 +29,7 @@ When designing the reviewer inner gate, we evaluated several approaches to bridg
 
 We selected **Argus** (specifically its underlying `argus_codelens` engine) as a drop-in Rust binary for the following reasons:
 
-1. **Zero Infrastructure Overhead:** It is a single ~15MB statically compiled binary. It doesn't require Node.js, Python, or a LiteLLM sidecar in the container.
+1. **Zero Infrastructure Overhead:** It is a single ~25MB statically compiled binary. It doesn't require Node.js, Python, or a LiteLLM sidecar in the container.
 2. **Multi-Language AST Chunking:** It uses Tree-Sitter natively (`argus map`) to build a ranked dependency graph across 10+ languages (TS, Python, Go, Rust, etc.) in milliseconds, even if the code doesn't compile.
 3. **Local Vector Search:** It runs a lightweight embedding model (`all-MiniLM-L6-v2`) entirely on the CPU to perform hybrid semantic search over the AST chunks, building the perfect context window for the LLM.
 4. **Native Multi-Provider Support:** Even though it's a compiled binary, it natively supports OpenAI, Anthropic, and Gemini. For the other 17+ providers we support (Groq, DeepSeek, etc.), Argus allows overriding the `base_url` for its generic OpenAI client, giving us full flexibility without needing a LiteLLM proxy.
@@ -76,7 +76,7 @@ If the gate script fails, the reviewer is never run. If the reviewer fails, the 
 ### Prerequisites
 
 - **Leash mode** (default). The reviewer runs inside the coder container. It is **not** used in `--dangerous-debug` mode.
-- **Argus binary.** The factory downloads the Linux binary from [Meru143/argus](https://github.com/Meru143/argus) GitHub releases on first use. Architectures: `amd64` and `arm64`.
+- **Argus binary.** Downloaded automatically from [JuroOravec/argus](https://github.com/JuroOravec/argus) releases on first use and cached under `/tmp/saifac/bin/` as versioned files, e.g. `argus-linux-arm64-v0.5.4` (`SAIF_REVIEWER_BIN_DIR` overrides the directory). The pinned version is set via `ARGUS_VERSION` in `argus.ts` (see `vendor/README.md`).
 
 ### Enable the Reviewer
 
@@ -90,13 +90,12 @@ saifac feat run --no-reviewer
 
 ### First Run
 
-On the first run with the reviewer enabled, the factory will:
+On run with the reviewer enabled, the factory will:
 
-1. Fetch the Argus binary for your host architecture (`argus-linux-amd64` or `argus-linux-arm64`)
-2. Store it in `src/orchestrator/argus/out/`
-3. Mount it and `reviewer.sh` into the coder container
+1. Download the Argus binary for your host architecture (if not already cached for the current `ARGUS_VERSION` under `/tmp/saifac/bin/`)
+2. Mount it and `reviewer.sh` into the coder container
 
-If the download fails (e.g. release 404), use `--no-reviewer` to skip the reviewer until the binary is available.
+If the download fails, check `https://github.com/JuroOravec/argus/releases` for the expected tag, clear the cache dir and retry, or pass `--no-reviewer`.
 
 ---
 
@@ -171,7 +170,7 @@ The reviewer is **skipped** in these cases:
 
 ### Argus Version
 
-The factory uses Argus v0.5.2. Binaries are fetched from the `argus-review-v0.5.2` GitHub release. If the release or assets are unavailable, the run will fail unless you pass `--no-reviewer`.
+The downloaded binary version is pinned via `ARGUS_VERSION` in `src/orchestrator/sidecars/reviewer/argus.ts`. To upgrade, bump that constant and run SAIF again; the new semver is part of the cache filename so a fresh download happens automatically (see `vendor/README.md`).
 
 ### Goal Verification Rule
 
@@ -189,12 +188,14 @@ Argus is run with `self_reflection = true`, so the model can reconsider its own 
 
 ## Troubleshooting
 
-### "Failed to download binary from ..."
+### Argus binary download failed
 
-The Argus release or asset is missing (404). Options:
+SAIF downloads the binary automatically but the download failed. Options:
 
-1. Use `--no-reviewer` to skip the reviewer.
-2. Build Argus from source and place the binary where the factory expects it (see `ensure-argus.ts`).
+1. Check `https://github.com/JuroOravec/argus/releases` — verify the `argus-ai-v<VERSION>` tag exists and has assets attached.
+2. Remove stale or partial cache: `rm -f /tmp/saifac/bin/argus-linux-*` (or wipe `SAIF_REVIEWER_BIN_DIR`) and retry.
+3. Use `--no-reviewer` to skip the reviewer.
+4. Build Argus from source and place the binary at `/tmp/saifac/bin/argus-linux-{amd64,arm64}-v<semver>` (match `ARGUS_VERSION` in `argus.ts`; or use your `SAIF_REVIEWER_BIN_DIR`).
 
 ### Reviewer passes but tests fail
 

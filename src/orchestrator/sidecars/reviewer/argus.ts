@@ -1,40 +1,65 @@
 /**
  * Ensures the Argus binary for Linux (amd64/arm64) is present.
- * Fetches from GitHub releases when missing. Used before mounting into the coder container.
+ * Downloads from the fork release on first use; caches under `/tmp/saifac/bin/`.
  *
- * Binaries are stored at src/orchestrator/argus/out/argus-linux-{arch}.
+ * Cache filenames include the pinned semver so bumping `ARGUS_VERSION` fetches a new
+ * build without manual cache cleanup, e.g.:
+ *   /tmp/saifac/bin/argus-linux-amd64-v0.5.4
+ *   /tmp/saifac/bin/argus-linux-arm64-v0.5.4
+ *
+ * Upstream: https://github.com/Meru143/argus (argus-ai npm package)
+ * Fork (managed releases): https://github.com/JuroOravec/argus
+ *
+ * See `vendor/README.md` for the fork release flow.
  */
 
-import { chmod, mkdir, readdir, rm } from 'node:fs/promises';
+import { chmod, mkdir, readdir, rm, unlink } from 'node:fs/promises';
 import { arch } from 'node:os';
 import { join } from 'node:path';
 
-import { getSaifRoot } from '../../../constants.js';
 import { consola } from '../../../logger.js';
 import { pathExists, spawnAsync } from '../../../utils/io.js';
 
-const ARGUS_VERSION = '0.5.2';
-/** GitHub release tag. Argus uses argus-review-vX.Y.Z for the review CLI. */
-const RELEASE_TAG = `argus-review-v${ARGUS_VERSION}`;
-const REPO = 'Meru143/argus';
+/** Host cache dir (not under the repo). Override with `SAIF_REVIEWER_BIN_DIR`. */
+const REVIEWER_BIN_DIR = process.env.SAIF_REVIEWER_BIN_DIR?.trim() || join('/tmp', 'saifac', 'bin');
+
+/** Fork release version — bump this when cutting a new fork release. */
+const ARGUS_VERSION = '0.5.4';
+const REPO = 'JuroOravec/argus';
 
 const ASSETS: Record<string, string> = {
   x64: 'argus-x86_64-unknown-linux-gnu.tar.gz',
   arm64: 'argus-aarch64-unknown-linux-gnu.tar.gz',
 };
 
-function getOutDir(): string {
-  return join(getSaifRoot(), 'src', 'orchestrator', 'sidecars', 'reviewer', 'out');
+function getBinaryPath(hostArch: 'arm64' | 'x64'): string {
+  const suffix = hostArch === 'arm64' ? 'arm64' : 'amd64';
+  const binName = `argus-linux-${suffix}-v${ARGUS_VERSION}`;
+  return join(REVIEWER_BIN_DIR, binName);
 }
 
-function getBinaryPath(hostArch: 'arm64' | 'x64'): string {
-  const binName = hostArch === 'arm64' ? 'argus-linux-arm64' : 'argus-linux-amd64';
-  return join(getOutDir(), binName);
+const VERSIONED_ARGUS_FILE = /^argus-linux-(amd64|arm64)-v(.+)$/;
+
+/** Drop cached Argus binaries for other versions (same arch families). */
+async function pruneStaleArgusBinaries(): Promise<void> {
+  let entries;
+  try {
+    entries = await readdir(REVIEWER_BIN_DIR, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const m = entry.name.match(VERSIONED_ARGUS_FILE);
+    if (m?.[2] && m[2] !== ARGUS_VERSION) {
+      await unlink(join(REVIEWER_BIN_DIR, entry.name)).catch(() => undefined);
+    }
+  }
 }
 
 /**
  * Downloads and extracts the Argus binary for the given architecture.
- * Returns the absolute path to the binary.
+ * Returns the absolute path to the cached binary.
  *
  * @param hostArch - 'arm64' (Apple Silicon) or 'x64' (Intel/AMD). Docker on macOS uses
  *   the same arch as the host, so we fetch the matching Linux binary.
@@ -47,53 +72,53 @@ export async function ensureArgusBinary(hostArch: 'arm64' | 'x64'): Promise<stri
 
   const asset = ASSETS[hostArch];
   if (!asset) {
-    throw new Error(`Unsupported architecture: ${hostArch}. Supported: x64, arm64`);
+    throw new Error(`[argus] Unsupported architecture: ${hostArch}. Supported: x64, arm64`);
   }
 
-  const outDir = getOutDir();
-  await mkdir(outDir, { recursive: true });
+  await mkdir(REVIEWER_BIN_DIR, { recursive: true });
 
-  const url = `https://github.com/${REPO}/releases/download/${RELEASE_TAG}/${asset}`;
-  const tmpTar = join(outDir, `tmp-argus-${hostArch}.tar.gz`);
+  const tag = `argus-ai-v${ARGUS_VERSION}`;
+  const url = `https://github.com/${REPO}/releases/download/${tag}/${asset}`;
+  const tmpTar = join(REVIEWER_BIN_DIR, `tmp-argus-${hostArch}-v${ARGUS_VERSION}.tar.gz`);
+  const tmpExtract = join(REVIEWER_BIN_DIR, `tmp-extract-${hostArch}-v${ARGUS_VERSION}`);
 
   consola.log(`[argus] Downloading v${ARGUS_VERSION} for Linux ${hostArch}...`);
   try {
     await spawnAsync({
       command: 'curl',
       args: ['-sfL', '-o', tmpTar, url],
-      cwd: outDir,
+      cwd: REVIEWER_BIN_DIR,
       stdio: 'inherit',
     });
   } catch {
     throw new Error(
       `[argus] Failed to download binary from ${url}. ` +
-        `See https://github.com/Meru143/argus for build-from-source instructions. ` +
+        `Check https://github.com/${REPO}/releases for available assets. ` +
         `Or use --no-reviewer to skip the reviewer.`,
     );
   }
 
-  // Extract the 'argus' binary from the tarball. The archive contains a single file named 'argus'.
-  const tmpExtract = join(outDir, `tmp-extract-${hostArch}`);
-  await mkdir(tmpExtract, { recursive: true });
-  await spawnAsync({
-    command: 'tar',
-    args: ['-xzf', tmpTar, '-C', tmpExtract],
-    cwd: outDir,
-    stdio: 'inherit',
-  });
+  try {
+    await mkdir(tmpExtract, { recursive: true });
+    await spawnAsync({
+      command: 'tar',
+      args: ['-xzf', tmpTar, '-C', tmpExtract],
+      cwd: REVIEWER_BIN_DIR,
+      stdio: 'inherit',
+    });
 
-  // Find the binary (could be at root or in a subdir)
-  const extracted = await findArgusBinary(tmpExtract);
-  if (!extracted) {
+    const extracted = await findArgusBinary(tmpExtract);
+    if (!extracted) {
+      throw new Error(`Could not find 'argus' binary in archive from ${url}`);
+    }
+
+    await spawnAsync({ command: 'mv', args: [extracted, binaryPath], cwd: process.cwd() });
+    await chmod(binaryPath, 0o755);
+    await pruneStaleArgusBinaries();
+  } finally {
     await rm(tmpExtract, { recursive: true, force: true });
-    await rm(tmpTar, { recursive: true, force: true });
-    throw new Error(`Could not find argus binary in archive from ${url}`);
+    await rm(tmpTar, { force: true });
   }
-
-  await spawnAsync({ command: 'mv', args: [extracted, binaryPath], cwd: process.cwd() });
-  await chmod(binaryPath, 0o755);
-  await rm(tmpExtract, { recursive: true, force: true });
-  await rm(tmpTar, { recursive: true, force: true });
 
   consola.log(`[argus] Installed to ${binaryPath}`);
   return binaryPath;
@@ -114,7 +139,7 @@ async function findArgusBinary(dir: string): Promise<string | null> {
 
 /**
  * Returns the path to the Argus binary for the current host architecture.
- * Ensures it exists (downloads if missing).
+ * Downloads and caches it if not already present.
  */
 export async function getArgusBinaryPath(): Promise<string> {
   const hostArch = arch();
