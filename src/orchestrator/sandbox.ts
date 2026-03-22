@@ -70,6 +70,17 @@ export interface Sandbox {
   /** sandboxBasePath/gate.sh — inner gate script; mounted :ro at /saifac/gate.sh in the container */
   gatePath: string;
   /**
+   * sandboxBasePath/host-base.patch — unified diff of the host repo's uncommitted changes
+   * (staged + unstaged) captured at sandbox creation time via `git diff HEAD`.
+   *
+   * Applied to the git worktree in applyPatchToHost *before* the agent's patch so that the
+   * worktree's base state matches the sandbox's base state, regardless of any branch switches
+   * or working-tree changes the user may have made while the agent was running.
+   *
+   * Empty string when the host had no uncommitted changes at creation time (no-op).
+   */
+  hostBasePatchPath: string;
+  /**
    * sandboxBasePath/startup.sh — installation script; mounted :ro at /saifac/startup.sh.
    * Used by both the coder container and the staging container to install workspace deps.
    * Set via --profile (default: node-pnpm-python) or --startup-script.
@@ -218,9 +229,24 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   const agentInstallPath = join(sandboxBasePath, 'agent-install.sh');
   const agentPath = join(sandboxBasePath, 'agent.sh');
   const stagePath = join(sandboxBasePath, 'stage.sh');
+  const hostBasePatchPath = join(sandboxBasePath, 'host-base.patch');
 
   consola.log(`[sandbox] Creating isolated sandbox at ${sandboxBasePath}`);
   await mkdir(codePath, { recursive: true });
+
+  // Capture any uncommitted host changes (staged + unstaged) before rsync so that
+  // applyPatchToHost can reconstruct the exact host state the sandbox was based on,
+  // regardless of branch switches or working-tree edits made while the agent runs.
+  const hostBasePatch = await gitDiff({ cwd: projectDir, args: ['HEAD'] });
+  await writeUtf8(hostBasePatchPath, hostBasePatch);
+  if (hostBasePatch.trim()) {
+    const lineCount = hostBasePatch.split('\n').length;
+    consola.log(
+      `[sandbox] Captured ${lineCount} lines of host uncommitted changes to host-base.patch`,
+    );
+  } else {
+    consola.log('[sandbox] Host working tree is clean — host-base.patch is empty');
+  }
 
   // rsync the repo into code/, respecting .gitignore to skip node_modules etc.
   await spawnAsync({
@@ -318,6 +344,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
     agentInstallPath,
     agentPath,
     stagePath,
+    hostBasePatchPath,
     runId,
   };
 }

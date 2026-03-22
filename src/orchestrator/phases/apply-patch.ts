@@ -34,6 +34,17 @@ export interface ApplyPatchOpts {
    * ensuring parallel runs for different attempts never collide.
    */
   runId: string;
+  /**
+   * Path to host-base.patch (sandboxBasePath/host-base.patch).
+   *
+   * Applied to the worktree *before* the agent's patch so the worktree's base state
+   * matches the exact host state captured when the sandbox was created. This ensures
+   * the agent's patch applies cleanly even if the user switched branches or made
+   * further working-tree changes while the agent was running.
+   *
+   * When the file is empty (host was clean at sandbox creation time) this step is skipped.
+   */
+  hostBasePatchPath: string;
   /** Remote push target (URL, owner/repo slug, or named remote). Optional. */
   push: string | null;
   /** When true, open a Pull Request after pushing. Requires push + provider token env var. */
@@ -62,7 +73,18 @@ export interface ApplyPatchOpts {
  * is deleted, otherwise git's internal worktree registry gets stale entries.
  */
 export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
-  const { codePath, projectDir, feature, runId, push, pr, gitProvider, overrides, verbose } = opts;
+  const {
+    codePath,
+    projectDir,
+    feature,
+    runId,
+    hostBasePatchPath,
+    push,
+    pr,
+    gitProvider,
+    overrides,
+    verbose,
+  } = opts;
 
   // patch.diff is written to sandboxBasePath (parent of codePath) by extractPatch,
   // deliberately outside the git working tree so `git clean -fd` cannot delete it.
@@ -110,7 +132,16 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
   await gitWorktreeAdd({ cwd: projectDir, path: wtPath, branch: branchName, env: gitEnv });
 
   try {
-    // 2. Apply patch inside the worktree
+    // 2a. Re-apply any uncommitted host changes that existed when the sandbox was created.
+    //     This brings the worktree's base state in sync with the sandbox's base state so the
+    //     agent's patch (which was diffed against the sandbox snapshot) applies cleanly.
+    const hostBasePatch = await readUtf8(hostBasePatchPath);
+    if (hostBasePatch.trim()) {
+      consola.log('[orchestrator] Applying host-base.patch to worktree...');
+      await gitApply({ cwd: wtPath, env: gitEnv, patchFile: hostBasePatchPath });
+    }
+
+    // 2b. Apply the agent's patch inside the worktree
     await gitApply({ cwd: wtPath, env: gitEnv, patchFile: patchFile });
     await gitAdd({ cwd: wtPath, env: gitEnv });
     await gitCommit({

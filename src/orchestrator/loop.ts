@@ -475,6 +475,7 @@ export async function runIterativeLoop(
             projectDir,
             feature,
             runId: lastRunId,
+            hostBasePatchPath: sandbox.hostBasePatchPath,
             push,
             pr,
             gitProvider,
