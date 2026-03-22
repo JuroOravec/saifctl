@@ -116,9 +116,9 @@ export const featAgentArgs = {
     type: 'string' as const,
     description: 'Path to the coding agent script. Overrides profile default.',
   },
-  'agent-start-script': {
+  'agent-install-script': {
     type: 'string' as const,
-    description: 'Path to the agent startup script. Overrides profile default.',
+    description: 'Path to the one-time agent install script. Overrides profile default.',
   },
 };
 

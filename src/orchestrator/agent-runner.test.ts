@@ -28,8 +28,9 @@ describe('filterAgentEnv', () => {
       SAIFAC_GATE_RETRIES: '2',
       SAIFAC_GATE_SCRIPT: '3',
       SAIFAC_STARTUP_SCRIPT: '4',
-      SAIFAC_AGENT_SCRIPT: '5',
-      SAIFAC_TASK_PATH: '6',
+      SAIFAC_AGENT_INSTALL_SCRIPT: '5',
+      SAIFAC_AGENT_SCRIPT: '6',
+      SAIFAC_TASK_PATH: '7',
     };
     const result = filterAgentEnv({ ...reserved, USER_KEY: 'keep' });
     for (const key of Object.keys(reserved)) {

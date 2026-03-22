@@ -178,7 +178,7 @@ export const saifConfigDefaultsSchema = z.object({
   stageScript: z.string().optional(),
   gateScript: z.string().optional(),
   agentScript: z.string().optional(),
-  agentStartScript: z.string().optional(),
+  agentInstallScript: z.string().optional(),
 });
 
 export const saifConfigSchema = z.object({

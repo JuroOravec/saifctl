@@ -13,20 +13,20 @@
 KILOCODE_CLI_VERSION='7.1.0'
 
 set -euo pipefail
-trap 'ec=$?; echo "[agent-start/kilocode] Finished Kilo Code CLI setup (agent-start.sh, exit code ${ec})."' EXIT
-echo "[agent-start/kilocode] Installing Kilo Code CLI (agent-start.sh)..."
+trap 'ec=$?; echo "[agent-install/kilocode] Finished Kilo Code CLI setup (agent-install.sh, exit code ${ec})."' EXIT
+echo "[agent-install/kilocode] Installing Kilo Code CLI (agent-install.sh)..."
 
 if command -v kilo &>/dev/null; then
-  echo "[agent-start/kilocode] kilo CLI is already installed: $(kilo --version 2>/dev/null || echo 'unknown version')"
+  echo "[agent-install/kilocode] kilo CLI is already installed: $(kilo --version 2>/dev/null || echo 'unknown version')"
   exit 0
 fi
 
 if ! command -v npm &>/dev/null; then
-  echo "[agent-start/kilocode] ERROR: npm is not available in this image." >&2
-  echo "[agent-start/kilocode] Install Node.js 20.18.1+ or supply --agent-script with a pre-installed kilo binary." >&2
+  echo "[agent-install/kilocode] ERROR: npm is not available in this image." >&2
+  echo "[agent-install/kilocode] Install Node.js 20.18.1+ or supply --agent-script with a pre-installed kilo binary." >&2
   exit 1
 fi
 
-echo "[agent-start/kilocode] Installing @kilocode/cli@${KILOCODE_CLI_VERSION} via npm..."
+echo "[agent-install/kilocode] Installing @kilocode/cli@${KILOCODE_CLI_VERSION} via npm..."
 npm install -g "@kilocode/cli@${KILOCODE_CLI_VERSION}"
-echo "[agent-start/kilocode] kilo CLI installed: $(kilo --version 2>/dev/null || echo 'unknown version')"
+echo "[agent-install/kilocode] kilo CLI installed: $(kilo --version 2>/dev/null || echo 'unknown version')"

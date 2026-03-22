@@ -369,7 +369,7 @@ export async function runIterativeLoop(
           coderImage,
           gateRetries,
           startupPath: sandbox.startupPath,
-          agentStartPath: sandbox.agentStartPath,
+          agentInstallPath: sandbox.agentInstallPath,
           agentPath: sandbox.agentPath,
           agentEnv,
           agentLogFormat,

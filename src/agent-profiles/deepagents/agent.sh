@@ -4,7 +4,7 @@
 # Part of the deepagents agent profile. Selected via --agent deepagents.
 # coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
 #
-# deepagents-cli is installed by agent-start.sh before the loop begins.
+# deepagents-cli is installed by agent-install.sh before the loop begins.
 #
 # CLI reference:   https://docs.langchain.com/oss/python/deepagents/cli
 # Providers:       https://docs.langchain.com/oss/python/deepagents/cli/providers

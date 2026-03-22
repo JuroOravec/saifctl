@@ -12,7 +12,7 @@ When you run `saifac feat run`, the factory:
 
 **Agent integrations provide** the scripts in steps 3 and 4:
 
-- `agent-start.sh` - one-time install
+- `agent-install.sh` - one-time install
 - `agent.sh` - actual agent work
 
 You choose which integration to use via `--agent <id>` or `--agent-script <path/to/script.sh>`.
@@ -33,7 +33,7 @@ You choose which integration to use via `--agent <id>` or `--agent-script <path/
 | Headless / non-interactive | Agent must run without prompts (e.g. `--yes`, `--headless`, `--always-approve`).                           |
 | No auto-commits            | Agent must not commit; the factory extracts the diff via `git diff`. Some agents need `--no-auto-commits`. |
 
-### 2. Agent setup script (`agent-start.sh`)
+### 2. Agent install script (`agent-install.sh`)
 
 - Runs once, after the project startup script, before the agent loop.
 - Typically installs the agent CLI (pipx, uv, npm, etc.).
@@ -60,7 +60,7 @@ Let's add new agent profile: mini-swe-agent - https://github.com/SWE-agent/mini-
 
 Do the integration in 5 distinct steps:
 1. write the scaffolding, profile.ts, register it in index.ts and types.ts
-2. check docs online for installation requiremens and write agent-start.sh
+2. check docs online for installation requiremens and write agent-install.sh
 3. check docs online for how to pass text to the CLI and pass the task text to it in yolo / autonomous mode
 4. check docs online for all the flags / options the CLI accepts, and configure it.
 5. check docs for configuring API keys, model, provider, and base url, and update it

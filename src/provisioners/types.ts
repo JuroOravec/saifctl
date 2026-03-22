@@ -180,8 +180,8 @@ export interface RunAgentOpts {
   gateRetries: number;
   /** Absolute host path to startup.sh. Mounted at /saifac/startup.sh. */
   startupPath: string;
-  /** Absolute host path to agent-start.sh. Mounted at /saifac/agent-start.sh. */
-  agentStartPath: string;
+  /** Absolute host path to agent-install.sh. Mounted at /saifac/agent-install.sh. */
+  agentInstallPath: string;
   /** Absolute host path to agent.sh. Mounted at /saifac/agent.sh. */
   agentPath: string;
   /**

@@ -6,7 +6,7 @@
  * Each profile directory contains:
  *   - profile.ts        → AgentProfile metadata (id, displayName, defaultLogFormat)
  *   - agent.sh          → script invoked by coder-start.sh on each inner round
- *   - agent-start.sh    → one-time setup script run after project startup, before the loop
+ *   - agent-install.sh  → one-time install script run after project startup, before the loop
  */
 
 import { join } from 'node:path';
@@ -69,11 +69,11 @@ export function resolveAgentScriptPath(profileId: SupportedAgentProfileId): stri
 }
 
 /**
- * Returns the absolute path to the agent-start.sh script for the given profile id.
- * Used by the saifac CLI (`parseAgentScripts`) as the default `--agent-start-script` when no override is provided.
+ * Returns the absolute path to the agent-install.sh script for the given profile id.
+ * Used by the saifac CLI (`parseAgentScripts`) as the default `--agent-install-script` when no override is provided.
  */
-export function resolveAgentStartScriptPath(profileId: SupportedAgentProfileId): string {
-  return join(_agentProfilesDir, profileId, 'agent-start.sh');
+export function resolveAgentInstallScriptPath(profileId: SupportedAgentProfileId): string {
+  return join(_agentProfilesDir, profileId, 'agent-install.sh');
 }
 
 /**
@@ -85,6 +85,6 @@ export function resolveAgentProfile(id: string): AgentProfile {
   }
   throw new Error(
     `Unsupported agent profile "${id}". Supported agents: ${SUPPORTED_AGENT_PROFILE_IDS.join(', ')}.\n` +
-      `To use a custom agent, supply --agent-script (and optionally --agent-start-script) instead.`,
+      `To use a custom agent, supply --agent-script (and optionally --agent-install-script) instead.`,
   );
 }

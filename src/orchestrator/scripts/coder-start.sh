@@ -17,7 +17,7 @@
 #   SAIFAC_STARTUP_SCRIPT      — path to the installation script (required); run once before
 #                                 the agent loop. Set via --profile (default: node-pnpm-python) or
 #                                 --startup-script.
-#   SAIFAC_AGENT_START_SCRIPT  — (optional) path to an agent setup script; run once after
+#   SAIFAC_AGENT_INSTALL_SCRIPT — (optional) path to an agent install script; run once after
 #                                 the startup script and before the agent loop. Use to
 #                                 install the coding agent (e.g. pipx install aider-chat).
 #                                 When unset or empty, this step is skipped.
@@ -73,14 +73,14 @@ echo "[coder-start] Running startup script: $SAIFAC_STARTUP_SCRIPT"
 bash "$SAIFAC_STARTUP_SCRIPT"
 echo "[coder-start] Startup script completed."
 
-if [ -n "${SAIFAC_AGENT_START_SCRIPT:-}" ]; then
-  if [ ! -f "$SAIFAC_AGENT_START_SCRIPT" ]; then
-    echo "[coder-start] ERROR: agent start script not found: $SAIFAC_AGENT_START_SCRIPT" >&2
+if [ -n "${SAIFAC_AGENT_INSTALL_SCRIPT:-}" ]; then
+  if [ ! -f "$SAIFAC_AGENT_INSTALL_SCRIPT" ]; then
+    echo "[coder-start] ERROR: agent install script not found: $SAIFAC_AGENT_INSTALL_SCRIPT" >&2
     exit 1
   fi
-  echo "[coder-start] Running agent setup script: $SAIFAC_AGENT_START_SCRIPT"
-  bash "$SAIFAC_AGENT_START_SCRIPT"
-  echo "[coder-start] Agent setup script completed."
+  echo "[coder-start] Running agent install script: $SAIFAC_AGENT_INSTALL_SCRIPT"
+  bash "$SAIFAC_AGENT_INSTALL_SCRIPT"
+  echo "[coder-start] Agent install script completed."
 fi
 
 INITIAL_TASK="$SAIFAC_INITIAL_TASK"

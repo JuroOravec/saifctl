@@ -143,7 +143,7 @@ async function assembleSaifacDir(opts: {
   coderStartScript: string;
   gatePath: string;
   startupPath: string;
-  agentStartPath: string;
+  agentInstallPath: string;
   agentPath: string;
   reviewerScriptPath?: string;
 }): Promise<string> {
@@ -152,7 +152,7 @@ async function assembleSaifacDir(opts: {
     coderStartScript,
     gatePath,
     startupPath,
-    agentStartPath,
+    agentInstallPath,
     agentPath,
     reviewerScriptPath,
   } = opts;
@@ -162,7 +162,7 @@ async function assembleSaifacDir(opts: {
   await copyFile(coderStartScript, join(saifacDir, 'coder-start.sh'));
   await copyFile(gatePath, join(saifacDir, 'gate.sh'));
   await copyFile(startupPath, join(saifacDir, 'startup.sh'));
-  await copyFile(agentStartPath, join(saifacDir, 'agent-start.sh'));
+  await copyFile(agentInstallPath, join(saifacDir, 'agent-install.sh'));
   await copyFile(agentPath, join(saifacDir, 'agent.sh'));
   if (reviewerScriptPath) {
     await copyFile(reviewerScriptPath, join(saifacDir, 'reviewer.sh'));
@@ -629,7 +629,7 @@ export class DockerProvisioner implements Provisioner {
       coderImage,
       gateRetries,
       startupPath,
-      agentStartPath,
+      agentInstallPath,
       agentPath,
       agentEnv,
       agentLogFormat,
@@ -668,7 +668,7 @@ export class DockerProvisioner implements Provisioner {
         SAIFAC_INITIAL_TASK: taskPrompt,
         SAIFAC_GATE_RETRIES: String(gateRetries),
         SAIFAC_STARTUP_SCRIPT: startupPath,
-        SAIFAC_AGENT_START_SCRIPT: agentStartPath,
+        SAIFAC_AGENT_INSTALL_SCRIPT: agentInstallPath,
         SAIFAC_GATE_SCRIPT: `${sandboxBasePath}/gate.sh`,
         SAIFAC_AGENT_SCRIPT: agentPath,
         SAIFAC_TASK_PATH: saifacTaskFilePath(codePath),
@@ -681,7 +681,7 @@ export class DockerProvisioner implements Provisioner {
         coderStartScript: CODER_START_SCRIPT,
         gatePath: join(sandboxBasePath, 'gate.sh'),
         startupPath,
-        agentStartPath,
+        agentInstallPath,
         agentPath,
         reviewerScriptPath: reviewer?.scriptPath,
       });
@@ -757,7 +757,7 @@ export class DockerProvisioner implements Provisioner {
         '--env',
         `SAIFAC_STARTUP_SCRIPT=/saifac/startup.sh`,
         '--env',
-        `SAIFAC_AGENT_START_SCRIPT=/saifac/agent-start.sh`,
+        `SAIFAC_AGENT_INSTALL_SCRIPT=/saifac/agent-install.sh`,
         '--env',
         `SAIFAC_AGENT_SCRIPT=/saifac/agent.sh`,
         // Invoke via bash so the script doesn't need +x in the mounted directory.

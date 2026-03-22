@@ -2,7 +2,7 @@
 # Terminus agent setup script — installs terminus-ai via uv or pipx.
 #
 # Runs once inside the coder container after the project startup script
-# and before the agent loop begins (SAIFAC_AGENT_START_SCRIPT in coder-start.sh).
+# and before the agent loop begins (SAIFAC_AGENT_INSTALL_SCRIPT in coder-start.sh).
 #
 # Pinned versions (checked PyPI 2026-03-21):
 #   https://pypi.org/pypi/terminus-ai/ — terminus-ai==2.0.4
@@ -19,12 +19,12 @@ TERMINUS_PACKAGE_VERSION='2.0.4'
 TERMINUS_PYTHON_PIN='3.13'
 
 set -euo pipefail
-trap 'ec=$?; echo "[agent-start/terminus] Finished Terminus setup (agent-start.sh, exit code ${ec})."' EXIT
-echo "[agent-start/terminus] Installing Terminus (agent-start.sh)..."
+trap 'ec=$?; echo "[agent-install/terminus] Finished Terminus setup (agent-install.sh, exit code ${ec})."' EXIT
+echo "[agent-install/terminus] Installing Terminus (agent-install.sh)..."
 
 if ! command -v python3 &>/dev/null; then
-  echo "[agent-start/terminus] ERROR: python3 is not available in this image." >&2
-  echo "[agent-start/terminus] Use a Python-capable coder image or supply --agent-script with a pre-installed terminus binary." >&2
+  echo "[agent-install/terminus] ERROR: python3 is not available in this image." >&2
+  echo "[agent-install/terminus] Use a Python-capable coder image or supply --agent-script with a pre-installed terminus binary." >&2
   exit 1
 fi
 
@@ -33,14 +33,14 @@ _py_version="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.ver
 _py_major="$(echo "$_py_version" | cut -d. -f1)"
 _py_minor="$(echo "$_py_version" | cut -d. -f2)"
 if [ "$_py_major" -lt 3 ] || { [ "$_py_major" -eq 3 ] && [ "$_py_minor" -lt 12 ]; }; then
-  echo "[agent-start/terminus] ERROR: Terminus requires Python 3.12+, found Python ${_py_version}." >&2
+  echo "[agent-install/terminus] ERROR: Terminus requires Python 3.12+, found Python ${_py_version}." >&2
   exit 1
 fi
 
 # tmux is a hard requirement — Terminus uses it as its sole interaction tool with
 # the environment. Without it the agent cannot execute any commands.
 if ! command -v tmux &>/dev/null; then
-  echo "[agent-start/terminus] tmux not found — attempting to install..." >&2
+  echo "[agent-install/terminus] tmux not found — attempting to install..." >&2
   # apt / dnf / pacman
   if command -v apt-get &>/dev/null; then
     apt-get install -y tmux
@@ -49,30 +49,30 @@ if ! command -v tmux &>/dev/null; then
   elif command -v pacman &>/dev/null; then
     pacman -S --noconfirm tmux
   else
-    echo "[agent-start/terminus] ERROR: Cannot install tmux automatically. Please install tmux manually." >&2
+    echo "[agent-install/terminus] ERROR: Cannot install tmux automatically. Please install tmux manually." >&2
     exit 1
   fi
 fi
-echo "[agent-start/terminus] tmux is available: $(tmux -V)"
+echo "[agent-install/terminus] tmux is available: $(tmux -V)"
 
 if command -v terminus &>/dev/null; then
-  echo "[agent-start/terminus] terminus is already installed: $(terminus --version 2>/dev/null || echo 'unknown version')"
+  echo "[agent-install/terminus] terminus is already installed: $(terminus --version 2>/dev/null || echo 'unknown version')"
   exit 0
 fi
 
-echo "[agent-start/terminus] Installing terminus-ai==${TERMINUS_PACKAGE_VERSION} (Python ${TERMINUS_PYTHON_PIN})..."
+echo "[agent-install/terminus] Installing terminus-ai==${TERMINUS_PACKAGE_VERSION} (Python ${TERMINUS_PYTHON_PIN})..."
 
 # Try different package managers
 if command -v uv &>/dev/null; then
   # UV
-  echo "[agent-start/terminus] Installing via uv tool install..."
+  echo "[agent-install/terminus] Installing via uv tool install..."
   uv tool install "terminus-ai==${TERMINUS_PACKAGE_VERSION}" --python "${TERMINUS_PYTHON_PIN}"
   export PATH="$HOME/.local/bin:$PATH"
 else
   # pipx
   if ! command -v pipx &>/dev/null; then
     # bootstrap pipx
-    echo "[agent-start/terminus] pipx not found — installing via pip..."
+    echo "[agent-install/terminus] pipx not found — installing via pip..."
     python3 -m pip install pipx
     python3 -m pipx ensurepath
     export PATH="$HOME/.local/bin:$PATH"
@@ -82,24 +82,24 @@ else
   if command -v pipx &>/dev/null; then
     # interpreter for pipx --python
     if command -v "python${TERMINUS_PYTHON_PIN}" &>/dev/null; then
-      echo "[agent-start/terminus] Installing via pipx (python${TERMINUS_PYTHON_PIN})..."
+      echo "[agent-install/terminus] Installing via pipx (python${TERMINUS_PYTHON_PIN})..."
       pipx install "terminus-ai==${TERMINUS_PACKAGE_VERSION}" --python "$(command -v "python${TERMINUS_PYTHON_PIN}")"
     else
-      echo "[agent-start/terminus] ERROR: pipx needs python${TERMINUS_PYTHON_PIN} on PATH, or install uv." >&2
+      echo "[agent-install/terminus] ERROR: pipx needs python${TERMINUS_PYTHON_PIN} on PATH, or install uv." >&2
       exit 1
     fi
     export PATH="$HOME/.local/bin:$PATH"
   else
     # pip
     if command -v "python${TERMINUS_PYTHON_PIN}" &>/dev/null; then
-      echo "[agent-start/terminus] Installing via pip (python${TERMINUS_PYTHON_PIN})..."
+      echo "[agent-install/terminus] Installing via pip (python${TERMINUS_PYTHON_PIN})..."
       "python${TERMINUS_PYTHON_PIN}" -m pip install --user "terminus-ai==${TERMINUS_PACKAGE_VERSION}"
     else
-      echo "[agent-start/terminus] ERROR: need uv, pipx + python${TERMINUS_PYTHON_PIN}, or python${TERMINUS_PYTHON_PIN} for pip." >&2
+      echo "[agent-install/terminus] ERROR: need uv, pipx + python${TERMINUS_PYTHON_PIN}, or python${TERMINUS_PYTHON_PIN} for pip." >&2
       exit 1
     fi
     export PATH="$HOME/.local/bin:$PATH"
   fi
 fi
 
-echo "[agent-start/terminus] terminus installed: $(terminus --version 2>/dev/null || echo 'unknown version')"
+echo "[agent-install/terminus] terminus installed: $(terminus --version 2>/dev/null || echo 'unknown version')"

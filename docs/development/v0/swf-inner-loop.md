@@ -153,7 +153,7 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 
 - `parseGateScript({ args, projectDir, config })`: If `--gate-script` is not set or empty, returns `readSandboxGateScript(profile.id)`. Otherwise reads the file from `projectDir`.
 - `parseGateRetries(args, config)`: If `--gate-retries` is not set, returns 10 (or config default). Otherwise parses a positive integer.
-- `parseAgentScripts({ args, projectDir, config })`: Resolves `agent-start.sh` and `agent.sh` from the agent profile or from `--agent-start-script` / `--agent-script` paths.
+- `parseAgentScripts({ args, projectDir, config })`: Resolves `agent-install.sh` and `agent.sh` from the agent profile or from `--agent-install-script` / `--agent-script` paths.
 - `parseAgentEnv({ args, projectDir, config })`: Merges config baseline, `--agent-env-file`, then `--agent-env` (CLI wins). Malformed entries emit a warning and are skipped.
 - `parseAgentLogFormat(args, agentProfile, config)`: Returns `'raw'` if `--agent-log-format raw`; otherwise profile/config default.
 

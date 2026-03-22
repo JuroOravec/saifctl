@@ -4,7 +4,7 @@
 # Part of the aider agent profile. Selected via --agent aider.
 # coder-start.sh writes the current task to $SAIFAC_TASK_PATH before each invocation.
 #
-# Aider is installed by agent-start.sh (pipx) before the loop begins.
+# Aider is installed by agent-install.sh (pipx) before the loop begins.
 #
 # CLI reference: https://aider.chat/docs/config/options.html
 #

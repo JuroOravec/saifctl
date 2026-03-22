@@ -66,7 +66,7 @@ will be overwritten.
 
 The `REVIEWER_LLM_*` vars are injected when the semantic AI reviewer (argus-ai) is enabled. See [Semantic reviewer](./reviewer.md).
 
-Agent shell scripts (`agent.sh`, `agent-start.sh`) read the `LLM_*` variables to
+Agent shell scripts (`agent.sh`, `agent-install.sh`) read the `LLM_*` variables to
 configure the coding agent (e.g. `OPENAI_API_KEY` for Codex, `ANTHROPIC_API_KEY`
 for Claude Code).
 

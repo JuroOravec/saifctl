@@ -2,7 +2,7 @@
 #
 # Based on official Node.js image.
 # Adds Yarn and a Python toolchain so Python-based coder agents (OpenHands, Aider via pipx,
-# etc.) can be installed at runtime by agent-start.sh.
+# etc.) can be installed at runtime by agent-install.sh.
 #
 # Build:
 #   docker build -f src/sandbox-profiles/node-yarn-python/Dockerfile.coder \

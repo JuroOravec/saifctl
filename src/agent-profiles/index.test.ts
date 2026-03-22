@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveAgentProfile,
   resolveAgentScriptPath,
-  resolveAgentStartScriptPath,
+  resolveAgentInstallScriptPath,
   SUPPORTED_AGENT_PROFILE_IDS,
   SUPPORTED_AGENT_PROFILES,
 } from './index.js';
@@ -28,8 +28,8 @@ describe('agent profiles', () => {
 
   it('resolves debug script paths under agent-profiles/debug', () => {
     expect(resolveAgentScriptPath('debug')).toMatch(/agent-profiles[/\\]debug[/\\]agent\.sh$/);
-    expect(resolveAgentStartScriptPath('debug')).toMatch(
-      /agent-profiles[/\\]debug[/\\]agent-start\.sh$/,
+    expect(resolveAgentInstallScriptPath('debug')).toMatch(
+      /agent-profiles[/\\]debug[/\\]agent-install\.sh$/,
     );
   });
 
@@ -57,8 +57,8 @@ describe('agent profiles', () => {
     }
   });
 
-  it('debug agent-start.sh exits 0 without installing tools', () => {
-    execFileSync('bash', [resolveAgentStartScriptPath('debug')], {
+  it('debug agent-install.sh exits 0 without installing tools', () => {
+    execFileSync('bash', [resolveAgentInstallScriptPath('debug')], {
       env: { ...process.env },
       stdio: 'pipe',
     });

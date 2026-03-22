@@ -9,9 +9,9 @@ import { cancel, intro, isCancel, outro, select } from '@clack/prompts';
 import {
   type AgentProfile,
   DEFAULT_AGENT_PROFILE,
+  resolveAgentInstallScriptPath,
   resolveAgentProfile,
   resolveAgentScriptPath,
-  resolveAgentStartScriptPath,
 } from '../agent-profiles/index.js';
 import {
   DEFAULT_STAGING_APP,
@@ -194,7 +194,7 @@ export interface OrchestratorArgs {
   'stage-script'?: string;
   agent?: string;
   'agent-script'?: string;
-  'agent-start-script'?: string;
+  'agent-install-script'?: string;
 }
 
 /** Path segment: kebab-case or (group) */
@@ -472,26 +472,26 @@ export async function parseStageScript(opts: {
   return readUtf8(scriptPath);
 }
 
-/** Reads agent scripts from --agent-script / --agent-start-script or profile defaults. */
+/** Reads agent scripts from --agent-script / --agent-install-script or profile defaults. */
 export async function parseAgentScripts(opts: {
   args: OrchestratorArgs;
   projectDir: string;
   config?: SaifConfig;
-}): Promise<{ agentStartScript: string; agentScript: string }> {
+}): Promise<{ agentInstallScript: string; agentScript: string }> {
   const { args, projectDir, config } = opts;
   const agentProfile = parseAgentProfile(args, config);
 
-  const rawStart = args['agent-start-script'];
-  let agentStartScript: string;
+  const rawStart = args['agent-install-script'];
+  let agentInstallScript: string;
   if (typeof rawStart === 'string' && rawStart.trim()) {
     const p = resolve(projectDir, rawStart.trim());
     if (!(await pathExists(p))) {
-      consola.error(`Error: --agent-start-script file not found: ${p}`);
+      consola.error(`Error: --agent-install-script file not found: ${p}`);
       process.exit(1);
     }
-    agentStartScript = await readUtf8(p);
+    agentInstallScript = await readUtf8(p);
   } else {
-    agentStartScript = await readUtf8(resolveAgentStartScriptPath(agentProfile.id));
+    agentInstallScript = await readUtf8(resolveAgentInstallScriptPath(agentProfile.id));
   }
 
   const rawScript = args['agent-script'];
@@ -507,7 +507,7 @@ export async function parseAgentScripts(opts: {
     agentScript = await readUtf8(resolveAgentScriptPath(agentProfile.id));
   }
 
-  return { agentStartScript, agentScript };
+  return { agentInstallScript, agentScript };
 }
 
 /** Reads test script from --test-script or profile default. */

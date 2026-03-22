@@ -119,7 +119,7 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
       coderImage,
       gateRetries,
       startupPath: sandbox.startupPath,
-      agentStartPath: sandbox.agentStartPath,
+      agentInstallPath: sandbox.agentInstallPath,
       agentPath: sandbox.agentPath,
       agentEnv,
       agentLogFormat,

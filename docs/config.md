@@ -144,7 +144,7 @@ Discovery runs only when `discoveryMcps` or `discoveryTools` is configured. Outp
 | `stageScript`      | string | `"./scripts/stage.sh"`       | `--stage-script`       |
 | `gateScript`       | string | `"./scripts/gate.sh"`        | `--gate-script`        |
 | `agentScript`      | string | `"./scripts/agent.sh"`       | `--agent-script`       |
-| `agentStartScript` | string | `"./scripts/agent-start.sh"` | `--agent-start-script` |
+| `agentInstallScript` | string | `"./scripts/agent-install.sh"` | `--agent-install-script` |
 
 ### Storage
 

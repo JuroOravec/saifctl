@@ -69,15 +69,15 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
    */
   startupScript: string;
   /**
-   * Content of the agent setup script to write into the sandbox as `agent-start.sh`.
-   * Mounted read-only at `/saifac/agent-start.sh` inside the coder container and executed
+   * Content of the agent setup script to write into the sandbox as `agent-install.sh`.
+   * Mounted read-only at `/saifac/agent-install.sh` inside the coder container and executed
    * once by `coder-start.sh` after the startup script, before the agent loop begins.
    *
    * Use to install the coding agent at runtime (e.g. `pipx install aider-chat`).
    *
-   * Resolved by the CLI: defaults to the agent profile's agent-start.sh.
+   * Resolved by the CLI: defaults to the agent profile's agent-install.sh.
    */
-  agentStartScript: string;
+  agentInstallScript: string;
   /**
    * Content of the agent script to write into the sandbox as `agent.sh`.
    * Mounted read-only at `/saifac/agent.sh` inside the coder container and invoked
@@ -201,7 +201,7 @@ type Fail2PassOpts = Pick<
   | 'stagingEnvironment'
   | 'startupScript'
   | 'gateScript'
-  | 'agentStartScript'
+  | 'agentInstallScript'
   | 'agentScript'
   | 'stageScript'
   | 'testScript'
@@ -223,7 +223,7 @@ async function runFail2PassCore(
     stagingEnvironment,
     startupScript,
     gateScript,
-    agentStartScript,
+    agentInstallScript,
     agentScript,
     stageScript,
     testScript,
@@ -239,7 +239,7 @@ async function runFail2PassCore(
     sandboxBaseDir,
     startupScript,
     gateScript,
-    agentStartScript,
+    agentInstallScript,
     agentScript,
     stageScript,
     verbose: opts.verbose,
@@ -342,7 +342,7 @@ async function runStartCore(
     sandboxBaseDir,
     gateScript,
     startupScript,
-    agentStartScript,
+    agentInstallScript,
     agentScript,
     stageScript,
     runStorage,
@@ -374,7 +374,7 @@ async function runStartCore(
     sandboxBaseDir,
     gateScript,
     startupScript,
-    agentStartScript,
+    agentInstallScript,
     agentScript,
     stageScript,
     verbose: opts.verbose,
@@ -528,7 +528,7 @@ type SharedTestOpts = Pick<
   | 'resolveAmbiguity'
   | 'startupScript'
   | 'gateScript'
-  | 'agentStartScript'
+  | 'agentInstallScript'
   | 'agentScript'
   | 'stageScript'
   | 'testScript'
@@ -643,7 +643,7 @@ async function runTestsCore(
     resolveAmbiguity,
     startupScript,
     gateScript,
-    agentStartScript,
+    agentInstallScript,
     agentScript,
     stageScript,
     testScript,
@@ -673,7 +673,7 @@ async function runTestsCore(
     sandboxBaseDir,
     startupScript,
     gateScript,
-    agentStartScript,
+    agentInstallScript,
     agentScript,
     stageScript,
     verbose,
@@ -824,7 +824,7 @@ export async function runDebug(
     | 'stagingEnvironment'
     | 'startupScript'
     | 'gateScript'
-    | 'agentStartScript'
+    | 'agentInstallScript'
     | 'agentScript'
     | 'stageScript'
   >,
@@ -839,7 +839,7 @@ export async function runDebug(
     stagingEnvironment,
     startupScript,
     gateScript,
-    agentStartScript,
+    agentInstallScript,
     agentScript,
     stageScript,
   } = opts;
@@ -854,7 +854,7 @@ export async function runDebug(
     sandboxBaseDir,
     startupScript,
     gateScript,
-    agentStartScript,
+    agentInstallScript,
     agentScript,
     stageScript,
   });

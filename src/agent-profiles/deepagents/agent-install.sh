@@ -2,7 +2,7 @@
 # Deep Agents CLI setup script — installs deepagents-cli via uv tool.
 #
 # Runs once inside the coder container after the project startup script
-# and before the agent loop begins (SAIFAC_AGENT_START_SCRIPT in coder-start.sh).
+# and before the agent loop begins (SAIFAC_AGENT_INSTALL_SCRIPT in coder-start.sh).
 #
 # Pinned versions (checked PyPI 2026-03-21):
 #   https://pypi.org/pypi/deepagents-cli/ — deepagents-cli==0.0.34
@@ -22,38 +22,38 @@ DEEPAGENTS_PYTHON_PIN='3.13'
 DEEPAGENTS_SPEC="deepagents-cli[anthropic,groq,openrouter]==${DEEPAGENTS_PACKAGE_VERSION}"
 
 set -euo pipefail
-trap 'ec=$?; echo "[agent-start/deepagents] Finished deepagents setup (agent-start.sh, exit code ${ec})."' EXIT
-echo "[agent-start/deepagents] Installing deepagents (agent-start.sh)..."
+trap 'ec=$?; echo "[agent-install/deepagents] Finished deepagents setup (agent-install.sh, exit code ${ec})."' EXIT
+echo "[agent-install/deepagents] Installing deepagents (agent-install.sh)..."
 
 if command -v deepagents &>/dev/null; then
-  echo "[agent-start/deepagents] deepagents is already installed: $(deepagents --version 2>/dev/null || echo 'unknown version')"
+  echo "[agent-install/deepagents] deepagents is already installed: $(deepagents --version 2>/dev/null || echo 'unknown version')"
   exit 0
 fi
 
 # Try different package managers (uv → pipx → pip)
 if command -v uv &>/dev/null; then
   # UV
-  echo "[agent-start/deepagents] Installing ${DEEPAGENTS_SPEC} via uv tool install (Python ${DEEPAGENTS_PYTHON_PIN})..."
+  echo "[agent-install/deepagents] Installing ${DEEPAGENTS_SPEC} via uv tool install (Python ${DEEPAGENTS_PYTHON_PIN})..."
   uv tool install "${DEEPAGENTS_SPEC}" --python "${DEEPAGENTS_PYTHON_PIN}"
   export PATH="$HOME/.local/bin:$PATH"
 elif command -v pipx &>/dev/null; then
   # pipx
   if command -v "python${DEEPAGENTS_PYTHON_PIN}" &>/dev/null; then
-    echo "[agent-start/deepagents] Installing via pipx (python${DEEPAGENTS_PYTHON_PIN})..."
+    echo "[agent-install/deepagents] Installing via pipx (python${DEEPAGENTS_PYTHON_PIN})..."
     pipx install "${DEEPAGENTS_SPEC}" --python "$(command -v "python${DEEPAGENTS_PYTHON_PIN}")"
   else
-    echo "[agent-start/deepagents] ERROR: pipx needs python${DEEPAGENTS_PYTHON_PIN} on PATH, or install uv." >&2
+    echo "[agent-install/deepagents] ERROR: pipx needs python${DEEPAGENTS_PYTHON_PIN} on PATH, or install uv." >&2
     exit 1
   fi
   export PATH="$HOME/.local/bin:$PATH"
 elif command -v "python${DEEPAGENTS_PYTHON_PIN}" &>/dev/null; then
   # pip
-  echo "[agent-start/deepagents] uv/pipx not found — installing via pip (python${DEEPAGENTS_PYTHON_PIN})..."
+  echo "[agent-install/deepagents] uv/pipx not found — installing via pip (python${DEEPAGENTS_PYTHON_PIN})..."
   "python${DEEPAGENTS_PYTHON_PIN}" -m pip install --user "${DEEPAGENTS_SPEC}"
   export PATH="$HOME/.local/bin:$PATH"
 else
-  echo "[agent-start/deepagents] ERROR: Need uv, pipx + python${DEEPAGENTS_PYTHON_PIN}, or python${DEEPAGENTS_PYTHON_PIN} for pip." >&2
+  echo "[agent-install/deepagents] ERROR: Need uv, pipx + python${DEEPAGENTS_PYTHON_PIN}, or python${DEEPAGENTS_PYTHON_PIN} for pip." >&2
   exit 1
 fi
 
-echo "[agent-start/deepagents] deepagents installed: $(deepagents --version 2>/dev/null || echo 'unknown version')"
+echo "[agent-install/deepagents] deepagents installed: $(deepagents --version 2>/dev/null || echo 'unknown version')"

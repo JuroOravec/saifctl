@@ -4,8 +4,8 @@
  * Supported profiles: openhands | aider | claude | codex | gemini | qwen | opencode | copilot | kilocode | mini-swe-agent | terminus | forge | deepagents | debug
  *
  * The profile is mainly used by:
- *   - sandbox.ts                  → writes agent.sh + agent-start.sh to sandbox
- *   - coder-start.sh             → runs agent-start.sh before the loop
+ *   - sandbox.ts                  → writes agent.sh + agent-install.sh to sandbox
+ *   - coder-start.sh             → runs agent-install.sh before the loop
  */
 
 export interface AgentProfile {

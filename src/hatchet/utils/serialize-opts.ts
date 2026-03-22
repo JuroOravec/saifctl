@@ -49,7 +49,7 @@ export interface SerializedOrchestratorOpts extends Record<string, unknown> {
   sandboxBaseDir: string;
   gateScript: string;
   startupScript: string;
-  agentStartScript: string;
+  agentInstallScript: string;
   agentScript: string;
   stageScript: string;
   resume: {
@@ -150,7 +150,7 @@ export function deserializeOrchestratorOpts(serialized: Record<string, unknown>)
     sandboxBaseDir: s.sandboxBaseDir,
     gateScript: s.gateScript,
     startupScript: s.startupScript,
-    agentStartScript: s.agentStartScript,
+    agentInstallScript: s.agentInstallScript,
     agentScript: s.agentScript,
     stageScript: s.stageScript,
     resume: s.resume

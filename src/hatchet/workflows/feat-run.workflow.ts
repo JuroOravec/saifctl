@@ -308,7 +308,7 @@ export function createFeatRunWorkflow() {
         sandboxBaseDir: opts.sandboxBaseDir,
         gateScript: opts.gateScript,
         startupScript: opts.startupScript,
-        agentStartScript: opts.agentStartScript,
+        agentInstallScript: opts.agentInstallScript,
         agentScript: opts.agentScript,
         stageScript: opts.stageScript,
         verbose: !!opts.verbose,

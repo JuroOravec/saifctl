@@ -76,12 +76,12 @@ export interface Sandbox {
    */
   startupPath: string;
   /**
-   * sandboxBasePath/agent-start.sh — one-time agent setup script; mounted :ro at /saifac/agent-start.sh.
+   * sandboxBasePath/agent-install.sh — one-time agent setup script; mounted :ro at /saifac/agent-install.sh.
    * coder-start.sh runs this once after the startup script and before the agent loop begins.
    * Used to install the coding agent (e.g. pipx install aider-chat).
    * When absent / empty, the step is skipped.
    */
-  agentStartPath: string;
+  agentInstallPath: string;
   /**
    * sandboxBasePath/agent.sh — agent runner script; mounted :ro at /saifac/agent.sh.
    * coder-start.sh invokes this once per inner round with the task in $SAIFAC_TASK_PATH.
@@ -142,16 +142,16 @@ export interface CreateSandboxOpts {
    */
   startupScript: string;
   /**
-   * Content of the agent setup script to write into the sandbox as `agent-start.sh`.
-   * The script is mounted read-only at `/saifac/agent-start.sh` inside the coder container
+   * Content of the agent setup script to write into the sandbox as `agent-install.sh`.
+   * The script is mounted read-only at `/saifac/agent-install.sh` inside the coder container
    * and executed once by `coder-start.sh` after the startup script and before the agent loop.
    *
    * Use to install the coding agent at runtime (e.g. `pipx install aider-chat`).
    * When the script is empty or not provided, the step is skipped.
    *
-   * Defaults to the agent profile's agent-start.sh.
+   * Defaults to the agent profile's agent-install.sh.
    */
-  agentStartScript: string;
+  agentInstallScript: string;
   /**
    * Content of the agent script to write into the sandbox as `agent.sh`.
    * The script is mounted read-only at `/saifac/agent.sh` inside the coder container
@@ -190,7 +190,7 @@ export interface CreateSandboxOpts {
  * 3. git init + initial commit inside code/ (clean baseline for diffing)
  * 4. Write gate.sh (user-supplied or default) to sandboxBasePath/gate.sh
  * 5. Write startup.sh (from profile or --startup-script) to sandboxBasePath/startup.sh
- * 6. Write agent-start.sh (from agent profile or --agent-start-script) to sandboxBasePath/agent-start.sh
+ * 6. Write agent-install.sh (from agent profile or --agent-install-script) to sandboxBasePath/agent-install.sh
  * 7. Write agent.sh (from agent profile or --agent-script) to sandboxBasePath/agent.sh
  * 8. Write stage.sh (from profile or --stage-script) to sandboxBasePath/stage.sh
  */
@@ -203,7 +203,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
     sandboxBaseDir,
     gateScript,
     startupScript,
-    agentStartScript,
+    agentInstallScript,
     agentScript,
     stageScript,
     verbose,
@@ -215,7 +215,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   const codePath = join(sandboxBasePath, 'code');
   const gatePath = join(sandboxBasePath, 'gate.sh');
   const startupPath = join(sandboxBasePath, 'startup.sh');
-  const agentStartPath = join(sandboxBasePath, 'agent-start.sh');
+  const agentInstallPath = join(sandboxBasePath, 'agent-install.sh');
   const agentPath = join(sandboxBasePath, 'agent.sh');
   const stagePath = join(sandboxBasePath, 'stage.sh');
 
@@ -292,11 +292,11 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   await chmod(startupPath, 0o755);
   consola.log(`[sandbox] Startup script written to ${startupPath}`);
 
-  // Write agent-start.sh — mounted read-only at /saifac/agent-start.sh.
+  // Write agent-install.sh — mounted read-only at /saifac/agent-install.sh.
   // Run once after project startup, before the agent loop. Used to install the agent.
-  await writeUtf8(agentStartPath, agentStartScript);
-  await chmod(agentStartPath, 0o755);
-  consola.log(`[sandbox] Agent start script written to ${agentStartPath}`);
+  await writeUtf8(agentInstallPath, agentInstallScript);
+  await chmod(agentInstallPath, 0o755);
+  consola.log(`[sandbox] Agent install script written to ${agentInstallPath}`);
 
   // Write agent.sh — mounted read-only at /saifac/agent.sh.
   // Defaults to the agent profile's agent.sh (OpenHands). Override with --agent-script.
@@ -315,7 +315,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
     codePath,
     gatePath,
     startupPath,
-    agentStartPath,
+    agentInstallPath,
     agentPath,
     stagePath,
     runId,

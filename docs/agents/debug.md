@@ -8,7 +8,7 @@ The **`debug`** profile is a built-in coding agent that **does not call an LLM**
 
 | Script           | Role                                                                                    |
 | ---------------- | --------------------------------------------------------------------------------------- |
-| `agent-start.sh` | No-op: logs once and exits. Skips pip/uv/npm installs.                                  |
+| `agent-install.sh` | No-op: logs once and exits. Skips pip/uv/npm installs.                                  |
 | `agent.sh`       | Writes a minimal `dummy.md` at the workspace root (`$SAIFAC_WORKSPACE_BASE`, default `/workspace`). |
 
 Stdout is treated as **`raw`** log format (same as Aider and other non-OpenHands agents).

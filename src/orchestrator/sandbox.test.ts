@@ -196,7 +196,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
 
   const GATE_SCRIPT = '#!/bin/sh\necho "gate"';
   const STARTUP_SCRIPT = '#!/bin/sh\necho "startup"';
-  const AGENT_START_SCRIPT = '#!/bin/sh\necho "agent-start"';
+  const AGENT_INSTALL_SCRIPT = '#!/bin/sh\necho "agent-install"';
   const AGENT_SCRIPT = '#!/bin/sh\necho "agent"';
   const STAGE_SCRIPT = '#!/bin/sh\necho "stage"';
 
@@ -263,7 +263,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         runId: 'abc123',
         gateScript: GATE_SCRIPT,
         startupScript: STARTUP_SCRIPT,
-        agentStartScript: AGENT_START_SCRIPT,
+        agentInstallScript: AGENT_INSTALL_SCRIPT,
         agentScript: AGENT_SCRIPT,
         stageScript: STAGE_SCRIPT,
       });
@@ -305,7 +305,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
       const scripts: [string, string][] = [
         [paths.gatePath, GATE_SCRIPT],
         [paths.startupPath, STARTUP_SCRIPT],
-        [paths.agentStartPath, AGENT_START_SCRIPT],
+        [paths.agentInstallPath, AGENT_INSTALL_SCRIPT],
         [paths.agentPath, AGENT_SCRIPT],
         [paths.stagePath, STAGE_SCRIPT],
       ];
@@ -415,7 +415,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         runId: 'def456',
         gateScript: GATE_SCRIPT,
         startupScript: STARTUP_SCRIPT,
-        agentStartScript: AGENT_START_SCRIPT,
+        agentInstallScript: AGENT_INSTALL_SCRIPT,
         agentScript: AGENT_SCRIPT,
         stageScript: STAGE_SCRIPT,
       });
