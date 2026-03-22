@@ -30,14 +30,22 @@
 
 set -euo pipefail
 
+echo "[agent/codex] Starting agent codex in agent.sh..."
+
 export OPENAI_API_KEY="${OPENAI_API_KEY:-$LLM_API_KEY}"
 if [ -n "${LLM_BASE_URL:-}" ]; then
   export OPENAI_BASE_URL="${OPENAI_BASE_URL:-$LLM_BASE_URL}"
 fi
 
+echo "[agent/codex] About to run: codex exec --model \"${LLM_MODEL}\" --dangerously-bypass-approvals-and-sandbox --json --ephemeral - < \"${SAIFAC_TASK_PATH}\""
+
+_agent_exit=0
 codex exec \
   --model "$LLM_MODEL" \
   --dangerously-bypass-approvals-and-sandbox \
   --json \
   --ephemeral \
-  - < "$SAIFAC_TASK_PATH"
+  - < "$SAIFAC_TASK_PATH" || _agent_exit=$?
+
+echo "[agent/codex] Finished agent codex in agent.sh (exit code ${_agent_exit})."
+exit "${_agent_exit}"

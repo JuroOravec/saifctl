@@ -157,7 +157,13 @@ export function createFeatRunIterationWorkflow() {
 
       const saifExclude = { type: 'glob' as const, pattern: `${saifDir}/**` };
       const gitHooksExclude = { type: 'glob' as const, pattern: '.git/hooks/**' };
-      const patchExclude = [saifExclude, gitHooksExclude, ...(opts.patchExclude ?? [])];
+      const saifacWorkspaceMetaExclude = { type: 'glob' as const, pattern: '.saifac/**' };
+      const patchExclude = [
+        saifExclude,
+        gitHooksExclude,
+        saifacWorkspaceMetaExclude,
+        ...(opts.patchExclude ?? []),
+      ];
 
       // Wire Hatchet step cancellation → container teardown (addresses step 1.7)
       const signal = ctx.abortController.signal;

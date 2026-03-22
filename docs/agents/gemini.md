@@ -1,6 +1,6 @@
 # Gemini CLI
 
-[Gemini CLI](https://github.com/google-gemini/gemini-cli) is Google's terminal agent. Pre-installed in the Leash coder image.
+[Gemini CLI](https://github.com/google-gemini/gemini-cli) is Google's terminal agent. Installed at run time via `npm install -g @google/gemini-cli` when missing (requires npm in the coder image).
 
 **Usage:** `saifac feat run --agent gemini`
 

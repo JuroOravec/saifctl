@@ -30,6 +30,7 @@ import type { TestCatalog } from '../design-tests/schema.js';
 import { consola } from '../logger.js';
 import type { Feature } from '../specs/discover.js';
 import {
+  git,
   gitAdd,
   gitApply,
   gitClean,
@@ -370,17 +371,69 @@ export async function extractPatch(
     GIT_COMMITTER_EMAIL: 'saifac@localhost',
   };
 
+  // Resolve the root commit (the "Base state" commit created before the agent ran).
+  // This is always the first commit in the sandbox repo — the only commit that exists
+  // before any agent changes. We need this because some agents may commit their changes,
+  // so `git diff HEAD` would be empty. Diffing from the root commit to HEAD captures all
+  // agent changes whether committed or not.
+  const rootCommit = (
+    await git({ cwd: codePath, env: gitEnv, args: ['rev-list', '--max-parents=0', 'HEAD'] })
+  ).trim();
+
+  // Stage any uncommitted changes and commit them so they appear in the range diff.
+  // Unstage `.saifac/` entirely (same as orchestrator/scripts/reviewer.sh): factory-internal
+  // paths (task, argus config, review JSON, etc.) must not appear in the capture commit.
   await gitAdd({ cwd: codePath, env: gitEnv });
-  const rawPatch = await gitDiff({ cwd: codePath, env: gitEnv, args: ['HEAD'] });
+  try {
+    await git({ cwd: codePath, env: gitEnv, args: ['reset', 'HEAD', '--', '.saifac'] });
+  } catch {
+    // .saifac may be absent or empty in index; ignore.
+  }
+  const stagedOut = (
+    await git({ cwd: codePath, env: gitEnv, args: ['diff', '--cached', '--name-only'] })
+  ).trim();
+  if (stagedOut) {
+    await gitCommit({ cwd: codePath, env: gitEnv, message: 'saifac: capture uncommitted changes' });
+  }
+
+  const rawPatch = await gitDiff({ cwd: codePath, env: gitEnv, args: [`${rootCommit}..HEAD`] });
 
   const patch = opts.exclude?.length ? filterPatchHunks(rawPatch, opts.exclude) : rawPatch;
   await writeUtf8(patchPath, patch);
 
-  // Reset for next attempt
-  await gitResetHard({ cwd: codePath, env: gitEnv });
+  // Reset back to base state (root commit) for next attempt.
+  await gitResetHard({ cwd: codePath, env: gitEnv, ref: rootCommit });
   await gitClean({ cwd: codePath, env: gitEnv });
 
   return { patch, patchPath };
+}
+
+/**
+ * Lists repo-relative paths referenced in a unified diff by parsing `diff --git` headers.
+ * Uses the post-change path (`b/...`), except for lines of the form `diff --git /dev/null b/...`
+ * (new files). Does not read the working tree.
+ */
+export function listFilePathsInUnifiedDiff(patch: string): string[] {
+  if (!patch.trim()) return [];
+
+  const paths: string[] = [];
+  for (const line of patch.split('\n')) {
+    if (!line.startsWith('diff --git ')) continue;
+
+    const fromNull = /^diff --git \/dev\/null b\/(.+)$/.exec(line);
+    if (fromNull) {
+      paths.push(fromNull[1]);
+      continue;
+    }
+
+    const ab = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
+    if (ab) {
+      const [, aPath, bPath] = ab;
+      paths.push(bPath === '/dev/null' ? aPath : bPath);
+    }
+  }
+
+  return [...new Set(paths)];
 }
 
 /**

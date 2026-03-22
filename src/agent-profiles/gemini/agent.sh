@@ -35,10 +35,22 @@
 
 set -euo pipefail
 
+echo "[agent/gemini] Starting agent gemini in agent.sh..."
+
 export GEMINI_API_KEY="${GEMINI_API_KEY:-$LLM_API_KEY}"
 
+_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
+  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+fi
+echo "[agent/gemini] About to run: gemini --model \"${LLM_MODEL}\" --yolo --output-format stream-json \"${_SAIFAC_TASK_SNIP}\""
+
+_agent_exit=0
 gemini \
   --model "$LLM_MODEL" \
   --yolo \
   --output-format stream-json \
-  "$(cat "$SAIFAC_TASK_PATH")"
+  "$(cat "$SAIFAC_TASK_PATH")" || _agent_exit=$?
+
+echo "[agent/gemini] Finished agent gemini in agent.sh (exit code ${_agent_exit})."
+exit "${_agent_exit}"

@@ -51,6 +51,8 @@
 
 set -euo pipefail
 
+echo "[agent/mini-swe-agent] Starting agent mini-swe-agent in agent.sh..."
+
 # ---------------------------------------------------------------------------
 # API keys — map LLM_API_KEY as a fallback for all common provider key vars.
 # Native provider keys take precedence if already set.
@@ -107,9 +109,27 @@ fi
 # (e.g. custom model names). Known hosted models have pricing data in litellm.
 export MSWEA_COST_TRACKING="${MSWEA_COST_TRACKING:-ignore_errors}"
 
+_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
+  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+fi
+_mini_model_echo=""
+if [ "${#_model_flag[@]}" -gt 0 ]; then
+  _mini_model_echo="-m \"${_model_flag[1]}\" "
+fi
+_mini_cfg_echo=""
+if [ "${#_config_flag[@]}" -gt 0 ]; then
+  _mini_cfg_echo="-c mini.yaml -c \"${_tmp_config}\" (overlay may contain api_base ****) "
+fi
+echo "[agent/mini-swe-agent] About to run: mini -t \"${_SAIFAC_TASK_SNIP}\" --yolo --exit-immediately ${_mini_model_echo}${_mini_cfg_echo}(API keys from env, masked as ****)"
+
+_agent_exit=0
 mini \
   -t "$(cat "$SAIFAC_TASK_PATH")" \
   --yolo \
   --exit-immediately \
   "${_model_flag[@]}" \
-  "${_config_flag[@]}"
+  "${_config_flag[@]}" || _agent_exit=$?
+
+echo "[agent/mini-swe-agent] Finished agent mini-swe-agent in agent.sh (exit code ${_agent_exit})."
+exit "${_agent_exit}"

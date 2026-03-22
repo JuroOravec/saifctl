@@ -1,9 +1,8 @@
 # Coder image — node-bun-python sandbox profile.
 #
-# Extends coder-base (which provides coder-start.sh) with Bun and Python.
-# Bun is a JavaScript runtime and package manager. Python 3 and pipx are included
-# so any Python-based coder agent (OpenHands, Aider via pipx, etc.) can be
-# installed at runtime by agent-start.sh.
+# Based on official Node.js image.
+# Adds Bun and a Python toolchain so Python-based coder agents (OpenHands, Aider via pipx,
+# etc.) can be installed at runtime by agent-start.sh.
 #
 # Build:
 #   docker build -f src/sandbox-profiles/node-bun-python/Dockerfile.coder \
@@ -11,26 +10,30 @@
 #
 # Or via CLI:
 #   pnpm docker build coder --profile node-bun-python
-FROM saifac-coder-base:latest
+ARG NODE_VERSION=25
+FROM node:${NODE_VERSION}-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install git, Python toolchain, and Bun.
-# Python-based agents (OpenHands, Aider) can be bootstrapped by agent-start.sh.
+# Add common utilities, Python toolchain, and install Bun.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    git \
-    python3 \
-    python3-venv \
-    python3-pip \
-    pipx \
-    && curl -fsSL https://bun.sh/install | bash \
-    && rm -rf /var/lib/apt/lists/*
+  ca-certificates \
+  curl \
+  git \
+  unzip \
+  python3 \
+  python3-venv \
+  python3-pip \
+  pipx \
+  && curl -fsSL https://bun.sh/install | bash \
+  && rm -rf /var/lib/apt/lists/*
 
+# Put Bun on PATH.
 ENV PATH="/root/.bun/bin:$PATH"
 
-# Install uv via pipx so Python-based agent-start scripts can use it.
-RUN pipx install uv --python python3
+# Symlink pipx-managed uv into /usr/local/bin so it stays on PATH in minimal shells.
+RUN pipx install uv --python python3 \
+  && ln -sf /root/.local/bin/uv /usr/local/bin/uv
 
-# Ensure pipx-managed binaries are on PATH.
-ENV PATH="/root/.local/bin:$PATH"
+# Ensure Bun and pipx-managed binaries are on PATH.
+ENV PATH="/root/.bun/bin:/root/.local/bin:$PATH"

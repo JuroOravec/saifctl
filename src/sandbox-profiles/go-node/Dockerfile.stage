@@ -1,6 +1,6 @@
 # Staging image — go-node sandbox profile.
 #
-# Provides the Go toolchain and Node.js 22 LTS. Go is the primary runtime; Node.js
+# Provides the Go toolchain and Node.js 25. Go is the primary runtime; Node.js
 # is available on the side. Project dependencies are NOT installed here; startup.sh
 # runs inside the container at runtime (after the workspace is mounted).
 #
@@ -14,10 +14,10 @@ FROM golang:1.23-bookworm
 
 WORKDIR /workspace
 
-# Install Node.js 22 LTS to match Dockerfile.coder.
+# Install Node.js 25 to match Dockerfile.coder.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_25.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 

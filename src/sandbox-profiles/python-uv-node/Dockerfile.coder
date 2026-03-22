@@ -1,8 +1,7 @@
 # Coder image — python-uv-node sandbox profile.
 #
-# Extends coder-base (which provides coder-start.sh) with Python 3, uv, and Node.js.
-# Python is the primary runtime; Node.js 22 LTS is included on the side so Node-based
-# coder agents (claude-code, codex, etc.) can be installed at runtime by agent-start.sh.
+# Based on official Python image.
+# Adds uv (astral.sh) and Node.js (NodeSource) so Node- and Python-based coder agents work at runtime.
 #
 # Build:
 #   docker build -f src/sandbox-profiles/python-uv-node/Dockerfile.coder \
@@ -10,21 +9,24 @@
 #
 # Or via CLI:
 #   pnpm docker build coder --profile python-uv-node
-FROM saifac-coder-base:latest
+ARG PYTHON_VERSION=3.13
+FROM python:${PYTHON_VERSION}-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python toolchain, uv, and Node.js 22 LTS.
-# Python is the primary runtime; Node.js is included so Node-based coder agents
-# can be bootstrapped by agent-start.sh.
+ARG NODE_MAJOR=25
+# Add common utilities, install uv (astral.sh), and Node.js (NodeSource).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    git \
-    python3 \
-    python3-venv \
-    && curl -fsSL https://astral.sh/uv/install.sh | sh \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
+  ca-certificates \
+  curl \
+  git \
+  gnupg \
+  && curl -fsSL https://astral.sh/uv/install.sh | sh \
+  && install -d -m 0755 /etc/apt/keyrings \
+  && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+  && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+  && apt-get update && apt-get install -y --no-install-recommends nodejs \
+  && rm -rf /var/lib/apt/lists/*
 
+# Ensure uv-installed binaries are on PATH.
 ENV PATH="/root/.local/bin:$PATH"

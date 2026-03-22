@@ -32,6 +32,7 @@ saifac feat run --agent claude
 | [`kilocode`](./kilocode.md)             | Kilo Code CLI       | [Link](https://github.com/Kilo-Org/kilocode)        |
 | [`mini-swe-agent`](./mini-swe-agent.md) | mini-SWE-agent      | [Link](https://github.com/SWE-agent/mini-swe-agent) |
 | [`deepagents`](./deepagents.md)         | Deep Agents CLI     | [Link](https://github.com/langchain-ai/deepagents)  |
+| [`debug`](./debug.md)                   | Debug (no LLM)      | Built-in — fast loop without agent install or model   |
 
 ---
 

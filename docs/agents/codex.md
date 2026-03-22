@@ -19,4 +19,4 @@ codex exec \
 
 - **API key** — `OPENAI_API_KEY` or fallback to `LLM_API_KEY`.
 - **Base URL** — `LLM_BASE_URL` is forwarded as `OPENAI_BASE_URL` for custom endpoints.
-- **Pre-installed in Leash image** — If you supply custom `--coder-image`, you will need to install Codex yourself.
+- **Install** — `agent-start.sh` runs `npm install -g @openai/codex` when `codex` is missing (requires npm). Use a Node-capable profile or bake Codex into `--coder-image`.

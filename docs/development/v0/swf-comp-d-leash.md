@@ -69,11 +69,9 @@ Leash is a **CLI wrapper**. You do not pull or run any StrongDM Docker image you
 
 ### Custom Coder Image
 
-Leash's default `coder` image includes `claude-code`, `codex`, `gemini-cli` — but not OpenHands. We provide **`saifac-coder-node-pnpm-python:latest`** (and profile-specific variants), built from the sandbox profile's `Dockerfile.coder`. It extends `saifac-coder-base` and adds:
+StrongDM's reference `public.ecr.aws/s5i7k8t3/strongdm/coder` image bundles several npm-based CLIs; **our published `saifac-coder-*` images do not use that base.** Each profile's `Dockerfile.coder` starts from an upstream image (Node, Python, golang, rust, Miniconda, etc.). Node-based agents (Claude Code, Codex, Gemini CLI, …) are installed at run time by their `agent-start.sh` via `npm install -g` when missing, or you can bake them into a custom `--coder-image`.
 
-- Python 3, uv, OpenHands
-- Git
-- A symlink from `/root/.local/bin/openhands` to `/usr/local/bin/openhands` so the binary is reachable in any shell context
+**Default image `saifac-coder-node-pnpm-python:latest`** includes Node 25, pnpm, Python 3, pipx, and uv (see `src/sandbox-profiles/node-pnpm-python/Dockerfile.coder`). **OpenHands** is installed by `agent-start.sh` when you use the openhands agent profile (not baked into the image).
 
 **Build:** `pnpm docker build coder` (uses the sandbox profile's `Dockerfile.coder`; default: node-pnpm-python).
 **Default:** Images are published to GHCR. Docker pulls them automatically when not present locally.
@@ -142,7 +140,7 @@ uv tool install openhands --python 3.12
 ### First Run
 
 1. **Test Runner image** — pulled from GHCR when not present locally (e.g. `ghcr.io/JuroOravec/safe-ai-factory/saifac-test-node-vitest:latest`).
-2. **Coder image** — pulled from GHCR when not present locally (e.g. `ghcr.io/JuroOravec/safe-ai-factory/saifac-coder:latest`).
+2. **Coder image** — pulled from GHCR when not present locally (e.g. `ghcr.io/JuroOravec/safe-ai-factory/saifac-coder-node-pnpm-python:latest` for the default sandbox profile).
 
 ---
 

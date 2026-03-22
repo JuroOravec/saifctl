@@ -142,9 +142,10 @@ export async function parseJUnitXmlFromFile(
 // ---------------------------------------------------------------------------
 
 /**
- * Detects known test runner failures (e.g. missing files, import errors) from
- * exit code and stdout/stderr. Used to populate TestsResult.runnerError when
- * the runner never produced a valid JUnit report.
+ * Detects known test runner failures (e.g. missing files, import errors) and
+ * infrastructure failures (staging ENOTFOUND / ECONNREFUSED) from exit code and
+ * stdout/stderr. Used to populate TestsResult.runnerError so the orchestrator
+ * can abort without sending bogus failures to the vague-specs checker.
  */
 export function detectRunnerError(opts: {
   exitCode: number;
@@ -168,6 +169,12 @@ export function detectRunnerError(opts: {
   for (const { pattern, label } of PATTERNS) {
     if (pattern.test(combined)) return label;
   }
+  // Docker network: staging hostname must resolve on the test-runner network.
+  // When missing, Vitest reports TypeError: fetch failed + getaddrinfo ENOTFOUND staging.
+  if (/getaddrinfo ENOTFOUND staging\b/i.test(combined) && !/ \d+ passed/i.test(combined)) {
+    return 'Staging container not found on Docker network (ENOTFOUND staging) — check network attach / container alias';
+  }
+
   if (/ECONNREFUSED/i.test(combined) && !/ \d+ passed/i.test(combined)) {
     return 'Staging container unreachable (ECONNREFUSED) — sidecar/server never started';
   }

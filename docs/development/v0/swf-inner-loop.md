@@ -49,7 +49,7 @@ A shell script that wraps each agent invocation with a post-run validation step.
 1. Read environment variables: `SAIFAC_INITIAL_TASK`, `SAIFAC_GATE_RETRIES`, `SAIFAC_GATE_SCRIPT`, `SAIFAC_AGENT_SCRIPT`
 2. Run `SAIFAC_STARTUP_SCRIPT` once.
 3. Loop up to `SAIFAC_GATE_RETRIES` times (default: 5):
-   - Write `$current_task` to `$SAIFAC_TASK_PATH` (default: `/workspace/.saifac_task.md`)
+   - Write `$current_task` to `$SAIFAC_TASK_PATH` (default: `/workspace/.saifac/task.md`)
    - Invoke the agent script: `bash "$SAIFAC_AGENT_SCRIPT"` — the script must read the task from `$SAIFAC_TASK_PATH`
    - If `SAIFAC_GATE_SCRIPT` (or `/saifac/gate.sh`) does not exist → treat as gate pass (gate_exit=0)
    - Else run the gate script, capture stdout+stderr and exit code
@@ -66,12 +66,12 @@ A shell script that wraps each agent invocation with a post-run validation step.
 | `SAIFAC_GATE_SCRIPT`     | no       | `/saifac/gate.sh`            | Path to the gate script                                                |
 | `SAIFAC_REVIEWER_SCRIPT` | no       | —                             | Path to the semantic reviewer script; when set, runs after gate passes |
 | `SAIFAC_AGENT_SCRIPT`    | no       | `/saifac/agent.sh`           | Path to the agent runner script                                        |
-| `SAIFAC_TASK_PATH`       | no       | `/workspace/.saifac_task.md` | Path where the current task is written before each invocation          |
+| `SAIFAC_TASK_PATH`       | no       | `/workspace/.saifac/task.md` | Path where the current task is written before each invocation          |
 | `SAIFAC_STARTUP_SCRIPT`  | yes      | —                             | Path to a script run once before the agent loop                        |
 
 ### 2. `Dockerfile.coder`
 
-The loop script is copied into the Leash coder image:
+The loop script is copied into the sandbox and bind-mounted in the Leash target (coder) container:
 
 ```dockerfile
 RUN mkdir -p /saifac
@@ -147,7 +147,7 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 | `--agent-script`          | Path to a bash script that runs the coding agent; reads task from `$SAIFAC_TASK_PATH` | Built-in (OpenHands) |
 | `--agent-env KEY=VALUE`   | Extra env var to forward into the agent container (repeatable)                         | —                    |
 | `--agent-env-file <path>` | Path to a `.env` file with extra env vars to forward                                   | —                    |
-| `--agent-log-format`      | How to parse agent stdout: `openhands` (JSON events) or `raw` (line stream)            | `openhands`          |
+| `--agent-log-format`      | How to parse agent stdout: `openhands` (JSON events) or `raw` (line stream)            | `openhands` (profile default; e.g. `debug` uses `raw`) |
 
 **Parsing** (see `src/cli/utils.ts` helpers used by `parseRunArgs` in `feat.ts`):
 

@@ -4,12 +4,11 @@ The factory uses several Docker images for the sandbox, coder agent, and test ru
 
 ## Images
 
-| Image                | Default tag                             | Purpose                                                    |
-| -------------------- | --------------------------------------- | ---------------------------------------------------------- |
-| `saifac-test-*`     | `saifac-test-<profile>:latest`         | Test runner containers; one per language/framework profile |
-| `saifac-coder-base` | `saifac-coder-base:latest`             | Base for coder images; contains coder-start.sh only        |
-| `saifac-coder`      | `saifac-coder-node-pnpm-python:latest` | Extends coder-base; adds OpenHands (default coder agent)   |
-| `saifac-stage`      | `saifac-stage:latest`                  | Stage/staging container image                              |
+| Image             | Default tag                             | Purpose                                                    |
+| ----------------- | --------------------------------------- | ---------------------------------------------------------- |
+| `saifac-test-*`   | `saifac-test-<profile>:latest`          | Test runner containers; one per language/framework profile |
+| `saifac-coder-*`  | `saifac-coder-<sandbox-profile>:latest` | Built from `Dockerfile.coder` per profile (official Node, Python, golang, rust, or Miniconda base — not the Leash `coder` image). At run time SAIFAC copies orchestration scripts into the sandbox and bind-mounts them as `/saifac`. |
+| `saifac-stage-*`  | `saifac-stage-<sandbox-profile>:latest` | Lightweight staging container for that profile             |
 
 ### Test runner profiles
 
@@ -30,10 +29,19 @@ pnpm docker build test --test-profile python-pytest
 # Build all test runner images
 pnpm docker build test --all
 
-# Build coder and stage images
-pnpm docker build coder-base
+# Skip images that already exist locally (same flag on test / coder / stage)
+pnpm docker build test --all --skip-existing
+pnpm docker build coder --all --skip-existing
+pnpm docker build stage --all --skip-existing
+
+`--skip-existing` only checks whether the tag exists locally; it does **not** detect an outdated image after Dockerfile changes (remove the image or rebuild without the flag to refresh).
+
+# Build coder and stage images (no separate coder-base step)
 pnpm docker build coder
 pnpm docker build stage
+
+# Same order as CI (all test profiles + all sandbox profiles)
+pnpm docker:build:all
 ```
 
 ## Publishing workflow
@@ -54,7 +62,7 @@ It does **not** run on push to `main` or on pull requests.
 1. **Validate** — Runs `pnpm run validate`. Publishing proceeds only if validation passes.
 2. **Build** — Builds all images:
    - All test runner profiles (`pnpm docker build test --all`)
-   - Coder base, coder, and stage images
+   - All coder and stage profile images
 3. **Publish** — Pushes each `saifac-*` image to GHCR.
 
 ### Published tags
@@ -77,9 +85,26 @@ When `--test-image` or `--coder-image` is omitted, Docker pulls the default imag
 saifac feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifac-test-node-vitest:latest
 saifac feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifac-test-python-pytest:v1.0.0
 
-# Coder image
-saifac feat run --coder-image ghcr.io/JuroOravec/safe-ai-factory/saifac-coder:latest
+# Coder image (default sandbox profile is node-pnpm-python)
+saifac feat run --coder-image ghcr.io/JuroOravec/safe-ai-factory/saifac-coder-node-pnpm-python:latest
 ```
+
+## Custom coder images
+
+Start from the same kind of base as a profile (`node:*-bookworm-slim`, `python:*-slim-bookworm`, `golang:*-bookworm`, a published `saifac-coder-*` image, etc.), then add your agent and tooling:
+
+```dockerfile
+FROM node:25-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN npm install -g pnpm @anthropic-ai/claude-code
+```
+
+```bash
+docker build -t my-coder:latest .
+saifac feat run --coder-image my-coder:latest
+```
+
+SAIFAC still bind-mounts `/saifac` (orchestration scripts) and `/workspace` at run time; your image does not need to bake `coder-start.sh`.
 
 ## Storage
 

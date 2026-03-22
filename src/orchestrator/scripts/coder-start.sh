@@ -1,5 +1,9 @@
 #!/bin/bash
-# coder-start.sh — inner agentic loop, baked into the coder image at /saifac/coder-start.sh.
+# coder-start.sh — inner agentic loop; copied into the sandbox and bind-mounted at /saifac/coder-start.sh.
+#
+# Runtime requirements (all SAIFAC coder target images — profile Dockerfile.coder — should provide these):
+#   - bash on PATH  — this script is bash; gate scripts are invoked as `bash "$GATE_SCRIPT"`.
+#   - sh on PATH    — semantic reviewer is invoked as `sh "$SAIFAC_REVIEWER_SCRIPT"` when set.
 #
 # Runs the agent script, then calls /saifac/gate.sh (injected read-only per-run).
 # If the gate passes (exit 0), the container exits successfully.
@@ -21,7 +25,7 @@
 #                                 The script is called once per inner round. It must read
 #                                 the task from $SAIFAC_TASK_PATH and run the coding agent.
 #   SAIFAC_TASK_PATH           — path where the current task prompt is written before each
-#                                 agent invocation (default: /workspace/.saifac_task.md).
+#                                 agent invocation (default: /workspace/.saifac/task.md).
 #                                 Agent scripts should read from this file rather than from
 #                                 command-line arguments to avoid escaping and length issues.
 #   SAIFAC_REVIEWER_SCRIPT     — (optional) path to semantic reviewer script. When set and
@@ -30,10 +34,20 @@
 
 set -euo pipefail
 
+# Fail fast if a minimal or misconfigured image omits these (should not happen on supported images).
+if ! command -v bash >/dev/null 2>&1; then
+  echo "[coder-start] ERROR: bash is required on PATH (SAIFAC coder images provide it)." >&2
+  exit 127
+fi
+if ! command -v sh >/dev/null 2>&1; then
+  echo "[coder-start] ERROR: sh is required on PATH (for the semantic reviewer when enabled)." >&2
+  exit 127
+fi
+
 GATE_SCRIPT="${SAIFAC_GATE_SCRIPT:-/saifac/gate.sh}"
 AGENT_SCRIPT="${SAIFAC_AGENT_SCRIPT:-/saifac/agent.sh}"
 GATE_RETRIES="${SAIFAC_GATE_RETRIES:-5}"
-TASK_PATH="${SAIFAC_TASK_PATH:-/workspace/.saifac_task.md}"
+TASK_PATH="${SAIFAC_TASK_PATH:-/workspace/.saifac/task.md}"
 
 if [ -z "${SAIFAC_INITIAL_TASK:-}" ]; then
   echo "[coder-start] ERROR: SAIFAC_INITIAL_TASK is not set." >&2
@@ -92,36 +106,55 @@ while [ "$round" -lt "$GATE_RETRIES" ]; do
 
   if [ -f "$GATE_SCRIPT" ]; then
     echo "[coder-start] Running gate: $GATE_SCRIPT"
+    # Use explicit bash: bind-mounted scripts may lack +x (e.g. from the host filesystem).
     # Capture stdout+stderr; preserve exit code without triggering set -e.
-    gate_output=$("$GATE_SCRIPT" 2>&1) && gate_exit=0 || gate_exit=$?
+    gate_output=$(bash "$GATE_SCRIPT" 2>&1) && gate_exit=0 || gate_exit=$?
   else
+    # If no gate scripts, still set gate_exit to 0 so we proceed to the reviewer.
     echo "[coder-start] No gate script at $GATE_SCRIPT — skipping static checks."
     gate_output=""
     gate_exit=0
   fi
 
+  # Print captured output from gate.sh if not empty.
+  if [ -n "${gate_output:-}" ]; then
+    printf '%s\n' "$gate_output"
+  fi
+
   # User-supplied gate script succeeded, now let's run the semantic reviewer (argus-ai) if enabled.
   if [ "$gate_exit" -eq 0 ]; then
-    # No reviewer configured — gate passed, we're done.
+    # Success branch: No reviewer configured.
     if [ -z "${SAIFAC_REVIEWER_SCRIPT:-}" ] || [ ! -f "${SAIFAC_REVIEWER_SCRIPT}" ]; then
       echo "[coder-start] Gate PASSED."
       exit 0
     fi
-    # Reviewer enabled — run it.
+
+    # Run the reviewer
+    # Use explicit sh: reviewer.sh is mounted read-only from the repo and may not be +x.
     echo "[coder-start] Running semantic reviewer: $SAIFAC_REVIEWER_SCRIPT"
-    gate_output=$("$SAIFAC_REVIEWER_SCRIPT" 2>&1) && gate_exit=0 || gate_exit=$?
+    gate_output=$(sh "$SAIFAC_REVIEWER_SCRIPT" 2>&1) && gate_exit=0 || gate_exit=$?
+
+    # Print captured output from reviewer.sh if not empty.
+    if [ -n "${gate_output:-}" ]; then
+      printf '%s\n' "$gate_output"
+    fi
+
+    # Success branch: both gate and reviewer passed.
     if [ "$gate_exit" -eq 0 ]; then
-      # Both gate and reviewer passed, we're done.
       echo "[coder-start] Gate PASSED (static checks + reviewer)."
       exit 0
+    else
+      # Log and proceed to error branch.
+      echo "[coder-start] Reviewer FAILED (round $round/$GATE_RETRIES):"
     fi
-    echo "[coder-start] Reviewer FAILED (round $round/$GATE_RETRIES):"
   else
+    # Log and proceed to error branch.
     echo "[coder-start] Gate FAILED (round $round/$GATE_RETRIES):"
   fi
 
+  ######################
   # Failure branch: append the output to the task prompt and retry.
-  echo "$gate_output"
+  ######################
 
   # If we've reached the max number of retries, exit with failure.
   if [ "$round" -ge "$GATE_RETRIES" ]; then

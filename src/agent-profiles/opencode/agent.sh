@@ -50,6 +50,8 @@
 
 set -euo pipefail
 
+echo "[agent/opencode] Starting agent opencode in agent.sh..."
+
 # Export common provider API keys as fallbacks from the factory's generic LLM_API_KEY.
 # OpenCode auto-detects these from the environment. Native keys take precedence.
 export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-$LLM_API_KEY}"
@@ -75,8 +77,22 @@ if [ -n "${LLM_BASE_URL:-}" ]; then
   fi
 fi
 
+_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
+  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+fi
+_opencode_cfg_redacted=""
+if [ -n "${OPENCODE_CONFIG_CONTENT:-}" ]; then
+  _opencode_cfg_redacted="$(printf '%s' "$OPENCODE_CONFIG_CONTENT" | sed 's/"baseURL":"[^"]*"/"baseURL":"****"/g')"
+fi
+echo "[agent/opencode] About to run: OPENCODE_PERMISSION='{\"*\":\"allow\"}' OPENCODE_CONFIG_CONTENT='${_opencode_cfg_redacted}' opencode run --model \"${LLM_MODEL}\" --format json \"${_SAIFAC_TASK_SNIP}\""
+
+_agent_exit=0
 OPENCODE_PERMISSION='{"*":"allow"}' \
 opencode run \
   --model "$LLM_MODEL" \
   --format json \
-  "$(cat "$SAIFAC_TASK_PATH")"
+  "$(cat "$SAIFAC_TASK_PATH")" || _agent_exit=$?
+
+echo "[agent/opencode] Finished agent opencode in agent.sh (exit code ${_agent_exit})."
+exit "${_agent_exit}"

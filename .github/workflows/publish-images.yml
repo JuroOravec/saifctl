@@ -20,10 +20,10 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Use Node.js 22
+      - name: Use Node.js 25
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 25
           cache: pnpm
 
       - name: Install dependencies
@@ -44,10 +44,10 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Use Node.js 22
+      - name: Use Node.js 25
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 25
           cache: pnpm
 
       - name: Install dependencies
@@ -62,9 +62,6 @@ jobs:
 
       - name: Build all test runner images
         run: pnpm docker build test --all
-
-      - name: Build coder base image
-        run: pnpm docker build coder-base
 
       - name: Build all coder images
         run: pnpm docker build coder --all

@@ -1,7 +1,7 @@
 /**
  * AgentProfile — describes a coding agent and its runtime requirements.
  *
- * Supported profiles: openhands | aider | claude | codex | gemini | qwen | opencode | copilot | kilocode | mini-swe-agent | terminus | forge | deepagents
+ * Supported profiles: openhands | aider | claude | codex | gemini | qwen | opencode | copilot | kilocode | mini-swe-agent | terminus | forge | deepagents | debug
  *
  * Each profile directory contains:
  *   - profile.ts        → AgentProfile metadata (id, displayName, defaultLogFormat)
@@ -16,6 +16,7 @@ import { aiderProfile } from './aider/profile.js';
 import { claudeProfile } from './claude/profile.js';
 import { codexProfile } from './codex/profile.js';
 import { copilotProfile } from './copilot/profile.js';
+import { debugProfile } from './debug/profile.js';
 import { deepagentsProfile } from './deepagents/profile.js';
 import { forgeProfile } from './forge/profile.js';
 import { geminiProfile } from './gemini/profile.js';
@@ -51,6 +52,7 @@ export const SUPPORTED_AGENT_PROFILES = {
   terminus: terminusProfile,
   forge: forgeProfile,
   deepagents: deepagentsProfile,
+  debug: debugProfile,
 } satisfies Record<SupportedAgentProfileId, AgentProfile>;
 
 /** Returns the default agent profile (openhands). */

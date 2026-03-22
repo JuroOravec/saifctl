@@ -36,6 +36,8 @@
 
 set -euo pipefail
 
+echo "[agent/aider] Starting agent aider in agent.sh..."
+
 export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-$LLM_API_KEY}"
 export OPENAI_API_KEY="${OPENAI_API_KEY:-$LLM_API_KEY}"
 export OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-$LLM_API_KEY}"
@@ -44,10 +46,16 @@ if [ -n "${LLM_BASE_URL:-}" ]; then
   export OPENAI_API_BASE="${OPENAI_API_BASE:-$LLM_BASE_URL}"
 fi
 
+echo "[agent/aider] About to run: aider --model \"${LLM_MODEL}\" --message-file \"${SAIFAC_TASK_PATH}\" --yes --no-auto-commits --no-check-update --no-suggest-shell-commands"
+
+_agent_exit=0
 aider \
   --model "$LLM_MODEL" \
   --message-file "$SAIFAC_TASK_PATH" \
   --yes \
   --no-auto-commits \
   --no-check-update \
-  --no-suggest-shell-commands
+  --no-suggest-shell-commands || _agent_exit=$?
+
+echo "[agent/aider] Finished agent aider in agent.sh (exit code ${_agent_exit})."
+exit "${_agent_exit}"

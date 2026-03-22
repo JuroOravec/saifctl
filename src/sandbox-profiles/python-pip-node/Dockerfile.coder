@@ -1,8 +1,7 @@
 # Coder image — python-pip-node sandbox profile.
 #
-# Extends coder-base (which provides coder-start.sh) with Python 3, pip, and uv.
-# Node.js 22 LTS is included on the side so Node-based coder agents (claude-code,
-# codex, etc.) can be installed at runtime by agent-start.sh.
+# Based on official Python image.
+# Adds Node.js (NodeSource) and uv (pipx) so Node- and Python-based coder agents work at runtime.
 #
 # Build:
 #   docker build -f src/sandbox-profiles/python-pip-node/Dockerfile.coder \
@@ -10,26 +9,28 @@
 #
 # Or via CLI:
 #   pnpm docker build coder --profile python-pip-node
-FROM saifac-coder-base:latest
+ARG PYTHON_VERSION=3.13
+FROM python:${PYTHON_VERSION}-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python toolchain and Node.js 22 LTS.
-# Python is the primary runtime; Node.js is included so Node-based coder agents
-# can be bootstrapped by agent-start.sh.
+ARG NODE_MAJOR=25
+# Add common utilities, pipx, and Node.js (NodeSource).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    git \
-    python3 \
-    python3-venv \
-    python3-pip \
-    pipx \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
+  ca-certificates \
+  curl \
+  git \
+  gnupg \
+  pipx \
+  && install -d -m 0755 /etc/apt/keyrings \
+  && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+  && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+  && apt-get update && apt-get install -y --no-install-recommends nodejs \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install uv — the primary Python package manager for this profile.
-RUN pipx install uv --python python3
+# Symlink pipx-managed uv into /usr/local/bin so it stays on PATH in minimal shells.
+RUN pipx install uv --python python3 \
+  && ln -sf /root/.local/bin/uv /usr/local/bin/uv
 
 # Ensure pipx-managed binaries are on PATH.
 ENV PATH="/root/.local/bin:$PATH"

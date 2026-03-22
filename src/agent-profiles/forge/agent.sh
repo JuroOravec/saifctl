@@ -63,6 +63,8 @@
 
 set -euo pipefail
 
+echo "[agent/forge] Starting agent forge in agent.sh..."
+
 # ---------------------------------------------------------------------------
 # API keys — map LLM_API_KEY as a fallback for all provider key vars.
 # Native provider keys take precedence if already set.
@@ -85,10 +87,21 @@ fi
 # running the prompt so the setting persists for this invocation.
 # ---------------------------------------------------------------------------
 if [ -n "${LLM_MODEL:-}" ]; then
+  echo "[agent/forge] About to run: forge config set model \"${LLM_MODEL}\""
   forge config set model "$LLM_MODEL" 2>/dev/null || true
 fi
 
+_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
+  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+fi
+echo "[agent/forge] About to run: forge --agent forge --verbose -p \"${_SAIFAC_TASK_SNIP}\" (API keys from env, masked as ****)"
+
+_agent_exit=0
 forge \
   --agent forge \
   --verbose \
-  -p "$(cat "$SAIFAC_TASK_PATH")"
+  -p "$(cat "$SAIFAC_TASK_PATH")" || _agent_exit=$?
+
+echo "[agent/forge] Finished agent forge in agent.sh (exit code ${_agent_exit})."
+exit "${_agent_exit}"

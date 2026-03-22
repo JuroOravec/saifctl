@@ -1,8 +1,7 @@
 # Coder image — python-pip sandbox profile.
 #
-# Extends coder-base (which provides coder-start.sh) with Python 3, pip, and uv.
-# No Node.js — use python-pip-node if you need Node-based coder agents
-# (claude-code, codex, etc.).
+# Based on official Python image.
+# Adds git, pipx, and uv. No Node.js — use python-pip-node if you need Node-based coder agents.
 #
 # Build:
 #   docker build -f src/sandbox-profiles/python-pip/Dockerfile.coder \
@@ -10,22 +9,22 @@
 #
 # Or via CLI:
 #   pnpm docker build coder --profile python-pip
-FROM saifac-coder-base:latest
+ARG PYTHON_VERSION=3.13
+FROM python:${PYTHON_VERSION}-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python toolchain and git (required by most coder agents).
+# Add common utilities and pipx.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    git \
-    python3 \
-    python3-venv \
-    python3-pip \
-    pipx \
-    && rm -rf /var/lib/apt/lists/*
+  ca-certificates \
+  curl \
+  git \
+  pipx \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install uv — the primary Python package manager for this profile.
-RUN pipx install uv --python python3
+# Symlink pipx-managed uv into /usr/local/bin so it stays on PATH in minimal shells.
+RUN pipx install uv --python python3 \
+  && ln -sf /root/.local/bin/uv /usr/local/bin/uv
 
 # Ensure pipx-managed binaries are on PATH.
 ENV PATH="/root/.local/bin:$PATH"

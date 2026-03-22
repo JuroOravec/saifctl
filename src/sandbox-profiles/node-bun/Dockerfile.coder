@@ -1,9 +1,8 @@
 # Coder image — node-bun sandbox profile.
 #
-# Extends coder-base (which provides coder-start.sh) with Bun.
-# Bun is a JavaScript runtime and package manager (drop-in Node.js alternative).
-# No Python toolchain — use node-pnpm-python if you need Python-based coder agents
-# (OpenHands, Aider, etc.).
+# Based on official Node.js image.
+# Adds Bun (bun.sh); keeps npm/npx for Node-based agent CLIs.
+# No Python toolchain — use node-bun-python if you need Python-based coder agents.
 #
 # Build:
 #   docker build -f src/sandbox-profiles/node-bun/Dockerfile.coder \
@@ -11,15 +10,19 @@
 #
 # Or via CLI:
 #   pnpm docker build coder --profile node-bun
-FROM saifac-coder-base:latest
+ARG NODE_VERSION=25
+FROM node:${NODE_VERSION}-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install git (required by most coder agents) and Bun.
+# Add common utilities and install Bun.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    git \
-    && curl -fsSL https://bun.sh/install | bash \
-    && rm -rf /var/lib/apt/lists/*
+  ca-certificates \
+  curl \
+  git \
+  unzip \
+  && curl -fsSL https://bun.sh/install | bash \
+  && rm -rf /var/lib/apt/lists/*
 
+# Put Bun on PATH.
 ENV PATH="/root/.bun/bin:$PATH"

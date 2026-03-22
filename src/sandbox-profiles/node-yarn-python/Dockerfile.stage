@@ -24,7 +24,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pipx \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pipx install uv --python python3
+RUN pipx install uv --python python3 \
+  && ln -sf /root/.local/bin/uv /usr/local/bin/uv
 ENV PATH="/root/.local/bin:$PATH"
 
-RUN npm install -g yarn --no-progress
+# If the base Node image ever bundles yarn, skip global install (avoids npm EEXIST).
+RUN if ! command -v yarn >/dev/null 2>&1; then npm install -g yarn --no-progress; fi

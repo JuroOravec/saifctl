@@ -1,8 +1,7 @@
 # Coder image — python-uv sandbox profile.
 #
-# Extends coder-base (which provides coder-start.sh) with Python 3 and uv.
-# uv is the primary package manager (no pip). No Node.js — use python-pip-node
-# if you need Node-based coder agents (claude-code, codex, etc.).
+# Based on official Python image.
+# Installs uv via astral.sh (not pipx). No Node.js — use python-uv-node if you need Node-based coder agents.
 #
 # Build:
 #   docker build -f src/sandbox-profiles/python-uv/Dockerfile.coder \
@@ -10,18 +9,18 @@
 #
 # Or via CLI:
 #   pnpm docker build coder --profile python-uv
-FROM saifac-coder-base:latest
+ARG PYTHON_VERSION=3.13
+FROM python:${PYTHON_VERSION}-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python toolchain and git (required by most coder agents).
-# uv is installed via the official installer (faster, no pip dependency).
+# Add common utilities and install uv (astral.sh).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    git \
-    python3 \
-    python3-venv \
-    && curl -fsSL https://astral.sh/uv/install.sh | sh \
-    && rm -rf /var/lib/apt/lists/*
+  ca-certificates \
+  curl \
+  git \
+  && curl -fsSL https://astral.sh/uv/install.sh | sh \
+  && rm -rf /var/lib/apt/lists/*
 
+# Ensure uv-installed binaries are on PATH.
 ENV PATH="/root/.local/bin:$PATH"

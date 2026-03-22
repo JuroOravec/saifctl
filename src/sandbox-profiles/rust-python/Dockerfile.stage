@@ -26,7 +26,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pipx \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pipx install uv --python python3
+RUN pipx install uv --python python3 \
+  && ln -sf /root/.local/bin/uv /usr/local/bin/uv
 
 # Ensure cargo and pipx-managed binaries are on PATH.
 ENV PATH="/usr/local/cargo/bin:/root/.local/bin:$PATH"

@@ -17,6 +17,9 @@
 #   3. Run SAIFAC_STAGE_SCRIPT — the profile's stage script (e.g. pnpm run start for
 #      web projects, or `wait` for CLI-only). Set via --profile (default: node-pnpm-python)
 #      or --stage-script.
+#   4. After the stage script exits (or if it never blocks), wait for the sidecar
+#      so the container stays alive as long as the sidecar is running.
+#      This ensures the staging container does not exit while the test runner is active.
 set -eu
 
 cd /workspace
@@ -40,6 +43,7 @@ PORT="${SAIFAC_SIDECAR_PORT}" \
   SIDECAR_PATH="${SAIFAC_SIDECAR_PATH}" \
   WORKSPACE=/workspace \
   /saifac/sidecar &
+SIDECAR_PID=$!
 
 if [ -z "${SAIFAC_STAGE_SCRIPT:-}" ]; then
   echo "[app] ERROR: SAIFAC_STAGE_SCRIPT is not set." >&2
@@ -52,4 +56,11 @@ if [ ! -f "$SAIFAC_STAGE_SCRIPT" ]; then
 fi
 
 echo "[app] Running stage script: $SAIFAC_STAGE_SCRIPT"
-exec sh "$SAIFAC_STAGE_SCRIPT"
+sh "$SAIFAC_STAGE_SCRIPT"
+
+# Stage script returned (CLI-only projects use `wait` or exit immediately).
+# Keep the container alive by waiting on the sidecar process, which is the
+# only remaining long-lived process. This replaces the previous `exec` which
+# handed control to the stage script and lost track of the sidecar PID.
+echo "[app] Stage script returned — waiting on sidecar (pid $SIDECAR_PID)..."
+wait "$SIDECAR_PID"

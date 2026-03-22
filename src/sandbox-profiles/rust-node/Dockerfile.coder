@@ -1,9 +1,7 @@
 # Coder image — rust-node sandbox profile.
 #
-# Extends coder-base (which provides coder-start.sh) with the Rust toolchain and
-# Node.js 22 LTS. Rust is the primary runtime; Node.js is included on the side so
-# Node-based coder agents (claude-code, codex, etc.) can be bootstrapped by
-# agent-start.sh.
+# Based on official rust image.
+# Adds Node.js (NodeSource) for Node-based coder agents.
 #
 # Build:
 #   docker build -f src/sandbox-profiles/rust-node/Dockerfile.coder \
@@ -11,22 +9,27 @@
 #
 # Or via CLI:
 #   pnpm docker build coder --profile rust-node
-FROM saifac-coder-base:latest
+ARG RUST_VERSION=1.85
+FROM rust:${RUST_VERSION}-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install build dependencies, git, and Node.js 22 LTS.
+ARG NODE_MAJOR=25
+# Add build dependencies and Node.js (NodeSource).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    git \
-    pkg-config \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
+  build-essential \
+  curl \
+  git \
+  gnupg \
+  pkg-config \
+  && install -d -m 0755 /etc/apt/keyrings \
+  && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+  && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+  && apt-get update && apt-get install -y --no-install-recommends nodejs \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install Rust via rustup (stable channel + clippy + rustfmt).
-RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --component clippy rustfmt
+# Add clippy and rustfmt via rustup.
+RUN rustup component add clippy rustfmt
 
-# Ensure cargo and rustup binaries are on PATH.
+# Ensure cargo-installed binaries are on PATH.
 ENV PATH="/root/.cargo/bin:$PATH"

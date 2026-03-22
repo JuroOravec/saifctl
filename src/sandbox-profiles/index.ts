@@ -5,7 +5,7 @@
  *
  * Each profile directory contains:
  *   - profile.ts        → SandboxProfile metadata (id, displayName, image tags)
- *   - Dockerfile.coder  → extends coder-base; installs the language runtime + package manager
+ *   - Dockerfile.coder  → upstream base per profile (e.g. node, python, golang, rust, miniconda); language runtime + package manager
  *   - Dockerfile.stage  → lightweight runtime-only image for the staging container
  *   - startup.sh        → installs workspace deps (used by both coder and staging containers)
  *   - stage.sh          → starts the app (or keeps the container alive for CLI-only projects)

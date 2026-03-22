@@ -1,10 +1,7 @@
 # Coder image — go-node-python sandbox profile.
 #
-# Extends coder-base (which provides coder-start.sh) with the Go toolchain,
-# Node.js 22 LTS, and Python 3 + pip + uv. Go is the primary runtime; Node.js
-# and Python are included on the side so both Node-based (claude-code, codex)
-# and Python-based (OpenHands, Aider) coder agents can be bootstrapped by
-# agent-start.sh.
+# Based on official golang image.
+# Adds Node.js (NodeSource) and a Python toolchain with uv (pipx).
 #
 # Build:
 #   docker build -f src/sandbox-profiles/go-node-python/Dockerfile.coder \
@@ -12,26 +9,31 @@
 #
 # Or via CLI:
 #   pnpm docker build coder --profile go-node-python
-FROM saifac-coder-base:latest
+ARG GO_VERSION=1.23
+FROM golang:${GO_VERSION}-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Go, Python toolchain, and git (required by most coder agents).
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    git \
-    golang \
-    python3 \
-    python3-venv \
-    python3-pip \
-    pipx \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install uv so Python-based agent-start scripts can use it.
-RUN pipx install uv --python python3
-
-# Ensure Go and pipx-managed binaries are on PATH.
+# Configure GOPATH; pipx binaries will be merged into PATH below.
 ENV GOPATH="/root/go"
 ENV PATH="$GOPATH/bin:/root/.local/bin:$PATH"
+
+ARG NODE_MAJOR=25
+# Add Python toolchain (pipx) and Node.js (NodeSource).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates \
+  curl \
+  gnupg \
+  python3 \
+  python3-venv \
+  python3-pip \
+  pipx \
+  && install -d -m 0755 /etc/apt/keyrings \
+  && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+  && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+  && apt-get update && apt-get install -y --no-install-recommends nodejs \
+  && rm -rf /var/lib/apt/lists/*
+
+# Symlink pipx-managed uv into /usr/local/bin so it stays on PATH in minimal shells.
+RUN pipx install uv --python python3 \
+  && ln -sf /root/.local/bin/uv /usr/local/bin/uv

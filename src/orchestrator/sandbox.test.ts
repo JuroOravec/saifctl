@@ -13,7 +13,13 @@ import { describe, expect, it } from 'vitest';
 import { resolveFeature } from '../specs/discover.js';
 import { git, gitAdd, gitCommit, gitInit } from '../utils/git.js';
 import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
-import { createSandbox, destroySandbox, filterPatchHunks, removeAllHiddenDirs } from './sandbox.js';
+import {
+  createSandbox,
+  destroySandbox,
+  filterPatchHunks,
+  listFilePathsInUnifiedDiff,
+  removeAllHiddenDirs,
+} from './sandbox.js';
 
 const PATCH_TWO_FILES = `\
 diff --git a/src/index.ts b/src/index.ts
@@ -31,6 +37,44 @@ index 111aaaa..222bbbb 100644
 -{}
 +{"testCases":[]}
 `;
+
+describe('listFilePathsInUnifiedDiff', () => {
+  it('returns [] for empty or whitespace patch', () => {
+    expect(listFilePathsInUnifiedDiff('')).toEqual([]);
+    expect(listFilePathsInUnifiedDiff('   \n')).toEqual([]);
+  });
+
+  it('lists paths from standard diff --git headers', () => {
+    expect(listFilePathsInUnifiedDiff(PATCH_TWO_FILES)).toEqual([
+      'src/index.ts',
+      'saifac/features/foo/tests/tests.json',
+    ]);
+  });
+
+  it('handles new file header from /dev/null', () => {
+    const patch = `diff --git /dev/null b/dummy.md
+new file mode 100644
+--- /dev/null
++++ b/dummy.md
+@@ -0,0 +1 @@
++# Hi
+`;
+    expect(listFilePathsInUnifiedDiff(patch)).toEqual(['dummy.md']);
+  });
+
+  it('dedupes repeated paths', () => {
+    const patch = `diff --git a/x b/x
+--- a/x
++++ b/x
++1
+diff --git a/x b/x
+--- a/x
++++ b/x
++2
+`;
+    expect(listFilePathsInUnifiedDiff(patch)).toEqual(['x']);
+  });
+});
 
 describe('filterPatchHunks', () => {
   it('returns the full patch when no exclude rules are given', () => {
@@ -56,6 +100,19 @@ describe('filterPatchHunks', () => {
 
   it('returns an empty string unchanged', () => {
     expect(filterPatchHunks('', [{ type: 'glob', pattern: '**' }])).toBe('');
+  });
+
+  it('strips .saifac/** (factory task file) when excluded', () => {
+    const patchWithTask = `${PATCH_TWO_FILES}diff --git a/.saifac/task.md b/.saifac/task.md
+index 0000000..1111111 100644
+--- /dev/null
++++ b/.saifac/task.md
+@@ -0,0 +1 @@
++task body
+`;
+    const result = filterPatchHunks(patchWithTask, [{ type: 'glob', pattern: '.saifac/**' }]);
+    expect(result).not.toContain('.saifac/task.md');
+    expect(result).toContain('src/index.ts');
   });
 });
 

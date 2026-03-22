@@ -1,6 +1,6 @@
 # Qwen Coder
 
-[Qwen Code](https://github.com/QwenLM/qwen-code) is Alibaba's terminal agent. Pre-installed in the Leash coder image.
+[Qwen Code](https://github.com/QwenLM/qwen-code) is Alibaba's terminal agent. Installed at run time via `npm install -g @qwen-code/qwen-code` when missing (requires npm in the coder image).
 
 **Usage:** `saifac feat run --agent qwen`
 

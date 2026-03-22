@@ -1,8 +1,8 @@
 # Coder image — node-pnpm sandbox profile.
 #
-# Extends coder-base (which provides coder-start.sh) with Node.js 22 LTS and pnpm.
-# No Python toolchain — use node-pnpm-python if you need Python-based coder agents
-# (OpenHands, Aider, etc.).
+# Based on official Node.js image.
+# Adds git and pnpm. No Python toolchain — use node-pnpm-python if you need Python-based
+# coder agents (OpenHands, Aider, etc.).
 #
 # Build:
 #   docker build -f src/sandbox-profiles/node-pnpm/Dockerfile.coder \
@@ -10,18 +10,17 @@
 #
 # Or via CLI:
 #   pnpm docker build coder --profile node-pnpm
-FROM saifac-coder-base:latest
+ARG NODE_VERSION=25
+FROM node:${NODE_VERSION}-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Node.js 22 LTS via NodeSource.
-# Also installs git (required by most coder agents).
+# Add common utilities.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    git \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
+  ca-certificates \
+  curl \
+  git \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install pnpm globally.
 RUN npm install -g pnpm

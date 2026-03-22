@@ -1,6 +1,6 @@
 # OpenCode
 
-[OpenCode](https://github.com/opencode-ai/opencode) is an open-source coding agent with a TUI. Pre-installed in the Leash coder image.
+[OpenCode](https://github.com/opencode-ai/opencode) is an open-source coding agent with a TUI. Installed at run time via `npm install -g opencode-ai` when missing (requires npm in the coder image).
 
 **Usage:** `saifac feat run --agent opencode`
 

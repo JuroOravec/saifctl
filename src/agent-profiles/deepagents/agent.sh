@@ -88,6 +88,8 @@
 
 set -euo pipefail
 
+echo "[agent/deepagents] Starting agent deepagents in agent.sh..."
+
 # ---------------------------------------------------------------------------
 # API keys — map LLM_API_KEY as a fallback for all common provider key vars.
 # Native provider keys already set in the environment take precedence.
@@ -145,9 +147,27 @@ EOF
   echo "[agent/deepagents] Base URL override written to ${_factory_config} (provider: ${_provider})"
 fi
 
+_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
+  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+fi
+_deepagents_model_echo=""
+if [ "${#_model_flag[@]}" -gt 0 ]; then
+  _deepagents_model_echo="--model \"${_model_flag[1]}\" "
+fi
+_config_note=""
+if [ -n "${LLM_BASE_URL:-}" ]; then
+  _config_note=" (base URL written to ${_factory_config}, value masked as ****)"
+fi
+echo "[agent/deepagents] About to run: deepagents --agent factory -n \"${_SAIFAC_TASK_SNIP}\" --auto-approve --shell-allow-list recommended ${_deepagents_model_echo}(API keys from env, masked as ****)${_config_note}"
+
+_agent_exit=0
 deepagents \
   --agent factory \
   -n "$(cat "$SAIFAC_TASK_PATH")" \
   --auto-approve \
   --shell-allow-list recommended \
-  "${_model_flag[@]}"
+  "${_model_flag[@]}" || _agent_exit=$?
+
+echo "[agent/deepagents] Finished agent deepagents in agent.sh (exit code ${_agent_exit})."
+exit "${_agent_exit}"

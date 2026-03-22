@@ -15,6 +15,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import { copyFile, mkdir, realpath } from 'node:fs/promises';
 import { arch } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -22,7 +23,7 @@ import { PassThrough } from 'node:stream';
 import Docker from 'dockerode';
 
 import type { DockerEnvironment } from '../../config/schema.js';
-import { getSaifRoot } from '../../constants.js';
+import { getSaifRoot, saifacTaskFilePath } from '../../constants.js';
 import { consola } from '../../logger.js';
 import {
   resolveSandboxStageDockerfilePath,
@@ -116,6 +117,60 @@ let sidecarBinaryCache: Buffer | null = null;
 /** In-container workspace path that Leash bind-mounts the sandbox into. */
 const CONTAINER_WORKSPACE = '/workspace';
 
+/**
+ * Resolve symlinks on the host path before passing to `docker run -v`.
+ * On macOS, `/tmp` often symlinks to `/private/tmp`; mixing non-canonical paths with
+ * Colima/Docker Desktop bind mounts can yield empty mounts (e.g. `/saifac/startup.sh` missing).
+ * Leash also uses `getcwd()` as `callerDir`; keep {@link spawn} `cwd` aligned with the same path.
+ */
+async function dockerHostBindPath(hostPath: string): Promise<string> {
+  try {
+    return await realpath(hostPath);
+  } catch {
+    return hostPath;
+  }
+}
+
+/**
+ * Assemble all per-run orchestration scripts into a single directory so they
+ * can be mounted as one directory volume (`--volume <dir>:/saifac:ro`).
+ *
+ * The directory is placed inside `sandboxBasePath` and is therefore cleaned up
+ * for free by `destroySandbox`.
+ */
+async function assembleSaifacDir(opts: {
+  sandboxBasePath: string;
+  coderStartScript: string;
+  gatePath: string;
+  startupPath: string;
+  agentStartPath: string;
+  agentPath: string;
+  reviewerScriptPath?: string;
+}): Promise<string> {
+  const {
+    sandboxBasePath,
+    coderStartScript,
+    gatePath,
+    startupPath,
+    agentStartPath,
+    agentPath,
+    reviewerScriptPath,
+  } = opts;
+  const saifacDir = join(sandboxBasePath, 'saifac');
+  await mkdir(saifacDir, { recursive: true });
+
+  await copyFile(coderStartScript, join(saifacDir, 'coder-start.sh'));
+  await copyFile(gatePath, join(saifacDir, 'gate.sh'));
+  await copyFile(startupPath, join(saifacDir, 'startup.sh'));
+  await copyFile(agentStartPath, join(saifacDir, 'agent-start.sh'));
+  await copyFile(agentPath, join(saifacDir, 'agent.sh'));
+  if (reviewerScriptPath) {
+    await copyFile(reviewerScriptPath, join(saifacDir, 'reviewer.sh'));
+  }
+
+  return saifacDir;
+}
+
 // ---------------------------------------------------------------------------
 // Internal container/network tracking
 // ---------------------------------------------------------------------------
@@ -176,6 +231,85 @@ class DockerRegistry {
 }
 
 // ---------------------------------------------------------------------------
+// Network diagnostics (bridge / staging / test-runner visibility)
+// ---------------------------------------------------------------------------
+
+function formatContainerNetworkEndpoint(
+  networks: Record<string, { Aliases?: string[]; IPAddress?: string }> | undefined,
+  preferredNetwork: string,
+): string {
+  if (!networks || Object.keys(networks).length === 0) {
+    return '(no networks in container inspect)';
+  }
+  const preferred = networks[preferredNetwork];
+  if (preferred) {
+    const aliases = Array.isArray(preferred.Aliases) ? preferred.Aliases : [];
+    return `on "${preferredNetwork}" aliases=${JSON.stringify(aliases)} ip=${preferred.IPAddress ?? '?'}`;
+  }
+  const summary = Object.entries(networks).map(([k, v]) => ({
+    networkKey: k,
+    aliases: Array.isArray(v.Aliases) ? v.Aliases : [],
+    ip: v.IPAddress ?? '?',
+  }));
+  return `expected key "${preferredNetwork}" missing; attached: ${JSON.stringify(summary)}`;
+}
+
+async function logStagingContainerNetworkAliases(opts: {
+  container: Docker.Container;
+  networkName: string;
+  containerName: string;
+}): Promise<void> {
+  const { container, networkName, containerName } = opts;
+  try {
+    const info = await container.inspect();
+    const nets = info.NetworkSettings?.Networks as
+      | Record<string, { Aliases?: string[]; IPAddress?: string }>
+      | undefined;
+    const detail = formatContainerNetworkEndpoint(nets, networkName);
+    consola.log(`[docker] ${containerName} — ${detail}`);
+  } catch (err) {
+    consola.warn(
+      `[docker] Could not inspect staging container "${containerName}" for network aliases: ${String(err)}`,
+    );
+  }
+}
+
+async function logBridgeNetworkEndpoints(opts: {
+  networkName: string;
+  context: string;
+}): Promise<void> {
+  const { networkName, context } = opts;
+  try {
+    const listed = await docker.listNetworks({ filters: { name: [networkName] } });
+    const match = listed.find((n) => n.Name === networkName) ?? listed[0];
+    if (!match) {
+      consola.warn(`[docker] (${context}) No Docker network matched filter name="${networkName}"`);
+      return;
+    }
+    if (match.Name !== networkName) {
+      consola.warn(
+        `[docker] (${context}) listNetworks returned "${match.Name}" (wanted exact "${networkName}")`,
+      );
+    }
+    const net = docker.getNetwork(match.Id);
+    const data = await net.inspect();
+    const containers = data.Containers ?? {};
+    const rows = Object.values(containers).map((c) => ({
+      name: c.Name.replace(/^\//, ''),
+      ipv4: c.IPv4Address,
+    }));
+    consola.log(
+      `[docker] (${context}) Bridge "${data.Name}" id=${data.Id.slice(0, 12)}… driver=${data.Driver} endpointCount=${rows.length}:`,
+    );
+    consola.log(`[docker] (${context})   ${JSON.stringify(rows)}`);
+  } catch (err) {
+    consola.warn(
+      `[docker] (${context}) Could not inspect network "${networkName}": ${String(err)}`,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // DockerProvisioner
 // ---------------------------------------------------------------------------
 
@@ -205,6 +339,7 @@ export class DockerProvisioner implements Provisioner {
     this.networkName = `saifac-net-${projectName}-${featureName}-${runId}`;
     await ensureCreateNetwork(this.networkName);
     this.registry.registerNetwork(this.networkName);
+    consola.log(`[docker] Bridge network ready: ${this.networkName}`);
 
     // Bring up compose services (if configured)
     if (this.composeFile) {
@@ -312,6 +447,12 @@ export class DockerProvisioner implements Provisioner {
     await container.start();
     consola.log(`[docker] ${containerName} started`);
 
+    await logStagingContainerNetworkAliases({
+      container,
+      networkName: this.networkName,
+      containerName,
+    });
+
     const handle: ContainerHandle = { id: container.id, name: containerName, container };
     this.registry.registerContainers([handle]);
 
@@ -371,6 +512,11 @@ export class DockerProvisioner implements Provisioner {
     consola.log(`[docker] Test image: ${testImage}`);
     consola.log(`[docker] Target URL: ${stagingHandle.targetUrl}`);
     consola.log(`[docker] Sidecar URL: ${stagingHandle.sidecarUrl}`);
+
+    await logBridgeNetworkEndpoints({
+      networkName: this.networkName,
+      context: `before test runner ${containerName}`,
+    });
 
     const container = await docker.createContainer({
       Image: testImage,
@@ -525,11 +671,24 @@ export class DockerProvisioner implements Provisioner {
         SAIFAC_AGENT_START_SCRIPT: agentStartPath,
         SAIFAC_GATE_SCRIPT: `${sandboxBasePath}/gate.sh`,
         SAIFAC_AGENT_SCRIPT: agentPath,
-        SAIFAC_TASK_PATH: join(codePath, '.saifac_task.md'),
+        SAIFAC_TASK_PATH: saifacTaskFilePath(codePath),
       };
       consola.log('[agent-runner] Mode: dangerous-debug (host execution, filesystem sandbox only)');
     } else {
       // Leash mode
+      const saifacDir = await assembleSaifacDir({
+        sandboxBasePath,
+        coderStartScript: CODER_START_SCRIPT,
+        gatePath: join(sandboxBasePath, 'gate.sh'),
+        startupPath,
+        agentStartPath,
+        agentPath,
+        reviewerScriptPath: reviewer?.scriptPath,
+      });
+
+      const codePathHost = await dockerHostBindPath(codePath);
+      const saifacDirHost = await dockerHostBindPath(saifacDir);
+
       const envForward: Record<string, string> = {
         LLM_MODEL: llmModel,
         LLM_API_KEY: llmApiKey,
@@ -559,27 +718,17 @@ export class DockerProvisioner implements Provisioner {
         '--image',
         coderImage,
         '--volume',
-        `${codePath}:${CONTAINER_WORKSPACE}`,
+        `${codePathHost}:${CONTAINER_WORKSPACE}`,
         '--volume',
-        `${sandboxBasePath}/gate.sh:/saifac/gate.sh:ro`,
-        '--volume',
-        `${startupPath}:/saifac/startup.sh:ro`,
-        '--volume',
-        `${agentStartPath}:/saifac/agent-start.sh:ro`,
-        '--volume',
-        `${agentPath}:/saifac/agent.sh:ro`,
+        `${saifacDirHost}:/saifac:ro`,
       ];
 
       if (reviewer) {
-        leashArgs.push(
-          '--volume',
-          `${reviewer.scriptPath}:/saifac/reviewer.sh:ro`,
-          '--volume',
-          `${reviewer.argusBinaryPath}:/usr/local/bin/argus:ro`,
-        );
+        const argusBinaryHost = await dockerHostBindPath(reviewer.argusBinaryPath);
+        leashArgs.push('--volume', `${argusBinaryHost}:/usr/local/bin/argus:ro`);
         envForward.SAIFAC_REVIEWER_SCRIPT = '/saifac/reviewer.sh';
         envForward.REVIEWER_LLM_PROVIDER = reviewer.llmConfig.provider;
-        envForward.REVIEWER_LLM_MODEL = reviewer.llmConfig.fullModelString;
+        envForward.REVIEWER_LLM_MODEL = reviewer.llmConfig.modelId;
         envForward.REVIEWER_LLM_API_KEY = reviewer.llmConfig.apiKey;
         if (reviewer.llmConfig.baseURL) {
           envForward.REVIEWER_LLM_BASE_URL = reviewer.llmConfig.baseURL;
@@ -587,8 +736,9 @@ export class DockerProvisioner implements Provisioner {
       }
 
       if (await pathExists(cedarPolicyPath)) {
-        leashArgs.push('--policy', cedarPolicyPath);
-        consola.log(`[agent-runner] Cedar policy: ${cedarPolicyPath}`);
+        const cedarPolicyHost = await dockerHostBindPath(cedarPolicyPath);
+        leashArgs.push('--policy', cedarPolicyHost);
+        consola.log(`[agent-runner] Cedar policy: ${cedarPolicyHost}`);
       } else {
         throw new Error(`Cedar policy file not found at ${cedarPolicyPath}`);
       }
@@ -610,6 +760,9 @@ export class DockerProvisioner implements Provisioner {
         `SAIFAC_AGENT_START_SCRIPT=/saifac/agent-start.sh`,
         '--env',
         `SAIFAC_AGENT_SCRIPT=/saifac/agent.sh`,
+        // Invoke via bash so the script doesn't need +x in the mounted directory.
+        // This mirrors how gate.sh and reviewer.sh are invoked inside coder-start.sh.
+        'bash',
         '/saifac/coder-start.sh',
       );
 
@@ -636,7 +789,8 @@ export class DockerProvisioner implements Provisioner {
       const leashBin = resolveLeashCliPath();
       cmd = process.execPath;
       args = [leashBin, ...leashArgs.slice(1)];
-      spawnCwd = codePath;
+      // Match Leash `callerDir` (getcwd) to canonical workspace path so its `callerDir:callerDir` mount matches ours.
+      spawnCwd = codePathHost;
 
       const workspaceId = leashWorkspaceId(sandboxBasePath);
       spawnEnv = {
@@ -650,7 +804,7 @@ export class DockerProvisioner implements Provisioner {
       };
 
       consola.log(`[agent-runner] Mode: leash (container: ${coderImage})`);
-      consola.log(`[agent-runner] Sandbox mount: ${codePath} → ${CONTAINER_WORKSPACE}`);
+      consola.log(`[agent-runner] Sandbox mount: ${codePathHost} → ${CONTAINER_WORKSPACE}`);
     }
 
     consola.log(`[agent-runner] Starting agent (model: ${llmModel})`);
@@ -953,10 +1107,10 @@ async function waitForContainerReady(opts: {
     try {
       const info = await container.inspect();
       if (!info.State.Running) {
-        consola.warn(
-          `[docker] ${containerName} exited (code ${info.State.ExitCode ?? '?'}) before becoming ready`,
+        throw new Error(
+          `[docker] ${containerName} exited (code ${info.State.ExitCode ?? '?'}) before the sidecar became ready. ` +
+            `Check the container logs above for startup errors.`,
         );
-        return;
       }
       const exec = await container.exec({
         Cmd: healthCmd,

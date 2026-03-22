@@ -2,7 +2,9 @@
 
 Common setup issues when running SAIFAC on the host.
 
-## Docker: `connect ENOENT /var/run/docker.sock`
+## Docker
+
+### Error `connect ENOENT /var/run/docker.sock`
 
 **Symptom:** Errors such as `Error: connect ENOENT /var/run/docker.sock` while **`docker info`** and **`docker ps`** work in the same terminal.
 
@@ -12,7 +14,7 @@ SAIFAC uses **dockerode**, which follows **[docker-modem](https://github.com/apo
 
 **Fix:** Set **`DOCKER_HOST`** to the same API endpoint your daemon exposes.
 
-### Colima
+#### Colima
 
 1. Confirm Colima is running and read the socket path:
 
@@ -48,9 +50,41 @@ SAIFAC uses **dockerode**, which follows **[docker-modem](https://github.com/apo
 
 After this, restart the terminal or reload env and run SAIFAC again.
 
-### Other setups
+#### Other setups
 
 Any Docker backend that does not place the socket at `/var/run/docker.sock` needs the same idea: set **`DOCKER_HOST`** to the **`unix://...`** (or `tcp://...`) URL the engine documents.
+
+### Buildx on macOS
+
+**Symptom:** While building images (e.g. `pnpm docker build coder`), Docker prints that the **legacy builder is deprecated** and suggests installing **buildx**, or **`docker buildx`** is not found after installing the CLI plugin via Homebrew.
+
+**Fix:**
+
+1. Install the plugin:
+
+   ```bash
+   brew install docker-buildx
+   ```
+
+2. **`docker-buildx` is a Docker plugin.** For Docker to find it, add **`cliPluginsExtraDirs`** to **`~/.docker/config.json`** (merge with any existing keys; do not remove other settings):
+
+   ```json
+   {
+     "cliPluginsExtraDirs": [
+       "/opt/homebrew/lib/docker/cli-plugins"
+     ]
+   }
+   ```
+
+   On **Intel Macs**, Homebrew often uses `/usr/local` instead of `/opt/homebrew`; if the path above does not exist, use:
+
+   ```text
+   /usr/local/lib/docker/cli-plugins
+   ```
+
+3. Confirm: `docker buildx version`
+
+You can also enable BuildKit for plain **`docker build`** (avoids the legacy builder in many setups): `export DOCKER_BUILDKIT=1` (see [Docker BuildKit](https://docs.docker.com/build/buildkit/)).
 
 ---
 

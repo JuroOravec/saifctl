@@ -1,7 +1,7 @@
 /**
  * AgentProfile — describes a coding agent and its runtime requirements.
  *
- * Supported profiles: openhands | aider | claude | codex | gemini | qwen | opencode | copilot | kilocode | mini-swe-agent | terminus | forge | deepagents
+ * Supported profiles: openhands | aider | claude | codex | gemini | qwen | opencode | copilot | kilocode | mini-swe-agent | terminus | forge | deepagents | debug
  *
  * The profile is mainly used by:
  *   - sandbox.ts                  → writes agent.sh + agent-start.sh to sandbox
@@ -40,5 +40,6 @@ export const SUPPORTED_AGENT_PROFILE_IDS = [
   'terminus',
   'forge',
   'deepagents',
+  'debug',
 ] as const;
 export type SupportedAgentProfileId = (typeof SUPPORTED_AGENT_PROFILE_IDS)[number];

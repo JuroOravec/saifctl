@@ -38,7 +38,7 @@ Both the **Test Runner** and the **Staging Container** use pre-built or per-run 
 | ------------------ | ------------------------------------------------------------------------------------------------------------------ |
 | **Default**        | `saifac-coder-node-pnpm-python:latest` (or profile-specific) from GHCR; Docker pulls automatically when not local |
 | **Build manually** | `pnpm docker build coder` — build from the sandbox profile's Dockerfile.coder                                      |
-| **Override**       | `saifac feat run --coder-image ghcr.io/JuroOravec/safe-ai-factory/saifac-coder:latest`                            |
+| **Override**       | `saifac feat run --coder-image ghcr.io/JuroOravec/safe-ai-factory/saifac-coder-node-pnpm-python:latest` (or the image for your `--profile`) |
 | **Disable**        | `saifac feat run --dangerous-debug` — run OpenHands on host, no Leash container, agent runs on host                |
 
 When Leash is enabled (default), the orchestrator runs the **Leash CLI** (`@strongdm/leash`) with `--image saifac-coder-node-pnpm-python:latest ...` (or profile-specific tag), wrapping OpenHands in this image. The sandbox code dir is mounted at `/workspace`. See [swf-comp-d-leash.md](./swf-comp-d-leash.md) for details.

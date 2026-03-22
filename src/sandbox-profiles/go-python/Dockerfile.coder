@@ -1,9 +1,7 @@
 # Coder image — go-python sandbox profile.
 #
-# Extends coder-base (which provides coder-start.sh) with the Go toolchain and
-# Python 3 + pip + uv. Go is the primary runtime; Python is included on the side
-# so Python-based coder agents (OpenHands, Aider, etc.) can be bootstrapped by
-# agent-start.sh.
+# Based on official golang image.
+# Adds a Python toolchain and uv (pipx) for Python-based coder agents.
 #
 # Build:
 #   docker build -f src/sandbox-profiles/go-python/Dockerfile.coder \
@@ -11,24 +9,23 @@
 #
 # Or via CLI:
 #   pnpm docker build coder --profile go-python
-FROM saifac-coder-base:latest
+ARG GO_VERSION=1.23
+FROM golang:${GO_VERSION}-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Go, Python toolchain, and git (required by most coder agents).
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    git \
-    golang \
-    python3 \
-    python3-venv \
-    python3-pip \
-    pipx \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install uv so Python-based agent-start scripts can use it.
-RUN pipx install uv --python python3
-
-# Ensure Go and pipx-managed binaries are on PATH.
+# Configure GOPATH; pipx binaries will be merged into PATH below.
 ENV GOPATH="/root/go"
 ENV PATH="$GOPATH/bin:/root/.local/bin:$PATH"
+
+# Add Python toolchain (pipx).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  python3 \
+  python3-venv \
+  python3-pip \
+  pipx \
+  && rm -rf /var/lib/apt/lists/*
+
+# Symlink pipx-managed uv into /usr/local/bin so it stays on PATH in minimal shells.
+RUN pipx install uv --python python3 \
+  && ln -sf /root/.local/bin/uv /usr/local/bin/uv

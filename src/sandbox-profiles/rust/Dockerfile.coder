@@ -1,9 +1,7 @@
 # Coder image — rust sandbox profile.
 #
-# Extends coder-base (which provides coder-start.sh) with the Rust toolchain
-# (rustup + cargo + clippy + rustfmt). No Python or Node.js — use a combined
-# profile if you need coder agents that require Python (OpenHands, Aider) or
-# Node.js (claude-code, codex).
+# Based on official rust image (rustup toolchain pre-installed).
+# No Python or Node — use rust-python, rust-node, or rust-node-python for those agents.
 #
 # Build:
 #   docker build -f src/sandbox-profiles/rust/Dockerfile.coder \
@@ -11,21 +9,21 @@
 #
 # Or via CLI:
 #   pnpm docker build coder --profile rust
-FROM saifac-coder-base:latest
+ARG RUST_VERSION=1.85
+FROM rust:${RUST_VERSION}-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install build dependencies and git (required by most coder agents).
-# build-essential and pkg-config are needed by many Rust crates.
+# Add build dependencies for the Rust toolchain.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    git \
-    pkg-config \
-    && rm -rf /var/lib/apt/lists/*
+  build-essential \
+  curl \
+  git \
+  pkg-config \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install Rust via rustup (stable channel + clippy + rustfmt).
-RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --component clippy rustfmt
+# Add clippy and rustfmt via rustup.
+RUN rustup component add clippy rustfmt
 
-# Ensure cargo and rustup binaries are on PATH.
+# Ensure cargo-installed binaries are on PATH.
 ENV PATH="/root/.cargo/bin:$PATH"

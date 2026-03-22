@@ -33,8 +33,17 @@
 
 set -euo pipefail
 
+echo "[agent/claude] Starting agent claude in agent.sh..."
+
 export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-$LLM_API_KEY}"
 
+_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
+  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+fi
+echo "[agent/claude] About to run: claude -p \"${_SAIFAC_TASK_SNIP}\" --model \"${LLM_MODEL}\" --dangerously-skip-permissions --output-format stream-json --verbose --no-session-persistence --disable-slash-commands"
+
+_agent_exit=0
 claude \
   -p "$(cat "$SAIFAC_TASK_PATH")" \
   --model "$LLM_MODEL" \
@@ -42,4 +51,7 @@ claude \
   --output-format stream-json \
   --verbose \
   --no-session-persistence \
-  --disable-slash-commands
+  --disable-slash-commands || _agent_exit=$?
+
+echo "[agent/claude] Finished agent claude in agent.sh (exit code ${_agent_exit})."
+exit "${_agent_exit}"

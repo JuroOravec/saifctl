@@ -1,15 +1,28 @@
 #!/bin/bash
 # Claude Code agent setup script.
 #
-# Claude Code is pre-installed in the Leash default coder image.
-# This script asserts it is available and exits with a clear error if not.
+# Installs @anthropic-ai/claude-code via npm when the claude binary is not on PATH
+# (same packages as StrongDM's reference coder image). Requires Node/npm in the coder image.
+#
+# Pinned version (checked npm 2026-03-21): https://www.npmjs.com/package/@anthropic-ai/claude-code
+
+CLAUDE_CLI_VERSION='2.1.81'
 
 set -euo pipefail
+trap 'ec=$?; echo "[agent-start/claude] Finished Claude Code setup (agent-start.sh, exit code ${ec})."' EXIT
+echo "[agent-start/claude] Installing Claude Code (agent-start.sh)..."
 
-if ! command -v claude &>/dev/null; then
-  echo "[agent-start/claude] ERROR: claude CLI not found." >&2
-  echo "[agent-start/claude] This profile requires the Leash coder image (public.ecr.aws/s5i7k8t3/strongdm/coder)." >&2
+if command -v claude &>/dev/null; then
+  echo "[agent-start/claude] claude is already available: $(claude --version 2>/dev/null || echo 'unknown version')"
+  exit 0
+fi
+
+if ! command -v npm &>/dev/null; then
+  echo "[agent-start/claude] ERROR: npm is not available in this image." >&2
+  echo "[agent-start/claude] Use a sandbox profile with Node.js (e.g. node-pnpm-python) or a *-node profile, or bake @anthropic-ai/claude-code into a custom --coder-image." >&2
   exit 1
 fi
 
+echo "[agent-start/claude] Installing @anthropic-ai/claude-code@${CLAUDE_CLI_VERSION} via npm..."
+npm install -g "@anthropic-ai/claude-code@${CLAUDE_CLI_VERSION}"
 echo "[agent-start/claude] claude is available: $(claude --version 2>/dev/null || echo 'unknown version')"

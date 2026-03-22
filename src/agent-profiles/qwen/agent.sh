@@ -33,14 +33,26 @@
 
 set -euo pipefail
 
+echo "[agent/qwen] Starting agent qwen in agent.sh..."
+
 export DASHSCOPE_API_KEY="${DASHSCOPE_API_KEY:-$LLM_API_KEY}"
 export OPENAI_API_KEY="${OPENAI_API_KEY:-$LLM_API_KEY}"
 if [ -n "${LLM_BASE_URL:-}" ]; then
   export OPENAI_BASE_URL="${OPENAI_BASE_URL:-$LLM_BASE_URL}"
 fi
 
+_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
+  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+fi
+echo "[agent/qwen] About to run: qwen --prompt \"${_SAIFAC_TASK_SNIP}\" --model \"${LLM_MODEL}\" --yolo --output-format stream-json"
+
+_agent_exit=0
 qwen \
   --prompt "$(cat "$SAIFAC_TASK_PATH")" \
   --model "$LLM_MODEL" \
   --yolo \
-  --output-format stream-json
+  --output-format stream-json || _agent_exit=$?
+
+echo "[agent/qwen] Finished agent qwen in agent.sh (exit code ${_agent_exit})."
+exit "${_agent_exit}"

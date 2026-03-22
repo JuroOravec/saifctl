@@ -76,8 +76,8 @@
     "docker": "tsx scripts/docker.ts",
     "docker:build:test": "pnpm docker build test",
     "docker:build:coder": "pnpm docker build coder",
-    "docker:build:coder-base": "pnpm docker build coder-base",
     "docker:build:stage": "pnpm docker build stage",
+    "docker:build:all": "pnpm docker build test --all && pnpm docker build coder --all && pnpm docker build stage --all",
     "docker:clear": "pnpm docker clear",
     "cache": "tsx src/cli/commands/cache.ts",
     "cache:list": "tsx src/cli/commands/cache.ts list",
@@ -123,7 +123,7 @@
   "devDependencies": {
     "@eslint/js": "^9",
     "@types/dockerode": "^4.0.1",
-    "@types/node": "^22",
+    "@types/node": "^25",
     "@vitest/coverage-v8": "^2.1.9",
     "dotenv": "^17.3.1",
     "eslint": "^9",

@@ -92,18 +92,18 @@ saifac feat run \
   --startup-script ./startup-with-aider.sh
 ```
 
-### Option B: Extend the Coder Base Image
+### Option B: Extend a Coder Base Image
 
-For agents that need custom binaries or heavy dependencies, extend `Dockerfile.coder-base` and build your own image:
+For agents that need custom binaries or heavy dependencies, extend a published `saifac-coder-*` image or the same upstream base your profile uses (`node:*-bookworm-slim`, `python:*-slim-bookworm`, `golang:*-bookworm`, etc.) and build your own image:
 
 ```dockerfile
 # Dockerfile.my-coder
-FROM saifac-coder-base:latest
+FROM saifac-coder-node-pnpm-python:latest
 
-# Install Aider (Python)
-RUN pip install aider-chat
+# Install Aider (Python) — example; adjust for your stack
+RUN pipx install aider-chat
 
-# Or install a Rust binary
+# Or install a Rust binary on a rust-based custom image
 # RUN cargo install my-agent-cli
 ```
 
@@ -263,7 +263,7 @@ saifac feat run \
 In this mode:
 
 - The workspace is the sandbox `code/` directory (path passed as `SAIFAC_WORKSPACE_BASE`)
-- `$SAIFAC_TASK_PATH` points to `{sandbox}/code/.saifac_task.md`
+- `$SAIFAC_TASK_PATH` points to `{sandbox}/code/.saifac/task.md`
 - Your agent must be installed on the host
 
 ---

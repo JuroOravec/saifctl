@@ -21,4 +21,16 @@
 
 set -euo pipefail
 
-openhands --headless --always-approve --override-with-envs --json -t "$(cat "$SAIFAC_TASK_PATH")"
+echo "[agent/openhands] Starting agent openhands in agent.sh..."
+
+_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
+  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+fi
+echo "[agent/openhands] About to run: openhands --headless --always-approve --override-with-envs --json -t \"${_SAIFAC_TASK_SNIP}\""
+
+_agent_exit=0
+openhands --headless --always-approve --override-with-envs --json -t "$(cat "$SAIFAC_TASK_PATH")" || _agent_exit=$?
+
+echo "[agent/openhands] Finished agent openhands in agent.sh (exit code ${_agent_exit})."
+exit "${_agent_exit}"

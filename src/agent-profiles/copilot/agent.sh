@@ -44,6 +44,8 @@
 
 set -euo pipefail
 
+echo "[agent/copilot] Starting agent copilot in agent.sh..."
+
 # Map the factory's generic credential to the token vars Copilot CLI checks.
 # Native token vars take precedence if already set in the environment.
 export COPILOT_GITHUB_TOKEN="${COPILOT_GITHUB_TOKEN:-${GH_TOKEN:-${GITHUB_TOKEN:-$LLM_API_KEY}}}"
@@ -56,10 +58,24 @@ if [ -n "${LLM_MODEL:-}" ]; then
   _model_flag=(--model "$LLM_MODEL")
 fi
 
+_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
+  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+fi
+_copilot_model_echo=""
+if [ "${#_model_flag[@]}" -gt 0 ]; then
+  _copilot_model_echo="--model \"${LLM_MODEL}\" "
+fi
+echo "[agent/copilot] About to run: copilot --prompt \"${_SAIFAC_TASK_SNIP}\" ${_copilot_model_echo}--allow-all --no-ask-user --no-auto-update --autopilot (COPILOT_GITHUB_TOKEN/GH_TOKEN/GITHUB_TOKEN from env, masked as ****)"
+
+_agent_exit=0
 copilot \
   --prompt "$(cat "$SAIFAC_TASK_PATH")" \
   "${_model_flag[@]}" \
   --allow-all \
   --no-ask-user \
   --no-auto-update \
-  --autopilot
+  --autopilot || _agent_exit=$?
+
+echo "[agent/copilot] Finished agent copilot in agent.sh (exit code ${_agent_exit})."
+exit "${_agent_exit}"

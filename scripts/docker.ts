@@ -4,10 +4,12 @@
  *
  * Usage: pnpm docker <action> [image] [options]
  *   build test       Build test runner image(s) (default: node-vitest, --all: all profiles)
- *   build coder-base Build coder base image (saifac-coder-base:latest)
  *   build coder      Build coder image (default: node-pnpm-python, --all: all profiles)
  *   build stage      Build stage image (default: node-pnpm-python, --all: all profiles)
  *   clear            Remove factory containers/images (scoped to project; --all: everything)
+ *
+ * Optional on all build subcommands: --skip-existing  Skip docker build when the target tag
+ *   already exists locally (docker image inspect). Does not detect stale Dockerfiles.
  */
 
 import { resolve } from 'node:path';
@@ -31,7 +33,27 @@ import {
   SUPPORTED_PROFILES,
   type TestProfile,
 } from '../src/test-profiles/index.js';
-import { pathExists, readUtf8, spawnAsync, spawnCapture } from '../src/utils/io.js';
+import { pathExists, readUtf8, spawnAsync, spawnCapture, spawnWait } from '../src/utils/io.js';
+
+async function dockerImageExistsLocally(imageRef: string): Promise<boolean> {
+  const r = await spawnWait({
+    command: 'docker',
+    args: ['image', 'inspect', imageRef],
+    cwd: process.cwd(),
+  });
+  return r.code === 0;
+}
+
+/** Prefix for logs when `pnpm docker build … --all` iterates many images (e.g. `[2/8] `). */
+function buildAllProgressPrefix(opts: {
+  buildAll: boolean;
+  indexOneBased: number;
+  total: number;
+}): string {
+  const { buildAll, indexOneBased, total } = opts;
+  if (!buildAll || total < 1) return '';
+  return `[${indexOneBased}/${total}] `;
+}
 
 async function parseProjectName(opts: { project?: string }): Promise<string> {
   const fromOpt =
@@ -73,10 +95,15 @@ const testBuildCommand = defineCommand({
     all: { type: 'boolean', description: 'Build all test profiles' },
     'test-profile': { type: 'string', description: 'Test profile (default: node-vitest)' },
     'test-image': { type: 'string', description: 'Image tag override' },
+    'skip-existing': {
+      type: 'boolean',
+      description: 'Skip build if the target image tag already exists locally',
+    },
   },
   async run({ args }) {
     const repoRoot = getSaifRoot();
     const buildAll = args.all === true;
+    const skipExisting = args['skip-existing'] === true;
 
     const profilesToBuild: TestProfile[] = buildAll
       ? Object.values(SUPPORTED_PROFILES)
@@ -88,8 +115,21 @@ const testBuildCommand = defineCommand({
         : '\nBuilding test runner image...',
     );
     consola.log('  (this only needs to run once; images are cached locally)\n');
+    if (skipExisting) {
+      consola.log('  (--skip-existing: will not rebuild tags already present locally)\n');
+    }
 
-    for (const profile of profilesToBuild) {
+    let built = 0;
+    let skipped = 0;
+
+    const testTotal = profilesToBuild.length;
+    for (let ti = 0; ti < profilesToBuild.length; ti++) {
+      const profile = profilesToBuild[ti]!;
+      const progress = buildAllProgressPrefix({
+        buildAll,
+        indexOneBased: ti + 1,
+        total: testTotal,
+      });
       const tag = buildAll
         ? `saifac-test-${profile.id}:latest`
         : args['test-image']?.trim() || `saifac-test-${profile.id}:latest`;
@@ -97,12 +137,18 @@ const testBuildCommand = defineCommand({
 
       const dockerfilePath = resolveTestDockerfilePath(profile.id);
       if (!(await pathExists(dockerfilePath))) {
-        consola.error(`${dockerfilePath} not found for profile ${profile.id}`);
+        consola.error(`${progress}${dockerfilePath} not found for profile ${profile.id}`);
         process.exit(1);
       }
 
-      consola.log(`Building: ${tag}`);
-      consola.log(`  Dockerfile: ${dockerfilePath}`);
+      if (skipExisting && (await dockerImageExistsLocally(tag))) {
+        consola.log(`${progress}Skipping (already exists): ${tag}  [${profile.id}]`);
+        skipped++;
+        continue;
+      }
+
+      consola.log(`${progress}Building: ${tag}`);
+      consola.log(`${progress}  Dockerfile: ${dockerfilePath}`);
 
       try {
         await spawnAsync({
@@ -112,62 +158,24 @@ const testBuildCommand = defineCommand({
           stdio: 'inherit',
         });
       } catch {
-        consola.error(`\ndocker build failed for ${profile.id}`);
+        consola.error(`\n${progress}docker build failed for ${profile.id}`);
         process.exit(1);
       }
-      consola.log(`  => ${tag}\n`);
+      consola.log(`${progress}  => ${tag}\n`);
+      built++;
     }
 
-    consola.log('Test image(s) built successfully.');
+    if (built === 0 && skipped > 0) {
+      consola.log(`Test images: ${skipped} already present; nothing to build.`);
+    } else if (skipped > 0) {
+      consola.log(`Test images: built ${built}, skipped ${skipped} (already exist).`);
+    } else {
+      consola.log('Test image(s) built successfully.');
+    }
     if (!buildAll) {
       const tag = args['test-image']?.trim() || `saifac-test-${profilesToBuild[0]!.id}:latest`;
       consola.log(`Use it with: npx saifac feat run --test-image ${tag}`);
     }
-  },
-});
-
-// ── coder-base build ────────────────────────────────────────────────────────
-
-const coderBaseBuildCommand = defineCommand({
-  meta: {
-    name: 'coder-base',
-    description: 'Build coder base image (saifac-coder-base:latest) from Dockerfile.coder-base',
-  },
-  args: {
-    'coder-base-image': { type: 'string', description: 'Image tag override' },
-  },
-  async run({ args }) {
-    const repoRoot = getSaifRoot();
-    const tag = args['coder-base-image']?.trim() || 'saifac-coder-base:latest';
-    if (args['coder-base-image']) validateImageTag(tag, '--coder-base-image');
-
-    const dockerfilePath = resolve(repoRoot, 'Dockerfile.coder-base');
-    if (!(await pathExists(dockerfilePath))) {
-      consola.error(`Dockerfile.coder-base not found at ${dockerfilePath}`);
-      process.exit(1);
-    }
-
-    consola.log(`\nBuilding coder base image: ${tag}`);
-    consola.log(`  Dockerfile: ${dockerfilePath}`);
-    consola.log('  (extend this image to bring your own coder agent)\n');
-
-    try {
-      await spawnAsync({
-        command: 'docker',
-        args: ['build', '-f', dockerfilePath, '-t', tag, '.'],
-        cwd: repoRoot,
-        stdio: 'inherit',
-      });
-    } catch {
-      consola.error(`\ndocker build failed`);
-      process.exit(1);
-    }
-
-    consola.log(`\nCoder base image built: ${tag}`);
-    consola.log('Extend it in your own Dockerfile:');
-    consola.log(`  FROM ${tag}`);
-    consola.log('  RUN <install your coder agent here>');
-    consola.log(`Use it with: npx saifac feat run --coder-image <your-image>`);
   },
 });
 
@@ -183,10 +191,15 @@ const coderBuildCommand = defineCommand({
     all: { type: 'boolean', description: 'Build all sandbox profiles' },
     profile: { type: 'string', description: 'Sandbox profile (default: node-pnpm-python)' },
     'coder-image': { type: 'string', description: 'Image tag override' },
+    'skip-existing': {
+      type: 'boolean',
+      description: 'Skip build if the target image tag already exists locally',
+    },
   },
   async run({ args }) {
     const repoRoot = getSaifRoot();
     const buildAll = args.all === true;
+    const skipExisting = args['skip-existing'] === true;
 
     const profilesToBuild: SandboxProfile[] = buildAll
       ? Object.values(SUPPORTED_SANDBOX_PROFILES)
@@ -198,8 +211,21 @@ const coderBuildCommand = defineCommand({
         : '\nBuilding coder image...',
     );
     consola.log('  (this only needs to run once; images are cached locally)\n');
+    if (skipExisting) {
+      consola.log('  (--skip-existing: will not rebuild tags already present locally)\n');
+    }
 
-    for (const profile of profilesToBuild) {
+    let coderBuilt = 0;
+    let coderSkipped = 0;
+
+    const coderTotal = profilesToBuild.length;
+    for (let ci = 0; ci < profilesToBuild.length; ci++) {
+      const profile = profilesToBuild[ci]!;
+      const progress = buildAllProgressPrefix({
+        buildAll,
+        indexOneBased: ci + 1,
+        total: coderTotal,
+      });
       const tag = buildAll
         ? profile.coderImageTag
         : args['coder-image']?.trim() || profile.coderImageTag;
@@ -207,13 +233,19 @@ const coderBuildCommand = defineCommand({
 
       const dockerfilePath = resolveSandboxCoderDockerfilePath(profile.id);
       if (!(await pathExists(dockerfilePath))) {
-        consola.error(`${dockerfilePath} not found for profile ${profile.id}`);
+        consola.error(`${progress}${dockerfilePath} not found for profile ${profile.id}`);
         process.exit(1);
       }
 
-      consola.log(`Building: ${tag}`);
-      consola.log(`  Profile:    ${profile.id} (${profile.displayName})`);
-      consola.log(`  Dockerfile: ${dockerfilePath}`);
+      if (skipExisting && (await dockerImageExistsLocally(tag))) {
+        consola.log(`${progress}Skipping (already exists): ${tag}  [${profile.id}]`);
+        coderSkipped++;
+        continue;
+      }
+
+      consola.log(`${progress}Building: ${tag}`);
+      consola.log(`${progress}  Profile:    ${profile.id} (${profile.displayName})`);
+      consola.log(`${progress}  Dockerfile: ${dockerfilePath}`);
 
       try {
         await spawnAsync({
@@ -223,13 +255,20 @@ const coderBuildCommand = defineCommand({
           stdio: 'inherit',
         });
       } catch {
-        consola.error(`\ndocker build failed for ${profile.id}`);
+        consola.error(`\n${progress}docker build failed for ${profile.id}`);
         process.exit(1);
       }
-      consola.log(`  => ${tag}\n`);
+      consola.log(`${progress}  => ${tag}\n`);
+      coderBuilt++;
     }
 
-    consola.log('Coder image(s) built successfully.');
+    if (coderBuilt === 0 && coderSkipped > 0) {
+      consola.log(`Coder images: ${coderSkipped} already present; nothing to build.`);
+    } else if (coderSkipped > 0) {
+      consola.log(`Coder images: built ${coderBuilt}, skipped ${coderSkipped} (already exist).`);
+    } else {
+      consola.log('Coder image(s) built successfully.');
+    }
     if (!buildAll) {
       const profile = profilesToBuild[0]!;
       const tag = args['coder-image']?.trim() || profile.coderImageTag;
@@ -251,10 +290,15 @@ const stageBuildCommand = defineCommand({
     all: { type: 'boolean', description: 'Build all sandbox profiles' },
     profile: { type: 'string', description: 'Sandbox profile (default: node-pnpm-python)' },
     'stage-image': { type: 'string', description: 'Image tag override' },
+    'skip-existing': {
+      type: 'boolean',
+      description: 'Skip build if the target image tag already exists locally',
+    },
   },
   async run({ args }) {
     const repoRoot = getSaifRoot();
     const buildAll = args.all === true;
+    const skipExisting = args['skip-existing'] === true;
 
     const profilesToBuild: SandboxProfile[] = buildAll
       ? Object.values(SUPPORTED_SANDBOX_PROFILES)
@@ -266,8 +310,21 @@ const stageBuildCommand = defineCommand({
         : '\nBuilding stage container image...',
     );
     consola.log('  (build context: repo root)\n');
+    if (skipExisting) {
+      consola.log('  (--skip-existing: will not rebuild tags already present locally)\n');
+    }
 
-    for (const profile of profilesToBuild) {
+    let stageBuilt = 0;
+    let stageSkipped = 0;
+
+    const stageTotal = profilesToBuild.length;
+    for (let si = 0; si < profilesToBuild.length; si++) {
+      const profile = profilesToBuild[si]!;
+      const progress = buildAllProgressPrefix({
+        buildAll,
+        indexOneBased: si + 1,
+        total: stageTotal,
+      });
       const tag = buildAll
         ? profile.stageImageTag
         : args['stage-image']?.trim() || profile.stageImageTag;
@@ -275,13 +332,19 @@ const stageBuildCommand = defineCommand({
 
       const dockerfilePath = resolveSandboxStageDockerfilePath(profile.id);
       if (!(await pathExists(dockerfilePath))) {
-        consola.error(`${dockerfilePath} not found for profile ${profile.id}`);
+        consola.error(`${progress}${dockerfilePath} not found for profile ${profile.id}`);
         process.exit(1);
       }
 
-      consola.log(`Building: ${tag}`);
-      consola.log(`  Profile:    ${profile.id} (${profile.displayName})`);
-      consola.log(`  Dockerfile: ${dockerfilePath}`);
+      if (skipExisting && (await dockerImageExistsLocally(tag))) {
+        consola.log(`${progress}Skipping (already exists): ${tag}  [${profile.id}]`);
+        stageSkipped++;
+        continue;
+      }
+
+      consola.log(`${progress}Building: ${tag}`);
+      consola.log(`${progress}  Profile:    ${profile.id} (${profile.displayName})`);
+      consola.log(`${progress}  Dockerfile: ${dockerfilePath}`);
 
       try {
         await spawnAsync({
@@ -291,13 +354,20 @@ const stageBuildCommand = defineCommand({
           stdio: 'inherit',
         });
       } catch {
-        consola.error(`\ndocker build failed for ${profile.id}`);
+        consola.error(`\n${progress}docker build failed for ${profile.id}`);
         process.exit(1);
       }
-      consola.log(`  => ${tag}\n`);
+      consola.log(`${progress}  => ${tag}\n`);
+      stageBuilt++;
     }
 
-    consola.log('Stage image(s) built successfully.');
+    if (stageBuilt === 0 && stageSkipped > 0) {
+      consola.log(`Stage images: ${stageSkipped} already present; nothing to build.`);
+    } else if (stageSkipped > 0) {
+      consola.log(`Stage images: built ${stageBuilt}, skipped ${stageSkipped} (already exist).`);
+    } else {
+      consola.log('Stage image(s) built successfully.');
+    }
   },
 });
 
@@ -457,7 +527,6 @@ const buildCommand = defineCommand({
   },
   subCommands: {
     test: testBuildCommand,
-    'coder-base': coderBaseBuildCommand,
     coder: coderBuildCommand,
     stage: stageBuildCommand,
   },

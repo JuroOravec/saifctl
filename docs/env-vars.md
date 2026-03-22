@@ -116,7 +116,7 @@ The semantic reviewer is a Rust binary that's injected into the container.
 
 SAIFAC downloads the Argus binary on the **host** before mounting it into the container.
 
-The binary is cached under `/tmp/saifac/bin/` as versioned files, e.g. `argus-linux-arm64-v0.5.4`.
+The binary is cached under `/tmp/saifac/bin/` as versioned files, e.g. `argus-linux-arm64-v0.5.5`.
 
 | Variable                  | Description                                                                                                                                 |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |

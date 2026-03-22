@@ -1,15 +1,27 @@
 #!/bin/bash
 # Codex agent setup script.
 #
-# Codex is pre-installed in the Leash default coder image.
-# This script asserts it is available and exits with a clear error if not.
+# Installs @openai/codex via npm when the codex binary is not on PATH.
+#
+# Pinned version (checked npm 2026-03-21): https://www.npmjs.com/package/@openai/codex
+
+CODEX_CLI_VERSION='0.116.0'
 
 set -euo pipefail
+trap 'ec=$?; echo "[agent-start/codex] Finished Codex setup (agent-start.sh, exit code ${ec})."' EXIT
+echo "[agent-start/codex] Installing Codex (agent-start.sh)..."
 
-if ! command -v codex &>/dev/null; then
-  echo "[agent-start/codex] ERROR: codex CLI not found." >&2
-  echo "[agent-start/codex] This profile requires the Leash coder image (public.ecr.aws/s5i7k8t3/strongdm/coder)." >&2
+if command -v codex &>/dev/null; then
+  echo "[agent-start/codex] codex is already available: $(codex --version 2>/dev/null || echo 'unknown version')"
+  exit 0
+fi
+
+if ! command -v npm &>/dev/null; then
+  echo "[agent-start/codex] ERROR: npm is not available in this image." >&2
+  echo "[agent-start/codex] Use a sandbox profile with Node.js or a *-node profile, or bake @openai/codex into a custom --coder-image." >&2
   exit 1
 fi
 
+echo "[agent-start/codex] Installing @openai/codex@${CODEX_CLI_VERSION} via npm..."
+npm install -g "@openai/codex@${CODEX_CLI_VERSION}"
 echo "[agent-start/codex] codex is available: $(codex --version 2>/dev/null || echo 'unknown version')"

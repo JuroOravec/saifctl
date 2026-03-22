@@ -14,4 +14,5 @@ FROM node:25-alpine
 
 WORKDIR /workspace
 
-RUN npm install -g yarn --no-progress
+# node:25-alpine may already ship /usr/local/bin/yarn; global npm install then fails with EEXIST.
+RUN if ! command -v yarn >/dev/null 2>&1; then npm install -g yarn --no-progress; fi

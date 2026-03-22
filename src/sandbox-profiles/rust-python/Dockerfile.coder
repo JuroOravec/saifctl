@@ -1,9 +1,7 @@
 # Coder image — rust-python sandbox profile.
 #
-# Extends coder-base (which provides coder-start.sh) with the Rust toolchain and
-# Python 3 + pip + uv. Rust is the primary runtime; Python is included on the side
-# so Python-based coder agents (OpenHands, Aider, etc.) can be bootstrapped by
-# agent-start.sh.
+# Based on official rust image.
+# Adds a Python toolchain and uv (pipx) for Python-based coder agents.
 #
 # Build:
 #   docker build -f src/sandbox-profiles/rust-python/Dockerfile.coder \
@@ -11,27 +9,29 @@
 #
 # Or via CLI:
 #   pnpm docker build coder --profile rust-python
-FROM saifac-coder-base:latest
+ARG RUST_VERSION=1.85
+FROM rust:${RUST_VERSION}-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install build dependencies, Python toolchain, and git (required by most coder agents).
+# Add build dependencies and Python toolchain (pipx).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    git \
-    pkg-config \
-    python3 \
-    python3-venv \
-    python3-pip \
-    pipx \
-    && rm -rf /var/lib/apt/lists/*
+  build-essential \
+  curl \
+  git \
+  pkg-config \
+  python3 \
+  python3-venv \
+  python3-pip \
+  pipx \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install Rust via rustup (stable channel + clippy + rustfmt).
-RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --component clippy rustfmt
+# Add clippy and rustfmt via rustup.
+RUN rustup component add clippy rustfmt
 
-# Install uv so Python-based agent-start scripts can use it.
-RUN pipx install uv --python python3
+# Symlink pipx-managed uv into /usr/local/bin so it stays on PATH in minimal shells.
+RUN pipx install uv --python python3 \
+  && ln -sf /root/.local/bin/uv /usr/local/bin/uv
 
 # Ensure cargo and pipx-managed binaries are on PATH.
 ENV PATH="/root/.cargo/bin:/root/.local/bin:$PATH"

@@ -33,7 +33,13 @@ import { gitApply, gitClean, gitResetHard } from '../utils/git.js';
 import { appendUtf8, pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
 import { runVagueSpecsChecker } from './agents/vague-specs-check.js';
 import { applyPatchToHost } from './phases/apply-patch.js';
-import { destroySandbox, extractPatch, type PatchExcludeRule, type Sandbox } from './sandbox.js';
+import {
+  destroySandbox,
+  extractPatch,
+  listFilePathsInUnifiedDiff,
+  type PatchExcludeRule,
+  type Sandbox,
+} from './sandbox.js';
 import { getArgusBinaryPath } from './sidecars/reviewer/argus.js';
 
 // ---------------------------------------------------------------------------
@@ -86,7 +92,7 @@ export interface IterativeLoopOpts {
    */
   resolveAmbiguity: 'off' | 'prompt' | 'ai';
   /**
-   * When true, skip Leash and run OpenHands directly on the host.
+   * When true, skip Leash and run coding agent directly on the host.
    * Isolation is filesystem-only (rsync sandbox). No Cedar enforcement.
    * Default: false (Leash is enabled by default).
    */
@@ -268,11 +274,14 @@ export async function runIterativeLoop(
   // saifac/: reward-hacking prevention (agent must not modify its own test specs).
   // .git/hooks/: prevents a malicious patch from installing hooks that execute on the host
   //   when the orchestrator runs `git commit` in applyPatchToHost.
+  // .saifac/: factory-internal workspace state (e.g. per-round task file), not product code.
   const saifExclude: PatchExcludeRule = { type: 'glob', pattern: `${saifDir}/**` };
   const gitHooksExclude: PatchExcludeRule = { type: 'glob', pattern: '.git/hooks/**' };
+  const saifacWorkspaceMetaExclude: PatchExcludeRule = { type: 'glob', pattern: '.saifac/**' };
   const patchExclude: PatchExcludeRule[] = [
     saifExclude,
     gitHooksExclude,
+    saifacWorkspaceMetaExclude,
     ...(opts.patchExclude ?? []),
   ];
 
@@ -377,13 +386,24 @@ export async function runIterativeLoop(
       });
 
       if (!patchContent.trim()) {
-        consola.warn('[orchestrator] OpenHands produced no changes (empty patch). Skipping tests.');
+        consola.warn('[orchestrator] Agent produced no changes (empty patch). Skipping tests.');
         errorFeedback =
           'No changes were made. Please implement the feature as described in the plan.';
         continue;
       }
 
       consola.log(`[orchestrator] Extracted patch (${patchContent.length} bytes)`);
+
+      const patchPaths = listFilePathsInUnifiedDiff(patchContent);
+      if (patchPaths.length === 0) {
+        consola.warn(
+          '[orchestrator] No paths parsed from patch diff --git headers — patch may be malformed or empty of file sections.',
+        );
+      } else {
+        consola.log(
+          `[orchestrator] Files in patch content (${patchPaths.length}): ${patchPaths.join(', ')}`,
+        );
+      }
 
       // Re-apply the patch for tests (extractPatch resets to base state).
       // patchPath is outside codePath so git clean cannot have deleted it.

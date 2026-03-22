@@ -15,11 +15,17 @@ import { join } from 'node:path';
 
 import { getSaifRoot } from '../../constants.js';
 import { resolveAgentLlmConfig } from '../../llm-config.js';
+import { consola } from '../../logger.js';
 import { createProvisioner } from '../../provisioners/index.js';
 import type { CleanupRegistry } from '../../utils/cleanup.js';
 import { gitApply } from '../../utils/git.js';
 import type { IterativeLoopOpts } from '../loop.js';
-import { extractPatch, type PatchExcludeRule, type Sandbox } from '../sandbox.js';
+import {
+  extractPatch,
+  listFilePathsInUnifiedDiff,
+  type PatchExcludeRule,
+  type Sandbox,
+} from '../sandbox.js';
 import { getArgusBinaryPath } from '../sidecars/reviewer/argus.js';
 
 export interface RunAgentPhaseInput {
@@ -128,6 +134,19 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
   const { patch: patchContent, patchPath } = await extractPatch(sandbox.codePath, {
     exclude: patchExclude,
   });
+
+  const patchPaths = listFilePathsInUnifiedDiff(patchContent);
+  if (!patchContent.trim()) {
+    consola.log('[run-agent-phase] Patch empty — 0 file(s) in patch content');
+  } else if (patchPaths.length === 0) {
+    consola.warn(
+      '[run-agent-phase] Non-empty patch but no paths parsed from diff --git headers — check patch format.',
+    );
+  } else {
+    consola.log(
+      `[run-agent-phase] Files in patch content (${patchPaths.length}): ${patchPaths.join(', ')}`,
+    );
+  }
 
   if (patchContent.trim()) {
     // Re-apply so tests can run against the patched code.

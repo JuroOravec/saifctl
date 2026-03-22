@@ -52,7 +52,7 @@ When unset (upstream), behavior is unchanged: `release-plz release`, conditional
 
 The upstream repo's CI was not attaching binaries to releases. The fork fixes that.
 SAIF downloads the Argus binary for the current architecture on first use and caches it under
-**`/tmp/saifac/bin/`** as e.g. **`argus-linux-amd64-v0.5.4`** (semver in the filename; not in the repo).
+**`/tmp/saifac/bin/`** as e.g. **`argus-linux-amd64-v0.5.5`** (semver in the filename; not in the repo).
 Override with **`SAIF_REVIEWER_BIN_DIR`** if needed.
 The binary version is pinned via **`ARGUS_VERSION`** in `src/orchestrator/sidecars/reviewer/argus.ts`.
 

@@ -10,8 +10,14 @@
 # Install docs:   https://forgecode.dev/docs
 # CLI reference:  https://forgecode.dev/docs/cli-reference/
 # Env config:     https://forgecode.dev/docs/environment-configuration/
+#
+# Pinned release (checked GitHub 2026-03-21): https://github.com/antinomyhq/forge/releases
+# The upstream install script accepts a version argument:  curl … | sh -s -- vX.Y.Z
+FORGE_RELEASE_VERSION='v2.1.0'
 
 set -euo pipefail
+trap 'ec=$?; echo "[agent-start/forge] Finished forge setup (agent-start.sh, exit code ${ec})."' EXIT
+echo "[agent-start/forge] Installing forge (agent-start.sh)..."
 
 if command -v forge &>/dev/null; then
   echo "[agent-start/forge] forge is already installed: $(forge --version 2>/dev/null || echo 'unknown version')"
@@ -24,8 +30,8 @@ if ! command -v curl &>/dev/null; then
   exit 1
 fi
 
-echo "[agent-start/forge] Installing forge via official install script..."
-curl -fsSL https://forgecode.dev/cli | sh
+echo "[agent-start/forge] Installing forge ${FORGE_RELEASE_VERSION} via official install script..."
+curl -fsSL https://forgecode.dev/cli | sh -s -- "${FORGE_RELEASE_VERSION}"
 
 # The install script drops the binary into ~/.local/bin or /usr/local/bin.
 # Ensure PATH includes both common locations.

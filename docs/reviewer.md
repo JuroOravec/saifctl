@@ -72,7 +72,7 @@ Argus provides best practices for semantic code review:
 - Reviewer can search the codebase to understand call stacks across files.
 - Reviewer compares the diff against the original task.
 
-The factory downloads the Argus Linux binary for the current architecture on first use and caches it under `/tmp/saifac/bin/`. The binary is mounted into the container alongside a script (`reviewer.sh`). See `vendor/README.md`.
+The factory downloads the Argus Linux binary for the current architecture on first use and caches it under `/tmp/saifac/bin/`. The binary is mounted into the container alongside a script (`reviewer.sh`). The script writes Argus TOML to **`.saifac/argus.toml`** and runs `argus --config` so the repo root stays free of `.argus.toml`. See `vendor/README.md`.
 
 If Argus spots an issue, it prints findings like `- file.ts:42: Missing error handling` which the factory feeds back into the prompt for the next agent iteration.
 

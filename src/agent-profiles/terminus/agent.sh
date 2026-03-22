@@ -64,6 +64,8 @@
 
 set -euo pipefail
 
+echo "[agent/terminus] Starting agent terminus in agent.sh..."
+
 # ---------------------------------------------------------------------------
 # Validate LLM_MODEL — Terminus requires it; there is no default.
 # ---------------------------------------------------------------------------
@@ -97,9 +99,23 @@ if [ -n "${LLM_BASE_URL:-}" ]; then
   _api_base_flag=(--api-base "$LLM_BASE_URL")
 fi
 
+_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
+  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+fi
+_api_base_echo=""
+if [ "${#_api_base_flag[@]}" -gt 0 ]; then
+  _api_base_echo="--api-base **** "
+fi
+echo "[agent/terminus] About to run: terminus \"${_SAIFAC_TASK_SNIP}\" --model \"${LLM_MODEL}\" ${_api_base_echo}--parser json --temperature 0.7 (API keys from env, masked as ****)"
+
+_agent_exit=0
 terminus \
   "$(cat "$SAIFAC_TASK_PATH")" \
   --model "$LLM_MODEL" \
   "${_api_base_flag[@]}" \
   --parser json \
-  --temperature 0.7
+  --temperature 0.7 || _agent_exit=$?
+
+echo "[agent/terminus] Finished agent terminus in agent.sh (exit code ${_agent_exit})."
+exit "${_agent_exit}"

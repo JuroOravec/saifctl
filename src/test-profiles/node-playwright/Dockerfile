@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright:v1.58.2-jammy
+FROM mcr.microsoft.com/playwright:v1.58.0-jammy
 
 # We run tests via playwright. 
 # Pre-install typescript/playwright so the container can just run npx playwright test.

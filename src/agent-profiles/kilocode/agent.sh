@@ -53,6 +53,8 @@
 
 set -euo pipefail
 
+echo "[agent/kilocode] Starting agent kilocode in agent.sh..."
+
 # Determine the active provider ID.
 # Prefer the explicit LLM_PROVIDER; fall back to the prefix of LLM_MODEL when
 # it is in provider/model format (e.g. "anthropic/claude-sonnet-4-5").
@@ -97,6 +99,17 @@ _provider_sep=""
 
 export OPENCODE_CONFIG_CONTENT="{${_model_fragment}\"permission\":\"allow\",\"autoupdate\":false${_provider_sep}${_provider_block}}"
 
+_SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"
+if [ "${#_SAIFAC_TASK_SNIP}" -gt 200 ]; then
+  _SAIFAC_TASK_SNIP="${_SAIFAC_TASK_SNIP:0:200}..."
+fi
+_kilo_cfg_redacted="$(printf '%s' "$OPENCODE_CONFIG_CONTENT" | sed 's/"apiKey":"[^"]*"/"apiKey":"****"/g; s/"baseURL":"[^"]*"/"baseURL":"****"/g')"
+echo "[agent/kilocode] About to run: OPENCODE_CONFIG_CONTENT='${_kilo_cfg_redacted}' kilo run --auto \"${_SAIFAC_TASK_SNIP}\""
+
+_agent_exit=0
 kilo run \
   --auto \
-  "$(cat "$SAIFAC_TASK_PATH")"
+  "$(cat "$SAIFAC_TASK_PATH")" || _agent_exit=$?
+
+echo "[agent/kilocode] Finished agent kilocode in agent.sh (exit code ${_agent_exit})."
+exit "${_agent_exit}"

@@ -1,52 +1,102 @@
 #!/bin/bash
-# OpenHands agent setup script — installs OpenHands if not already present.
+# OpenHands agent setup script — installs openhands via uv or pipx.
 #
-# Runs once inside the coder container after the project startup script and
-# before the agent loop begins (SAIFAC_AGENT_START_SCRIPT in coder-start.sh).
+# Runs once inside the coder container after the project startup script
+# and before the agent loop begins (SAIFAC_AGENT_START_SCRIPT in coder-start.sh).
 #
-# Installation order (first tool found wins):
-#   1. uv tool install openhands   — preferred: fast, isolated, reproducible
-#   2. pipx install openhands      — good isolation, needs pipx
-#   3. pip install openhands       — fallback: global install
+# Pinned versions (checked PyPI 2026-03-21):
+#   https://pypi.org/pypi/openhands/ — openhands==1.13.1
+#   Requires-Python: ==3.12.*  →  CPython 3.12 only (not 3.13; PyPI rejects it).
+#   `uv tool install ... --python 3.12` downloads 3.12 if the image lacks it.
 #
-# Requirements: Python 3 must be available in the coder image.
-# If Python is absent (e.g. a Node-only image), this script will fail with a
-# clear error — use a Python-capable coder image or supply --agent-script with
-# a pre-installed openhands binary.
+# Requirements:
+#   - Idempotent: if `openhands` is already on PATH, install is skipped
+#   - uv (preferred) or pipx + python3.12, or python3.12 for pip fallback
 #
-# Idempotent: if the `openhands` binary is already on PATH, the install step
-# is skipped entirely.
+# Install docs: https://pypi.org/project/openhands/
+# All Hands:    https://github.com/All-Hands-AI/OpenHands
+
+OPENHANDS_PACKAGE_VERSION='1.13.1'
+OPENHANDS_PYTHON_PIN='3.12'
 
 set -euo pipefail
+trap 'ec=$?; echo "[agent-start/openhands] Finished OpenHands setup (agent-start.sh, exit code ${ec})."' EXIT
+echo "[agent-start/openhands] Installing OpenHands (agent-start.sh)..."
 
 if command -v openhands &>/dev/null; then
   echo "[agent-start/openhands] OpenHands already installed: $(openhands --version 2>/dev/null || echo 'unknown version')"
   exit 0
 fi
 
-if ! command -v python3 &>/dev/null; then
-  echo "[agent-start/openhands] ERROR: python3 is not available in this image." >&2
-  echo "[agent-start/openhands] Use a Python-capable coder image or supply --agent-script with a pre-installed openhands." >&2
-  exit 1
-fi
+echo "[agent-start/openhands] openhands not found — installing openhands==${OPENHANDS_PACKAGE_VERSION} (Python ${OPENHANDS_PYTHON_PIN})..."
 
-echo "[agent-start/openhands] openhands not found — installing..."
+# Log toolchain on stdout (host logs / branch visibility)
+_uv_path="$(command -v uv 2>/dev/null || true)"
+_pipx_path="$(command -v pipx 2>/dev/null || true)"
+_py_path="$(command -v "python${OPENHANDS_PYTHON_PIN}" 2>/dev/null || true)"
+echo "[agent-start/openhands] Install toolchain: uv=${_uv_path:-<not on PATH>}, pipx=${_pipx_path:-<not on PATH>}, python${OPENHANDS_PYTHON_PIN}=${_py_path:-<not on PATH>}"
+echo "[agent-start/openhands] PATH(head)=${PATH:0:200}..."
 
-if command -v uv &>/dev/null; then
+# After install, CLI is often under ~/.local/bin; symlink so coder-start always finds it
+_saifac_link_openhands() {
+  export PATH="$HOME/.local/bin:$PATH"
+
+  # ~/.local/bin first, else PATH
+  local bin="${HOME}/.local/bin/openhands"
+  if [ ! -x "$bin" ]; then
+    bin="$(command -v openhands 2>/dev/null || true)"
+  fi
+
+  if [ -z "$bin" ] || [ ! -x "$bin" ]; then
+    echo "[agent-start/openhands] ERROR: openhands binary missing after install (looked for ~/.local/bin/openhands and PATH)."
+    return 1
+  fi
+
+  # readlink -f when GNU; else raw path
+  local real
+  real="$(readlink -f "$bin" 2>/dev/null || echo "$bin")"
+  ln -sf "$real" /usr/local/bin/openhands
+  echo "[agent-start/openhands] Linked openhands → /usr/local/bin/openhands (from $bin)"
+}
+
+# Try different package managers
+if [ -n "$_uv_path" ]; then
+  # UV
   echo "[agent-start/openhands] Installing via uv tool install..."
-  uv tool install openhands --python python3
-  # uv tool binaries land in ~/.local/bin; ensure it is on PATH.
-  export PATH="$HOME/.local/bin:$PATH"
-  # Symlink into /usr/local/bin so it is reachable from any shell context.
-  ln -sf "$(readlink -f "$HOME/.local/bin/openhands")" /usr/local/bin/openhands
-elif command -v pipx &>/dev/null; then
-  echo "[agent-start/openhands] Installing via pipx..."
-  pipx install openhands
-  export PATH="$HOME/.local/bin:$PATH"
-  ln -sf "$(readlink -f "$HOME/.local/bin/openhands")" /usr/local/bin/openhands
+  if ! uv tool install "openhands==${OPENHANDS_PACKAGE_VERSION}" --python "${OPENHANDS_PYTHON_PIN}"; then
+    echo "[agent-start/openhands] ERROR: uv tool install failed (see messages above)."
+    exit 1
+  fi
+  _saifac_link_openhands
+
+elif [ -n "$_pipx_path" ]; then
+  # pipx
+  if [ -n "$_py_path" ]; then
+    echo "[agent-start/openhands] Installing via pipx (interpreter: ${_py_path})..."
+    if ! pipx install "openhands==${OPENHANDS_PACKAGE_VERSION}" --python "$_py_path"; then
+      echo "[agent-start/openhands] ERROR: pipx install failed (see messages above)."
+      exit 1
+    fi
+    _saifac_link_openhands
+  else
+    echo "[agent-start/openhands] ERROR: pipx is available but python${OPENHANDS_PYTHON_PIN} is not on PATH (need uv or that interpreter). PyPI requires ==3.12.*." >&2
+    echo "[agent-start/openhands] Hint: image should expose uv or install python${OPENHANDS_PYTHON_PIN} for pipx --python." >&2
+    exit 1
+  fi
+
 else
-  echo "[agent-start/openhands] Installing via pip..."
-  python3 -m pip install openhands
+  # pip
+  if [ -n "$_py_path" ]; then
+    echo "[agent-start/openhands] Installing via pip (interpreter: ${_py_path})..."
+    if ! "$_py_path" -m pip install --user "openhands==${OPENHANDS_PACKAGE_VERSION}"; then
+      echo "[agent-start/openhands] ERROR: pip install failed (see messages above)."
+      exit 1
+    fi
+    _saifac_link_openhands
+  else
+    echo "[agent-start/openhands] ERROR: need uv, pipx + python${OPENHANDS_PYTHON_PIN}, or python${OPENHANDS_PYTHON_PIN} for pip." >&2
+    exit 1
+  fi
 fi
 
-echo "[agent-start/openhands] OpenHands installed: $(openhands --version)"
+echo "[agent-start/openhands] OpenHands installed: $(openhands --version 2>/dev/null || echo 'version check skipped')"

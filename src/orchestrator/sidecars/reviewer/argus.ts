@@ -4,8 +4,8 @@
  *
  * Cache filenames include the pinned semver so bumping `ARGUS_VERSION` fetches a new
  * build without manual cache cleanup, e.g.:
- *   /tmp/saifac/bin/argus-linux-amd64-v0.5.4
- *   /tmp/saifac/bin/argus-linux-arm64-v0.5.4
+ *   /tmp/saifac/bin/argus-linux-amd64-v0.5.5
+ *   /tmp/saifac/bin/argus-linux-arm64-v0.5.5
  *
  * Upstream: https://github.com/Meru143/argus (argus-ai npm package)
  * Fork (managed releases): https://github.com/JuroOravec/argus
@@ -24,7 +24,7 @@ import { pathExists, spawnAsync } from '../../../utils/io.js';
 const REVIEWER_BIN_DIR = process.env.SAIF_REVIEWER_BIN_DIR?.trim() || join('/tmp', 'saifac', 'bin');
 
 /** Fork release version — bump this when cutting a new fork release. */
-const ARGUS_VERSION = '0.5.4';
+const ARGUS_VERSION = '0.5.5';
 const REPO = 'JuroOravec/argus';
 
 const ASSETS: Record<string, string> = {

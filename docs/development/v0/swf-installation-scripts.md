@@ -37,34 +37,12 @@ We address these with two pluggable lifecycle hooks and a layered Docker image d
 
 ---
 
-## Docker Image Layering
+## Docker image layering (coder)
 
-We separate concerns into two images:
-
-| Image                | Contents                                      | Built by                  |
-| -------------------- | --------------------------------------------- | ------------------------- |
-| `saifac-coder-base` | Framework only: `coder-start.sh`, `/saifac/` | `docker build coder-base` |
-| `saifac-coder`      | Extends base; adds OpenHands                  | `docker build coder`      |
-
-### `Dockerfile.coder-base`
-
-- **Framework layer** — orchestration logic we always want.
-- Contains only `src/orchestrator/scripts/coder-start.sh` at `/saifac/coder-start.sh`.
-- No coder agent, no language-specific tooling.
-- Extend this when you want a different coder (claude-code, codex, custom).
-
-### `Dockerfile.coder` (per sandbox profile)
-
-- **Default coder layer** — extends `coder-base`, adds runtime + package manager (e.g. Node + pnpm).
-- Each sandbox profile (e.g. `node-pnpm-python`) has its own `Dockerfile.coder` in `src/sandbox-profiles/<profile>/`.
+- **Orchestration (`/saifac`)** — `coder-start.sh`, `gate.sh`, `startup.sh`, agent scripts, and optionally `reviewer.sh` are **copied into** `sandboxBasePath/saifac/` on the host and bind-mounted as a **single read-only directory** at `/saifac` inside the Leash container. No separate `coder-base` image is required.
+- **`Dockerfile.coder` (per sandbox profile)** — each file chooses its own upstream base (`node:*-bookworm-slim`, `python:*-slim-bookworm`, `golang:*-bookworm`, `rust:*-slim-bookworm`, `continuumio/miniconda3`, etc.) and adds the language runtime + package manager for that profile. Each profile lives under `src/sandbox-profiles/<profile>/`.
 - Pre-built images are on GHCR (e.g. `saifac-coder-node-pnpm-python:latest`); Docker pulls automatically when not present locally.
-- Extend `coder-base` (or use `--startup-script`) when you need workspace setup or a different coder agent.
-
-### Why separate base and coder?
-
-- **Separation of concerns:** Framework logic (our loop, hooks) vs. coder agent (user’s choice) vs. workspace setup (per-repo).
-- **Extensibility:** Users can `FROM saifac-coder-base` and install their own coder without forking our Python/OpenHands setup.
-- **Clarity:** The base image is minimal and stable; the coder image is where language/ecosystem choices live.
+- **Custom agents:** `FROM` a published `saifac-coder-*` image or the same upstream base as a profile, install your tooling, then pass `--coder-image`. Use `--startup-script` for per-repo workspace setup without forking the image.
 
 ---
 
@@ -87,8 +65,9 @@ After sandbox creation (`createSandbox`):
 
 ```
 /tmp/saifac/{proj}-{feat}-{runId}/
-  gate.sh       ← always written; mounted :ro at /saifac/gate.sh
-  startup.sh    ← always written from profile or --startup-script; mounted :ro at /saifac/startup.sh
+  gate.sh       ← always written; copied into saifac/ for the coder container mount
+  startup.sh    ← always written from profile or --startup-script; copied into saifac/
+  saifac/       ← assembled per run (copies of coder-start.sh, gate, startup, agent scripts, reviewer when enabled); mounted :ro at /saifac
   tests.full.json
   code/         ← rsync copy of repo; mounted as /workspace
 ```
@@ -205,40 +184,33 @@ saifac feat run \
 
 ---
 
-## Step-by-Step: Custom Coder Agent (extend coder-base)
+## Step-by-Step: Custom Coder Agent
 
 **Problem:** You want to use claude-code or another coder instead of OpenHands.
 
-### Step 1: Build the base image
-
-```bash
-pnpm docker build coder-base
-```
-
-This produces `saifac-coder-base:latest`. (The default coder image is pulled from GHCR when omitted — extend only when bringing your own coder agent.)
-
-### Step 2: Create your custom Dockerfile
+### Step 1: Create your custom Dockerfile
 
 Create `Dockerfile.my-coder` in your repo:
 
 ```dockerfile
-FROM saifac-coder-base:latest
-
-# Install your coder agent here.
-# Example for claude-code (adjust for your tool):
-RUN npm install -g @anthropic-ai/claude-code
-# or: RUN uv tool install openhands
+FROM node:25-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl python3 python3-venv python3-pip pipx \
+  && rm -rf /var/lib/apt/lists/*
+RUN npm install -g pnpm @anthropic-ai/claude-code
+# or: RUN uv tool install openhands (with uv on PATH)
 # or: whatever your coder requires
 ```
 
-### Step 3: Build and use
+(The default coder image is pulled from GHCR when omitted — build a custom image only when you need extra system packages or a different agent stack.)
+
+### Step 2: Build and use
 
 ```bash
 docker build -f Dockerfile.my-coder -t my-saifac-coder:latest .
 saifac feat run --coder-image my-saifac-coder:latest
 ```
 
-**Note:** `coder-start.sh` invokes `openhands` by name. If your coder has a different CLI, you would need to either fork `coder-start.sh` or add a configurable agent command (future enhancement).
+**Note:** `coder-start.sh` runs `/saifac/agent.sh` each round; the default agent profile’s `agent.sh` invokes the AI agent (e.g. OpenHands). Use `--agent` / `--agent-script` to swap the coding CLI without forking `coder-start.sh`.
 
 ---
 

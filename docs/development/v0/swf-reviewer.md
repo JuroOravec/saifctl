@@ -76,7 +76,7 @@ If the gate script fails, the reviewer is never run. If the reviewer fails, the 
 ### Prerequisites
 
 - **Leash mode** (default). The reviewer runs inside the coder container. It is **not** used in `--dangerous-debug` mode.
-- **Argus binary.** Downloaded automatically from [JuroOravec/argus](https://github.com/JuroOravec/argus) releases on first use and cached under `/tmp/saifac/bin/` as versioned files, e.g. `argus-linux-arm64-v0.5.4` (`SAIF_REVIEWER_BIN_DIR` overrides the directory). The pinned version is set via `ARGUS_VERSION` in `argus.ts` (see `vendor/README.md`).
+- **Argus binary.** Downloaded automatically from [JuroOravec/argus](https://github.com/JuroOravec/argus) releases on first use and cached under `/tmp/saifac/bin/` as versioned files, e.g. `argus-linux-arm64-v0.5.5` (`SAIF_REVIEWER_BIN_DIR` overrides the directory). The pinned version is set via `ARGUS_VERSION` in `argus.ts` (see `vendor/README.md`).
 
 ### Enable the Reviewer
 
@@ -143,7 +143,7 @@ The orchestrator injects these into the coder container when the reviewer is ena
 | ------------------------ | --------------------------------------------- |
 | `SAIFAC_REVIEWER_SCRIPT` | Path to `reviewer.sh` (`/saifac/reviewer.sh`) |
 | `REVIEWER_LLM_PROVIDER`  | LLM provider (e.g. `anthropic`, `openai`)     |
-| `REVIEWER_LLM_MODEL`     | Model string                                  |
+| `REVIEWER_LLM_MODEL`     | API model id (e.g. `gpt-4o`, or `anthropic/claude-…` for OpenRouter) |
 | `REVIEWER_LLM_API_KEY`   | API key for the provider                      |
 | `REVIEWER_LLM_BASE_URL`  | Optional custom base URL                      |
 

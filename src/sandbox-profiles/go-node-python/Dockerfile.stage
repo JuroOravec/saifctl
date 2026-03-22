@@ -1,6 +1,6 @@
 # Staging image — go-node-python sandbox profile.
 #
-# Provides the Go toolchain, Node.js 22 LTS, and Python 3. Go is the primary
+# Provides the Go toolchain, Node.js 25, and Python 3. Go is the primary
 # runtime; Node.js and Python are available on the side. Project dependencies are
 # NOT installed here; startup.sh runs inside the container at runtime (after the
 # workspace is mounted).
@@ -17,18 +17,19 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /workspace
 
-# Install Node.js 22 LTS and Python toolchain to match Dockerfile.coder.
+# Install Node.js 25 and Python toolchain to match Dockerfile.coder.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     python3 \
     python3-venv \
     python3-pip \
     pipx \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_25.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pipx install uv --python python3
+RUN pipx install uv --python python3 \
+  && ln -sf /root/.local/bin/uv /usr/local/bin/uv
 
 # Ensure Go and pipx-managed binaries are on PATH.
 ENV GOPATH="/root/go"
