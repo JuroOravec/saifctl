@@ -160,13 +160,21 @@ echo "[reviewer] Running semantic review..."
 eval "$DIFF_CMD" | argus --config "$ARGUS_CONFIG" review --repo "$WORKSPACE" --format json --verbose > "$REVIEW_OUTPUT_JSON"
 EXIT_CODE=$?
 
+# Always print comments so the log shows what the reviewer said regardless of outcome.
+if command -v jq >/dev/null 2>&1; then
+  COMMENT_COUNT=$(jq '.comments | length' "$REVIEW_OUTPUT_JSON" 2>/dev/null || echo 0)
+  if [ "$COMMENT_COUNT" -gt 0 ]; then
+    echo "[reviewer] Comments:"
+    jq -r '.comments[] | "[reviewer]   [\(.severity)] \(.file_path):\(.line): \(.message)"' "$REVIEW_OUTPUT_JSON" || true
+  else
+    echo "[reviewer] No comments."
+  fi
+else
+  cat "$REVIEW_OUTPUT_JSON"
+fi
+
 if [ $EXIT_CODE -ne 0 ]; then
   echo "[reviewer] Reviewer found flaws."
-  if command -v jq >/dev/null 2>&1; then
-    jq -r '.comments[] | "- \(.file_path):\(.line): \(.message)"' "$REVIEW_OUTPUT_JSON" || true
-  else
-    cat "$REVIEW_OUTPUT_JSON"
-  fi
   exit 1
 fi
 

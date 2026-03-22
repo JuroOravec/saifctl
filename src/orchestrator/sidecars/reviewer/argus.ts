@@ -2,10 +2,14 @@
  * Ensures the Argus binary for Linux (amd64/arm64) is present.
  * Downloads from the fork release on first use; caches under `/tmp/saifac/bin/`.
  *
+ * We use **musl** builds so the binary has no GLIBC dependency and runs inside any Linux
+ * container regardless of libc version. The coder containers are based on Debian Bookworm
+ * (GLIBC 2.36), but the gnu builds require GLIBC 2.39+.
+ *
  * Cache filenames include the pinned semver so bumping `ARGUS_VERSION` fetches a new
  * build without manual cache cleanup, e.g.:
- *   /tmp/saifac/bin/argus-linux-amd64-v0.5.5
- *   /tmp/saifac/bin/argus-linux-arm64-v0.5.5
+ *   /tmp/saifac/bin/argus-linux-amd64-musl-v0.5.6
+ *   /tmp/saifac/bin/argus-linux-arm64-musl-v0.5.6
  *
  * Upstream: https://github.com/Meru143/argus (argus-ai npm package)
  * Fork (managed releases): https://github.com/JuroOravec/argus
@@ -24,21 +28,22 @@ import { pathExists, spawnAsync } from '../../../utils/io.js';
 const REVIEWER_BIN_DIR = process.env.SAIF_REVIEWER_BIN_DIR?.trim() || join('/tmp', 'saifac', 'bin');
 
 /** Fork release version — bump this when cutting a new fork release. */
-const ARGUS_VERSION = '0.5.5';
+const ARGUS_VERSION = '0.5.6';
 const REPO = 'JuroOravec/argus';
 
+// musl builds have no GLIBC dependency; they run on any Linux regardless of libc version.
 const ASSETS: Record<string, string> = {
-  x64: 'argus-x86_64-unknown-linux-gnu.tar.gz',
-  arm64: 'argus-aarch64-unknown-linux-gnu.tar.gz',
+  x64: 'argus-x86_64-unknown-linux-musl.tar.gz',
+  arm64: 'argus-aarch64-unknown-linux-musl.tar.gz',
 };
 
 function getBinaryPath(hostArch: 'arm64' | 'x64'): string {
   const suffix = hostArch === 'arm64' ? 'arm64' : 'amd64';
-  const binName = `argus-linux-${suffix}-v${ARGUS_VERSION}`;
+  const binName = `argus-linux-${suffix}-musl-v${ARGUS_VERSION}`;
   return join(REVIEWER_BIN_DIR, binName);
 }
 
-const VERSIONED_ARGUS_FILE = /^argus-linux-(amd64|arm64)-v(.+)$/;
+const VERSIONED_ARGUS_FILE = /^argus-linux-(amd64|arm64)-musl-v(.+)$/;
 
 /** Drop cached Argus binaries for other versions (same arch families). */
 async function pruneStaleArgusBinaries(): Promise<void> {

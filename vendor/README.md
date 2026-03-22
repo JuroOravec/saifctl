@@ -51,10 +51,16 @@ The workflow stays mergeable with upstream. On **JuroOravec/argus**, set a **Git
 When unset (upstream), behavior is unchanged: `release-plz release`, conditional release PR, and npm publish when `argus-ai` ships.
 
 The upstream repo's CI was not attaching binaries to releases. The fork fixes that.
-SAIF downloads the Argus binary for the current architecture on first use and caches it under
-**`/tmp/saifac/bin/`** as e.g. **`argus-linux-amd64-v0.5.5`** (semver in the filename; not in the repo).
+SAIF downloads the **musl** Argus binary for the current architecture on first use and caches it under
+**`/tmp/saifac/bin/`** as e.g. **`argus-linux-amd64-musl-v0.5.6`** (semver in the filename; not in the repo).
 Override with **`SAIF_REVIEWER_BIN_DIR`** if needed.
 The binary version is pinned via **`ARGUS_VERSION`** in `src/orchestrator/sidecars/reviewer/argus.ts`.
+
+> **Why musl?** The coder containers are based on Debian Bookworm (GLIBC 2.36). The `*-unknown-linux-gnu`
+> binaries built on modern Ubuntu/GitHub Actions runners require GLIBC 2.39+, causing a
+> `version 'GLIBC_2.39' not found` crash at runtime. musl binaries are statically linked
+> against musl libc and have **no GLIBC dependency**, so they run on any Linux regardless of
+> the container's libc version.
 
 ### Force a fork release (manual cut)
 
@@ -66,7 +72,7 @@ Use this when **release-plz isn’t what you want** (e.g. no PR, publish disable
 4. **Commit and push** to the fork’s **`main`** (use the same `VERSION` as in the files):
 
    ```bash
-   VERSION=0.5.5   # example — must match Cargo.toml + npm/package.json
+   VERSION=0.5.6   # example — must match Cargo.toml + npm/package.json
 
    git add Cargo.toml npm/package.json
    git commit -m "chore: bump version to ${VERSION}"
@@ -85,7 +91,7 @@ Use this when **release-plz isn’t what you want** (e.g. no PR, publish disable
      --notes "Manual fork release; CI attaches binaries."
    ```
 
-6. Wait for Actions to finish, then **bump `ARGUS_VERSION`** in `src/orchestrator/sidecars/reviewer/argus.ts` and commit. The next run downloads binaries with the new version in the filename (under `/tmp/saifac/bin/` by default); older cached builds are removed automatically when a new one is installed.
+6. Wait for Actions to finish (the musl build matrix must complete), then **bump `ARGUS_VERSION`** in `src/orchestrator/sidecars/reviewer/argus.ts` and commit. The next run downloads musl binaries with the new version in the filename (under `/tmp/saifac/bin/` by default); older cached builds are removed automatically when a new one is installed.
 
    Optionally refresh the **`vendor/argus`** submodule pointer in this repo.
 
@@ -118,7 +124,7 @@ Use this when **release-plz isn’t what you want** (e.g. no PR, publish disable
      --notes "Sync with upstream Meru143/argus v${VERSION}."
    ```
 
-   Wait ~10 min for the 5-platform build matrix to complete and attach assets.
+   Wait ~15 min for the 7-platform build matrix (including musl targets) to complete and attach assets.
 
 3. **Update `ARGUS_VERSION`** in `src/orchestrator/sidecars/reviewer/argus.ts` to the new version and commit:
 
