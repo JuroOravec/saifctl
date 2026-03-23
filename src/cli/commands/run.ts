@@ -5,12 +5,14 @@
  * Usage: saifac run <subcommand> [options]
  *   ls, list      List stored runs
  *   rm, remove    Delete a run
+ *   inspect       Print stored run as JSON
  */
 
 import { defineCommand, runMain } from 'citty';
 
 import { loadSaifConfig } from '../../config/load.js';
 import { consola } from '../../logger.js';
+import { toRunInspectJson } from '../../runs/utils/run-inspect.js';
 import { projectDirArg, saifDirArg, storageArg } from '../args.js';
 import { parseProjectDir, parseRunId, parseRunStorage, parseSaifDir } from '../utils.js';
 
@@ -112,6 +114,47 @@ const rmCommand = defineCommand({
   },
 });
 
+const inspectCommand = defineCommand({
+  meta: {
+    name: 'inspect',
+    description: 'Print a stored run as JSON (omits diffs; script paths only)',
+  },
+  args: {
+    ...commonRunArgs,
+    runId: {
+      type: 'positional' as const,
+      description: 'Run ID to inspect',
+      required: true,
+    },
+    pretty: {
+      type: 'boolean' as const,
+      default: true,
+      description: 'Pretty-print JSON (default: true). Use --no-pretty for one line.',
+    },
+  },
+  async run({ args }) {
+    const projectDir = parseProjectDir(args);
+    const saifDir = parseSaifDir(args);
+    const config = await loadSaifConfig(saifDir, projectDir);
+    const storage = parseRunStorage(args, projectDir, config);
+    if (!storage) {
+      consola.error('Run storage is disabled (--storage none).');
+      process.exit(1);
+    }
+    const runId = parseRunId(args);
+
+    const artifact = await storage.getRun(runId);
+    if (!artifact) {
+      consola.error(`Run not found: ${runId}`);
+      process.exit(1);
+    }
+
+    const view = toRunInspectJson(artifact);
+    const pretty = args.pretty !== false;
+    consola.log(JSON.stringify(view, null, pretty ? 2 : undefined));
+  },
+});
+
 const runCommand = defineCommand({
   meta: {
     name: 'run',
@@ -122,6 +165,7 @@ const runCommand = defineCommand({
     list: lsCommand,
     rm: rmCommand,
     remove: rmCommand,
+    inspect: inspectCommand,
   },
 });
 
