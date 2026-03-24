@@ -63,9 +63,9 @@ saifac init --project-dir ./packages/my-app
 When no config exists, `saifac init` creates `saifac/config.ts` with:
 
 ```typescript
-import type { SaifConfig } from 'safe-ai-factory';
+import type { SaifacConfig } from 'safe-ai-factory';
 
-const config: SaifConfig = {
+const config: SaifacConfig = {
   defaults: {
     // project: 'my-app',
     // indexerProfile: 'shotgun',

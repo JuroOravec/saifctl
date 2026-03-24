@@ -54,7 +54,7 @@ For multi-value options, saifac consistently uses **one flag** and **comma-separ
 | Agent env | `--agent-env`, `--agent-env-file` | Comma-separated `KEY=VAL` or paths |
 | Discovery MCP | `--discovery-mcp` | `name=url` entries, comma-separated |
 
-Because splitting is on **commas**, individual values usually **must not contain commas** (e.g. agent names in `--model` cannot include commas). URLs with query strings remain **bare** segments (not `key=value` keys) because only `\w+=` prefixes are treated as keyed parts — see comments on **`KEY_EQ_PATTERN`** in `parseStorageOverrides` / `parseCommaSeparatedOverrides`.
+Because splitting is on **commas**, individual values usually **must not contain commas** (e.g. agent names in `--model` cannot include commas). URLs with query strings remain **bare** segments (not `key=value` keys) because only `\w+=` prefixes are treated as keyed parts — see comments on **`KEY_EQ_PATTERN`** in **`resolveStorageOverrides`** / **`parseCommaSeparatedOverrides`** (`src/cli/utils.ts`).
 
 Some parsers can theoretically yield a **string array** for a repeated flag; a few call sites defensively flatten that, but **do not rely on repeated flags** — use commas.
 
@@ -62,8 +62,19 @@ Some parsers can theoretically yield a **string array** for a repeated flag; a f
 
 Required positionals (e.g. `runId`, feature `name`) are declared with `type: 'positional'`. If a required positional is missing, citty throws **`CLIError`** with a message like `Missing required positional argument: RUNID`. Integration tests that mock `process.exit` should still expect throws for parse-time errors before the handler runs.
 
+## Read vs resolve
+
+Command code keeps **citty’s parsed `args`** separate from **final values** (paths, merged config, storage clients):
+
+1. **Read** — thin helpers that return only what the user passed (e.g. `readProjectDirFromCli`, `readSaifDirFromCli`, `readStorageStringFromCli`, `readDiscoveryCliReads`, `readAgentEnvPairSegmentsFromCli`, `readAgentEnvFileRawFromCli`).
+2. **Resolve / merge** — combine those reads with `cwd`, loaded **`SaifacConfig`**, and defaults (`resolveCliProjectDir`, `resolveSaifDirRelative`, `resolveStorageOverrides`, `resolveRunStorage`, `resolveDiscoveryOptions`, `mergeAgentEnvFromReads`).
+3. **Models / base URLs** — the CLI supplies a **delta** only: **`parseModelOverridesCliDelta`** in `src/orchestrator/options.ts`. The full stack is **`mergeModelOverridesLayers(modelOverridesFromSaifacConfig(config), artifact?, cliDelta)`** (config → optional stored-run artifact → CLI).
+
+Comma-separated flag bodies are still tokenized by **`parseCommaSeparatedOverrides`** in `utils.ts`.
+
 ## Further reading
 
-- `src/cli/utils.ts` — shared parsing (`parseProjectDir`, `parseRunStorage`, `parseModelOverrides`, discovery, etc.).
+- `src/cli/utils.ts` — reads, resolves, discovery, agent-env merge, and comma parsing; storage merge is **`resolveStorageOverrides`** (raw string from **`readStorageStringFromCli`**).
+- `src/orchestrator/options.ts` — **`parseModelOverridesCliDelta`**, **`mergeModelOverridesLayers`**, **`modelOverridesFromSaifacConfig`**.
 - `src/cli/args.ts` — reusable `defineCommand` arg fragments.
 - Per-command files under `src/cli/commands/*.ts`.

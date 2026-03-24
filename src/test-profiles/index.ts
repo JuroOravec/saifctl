@@ -7,7 +7,7 @@
  *   - tests-catalog agent   → generates entrypoint paths with correct extension + naming
  *   - tests-coder agent     → generates test code in the correct language/framework
  *   - generateTests → copies the correct helpers/infra template files
- *   - parseTestScript (src/cli/utils.ts) → loads the profile's test.sh as the default test script
+ *   - loadTestScriptFromPick (src/cli/utils.ts) → loads the profile's test.sh as the default test script
  */
 
 import { join } from 'node:path';
@@ -37,13 +37,13 @@ export const SUPPORTED_PROFILES = {
 } satisfies Record<SupportedProfileId, TestProfile>;
 
 /** Returns the default profile (node-vitest). */
-export const DEFAULT_PROFILE: TestProfile = SUPPORTED_PROFILES['node-vitest'];
+export const DEFAULT_TEST_PROFILE: TestProfile = SUPPORTED_PROFILES['node-vitest'];
 
 const _profilesDir = join(getSaifRoot(), 'src', 'test-profiles');
 
 /**
  * Returns the absolute path to the test.sh script for the given profile id.
- * Used by the saifac CLI (`parseTestScript`) as the default `--test-script` when no override is provided.
+ * Used by the saifac CLI (`loadTestScriptFromPick`) as the default `--test-script` when no override is provided.
  */
 export function resolveTestScriptPath(profileId: SupportedProfileId): string {
   return join(_profilesDir, profileId, 'test.sh');
@@ -51,7 +51,7 @@ export function resolveTestScriptPath(profileId: SupportedProfileId): string {
 
 /**
  * Returns the absolute path to the Dockerfile for the given profile id.
- * Used when resolving the test-runner image / Dockerfile for a profile (see `parseTestImage` in CLI).
+ * Used when resolving the test-runner image / Dockerfile for a profile (see `resolveTestImageTag` + `readTestImageTagFromCli` in CLI).
  */
 export function resolveTestDockerfilePath(profileId: SupportedProfileId): string {
   return join(_profilesDir, profileId, 'Dockerfile');

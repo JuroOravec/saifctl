@@ -2,43 +2,34 @@
  * Shared CLI helpers used across command implementations.
  */
 
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 
 import { cancel, intro, isCancel, outro, select } from '@clack/prompts';
 
 import {
-  type AgentProfile,
-  DEFAULT_AGENT_PROFILE,
   resolveAgentInstallScriptPath,
   resolveAgentProfile,
   resolveAgentScriptPath,
+  type SupportedAgentProfileId,
 } from '../agent-profiles/index.js';
-import {
-  DEFAULT_STAGING_APP,
-  type NormalizedCodingEnvironment,
-  type NormalizedStagingEnvironment,
-  type SaifConfig,
-  type StagingAppConfig,
-} from '../config/schema.js';
-import { getSaifRoot } from '../constants.js';
-import {
-  DEFAULT_DESIGNER_PROFILE,
-  type DesignerProfile,
-  resolveDesignerProfile,
-} from '../designer-profiles/index.js';
-import { getGitProvider, type GitProvider } from '../git/index.js';
-import {
-  DEFAULT_INDEXER_PROFILE,
-  type IndexerProfile,
-  resolveIndexerProfile,
-} from '../indexer-profiles/index.js';
-import { isSupportedAgentName, type ModelOverrides, SUPPORTED_AGENT_NAMES } from '../llm-config.js';
+import { type SaifacConfig } from '../config/schema.js';
+import { DEFAULT_DESIGNER_PROFILE, resolveDesignerProfile } from '../designer-profiles/index.js';
+import type { DesignerProfile } from '../designer-profiles/types.js';
+import { getGitProvider } from '../git/index.js';
+import { DEFAULT_INDEXER_PROFILE, resolveIndexerProfile } from '../indexer-profiles/index.js';
+import type { IndexerProfile } from '../indexer-profiles/types.js';
 import { consola } from '../logger.js';
-import { DEFAULT_SANDBOX_BASE_DIR } from '../orchestrator/sandbox.js';
+import {
+  type OrchestratorCliInput,
+  type OrchestratorScriptPick,
+  pickAgentInstallScript,
+  pickAgentProfile,
+  pickAgentScript,
+  resolveAgentLogFormat as resolveAgentLogFormatLayer,
+} from '../orchestrator/options.js';
 import { createRunStorage } from '../runs/storage.js';
 import type { RunStorage } from '../runs/types.js';
 import {
-  DEFAULT_SANDBOX_PROFILE,
   readSandboxGateScript,
   readSandboxStageScript,
   readSandboxStartupScript,
@@ -46,51 +37,24 @@ import {
   resolveSandboxProfile,
   resolveSandboxStageScriptPath,
   resolveSandboxStartupScriptPath,
-  type SandboxProfile,
+  type SupportedSandboxProfileId,
 } from '../sandbox-profiles/index.js';
 import { discoverFeatures, type Feature, resolveFeature } from '../specs/discover.js';
 import { type StorageOverrides, SUPPORTED_STORAGE_KEYS } from '../storage/types.js';
 import {
-  DEFAULT_PROFILE,
   resolveTestProfile,
   resolveTestScriptPath,
   type SupportedProfileId,
-  type TestProfile,
 } from '../test-profiles/index.js';
+import { validateImageTag } from '../utils/docker.js';
 import { pathExists, readUtf8 } from '../utils/io.js';
 
-/**
- * Path label for run artifact reporting: relative to projectDir when the script
- * lives under the project, otherwise absolute (normalized).
- */
-export function scriptSourcePathForReporting(projectDir: string, absolutePath: string): string {
-  const proj = resolve(projectDir);
-  const abs = resolve(absolutePath);
-  const rel = relative(proj, abs);
-  if (rel === '') return abs;
-  if (!rel.startsWith('..') && !isAbsolute(rel)) return rel;
-  return abs;
-}
-
-/**
- * Resolves the sandbox base directory from --sandbox-base-dir.
- *
- * Returns config default or DEFAULT_SANDBOX_BASE_DIR when omitted.
- */
-export function parseSandboxBaseDir(
-  args: { 'sandbox-base-dir'?: string },
-  config?: SaifConfig,
-): string {
-  const raw = args['sandbox-base-dir'];
-  if (typeof raw === 'string' && raw.trim()) return raw.trim();
-  return config?.defaults?.sandboxBaseDir ?? DEFAULT_SANDBOX_BASE_DIR;
-}
+////////////////////////
+// CLI Parsing
+////////////////////////
 
 /** Only treat part as key=value if it matches ^\\w+= (avoids parsing query params in URLs). */
-const KEY_EQ_PATTERN = /^\w+=/;
-
-/** Agent name (key before =) must not contain comma, whitespace, or equals. */
-const MODEL_AGENT_NAME_PATTERN = /^[^,\s=]+$/;
+export const KEY_EQ_PATTERN = /^\w+=/;
 
 export interface ParseCommaSeparatedResult {
   global?: string;
@@ -173,13 +137,75 @@ export function parseCommaSeparatedOverrides(
   return result;
 }
 
+/** Args shape for orchestrator commands (design-fail2pass, run, test, etc.) */
+export interface OrchestratorArgs {
+  profile?: string;
+  'test-script'?: string;
+  'test-image'?: string;
+  'startup-script'?: string;
+  'gate-script'?: string;
+  'stage-script'?: string;
+  agent?: string;
+  'agent-script'?: string;
+  'agent-install-script'?: string;
+}
+
+/** Args shape for feat run. Extends OrchestratorArgs with run-specific flags. */
+export interface FeatRunArgs extends OrchestratorArgs {
+  'project-dir'?: string;
+  'saifac-dir'?: string;
+  name?: string;
+  model?: string;
+  'base-url'?: string;
+  storage?: string;
+  'max-runs'?: string;
+  'test-retries'?: string;
+  'test-profile'?: string;
+  'sandbox-base-dir'?: string;
+  project?: string;
+  'resolve-ambiguity'?: string;
+  'dangerous-debug'?: boolean;
+  cedar?: string;
+  'coder-image'?: string;
+  'gate-retries'?: string;
+  'no-reviewer'?: boolean;
+  /** Set by citty for `--no-reviewer` (negated boolean). */
+  reviewer?: boolean;
+  'agent-env'?: string | string[];
+  'agent-env-file'?: string;
+  'agent-log-format'?: string;
+  push?: string;
+  pr?: boolean;
+  'git-provider'?: string;
+  verbose?: boolean;
+}
+
+/** Path segment: kebab-case or (group) */
+const FEATURE_PATH_SEGMENT = /(?:[a-z0-9]+(?:-[a-z0-9]+)*|\([a-z0-9]+(?:-[a-z0-9]+)*\))/;
+
 /**
- * Parses --storage and returns a RunStorage instance for runs.
+ * Validates that a feature name is safe.
+ * Accepts flat (add-login) or path-based ((auth)/login) IDs.
  */
-export function parseRunStorage(args: { storage?: string }, projectDir: string): RunStorage | null {
-  const overrides = parseStorageOverrides(args);
-  const uri = overrides.dbStorages?.['runs'] ?? overrides.storage ?? 'local';
-  return createRunStorage(uri, projectDir);
+function validateFeatureName(name: string): void {
+  const pathRegex = new RegExp(
+    `^${FEATURE_PATH_SEGMENT.source}(?:/${FEATURE_PATH_SEGMENT.source})*$`,
+  );
+  if (!pathRegex.test(name)) {
+    consola.error(
+      `Invalid feature name: "${name}". Use kebab-case (add-login) or path (auth)/login.`,
+    );
+    process.exit(1);
+  }
+}
+
+/**
+ * Returns the feature name from args if present and valid. Otherwise undefined.
+ */
+export function getFeatNameFromArgs(args: { name?: string }): string | undefined {
+  const name = typeof args.name === 'string' ? args.name.trim() : undefined;
+  if (name) validateFeatureName(name);
+  return name || undefined;
 }
 
 /**
@@ -197,67 +223,366 @@ export function parseRunId(args: { runId?: string; _?: string[] }): string {
   return runId;
 }
 
-/** Args shape for orchestrator commands (design-fail2pass, run, test, etc.) */
-export interface OrchestratorArgs {
-  profile?: string;
-  'test-script'?: string;
-  'test-image'?: string;
-  'startup-script'?: string;
-  'gate-script'?: string;
-  'stage-script'?: string;
-  agent?: string;
-  'agent-script'?: string;
-  'agent-install-script'?: string;
+/** CLI-only: non-empty `--agent-env-file` raw string, or `undefined` if omitted. */
+export function readAgentEnvFileRawFromCli(args: FeatRunArgs): string | undefined {
+  const raw = args['agent-env-file'];
+  if (typeof raw !== 'string' || !raw.trim()) return undefined;
+  return raw;
 }
 
-/** Path segment: kebab-case or (group) */
-const FEATURE_PATH_SEGMENT = /(?:[a-z0-9]+(?:-[a-z0-9]+)*|\([a-z0-9]+(?:-[a-z0-9]+)*\))/;
+/**
+ * CLI-only: flattened `KEY=VALUE` segments from `--agent-env` (comma-separated),
+ * after splitting; does not validate pairs.
+ */
+function readAgentEnvPairSegmentsFromCli(args: FeatRunArgs): string[] {
+  const envFlags = args['agent-env'];
+  const rawStrings = Array.isArray(envFlags) ? envFlags : envFlags ? [envFlags] : [];
+  const out: string[] = [];
+  for (const raw of rawStrings) {
+    if (typeof raw !== 'string' || !raw.trim()) continue;
+    out.push(
+      ...raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+  }
+  return out;
+}
+
+/** CLI-only: `--agent-install-script` when present as a string, or `undefined` if omitted. */
+export function readAgentInstallScriptPathFromCli(args: OrchestratorArgs): string | undefined {
+  const v = args['agent-install-script'];
+  return typeof v === 'string' ? v : undefined;
+}
+
+/** CLI-only: raw `--agent-log-format` string, or `undefined` if omitted. */
+export function readAgentLogFormatFromCli(args: FeatRunArgs): string | undefined {
+  const raw = args['agent-log-format'];
+  return raw !== undefined && raw !== '' ? String(raw) : undefined;
+}
+
+/** CLI-only: trimmed `--agent` profile id, or `undefined` if omitted / empty. */
+export function readAgentProfileIdFromCli(args: OrchestratorArgs): string | undefined {
+  const raw = typeof args.agent === 'string' ? args.agent.trim() : '';
+  return raw || undefined;
+}
+
+/** CLI-only: `--agent-script` when present as a string, or `undefined` if omitted. */
+export function readAgentScriptPathFromCli(args: OrchestratorArgs): string | undefined {
+  const v = args['agent-script'];
+  return typeof v === 'string' ? v : undefined;
+}
+
+/** CLI-only: non-empty `--cedar` path, or `undefined` if omitted. */
+export function readCedarPolicyPathFromCli(args: FeatRunArgs): string | undefined {
+  const v = args.cedar;
+  if (typeof v === 'string' && v.trim()) return v.trim();
+  return undefined;
+}
+
+/** CLI-only: non-empty `--coder-image`, or `undefined` if omitted. */
+export function readCoderImageTagFromCli(args: FeatRunArgs): string | undefined {
+  const v = args['coder-image'];
+  if (typeof v === 'string' && v.trim()) return v.trim();
+  return undefined;
+}
+
+/** CLI-only: `true` if `--dangerous-debug` was passed; `undefined` if omitted. */
+export function readDangerousDebugFromCli(args: FeatRunArgs): boolean | undefined {
+  return args['dangerous-debug'] === true ? true : undefined;
+}
+
+/** CLI-only: trimmed `--designer`, or `undefined` if omitted / empty. */
+export function readDesignerProfileIdFromCli(args: { designer?: string }): string | undefined {
+  const raw = typeof args.designer === 'string' ? args.designer.trim() : '';
+  return raw || undefined;
+}
+
+/** Normalized discovery flags from argv (before merging config.defaults). */
+export interface DiscoveryCliReads {
+  mcpParts: string[];
+  toolPathRaw: string | undefined;
+  promptInlineRaw: string | undefined;
+  promptFileRaw: string | undefined;
+}
 
 /**
- * Validates that a feature name is safe.
- * Accepts flat (add-login) or path-based ((auth)/login) IDs.
+ * Reads discovery-related CLI flags only (no config merge).
+ * `--discovery-mcp`: comma-split / repeated string parts (still `name=url` validated in {@link resolveDiscoveryOptions}).
  */
-export function validateFeatureName(name: string): void {
-  const pathRegex = new RegExp(
-    `^${FEATURE_PATH_SEGMENT.source}(?:/${FEATURE_PATH_SEGMENT.source})*$`,
-  );
-  if (!pathRegex.test(name)) {
-    consola.error(
-      `Invalid feature name: "${name}". Use kebab-case (add-login) or path (auth)/login.`,
-    );
+export function readDiscoveryCliReads(args: {
+  'discovery-mcp'?: string | string[];
+  'discovery-tool'?: string;
+  'discovery-prompt'?: string;
+  'discovery-prompt-file'?: string;
+}): DiscoveryCliReads {
+  const mcpRaw = args['discovery-mcp'];
+  const mcpParts = Array.isArray(mcpRaw)
+    ? mcpRaw.flatMap((s) => (typeof s === 'string' ? s.split(',').map((p) => p.trim()) : []))
+    : typeof mcpRaw === 'string'
+      ? mcpRaw.split(',').map((p) => p.trim())
+      : [];
+
+  const toolRaw = args['discovery-tool'];
+  const toolPathRaw = typeof toolRaw === 'string' && toolRaw.trim() ? toolRaw.trim() : undefined;
+
+  const pr = args['discovery-prompt'];
+  const promptInlineRaw = typeof pr === 'string' && pr.trim() ? pr.trim() : undefined;
+
+  const pf = args['discovery-prompt-file'];
+  const promptFileRaw = typeof pf === 'string' && pf.trim() ? pf.trim() : undefined;
+
+  return { mcpParts, toolPathRaw, promptInlineRaw, promptFileRaw };
+}
+
+/** CLI-only: positive integer from `--gate-retries`, or `undefined` if omitted. */
+export function readGateRetriesFromCli(args: FeatRunArgs): number | undefined {
+  const raw = args['gate-retries'];
+  if (typeof raw !== 'string') return undefined;
+  const parsed = parseInt(raw, 10);
+  if (isNaN(parsed) || parsed < 1) {
+    consola.error(`Invalid --gate-retries value: ${raw}. Must be a positive integer.`);
     process.exit(1);
   }
+  return parsed;
 }
 
-/**
- * Resolves the project directory from --project-dir.
- * Returns the absolute path. Defaults to process.cwd() when omitted.
- * (projectDir is not in config - it is required to find the config file.)
- */
-export function parseProjectDir(args: { 'project-dir'?: string }): string {
+/** CLI-only: `--gate-script` when present as a string, or `undefined` if omitted. */
+export function readGateScriptPathFromCli(args: OrchestratorArgs): string | undefined {
+  const v = args['gate-script'];
+  return typeof v === 'string' ? v : undefined;
+}
+
+/** CLI-only: trimmed `--git-provider`, or `undefined` if omitted / empty. */
+export function readGitProviderIdFromCli(args: FeatRunArgs): string | undefined {
+  const raw = args['git-provider'];
+  if (typeof raw === 'string' && raw.trim()) return raw.trim();
+  return undefined;
+}
+
+/** CLI-only: trimmed `--indexer`, or `undefined` if omitted / empty. */
+export function readIndexerProfileIdFromCli(args: { indexer?: string }): string | undefined {
+  const raw = typeof args.indexer === 'string' ? args.indexer.trim() : '';
+  return raw || undefined;
+}
+
+/** CLI-only: positive integer from `--max-runs`, or `undefined` if omitted. */
+export function readMaxRunsFromCli(args: FeatRunArgs): number | undefined {
+  const raw = args['max-runs'];
+  if (typeof raw !== 'string') return undefined;
+  const parsed = parseInt(raw, 10);
+  if (isNaN(parsed) || parsed < 1) {
+    consola.error(`Invalid --max-runs value: ${raw}. Must be a positive integer.`);
+    process.exit(1);
+  }
+  return parsed;
+}
+
+/** CLI-only: `true` when `--pr` was passed; `undefined` if omitted. */
+export function readPrTrueFromCli(args: FeatRunArgs): boolean | undefined {
+  return args.pr === true ? true : undefined;
+}
+
+/** CLI-only: trimmed `--project-dir` segment, or `undefined` if omitted / empty. */
+export function readProjectDirFromCli(args: { 'project-dir'?: string }): string | undefined {
   const raw = args['project-dir'];
-  const dir = typeof raw === 'string' && raw.trim() ? raw.trim() : '.';
-  return resolve(process.cwd(), dir);
+  if (typeof raw === 'string' && raw.trim()) return raw.trim();
+  return undefined;
+}
+
+/** CLI-only: `--push` string (trimmed) when present, or `undefined` if omitted / non-string. */
+export function readPushFromCli(args: FeatRunArgs): string | undefined {
+  const raw = args.push;
+  if (typeof raw === 'string') return raw.trim();
+  return undefined;
+}
+
+/** CLI-only: valid enum from `--resolve-ambiguity`, or `undefined` if omitted / invalid. */
+export function readResolveAmbiguityFromCli(
+  args: FeatRunArgs,
+): 'off' | 'prompt' | 'ai' | undefined {
+  const raw = args['resolve-ambiguity'];
+  if (raw === 'prompt' || raw === 'ai' || raw === 'off') return raw;
+  if (raw) {
+    consola.warn(`[cli] Unknown --resolve-ambiguity value "${raw}"; using stored/default.`);
+  }
+  return undefined;
 }
 
 /**
- * Resolves the saifac directory from --saifac-dir. Returns 'saifac' when omitted or empty.
+ * CLI-only: explicit reviewer disable (`false`) from `--no-reviewer` / `reviewer: false`; `undefined` if omitted.
+ *
+ * citty treats any `--no-<name>` as setting `<name>` to `false` before node:util sees it.
+ * So `--no-reviewer` yields `args.reviewer === false`, not `no-reviewer: true`.
  */
-export function parseSaifDir(args: { 'saifac-dir'?: string }): string {
+export function readReviewerEnabledFromCli(args: {
+  'no-reviewer'?: boolean;
+  reviewer?: boolean;
+}): boolean | undefined {
+  if (args['no-reviewer'] === true) return false;
+  if (args.reviewer === false) return false;
+  return undefined;
+}
+
+/** CLI-only: trimmed `--saifac-dir`, or `undefined` if omitted / empty. */
+export function readSaifDirFromCli(args: { 'saifac-dir'?: string }): string | undefined {
   const raw = args['saifac-dir'];
-  return typeof raw === 'string' && raw.trim() ? raw.trim() : 'saifac';
+  if (typeof raw === 'string' && raw.trim()) return raw.trim();
+  return undefined;
+}
+
+/** CLI-only: non-empty `--sandbox-base-dir`, or `undefined` if omitted. */
+export function readSandboxBaseDirFromCli(args: {
+  'sandbox-base-dir'?: string;
+}): string | undefined {
+  const raw = args['sandbox-base-dir'];
+  if (typeof raw === 'string' && raw.trim()) return raw.trim();
+  return undefined;
+}
+
+/** CLI-only: trimmed `--profile` (sandbox), or `undefined` if omitted / empty. */
+export function readSandboxProfileIdFromCli(args: OrchestratorArgs): string | undefined {
+  const raw = typeof args.profile === 'string' ? args.profile.trim() : '';
+  return raw || undefined;
+}
+
+/** CLI-only: `--stage-script` when present as a string, or `undefined` if omitted. */
+export function readStageScriptPathFromCli(args: OrchestratorArgs): string | undefined {
+  const v = args['stage-script'];
+  return typeof v === 'string' ? v : undefined;
+}
+
+/** CLI-only: `--startup-script` value when set as a string, or `undefined` if omitted. */
+export function readStartupScriptPathFromCli(args: OrchestratorArgs): string | undefined {
+  const v = args['startup-script'];
+  return typeof v === 'string' ? v : undefined;
+}
+
+/** CLI-only: raw `--storage` string when present, or `undefined` if omitted. */
+export function readStorageStringFromCli(args: { storage?: string }): string | undefined {
+  return typeof args.storage === 'string' ? args.storage : undefined;
+}
+
+/** CLI-only: non-empty `--test-image`, or `undefined` if omitted. */
+export function readTestImageTagFromCli(args: OrchestratorArgs): string | undefined {
+  const v = args['test-image'];
+  if (typeof v === 'string' && v.trim()) return v.trim();
+  return undefined;
+}
+
+/** CLI-only: trimmed `--test-profile` string, or `undefined` if omitted / empty. */
+export function readTestProfileIdFromCli(args: { 'test-profile'?: string }): string | undefined {
+  const raw = typeof args['test-profile'] === 'string' ? args['test-profile'].trim() : '';
+  return raw || undefined;
+}
+
+/** CLI-only: positive integer from `--test-retries`, or `undefined` if omitted. */
+export function readTestRetriesFromCli(args: FeatRunArgs): number | undefined {
+  const raw = args['test-retries'];
+  if (typeof raw !== 'string') return undefined;
+  const parsed = parseInt(raw, 10);
+  if (isNaN(parsed) || parsed < 1) {
+    consola.error(`Invalid --test-retries value: ${raw}. Must be a positive integer.`);
+    process.exit(1);
+  }
+  return parsed;
+}
+
+/** CLI-only: `--test-script` when present as a string, or `undefined` if omitted. */
+export function readTestScriptPathFromCli(args: OrchestratorArgs): string | undefined {
+  const v = args['test-script'];
+  return typeof v === 'string' ? v : undefined;
+}
+
+////////////////////////
+// Resolving values
+////////////////////////
+
+/**
+ * Merges `config.defaults.storage` with an optional CLI `--storage` string.
+ * Use {@link readStorageStringFromCli} for the CLI layer.
+ *
+ * Formats (CLI string):
+ *   Single global: local | s3 | s3://bucket/prefix
+ *   DB-specific: runs=local | runs=s3,tasks=s3://bucket/prefix
+ *   Mixed: s3,runs=local | runs=s3,s3://bucket/prefix?profile=x
+ *
+ * A part is treated as key=value ONLY if it matches ^\w+=, so URLs with query
+ * params (s3://b/p?region=us) are correctly treated as bare values (global).
+ *
+ * Errors: duplicate global, duplicate keys, unknown keys.
+ */
+export function resolveStorageOverrides(
+  cliRaw: string | undefined,
+  config?: SaifacConfig,
+): StorageOverrides {
+  const d = config?.defaults;
+  const configOverrides: StorageOverrides = {};
+  if (d?.globalStorage) configOverrides.globalStorage = d.globalStorage;
+  if (d?.storages) configOverrides.storages = { ...d.storages };
+
+  const cliNorm = (cliRaw ?? '').trim();
+  if (!cliNorm) return configOverrides;
+
+  const allowed = new Set(SUPPORTED_STORAGE_KEYS.map((k) => k.toLowerCase()));
+  const parsed = parseCommaSeparatedOverrides({
+    raw: cliNorm,
+    isKeyValue: (p) => KEY_EQ_PATTERN.test(p),
+    validateKey: (key, exit) => {
+      if (!allowed.has(key)) {
+        exit(`unknown key "${key}". Supported: ${SUPPORTED_STORAGE_KEYS.join(', ')}.`);
+      }
+    },
+    errorPrefix: '--storage',
+  });
+
+  const cliResult: StorageOverrides = {};
+  if (parsed.global) cliResult.globalStorage = parsed.global;
+  if (parsed.keys && Object.keys(parsed.keys).length > 0) cliResult.storages = parsed.keys;
+  return { ...configOverrides, ...cliResult };
 }
 
 /**
- * Resolves the project name: --project override, config default, else package.json "name" from repo root.
+ * Resolves run storage URI from optional CLI `--storage` + config defaults.
+ */
+/* eslint-disable-next-line max-params -- (cli raw, projectDir, config) */
+export function resolveRunStorage(
+  cliRaw: string | undefined,
+  projectDir: string,
+  config?: SaifacConfig,
+): RunStorage | null {
+  const overrides = resolveStorageOverrides(cliRaw, config);
+  const uri = overrides.storages?.['runs'] ?? overrides.globalStorage ?? 'local';
+  return createRunStorage(uri, projectDir);
+}
+
+/**
+ * Absolute project directory: CLI segment relative to `cwd`, or `cwd` itself when omitted.
+ * (`projectDir` is not in saifac config — it locates the repo for config discovery.)
+ */
+export function resolveCliProjectDir(cliSegment: string | undefined, cwd = process.cwd()): string {
+  const dir = cliSegment?.trim() ? cliSegment.trim() : '.';
+  return resolve(cwd, dir);
+}
+
+/** Relative saifac config directory name; defaults to `saifac`. */
+export function resolveSaifDirRelative(cliRaw: string | undefined): string {
+  return cliRaw?.trim() ? cliRaw.trim() : 'saifac';
+}
+
+/**
+ * Resolves the project name: --project override, config default,
+ * else package.json "name" from repo root.
  * Throws if neither yields a usable name.
  */
-export async function resolveProjectName(
-  opts: { project?: string },
-  projectDir: string,
-  config?: SaifConfig,
-): Promise<string> {
-  const fromOpt = typeof opts.project === 'string' ? opts.project.trim() : '';
+export async function resolveProjectName(opts: {
+  project?: string;
+  projectDir: string;
+  config?: SaifacConfig;
+}): Promise<string> {
+  const { project, projectDir, config } = opts;
+  const fromOpt = typeof project === 'string' ? project.trim() : '';
   const fromConfig = config?.defaults?.project;
   const explicit = fromOpt || (typeof fromConfig === 'string' ? fromConfig.trim() : '');
   if (explicit) return explicit;
@@ -281,59 +606,20 @@ export async function resolveProjectName(
 }
 
 /**
- * Returns the feature name from args if present and valid. Otherwise undefined.
+ * CLI id (from {@link readDesignerProfileIdFromCli}) + `config.defaults.designerProfile` + package default.
+ * Exits on invalid id.
  */
-export function getFeatNameFromArgs(args: { name?: string }): string | undefined {
-  const name = typeof args.name === 'string' ? args.name.trim() : undefined;
-  if (name) validateFeatureName(name);
-  return name || undefined;
-}
-
-/**
- * Resolves feature from args or prompts the user to select. Returns a Feature
- * object (name, absolutePath, relativePath).
- */
-export async function getFeatOrPrompt(
-  args: { name?: string; 'saifac-dir'?: string },
-  projectDir: string,
-): Promise<Feature> {
-  const saifDir = parseSaifDir(args);
-  const featuresMap = await discoverFeatures(projectDir, saifDir);
-  const features = [...featuresMap.keys()];
-
-  if (features.length === 0) {
-    consola.error('No features found. Run `saifac feat new` first.');
-    process.exit(1);
-  }
-
-  const fromArgs = getFeatNameFromArgs(args);
-  if (fromArgs) return await resolveFeature({ input: fromArgs, projectDir, saifDir });
-
-  features.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-
-  intro('Select feature');
-  const result = await select({
-    message: 'Feature',
-    options: features.map((f) => ({ value: f, label: f })),
-  });
-  outro('');
-  if (isCancel(result)) {
-    cancel('Operation cancelled.');
-    process.exit(1);
-  }
-  return await resolveFeature({ input: result as string, projectDir, saifDir });
-}
-
-/**
- * Resolves the designer profile from --designer. Uses config default or DEFAULT_DESIGNER_PROFILE when omitted.
- * Exits with an error if the given profile id is invalid.
- */
-export function parseDesignerProfile(
-  args: { designer?: string },
-  config?: SaifConfig,
+export function pickDesignerProfile(
+  cliId: string | undefined,
+  config?: SaifacConfig,
 ): DesignerProfile {
-  const raw = typeof args.designer === 'string' ? args.designer.trim() : '';
-  const id = raw || config?.defaults?.designerProfile || '';
+  const raw = (cliId ?? '').trim();
+  const id =
+    raw ||
+    (typeof config?.defaults?.designerProfile === 'string'
+      ? config.defaults.designerProfile.trim()
+      : '') ||
+    '';
   if (!id) return DEFAULT_DESIGNER_PROFILE;
   try {
     return resolveDesignerProfile(id);
@@ -344,20 +630,21 @@ export function parseDesignerProfile(
 }
 
 /**
- * Resolves the indexer profile from --indexer.
- * Returns undefined when indexer is "none", uses config or DEFAULT_INDEXER_PROFILE when omitted.
- * Exits on invalid id.
+ * CLI id + `config.defaults.indexerProfile` + package default.
+ * `none` (CLI or config) disables the indexer. Exits on invalid id.
  */
-export function parseIndexerProfile(
-  args: { indexer?: string },
-  config?: SaifConfig,
+export function pickIndexerProfile(
+  cliId: string | undefined,
+  config?: SaifacConfig,
 ): IndexerProfile | undefined {
-  const indexerRaw = typeof args.indexer === 'string' ? args.indexer.trim() : '';
-  const id = indexerRaw || config?.defaults?.indexerProfile || '';
-
-  // Allow explicit `--indexer none` or config indexerProfile: "none" to disable the indexer.
+  const indexerRaw = (cliId ?? '').trim();
+  const id =
+    indexerRaw ||
+    (typeof config?.defaults?.indexerProfile === 'string'
+      ? config.defaults.indexerProfile.trim()
+      : '') ||
+    '';
   if (id === 'none') return undefined;
-
   if (!id) return DEFAULT_INDEXER_PROFILE;
   try {
     return resolveIndexerProfile(id);
@@ -368,457 +655,29 @@ export function parseIndexerProfile(
 }
 
 /**
- * Resolves the test profile from --test-profile. Uses config or DEFAULT_PROFILE when omitted.
- * Exits with an error if the given profile id is invalid.
+ * Merges `config.defaults.agentEnv` with optional env files and `KEY=VALUE` segments
+ * (from {@link readAgentEnvFileRawFromCli} / {@link readAgentEnvPairSegmentsFromCli}).
  */
-export function parseTestProfile(
-  args: { 'test-profile'?: string },
-  config?: SaifConfig,
-): TestProfile {
-  const raw = typeof args['test-profile'] === 'string' ? args['test-profile'].trim() : '';
-  const id = raw || config?.defaults?.testProfile || '';
-  if (!id) return DEFAULT_PROFILE;
-  try {
-    return resolveTestProfile(id);
-  } catch (err) {
-    consola.error(`Error: ${String(err instanceof Error ? err.message : err)}`);
-    process.exit(1);
-  }
-}
-
-/** Validates that a Docker image tag is safe to interpolate into shell commands. */
-export function validateImageTag(tag: string, flagName: string): void {
-  if (!/^[a-zA-Z0-9_.\-:/@]+$/.test(tag)) {
-    consola.error(
-      `Invalid ${flagName} value: "${tag}". ` +
-        `Image tags must contain only letters, digits, hyphens, underscores, dots, colons, slashes, and @ signs.`,
-    );
-    process.exit(1);
-  }
-}
-
-/** Resolves the sandbox profile from --profile. Uses config or DEFAULT_SANDBOX_PROFILE when omitted. */
-export function parseSandboxProfile(args: OrchestratorArgs, config?: SaifConfig): SandboxProfile {
-  const raw = typeof args.profile === 'string' ? args.profile.trim() : '';
-  const id = raw || config?.defaults?.sandboxProfile || '';
-  if (!id) return DEFAULT_SANDBOX_PROFILE;
-  try {
-    return resolveSandboxProfile(id);
-  } catch (err) {
-    consola.error(`Error: ${String(err instanceof Error ? err.message : err)}`);
-    process.exit(1);
-  }
-}
-
-/** Returns the test image tag. Uses config or defaults to saifac-test-<profileId>:latest. */
-export function parseTestImage(
-  args: OrchestratorArgs,
-  profileId: string,
-  config?: SaifConfig,
-): string {
-  const v = args['test-image'];
-  const tag =
-    (typeof v === 'string' && v.trim() ? v.trim() : null) ??
-    config?.defaults?.testImage ??
-    `saifac-test-${profileId}:latest`;
-  validateImageTag(tag, '--test-image');
-  return tag;
-}
-
-/** Reads startup script from --startup-script, config default, or profile default. */
-export async function parseStartupScript(opts: {
-  args: OrchestratorArgs;
+export async function mergeAgentEnvFromReads(opts: {
   projectDir: string;
-  config?: SaifConfig;
-}): Promise<{ startupScript: string; startupScriptFile: string }> {
-  const { args, projectDir, config } = opts;
-  const raw = args['startup-script'] || config?.defaults?.startupScript;
-  if (typeof raw !== 'string' || !raw.trim()) {
-    const profile = parseSandboxProfile(args, config);
-    const abs = resolveSandboxStartupScriptPath(profile.id);
-    return {
-      startupScript: await readSandboxStartupScript(profile.id),
-      startupScriptFile: scriptSourcePathForReporting(projectDir, abs),
-    };
-  }
-  const scriptPath = resolve(projectDir, raw.trim());
-  if (!(await pathExists(scriptPath))) {
-    consola.error(`Error: --startup-script file not found: ${scriptPath}`);
-    process.exit(1);
-  }
-  return {
-    startupScript: await readUtf8(scriptPath),
-    startupScriptFile: scriptSourcePathForReporting(projectDir, scriptPath),
-  };
-}
-
-/** Reads gate script from --gate-script, config default, or profile default. */
-export async function parseGateScript(opts: {
-  args: OrchestratorArgs;
-  projectDir: string;
-  config?: SaifConfig;
-}): Promise<{ gateScript: string; gateScriptFile: string }> {
-  const { args, projectDir, config } = opts;
-  const raw = args['gate-script'] || config?.defaults?.gateScript;
-  const profile = parseSandboxProfile(args, config);
-  if (typeof raw !== 'string' || !raw.trim()) {
-    const abs = resolveSandboxGateScriptPath(profile.id);
-    return {
-      gateScript: await readSandboxGateScript(profile.id),
-      gateScriptFile: scriptSourcePathForReporting(projectDir, abs),
-    };
-  }
-  const scriptPath = resolve(projectDir, raw.trim());
-  if (!(await pathExists(scriptPath))) {
-    consola.error(`Error: --gate-script file not found: ${scriptPath}`);
-    process.exit(1);
-  }
-  return {
-    gateScript: await readUtf8(scriptPath),
-    gateScriptFile: scriptSourcePathForReporting(projectDir, scriptPath),
-  };
-}
-
-/** Reads stage script from --stage-script, config default, or profile default. */
-export async function parseStageScript(opts: {
-  args: OrchestratorArgs;
-  projectDir: string;
-  config?: SaifConfig;
-}): Promise<{ stageScript: string; stageScriptFile: string }> {
-  const { args, projectDir, config } = opts;
-  const raw = args['stage-script'] || config?.defaults?.stageScript;
-  const profile = parseSandboxProfile(args, config);
-  if (typeof raw !== 'string' || !raw.trim()) {
-    const abs = resolveSandboxStageScriptPath(profile.id);
-    return {
-      stageScript: await readSandboxStageScript(profile.id),
-      stageScriptFile: scriptSourcePathForReporting(projectDir, abs),
-    };
-  }
-  const scriptPath = resolve(projectDir, raw.trim());
-  if (!(await pathExists(scriptPath))) {
-    consola.error(`Error: --stage-script file not found: ${scriptPath}`);
-    process.exit(1);
-  }
-  return {
-    stageScript: await readUtf8(scriptPath),
-    stageScriptFile: scriptSourcePathForReporting(projectDir, scriptPath),
-  };
-}
-
-/** Reads agent scripts from --agent-script / --agent-install-script or profile defaults. */
-export async function parseAgentScripts(opts: {
-  args: OrchestratorArgs;
-  projectDir: string;
-  config?: SaifConfig;
-}): Promise<{
-  agentInstallScript: string;
-  agentInstallScriptFile: string;
-  agentScript: string;
-  agentScriptFile: string;
-}> {
-  const { args, projectDir, config } = opts;
-  const agentProfile = parseAgentProfile(args, config);
-
-  const rawStart = args['agent-install-script'];
-  let agentInstallScript: string;
-  let agentInstallScriptFile: string;
-  if (typeof rawStart === 'string' && rawStart.trim()) {
-    const p = resolve(projectDir, rawStart.trim());
-    if (!(await pathExists(p))) {
-      consola.error(`Error: --agent-install-script file not found: ${p}`);
-      process.exit(1);
-    }
-    agentInstallScript = await readUtf8(p);
-    agentInstallScriptFile = scriptSourcePathForReporting(projectDir, p);
-  } else {
-    const abs = resolveAgentInstallScriptPath(agentProfile.id);
-    agentInstallScript = await readUtf8(abs);
-    agentInstallScriptFile = scriptSourcePathForReporting(projectDir, abs);
-  }
-
-  const rawScript = args['agent-script'];
-  let agentScript: string;
-  let agentScriptFile: string;
-  if (typeof rawScript === 'string' && rawScript.trim()) {
-    const p = resolve(projectDir, rawScript.trim());
-    if (!(await pathExists(p))) {
-      consola.error(`Error: --agent-script file not found: ${p}`);
-      process.exit(1);
-    }
-    agentScript = await readUtf8(p);
-    agentScriptFile = scriptSourcePathForReporting(projectDir, p);
-  } else {
-    const abs = resolveAgentScriptPath(agentProfile.id);
-    agentScript = await readUtf8(abs);
-    agentScriptFile = scriptSourcePathForReporting(projectDir, abs);
-  }
-
-  return { agentInstallScript, agentInstallScriptFile, agentScript, agentScriptFile };
-}
-
-/** Reads test script from --test-script, config default, or profile default. */
-export async function parseTestScript(opts: {
-  args: OrchestratorArgs;
-  projectDir: string;
-  profileId: SupportedProfileId;
-  config?: SaifConfig;
-}): Promise<{ testScript: string; testScriptFile: string }> {
-  const { args, projectDir, profileId, config } = opts;
-  const raw = args['test-script'] || config?.defaults?.testScript;
-  if (typeof raw !== 'string' || !raw.trim()) {
-    const abs = resolveTestScriptPath(profileId);
-    return {
-      testScript: await readUtf8(abs),
-      testScriptFile: scriptSourcePathForReporting(projectDir, abs),
-    };
-  }
-  const scriptPath = resolve(projectDir, raw.trim());
-  if (!(await pathExists(scriptPath))) {
-    consola.error(`Error: --test-script file not found: ${scriptPath}`);
-    process.exit(1);
-  }
-  return {
-    testScript: await readUtf8(scriptPath),
-    testScriptFile: scriptSourcePathForReporting(projectDir, scriptPath),
-  };
-}
-
-/**
- * Parses CLI model override flags into a `ModelOverrides` object.
- * Merges config.defaults model overrides when present. CLI overrides config.
- *
- * --model: single global or comma-separated agent=model (same pattern as --storage).
- *   Single global: --model anthropic/claude-opus-4-5
- *   Agent-specific: --model vague-specs-check=anthropic/claude-opus-4-5
- *   Multiple: --model coder=openai/o3,pr-summarizer=openai/gpt-4o-mini
- *   Mixed: --model anthropic/claude-sonnet-4-6,pr-summarizer=openai/gpt-4o-mini
- *
- * --base-url: same pattern as --model (single global or agent=url). At most one global.
- *   Single global: --base-url https://api.example.com/v1
- *   Agent-specific: --base-url vague-specs-check=https://api.example.com/v1
- *   Multiple: --base-url vague-specs-check=https://..,pr-summarizer=https://..
- *   Mixed: --base-url https://..,pr-summarizer=https://..
- *   Uses KEY_EQ_PATTERN (^\w+=) so URLs with query params (?x=y) are treated as globals.
- */
-export function parseModelOverrides(
-  args: {
-    model?: string;
-    'base-url'?: string;
-  },
-  config?: SaifConfig,
-): ModelOverrides {
-  const overrides: ModelOverrides = {};
-
-  // Config defaults first
-  const d = config?.defaults;
-  if (d?.globalModel) overrides.globalModel = d.globalModel;
-  if (d?.globalBaseUrl) overrides.globalBaseUrl = d.globalBaseUrl;
-  if (d?.agentModels) overrides.agentModels = { ...d.agentModels };
-  if (d?.agentBaseUrls) overrides.agentBaseUrls = { ...d.agentBaseUrls };
-
-  const modelRaw = typeof args.model === 'string' ? args.model.trim() : '';
-  if (modelRaw) {
-    const parsed = parseCommaSeparatedOverrides({
-      raw: modelRaw,
-      isKeyValue: (p) => p.includes('='),
-      /* eslint-disable-next-line max-params */
-      validateKeyValue: (key, value, exit) => {
-        if (!key || !MODEL_AGENT_NAME_PATTERN.test(key)) {
-          exit(
-            'malformed part: expected model or agent=model (agent name must not contain comma, whitespace, or equals).',
-          );
-        }
-        if (!isSupportedAgentName(key)) {
-          exit(`unknown agent "${key}". Supported: ${SUPPORTED_AGENT_NAMES.join(', ')}.`);
-        }
-        if (!value) {
-          exit('malformed part: expected agent=model (model value must not be empty).');
-        }
-      },
-      errorPrefix: '--model',
-    });
-    if (parsed.global) overrides.globalModel = parsed.global;
-    if (parsed.keys && Object.keys(parsed.keys).length > 0) {
-      overrides.agentModels = { ...overrides.agentModels, ...parsed.keys };
-    }
-  }
-
-  const baseUrlRaw = typeof args['base-url'] === 'string' ? args['base-url'].trim() : '';
-  if (baseUrlRaw) {
-    const parsed = parseCommaSeparatedOverrides({
-      raw: baseUrlRaw,
-      isKeyValue: (p) => KEY_EQ_PATTERN.test(p), // URLs with ?x=y stay global
-      /* eslint-disable-next-line max-params */
-      validateKeyValue: (key, value, exit) => {
-        if (!key || !MODEL_AGENT_NAME_PATTERN.test(key)) {
-          exit(
-            'malformed part: expected base-url or agent=url (agent name must not contain comma, whitespace, or equals).',
-          );
-        }
-        if (!isSupportedAgentName(key)) {
-          exit(`unknown agent "${key}". Supported: ${SUPPORTED_AGENT_NAMES.join(', ')}.`);
-        }
-        if (!value) {
-          exit('malformed part: expected agent=url (URL value must not be empty).');
-        }
-      },
-      errorPrefix: '--base-url',
-    });
-    if (parsed.global) overrides.globalBaseUrl = parsed.global;
-    if (parsed.keys && Object.keys(parsed.keys).length > 0) {
-      overrides.agentBaseUrls = { ...overrides.agentBaseUrls, ...parsed.keys };
-    }
-  }
-
-  return overrides;
-}
-
-// ── Feat run parsers (used by saifac feat run) ────────────────────────
-
-/** Args shape for feat run. Extends OrchestratorArgs with run-specific flags. */
-export interface FeatRunArgs extends OrchestratorArgs {
-  storage?: string;
-  'max-runs'?: string;
-  'test-retries'?: string;
-  'resolve-ambiguity'?: string;
-  'dangerous-debug'?: boolean;
-  cedar?: string;
-  'coder-image'?: string;
-  'gate-retries'?: string;
-  'no-reviewer'?: boolean;
-  'agent-env'?: string | string[];
-  'agent-env-file'?: string;
-  'agent-log-format'?: string;
-  push?: string;
-  pr?: boolean;
-  'git-provider'?: string;
-  verbose?: boolean;
-}
-
-export function parseMaxRuns(args: FeatRunArgs, config?: SaifConfig): number {
-  const raw = args['max-runs'];
-  if (typeof raw === 'string') {
-    const parsed = parseInt(raw, 10);
-    if (isNaN(parsed) || parsed < 1) {
-      consola.error(`Invalid --max-runs value: ${raw}. Must be a positive integer.`);
-      process.exit(1);
-    }
-    return parsed;
-  }
-  return config?.defaults?.maxRuns ?? 5;
-}
-
-export function parseTestRetries(args: FeatRunArgs, config?: SaifConfig): number {
-  const raw = args['test-retries'];
-  if (typeof raw === 'string') {
-    const parsed = parseInt(raw, 10);
-    if (isNaN(parsed) || parsed < 1) {
-      consola.error(`Invalid --test-retries value: ${raw}. Must be a positive integer.`);
-      process.exit(1);
-    }
-    return parsed;
-  }
-  return config?.defaults?.testRetries ?? 1;
-}
-
-export function parseResolveAmbiguity(
-  args: FeatRunArgs,
-  config?: SaifConfig,
-): 'off' | 'prompt' | 'ai' {
-  const raw = args['resolve-ambiguity'];
-  if (raw === 'prompt' || raw === 'ai' || raw === 'off') return raw;
-  if (raw) {
-    consola.warn(`[cli] Unknown --resolve-ambiguity value "${raw}"; using "ai".`);
-  }
-  return config?.defaults?.resolveAmbiguity ?? 'ai';
-}
-
-export function parseDangerousDebug(args: FeatRunArgs, config?: SaifConfig): boolean {
-  if (args['dangerous-debug'] === true) return true;
-  return config?.defaults?.dangerousDebug ?? false;
-}
-
-export function parseCedarPolicyPath(args: FeatRunArgs, config?: SaifConfig): string {
-  const v = args.cedar;
-  if (typeof v === 'string' && v.trim()) return v.trim();
-  return (
-    config?.defaults?.cedarPolicyPath ??
-    join(getSaifRoot(), 'src', 'orchestrator', 'policies', 'default.cedar')
-  );
-}
-
-export function parseCoderImage(args: FeatRunArgs, config?: SaifConfig): string {
-  const v = args['coder-image'];
-  if (typeof v === 'string' && v.trim()) {
-    validateImageTag(v.trim(), '--coder-image');
-    return v.trim();
-  }
-  if (config?.defaults?.coderImage) {
-    validateImageTag(config.defaults.coderImage, 'config coderImage');
-    return config.defaults.coderImage;
-  }
-  const profile = parseSandboxProfile(args, config);
-  return profile.coderImageTag;
-}
-
-export function parseGateRetries(args: FeatRunArgs, config?: SaifConfig): number {
-  const raw = args['gate-retries'];
-  if (typeof raw === 'string') {
-    const parsed = parseInt(raw, 10);
-    if (isNaN(parsed) || parsed < 1) {
-      consola.error(`Invalid --gate-retries value: ${raw}. Must be a positive integer.`);
-      process.exit(1);
-    }
-    return parsed;
-  }
-  return config?.defaults?.gateRetries ?? 10;
-}
-
-/**
- * Parses reviewer skip flags. Default: true (reviewer enabled).
- *
- * citty treats any `--no-<name>` as setting `<name>` to `false` before node:util sees it.
- * So `--no-reviewer` yields `args.reviewer === false`, not `no-reviewer: true`.
- */
-export function parseReviewerEnabled(
-  args: { 'no-reviewer'?: boolean; reviewer?: boolean },
-  config?: SaifConfig,
-): boolean {
-  if (args['no-reviewer'] === true) return false;
-  if (args.reviewer === false) return false;
-  return config?.defaults?.reviewerEnabled ?? true;
-}
-
-/**
- * Parses --agent-env KEY=VALUE and --agent-env-file <path> into a single env map.
- *
- * Priority (highest to lowest; higher overrides lower):
- * - --agent-env single KEY=VALUE or comma-separated KEY1=VAL1,KEY2=VAL2 (values cannot contain commas)
- * - --agent-env-file single path or comma-separated paths merged left-to-right (e.g. ./a.env,./b.env)
- * - config agentEnv
- */
-export async function parseAgentEnv(opts: {
-  args: FeatRunArgs;
-  projectDir: string;
-  config?: SaifConfig;
+  config?: SaifacConfig;
+  fileRaw: string | undefined;
+  pairSegments: string[];
 }): Promise<Record<string, string>> {
-  const { args, projectDir, config } = opts;
+  const { projectDir, config, fileRaw: agentEnvFileRaw, pairSegments } = opts;
   // Merge order (lowest → highest priority):
   //   1. environments.coding.agentEnvironment — service-level baseline from config
   //   2. defaults.agentEnv — project-level defaults from config
   //   3. --agent-env-file — file-based overrides
   //   4. --agent-env    — CLI flag overrides (highest)
-  const codingAgentEnv = config?.environments?.coding?.agentEnvironment ?? {};
   const result: Record<string, string> = {
-    ...codingAgentEnv,
+    ...(config?.environments?.coding?.agentEnvironment ?? {}),
     ...(config?.defaults?.agentEnv ?? {}),
   };
 
   // --agent-env-file: single or comma-separated paths, merged left-to-right (later overrides earlier)
   // NOTE: If --agent-env-file is a single value, it's treated as an array of one.
-  const agentEnvFileRaw = args['agent-env-file'];
-  if (typeof agentEnvFileRaw === 'string' && agentEnvFileRaw.trim()) {
+  if (agentEnvFileRaw) {
     const paths = agentEnvFileRaw
       .split(',')
       .map((p) => p.trim())
@@ -854,104 +713,31 @@ export async function parseAgentEnv(opts: {
   }
 
   // --agent-env: single KEY=VALUE or comma-separated KEY1=VAL1,KEY2=VAL2 (split on comma; values cannot contain commas)
-  const envFlags = args['agent-env'];
-  const rawStrings = Array.isArray(envFlags) ? envFlags : envFlags ? [envFlags] : [];
-  for (const raw of rawStrings) {
-    if (typeof raw !== 'string' || !raw.trim()) continue;
-    const segments = raw
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    for (const seg of segments) {
-      // `KEY` (no `=`) is invalid
-      const eq = seg.indexOf('=');
-      if (eq === -1) {
-        consola.error(`Error: --agent-env: invalid pair "${seg}" (no '='). Expected KEY=VALUE.`);
-        process.exit(1);
-      }
-      // `=VAL` (no `KEY`) is invalid
-      const key = seg.slice(0, eq).trimEnd();
-      if (!key) {
-        consola.error(`Error: --agent-env: invalid pair "${seg}" (empty key). Expected KEY=VALUE.`);
-        process.exit(1);
-      }
-      // `KEY=` (no `VAL`) is invalid
-      const value = seg.slice(eq + 1).trimStart();
-      if (!value) {
-        consola.error(
-          `Error: --agent-env: invalid pair "${seg}" (empty value). Expected KEY=VALUE.`,
-        );
-        process.exit(1);
-      }
-      // Valid pair, add to result
-      result[key] = value;
+  for (const seg of pairSegments) {
+    // `KEY` (no `=`) is invalid
+    const eq = seg.indexOf('=');
+    if (eq === -1) {
+      consola.error(`Error: --agent-env: invalid pair "${seg}" (no '='). Expected KEY=VALUE.`);
+      process.exit(1);
     }
+    // `=VAL` (no `KEY`) is invalid
+    const key = seg.slice(0, eq).trimEnd();
+    if (!key) {
+      consola.error(`Error: --agent-env: invalid pair "${seg}" (empty key). Expected KEY=VALUE.`);
+      process.exit(1);
+    }
+    // `KEY=` (no `VAL`) is invalid
+    const value = seg.slice(eq + 1).trimStart();
+    if (!value) {
+      consola.error(`Error: --agent-env: invalid pair "${seg}" (empty value). Expected KEY=VALUE.`);
+      process.exit(1);
+    }
+    // Valid pair, add to result
+    result[key] = value;
   }
 
   return result;
 }
-
-export function parseAgentLogFormat(
-  args: FeatRunArgs,
-  agentProfile: AgentProfile,
-  config?: SaifConfig,
-): 'openhands' | 'raw' {
-  const raw = args['agent-log-format'];
-  if (raw === 'raw') return 'raw';
-  if (raw === 'openhands') return 'openhands';
-  if (raw) {
-    consola.warn(
-      `[cli] Unknown --agent-log-format "${raw}"; falling back to profile default (${agentProfile.defaultLogFormat}).`,
-    );
-  }
-  return config?.defaults?.agentLogFormat ?? agentProfile.defaultLogFormat;
-}
-
-export function parsePush(args: FeatRunArgs, config?: SaifConfig): string | null {
-  const raw = args.push;
-  if (typeof raw === 'string') return raw.trim();
-  return config?.defaults?.push ?? null;
-}
-
-export function parsePr(args: FeatRunArgs, config?: SaifConfig): boolean {
-  const hasPr = args.pr === true;
-  const fromConfig = config?.defaults?.pr ?? false;
-  const effective = hasPr || fromConfig;
-  if (effective && !parsePush(args, config)) {
-    consola.error('Error: --pr requires --push <target>.');
-    process.exit(1);
-  }
-  return hasPr || fromConfig;
-}
-
-export function parseGitProvider(args: FeatRunArgs, config?: SaifConfig): GitProvider {
-  const raw = args['git-provider'];
-  const id =
-    (typeof raw === 'string' && raw.trim() ? raw.trim() : '') ||
-    config?.defaults?.gitProvider ||
-    'github';
-  try {
-    return getGitProvider(id);
-  } catch (err) {
-    consola.error(`Error: ${String(err instanceof Error ? err.message : err)}`);
-    process.exit(1);
-  }
-}
-
-/** Resolves --agent to AgentProfile. Uses config or DEFAULT_AGENT_PROFILE when omitted. */
-export function parseAgentProfile(args: OrchestratorArgs, config?: SaifConfig): AgentProfile {
-  const raw = typeof args.agent === 'string' ? args.agent.trim() : '';
-  const id = raw || config?.defaults?.agentProfile || '';
-  if (!id) return DEFAULT_AGENT_PROFILE;
-  try {
-    return resolveAgentProfile(id);
-  } catch (err) {
-    consola.error(`Error: ${String(err instanceof Error ? err.message : err)}`);
-    process.exit(1);
-  }
-}
-
-// ── Discovery (design-discovery step) ─────────────────────────────────────
 
 export interface DiscoveryOptions {
   /** Named MCP servers: name -> HTTP(S) URL (Streamable HTTP transport) */
@@ -965,27 +751,14 @@ export interface DiscoveryOptions {
 }
 
 /**
- * Whether discovery should run (has mcps or tools).
+ * Merges `config.defaults` discovery fields with {@link readDiscoveryCliReads}.
+ * Validates MCP `name=url` parts and mutual exclusivity of prompt vs prompt-file from CLI.
  */
-export function shouldRunDiscovery(opts: DiscoveryOptions): boolean {
-  return Object.keys(opts.mcps).length > 0 || !!opts.tool;
-}
-
-/**
- * Parses discovery options from CLI and config.
- * --discovery-mcp: named only (name=url). Multiple or comma-separated.
- * --discovery-tool: path to a single JS/TS file.
- * --discovery-prompt and --discovery-prompt-file: mutually exclusive.
- */
-export function parseDiscoveryOptions(
-  args: {
-    'discovery-mcp'?: string | string[];
-    'discovery-tool'?: string;
-    'discovery-prompt'?: string;
-    'discovery-prompt-file'?: string;
-  },
+/* eslint-disable-next-line max-params */
+export function resolveDiscoveryOptions(
+  reads: DiscoveryCliReads,
   projectDir: string,
-  config?: SaifConfig,
+  config?: SaifacConfig,
 ): DiscoveryOptions {
   const d = config?.defaults;
   const mcps: Record<string, string> = { ...(d?.discoveryMcps ?? {}) };
@@ -993,17 +766,7 @@ export function parseDiscoveryOptions(
     ? resolve(projectDir, d.discoveryTools)
     : undefined;
 
-  // Parse --discovery-mcp
-  // Format: name=url (named only; bare URLs rejected). Multiple: comma-separated or repeated.
-  // Value: HTTP or HTTPS URL (Streamable HTTP transport), e.g. schema=http://internal-mcp/schema.
-  const mcpRaw = args['discovery-mcp'];
-  const mcpParts = Array.isArray(mcpRaw)
-    ? mcpRaw.flatMap((s) => (typeof s === 'string' ? s.split(',').map((p) => p.trim()) : []))
-    : typeof mcpRaw === 'string'
-      ? mcpRaw.split(',').map((p) => p.trim())
-      : [];
-
-  for (const part of mcpParts) {
+  for (const part of reads.mcpParts) {
     if (!part) continue;
     if (!part.includes('=')) {
       consola.error(
@@ -1021,24 +784,19 @@ export function parseDiscoveryOptions(
     mcps[key] = value;
   }
 
-  // Parse --discovery-tool
-  // Format: single path to JS/TS file (default export = object of Mastra tools). Resolved relative to projectDir.
-  const toolRaw = args['discovery-tool'];
-  if (typeof toolRaw === 'string' && toolRaw.trim()) {
-    tool = resolve(projectDir, toolRaw.trim());
+  if (reads.toolPathRaw) {
+    tool = resolve(projectDir, reads.toolPathRaw);
   }
 
-  // Parse --discovery-prompt and --discovery-prompt-file (mutually exclusive)
-  const hasPrompt = typeof args['discovery-prompt'] === 'string' && args['discovery-prompt'].trim();
-  const hasFile =
-    typeof args['discovery-prompt-file'] === 'string' && args['discovery-prompt-file'].trim();
+  const hasPrompt = !!reads.promptInlineRaw;
+  const hasFile = !!reads.promptFileRaw;
   if (hasPrompt && hasFile) {
     consola.error('Error: --discovery-prompt and --discovery-prompt-file are mutually exclusive.');
     process.exit(1);
   }
-  const prompt = hasPrompt ? args['discovery-prompt']!.trim() : d?.discoveryPrompt?.trim();
-  const promptFile = hasFile
-    ? resolve(projectDir, args['discovery-prompt-file']!.trim())
+  const prompt = reads.promptInlineRaw ?? d?.discoveryPrompt?.trim();
+  const promptFile = reads.promptFileRaw
+    ? resolve(projectDir, reads.promptFileRaw)
     : d?.discoveryPromptFile
       ? resolve(projectDir, d.discoveryPromptFile)
       : undefined;
@@ -1051,31 +809,500 @@ export function parseDiscoveryOptions(
   };
 }
 
+////////////////////////
+// Misc
+////////////////////////
+
 /**
- * Returns a normalized staging environment — always non-null.
- * When `environments.staging` is absent in config, defaults to `{ provisioner: 'docker' }`.
- * Guarantees that `app` (with DEFAULT_STAGING_APP defaults) and `appEnvironment`
- * are always present, eliminating the need for a separate `stagingAppConfig`.
+ * Path label for run artifact reporting: relative to projectDir when the script
+ * lives under the project, otherwise absolute (normalized).
  */
-export function parseStagingEnvironment(
-  config: SaifConfig | undefined,
-): NormalizedStagingEnvironment {
-  const raw = config?.environments?.staging ?? { provisioner: 'docker' as const };
-  const app: StagingAppConfig = {
-    ...DEFAULT_STAGING_APP,
-    ...('app' in raw ? raw.app : undefined),
-  };
-  const appEnvironment: Record<string, string> =
-    ('appEnvironment' in raw ? raw.appEnvironment : undefined) ?? {};
-  return { ...raw, app, appEnvironment };
+export function scriptSourcePathForReporting(projectDir: string, absolutePath: string): string {
+  const proj = resolve(projectDir);
+  const abs = resolve(absolutePath);
+  const rel = relative(proj, abs);
+  if (rel === '') return abs;
+  if (!rel.startsWith('..') && !isAbsolute(rel)) return rel;
+  return abs;
 }
 
 /**
- * Returns a normalized coding environment — always non-null.
- * When `environments.coding` is absent in config, defaults to `{ provisioner: 'docker' }`.
+ * Whether discovery should run (has mcps or tools).
  */
-export function parseCodingEnvironment(
-  config: SaifConfig | undefined,
-): NormalizedCodingEnvironment {
-  return config?.environments?.coding ?? { provisioner: 'docker' as const };
+export function shouldRunDiscovery(opts: DiscoveryOptions): boolean {
+  return Object.keys(opts.mcps).length > 0 || !!opts.tool;
+}
+
+/**
+ * Resolves feature from args or prompts the user to select. Returns a Feature
+ * object (name, absolutePath, relativePath).
+ */
+export async function getFeatOrPrompt(
+  args: { name?: string; 'saifac-dir'?: string },
+  projectDir: string,
+): Promise<Feature> {
+  const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
+  const featuresMap = await discoverFeatures(projectDir, saifDir);
+  const features = [...featuresMap.keys()];
+
+  if (features.length === 0) {
+    consola.error('No features found. Run `saifac feat new` first.');
+    process.exit(1);
+  }
+
+  const fromArgs = getFeatNameFromArgs(args);
+  if (fromArgs) return await resolveFeature({ input: fromArgs, projectDir, saifDir });
+
+  features.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+  intro('Select feature');
+  const result = await select({
+    message: 'Feature',
+    options: features.map((f) => ({ value: f, label: f })),
+  });
+  outro('');
+  if (isCancel(result)) {
+    cancel('Operation cancelled.');
+    process.exit(1);
+  }
+  return await resolveFeature({ input: result as string, projectDir, saifDir });
+}
+
+async function readOrchestratorScriptPick(opts: {
+  pick: OrchestratorScriptPick;
+  projectDir: string;
+  flagName: string;
+  readBundled: () => Promise<{ content: string; absPath: string }>;
+}): Promise<{ content: string; scriptFile: string }> {
+  const { pick, projectDir, flagName, readBundled } = opts;
+  if (pick.mode === 'profile') {
+    const { content, absPath } = await readBundled();
+    return { content, scriptFile: scriptSourcePathForReporting(projectDir, absPath) };
+  }
+  const scriptPath = resolve(projectDir, pick.relativePath);
+  if (!(await pathExists(scriptPath))) {
+    consola.error(`Error: ${flagName} file not found: ${scriptPath}`);
+    process.exit(1);
+  }
+  return {
+    content: await readUtf8(scriptPath),
+    scriptFile: scriptSourcePathForReporting(projectDir, scriptPath),
+  };
+}
+
+/** Loads startup script content from a {@link pickStartupScript} result (I/O). */
+export async function loadStartupScriptFromPick(opts: {
+  pick: OrchestratorScriptPick;
+  sandboxProfileId: SupportedSandboxProfileId;
+  projectDir: string;
+}): Promise<{ startupScript: string; startupScriptFile: string }> {
+  const { pick, sandboxProfileId, projectDir } = opts;
+  const r = await readOrchestratorScriptPick({
+    pick,
+    projectDir,
+    flagName: '--startup-script',
+    readBundled: async () => ({
+      content: await readSandboxStartupScript(sandboxProfileId),
+      absPath: resolveSandboxStartupScriptPath(sandboxProfileId),
+    }),
+  });
+  return { startupScript: r.content, startupScriptFile: r.scriptFile };
+}
+
+/** Loads gate script content from a {@link pickGateScript} result (I/O). */
+export async function loadGateScriptFromPick(opts: {
+  pick: OrchestratorScriptPick;
+  sandboxProfileId: SupportedSandboxProfileId;
+  projectDir: string;
+}): Promise<{ gateScript: string; gateScriptFile: string }> {
+  const { pick, sandboxProfileId, projectDir } = opts;
+  const r = await readOrchestratorScriptPick({
+    pick,
+    projectDir,
+    flagName: '--gate-script',
+    readBundled: async () => ({
+      content: await readSandboxGateScript(sandboxProfileId),
+      absPath: resolveSandboxGateScriptPath(sandboxProfileId),
+    }),
+  });
+  return { gateScript: r.content, gateScriptFile: r.scriptFile };
+}
+
+/** Loads stage script content from a {@link pickStageScript} result (I/O). */
+export async function loadStageScriptFromPick(opts: {
+  pick: OrchestratorScriptPick;
+  sandboxProfileId: SupportedSandboxProfileId;
+  projectDir: string;
+}): Promise<{ stageScript: string; stageScriptFile: string }> {
+  const { pick, sandboxProfileId, projectDir } = opts;
+  const r = await readOrchestratorScriptPick({
+    pick,
+    projectDir,
+    flagName: '--stage-script',
+    readBundled: async () => ({
+      content: await readSandboxStageScript(sandboxProfileId),
+      absPath: resolveSandboxStageScriptPath(sandboxProfileId),
+    }),
+  });
+  return { stageScript: r.content, stageScriptFile: r.scriptFile };
+}
+
+/** Loads agent install + run scripts from {@link pickAgentInstallScript} / {@link pickAgentScript} results (I/O). */
+export async function loadAgentScriptsFromPicks(opts: {
+  installPick: OrchestratorScriptPick;
+  scriptPick: OrchestratorScriptPick;
+  agentProfileId: SupportedAgentProfileId;
+  projectDir: string;
+}): Promise<{
+  agentInstallScript: string;
+  agentInstallScriptFile: string;
+  agentScript: string;
+  agentScriptFile: string;
+}> {
+  const { installPick, scriptPick, agentProfileId, projectDir } = opts;
+
+  const installR = await readOrchestratorScriptPick({
+    pick: installPick,
+    projectDir,
+    flagName: '--agent-install-script',
+    readBundled: async () => {
+      const absPath = resolveAgentInstallScriptPath(agentProfileId);
+      return { content: await readUtf8(absPath), absPath };
+    },
+  });
+
+  const scriptR = await readOrchestratorScriptPick({
+    pick: scriptPick,
+    projectDir,
+    flagName: '--agent-script',
+    readBundled: async () => {
+      const absPath = resolveAgentScriptPath(agentProfileId);
+      return { content: await readUtf8(absPath), absPath };
+    },
+  });
+
+  return {
+    agentInstallScript: installR.content,
+    agentInstallScriptFile: installR.scriptFile,
+    agentScript: scriptR.content,
+    agentScriptFile: scriptR.scriptFile,
+  };
+}
+
+/** Loads test script content from a {@link pickTestScript} result (I/O). */
+export async function loadTestScriptFromPick(opts: {
+  pick: OrchestratorScriptPick;
+  testProfileId: SupportedProfileId;
+  projectDir: string;
+}): Promise<{ testScript: string; testScriptFile: string }> {
+  const { pick, testProfileId, projectDir } = opts;
+  const r = await readOrchestratorScriptPick({
+    pick,
+    projectDir,
+    flagName: '--test-script',
+    readBundled: async () => {
+      const absPath = resolveTestScriptPath(testProfileId);
+      return { content: await readUtf8(absPath), absPath };
+    },
+  });
+  return { testScript: r.content, testScriptFile: r.scriptFile };
+}
+
+/**
+ * Builds {@link OrchestratorCliInput}: explicit CLI overrides only (`undefined` = do not clobber artifact/defaults).
+ */
+export async function buildOrchestratorCliInputFromFeatArgs(
+  args: FeatRunArgs,
+  ctx: { projectDir: string; saifDir: string; config: SaifacConfig },
+): Promise<OrchestratorCliInput> {
+  const { projectDir, config } = ctx;
+  const runArgs = args;
+
+  const maxRuns =
+    typeof runArgs['max-runs'] === 'string'
+      ? (() => {
+          const parsed = parseInt(runArgs['max-runs'], 10);
+          if (isNaN(parsed) || parsed < 1) {
+            consola.error(
+              `Invalid --max-runs value: ${runArgs['max-runs']}. Must be a positive integer.`,
+            );
+            process.exit(1);
+          }
+          return parsed;
+        })()
+      : undefined;
+
+  const testRetries =
+    typeof runArgs['test-retries'] === 'string'
+      ? (() => {
+          const parsed = parseInt(runArgs['test-retries'], 10);
+          if (isNaN(parsed) || parsed < 1) {
+            consola.error(
+              `Invalid --test-retries value: ${runArgs['test-retries']}. Must be a positive integer.`,
+            );
+            process.exit(1);
+          }
+          return parsed;
+        })()
+      : undefined;
+
+  const gateRetries =
+    typeof runArgs['gate-retries'] === 'string'
+      ? (() => {
+          const parsed = parseInt(runArgs['gate-retries'], 10);
+          if (isNaN(parsed) || parsed < 1) {
+            consola.error(
+              `Invalid --gate-retries value: ${runArgs['gate-retries']}. Must be a positive integer.`,
+            );
+            process.exit(1);
+          }
+          return parsed;
+        })()
+      : undefined;
+
+  const resolveAmbiguityRaw = runArgs['resolve-ambiguity'];
+  let resolveAmbiguity: 'off' | 'prompt' | 'ai' | undefined;
+  if (
+    resolveAmbiguityRaw === 'prompt' ||
+    resolveAmbiguityRaw === 'ai' ||
+    resolveAmbiguityRaw === 'off'
+  ) {
+    resolveAmbiguity = resolveAmbiguityRaw;
+  } else if (resolveAmbiguityRaw) {
+    consola.warn(
+      `[cli] Unknown --resolve-ambiguity value "${resolveAmbiguityRaw}"; keeping stored/default.`,
+    );
+    resolveAmbiguity = undefined;
+  }
+
+  const dangerousDebug = runArgs['dangerous-debug'] === true ? true : undefined;
+
+  const cedarPolicyPath =
+    typeof runArgs.cedar === 'string' && runArgs.cedar.trim() ? runArgs.cedar.trim() : undefined;
+
+  const coderImageRaw =
+    typeof runArgs['coder-image'] === 'string' ? runArgs['coder-image'].trim() : '';
+  const coderImage =
+    coderImageRaw !== ''
+      ? (validateImageTag(coderImageRaw, '--coder-image'), coderImageRaw)
+      : undefined;
+
+  const sandboxProfileIdCli =
+    typeof runArgs.profile === 'string' && runArgs.profile.trim()
+      ? resolveSandboxProfile(runArgs.profile.trim()).id
+      : undefined;
+
+  const agentProfileIdCli =
+    typeof runArgs.agent === 'string' && runArgs.agent.trim()
+      ? resolveAgentProfile(runArgs.agent.trim()).id
+      : undefined;
+
+  const agentProfileForFormat =
+    agentProfileIdCli !== undefined
+      ? resolveAgentProfile(agentProfileIdCli)
+      : pickAgentProfile(readAgentProfileIdFromCli(runArgs), config);
+
+  const testProfileCli =
+    typeof runArgs['test-profile'] === 'string' && runArgs['test-profile'].trim()
+      ? resolveTestProfile(runArgs['test-profile'].trim())
+      : undefined;
+
+  const testImageCli =
+    typeof runArgs['test-image'] === 'string' && runArgs['test-image'].trim()
+      ? (validateImageTag(runArgs['test-image'].trim(), '--test-image'),
+        runArgs['test-image'].trim())
+      : undefined;
+
+  let startupScript: string | undefined;
+  let startupScriptFile: string | undefined;
+  const startupRaw = runArgs['startup-script'];
+  if (typeof startupRaw === 'string' && startupRaw.trim()) {
+    const scriptPath = resolve(projectDir, startupRaw.trim());
+    if (!(await pathExists(scriptPath))) {
+      consola.error(`Error: --startup-script file not found: ${scriptPath}`);
+      process.exit(1);
+    }
+    startupScript = await readUtf8(scriptPath);
+    startupScriptFile = scriptSourcePathForReporting(projectDir, scriptPath);
+  }
+
+  let gateScript: string | undefined;
+  let gateScriptFile: string | undefined;
+  const gateRaw = runArgs['gate-script'];
+  if (typeof gateRaw === 'string' && gateRaw.trim()) {
+    const scriptPath = resolve(projectDir, gateRaw.trim());
+    if (!(await pathExists(scriptPath))) {
+      consola.error(`Error: --gate-script file not found: ${scriptPath}`);
+      process.exit(1);
+    }
+    gateScript = await readUtf8(scriptPath);
+    gateScriptFile = scriptSourcePathForReporting(projectDir, scriptPath);
+  }
+
+  let stageScript: string | undefined;
+  let stageScriptFile: string | undefined;
+  const stageRaw = runArgs['stage-script'];
+  if (typeof stageRaw === 'string' && stageRaw.trim()) {
+    const scriptPath = resolve(projectDir, stageRaw.trim());
+    if (!(await pathExists(scriptPath))) {
+      consola.error(`Error: --stage-script file not found: ${scriptPath}`);
+      process.exit(1);
+    }
+    stageScript = await readUtf8(scriptPath);
+    stageScriptFile = scriptSourcePathForReporting(projectDir, scriptPath);
+  }
+
+  let agentInstallScript: string | undefined;
+  let agentInstallScriptFile: string | undefined;
+  let agentScript: string | undefined;
+  let agentScriptFile: string | undefined;
+
+  /**
+   * `--agent <id>` loads that profile's bundled install + agent scripts into the CLI layer so merge
+   * does not keep the baseline profile's script bodies. More specific flags override after:
+   * `--agent-install-script` / `--agent-script` replace only the paths they name.
+   */
+  if (agentProfileIdCli !== undefined) {
+    const loaded = await loadAgentScriptsFromPicks({
+      installPick: pickAgentInstallScript(undefined),
+      scriptPick: pickAgentScript(undefined),
+      agentProfileId: agentProfileIdCli,
+      projectDir,
+    });
+    agentInstallScript = loaded.agentInstallScript;
+    agentInstallScriptFile = loaded.agentInstallScriptFile;
+    agentScript = loaded.agentScript;
+    agentScriptFile = loaded.agentScriptFile;
+  }
+
+  const rawInstall = runArgs['agent-install-script'];
+  if (typeof rawInstall === 'string' && rawInstall.trim()) {
+    const p = resolve(projectDir, rawInstall.trim());
+    if (!(await pathExists(p))) {
+      consola.error(`Error: --agent-install-script file not found: ${p}`);
+      process.exit(1);
+    }
+    agentInstallScript = await readUtf8(p);
+    agentInstallScriptFile = scriptSourcePathForReporting(projectDir, p);
+  }
+
+  const rawScript = runArgs['agent-script'];
+  if (typeof rawScript === 'string' && rawScript.trim()) {
+    const p = resolve(projectDir, rawScript.trim());
+    if (!(await pathExists(p))) {
+      consola.error(`Error: --agent-script file not found: ${p}`);
+      process.exit(1);
+    }
+    agentScript = await readUtf8(p);
+    agentScriptFile = scriptSourcePathForReporting(projectDir, p);
+  }
+
+  let testScript: string | undefined;
+  let testScriptFile: string | undefined;
+  const testRaw = runArgs['test-script'];
+  if (typeof testRaw === 'string' && testRaw.trim()) {
+    const scriptPath = resolve(projectDir, testRaw.trim());
+    if (!(await pathExists(scriptPath))) {
+      consola.error(`Error: --test-script file not found: ${scriptPath}`);
+      process.exit(1);
+    }
+    testScript = await readUtf8(scriptPath);
+    testScriptFile = scriptSourcePathForReporting(projectDir, scriptPath);
+  }
+
+  const reviewerEnabled =
+    runArgs['no-reviewer'] === true || runArgs.reviewer === false ? false : undefined;
+
+  const agentEnv =
+    runArgs['agent-env'] || runArgs['agent-env-file']
+      ? await mergeAgentEnvFromReads({
+          projectDir,
+          config,
+          fileRaw: readAgentEnvFileRawFromCli(runArgs),
+          pairSegments: readAgentEnvPairSegmentsFromCli(runArgs),
+        })
+      : undefined;
+
+  const agentLogFormatRaw = readAgentLogFormatFromCli(runArgs);
+  const agentLogFormat =
+    agentLogFormatRaw === 'raw' || agentLogFormatRaw === 'openhands'
+      ? agentLogFormatRaw
+      : agentLogFormatRaw
+        ? resolveAgentLogFormatLayer(agentLogFormatRaw, agentProfileForFormat, config)
+        : undefined;
+
+  const push =
+    typeof runArgs.push === 'string' && runArgs.push.trim() ? runArgs.push.trim() : undefined;
+
+  const pr = runArgs.pr === true ? true : undefined;
+
+  const gitProvider =
+    typeof runArgs['git-provider'] === 'string' && runArgs['git-provider'].trim()
+      ? getGitProvider(runArgs['git-provider'].trim())
+      : undefined;
+
+  const runStorage =
+    typeof runArgs.storage === 'string'
+      ? resolveRunStorage(readStorageStringFromCli(runArgs), projectDir, config)
+      : undefined;
+
+  const saifDirCli =
+    typeof runArgs['saifac-dir'] === 'string' && runArgs['saifac-dir'].trim()
+      ? runArgs['saifac-dir'].trim()
+      : undefined;
+
+  const sandboxBaseDir =
+    typeof runArgs['sandbox-base-dir'] === 'string' && runArgs['sandbox-base-dir'].trim()
+      ? runArgs['sandbox-base-dir'].trim()
+      : undefined;
+
+  const projectName =
+    typeof runArgs.project === 'string' && runArgs.project.trim()
+      ? await resolveProjectName({ project: runArgs.project, projectDir, config })
+      : undefined;
+
+  const out: OrchestratorCliInput = {
+    sandboxProfileId: sandboxProfileIdCli,
+    agentProfileId: agentProfileIdCli,
+    feature: undefined,
+    projectDir: undefined,
+    maxRuns,
+    overrides: undefined,
+    saifDir: saifDirCli,
+    sandboxBaseDir,
+    projectName,
+    testImage: testImageCli,
+    resolveAmbiguity,
+    testRetries,
+    dangerousDebug,
+    cedarPolicyPath,
+    coderImage,
+    startupScript,
+    startupScriptFile,
+    gateScript,
+    gateScriptFile,
+    agentInstallScript,
+    agentInstallScriptFile,
+    agentScript,
+    agentScriptFile,
+    stageScript,
+    stageScriptFile,
+    testScript,
+    testScriptFile,
+    testProfile: testProfileCli,
+    agentEnv,
+    agentLogFormat,
+    gateRetries,
+    reviewerEnabled,
+    push,
+    pr,
+    gitProvider,
+    runStorage,
+    stagingEnvironment: undefined,
+    codingEnvironment: undefined,
+    patchExclude: undefined,
+    resume: undefined,
+    verbose: runArgs.verbose === true ? true : undefined,
+  };
+  return out;
 }

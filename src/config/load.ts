@@ -11,7 +11,7 @@ import { cosmiconfig } from 'cosmiconfig';
 
 import { consola } from '../logger.js';
 import { pathExists } from '../utils/io.js';
-import { type SaifConfig, saifConfigSchema } from './schema.js';
+import { type SaifacConfig, saifacConfigSchema } from './schema.js';
 
 const EXPLORER = cosmiconfig('saifac', {
   searchPlaces: [
@@ -34,7 +34,7 @@ const EXPLORER = cosmiconfig('saifac', {
  * @param projectDir - Project root (for resolving relative saifDir when needed)
  * @returns Parsed and validated config, or empty defaults if no file found
  */
-export async function loadSaifConfig(saifDir: string, projectDir: string): Promise<SaifConfig> {
+export async function loadSaifacConfig(saifDir: string, projectDir: string): Promise<SaifacConfig> {
   const configDir = resolve(projectDir, saifDir);
   if (!(await pathExists(configDir))) {
     return {};
@@ -46,7 +46,7 @@ export async function loadSaifConfig(saifDir: string, projectDir: string): Promi
   }
 
   try {
-    return saifConfigSchema.parse(result.config);
+    return saifacConfigSchema.parse(result.config);
   } catch (err) {
     consola.error(`Error parsing config at ${result.filepath}:`);
     consola.error(err);

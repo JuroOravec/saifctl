@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveFeature } from '../specs/discover.js';
-import { DEFAULT_PROFILE } from '../test-profiles/index.js';
+import { DEFAULT_TEST_PROFILE } from '../test-profiles/index.js';
 import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
 import { generateTests } from './write.js';
 
@@ -90,7 +90,7 @@ describe('generateTests', () => {
   it('writes helpers.ts', async () => {
     const result = await generateTests({
       feature,
-      testProfile: DEFAULT_PROFILE,
+      testProfile: DEFAULT_TEST_PROFILE,
     });
     const helpersPath = join(result.testsDir, 'helpers.ts');
     expect(await pathExists(helpersPath)).toBe(true);
@@ -102,7 +102,7 @@ describe('generateTests', () => {
   it('writes infra.spec.ts', async () => {
     const result = await generateTests({
       feature,
-      testProfile: DEFAULT_PROFILE,
+      testProfile: DEFAULT_TEST_PROFILE,
     });
     const infraPath = join(result.testsDir, 'infra.spec.ts');
     expect(await pathExists(infraPath)).toBe(true);
@@ -113,7 +113,7 @@ describe('generateTests', () => {
   it('generates spec files for each unique entrypoint', async () => {
     const result = await generateTests({
       feature,
-      testProfile: DEFAULT_PROFILE,
+      testProfile: DEFAULT_TEST_PROFILE,
     });
 
     const publicSpec = join(result.testsDir, 'public', 'happy.spec.ts');
@@ -126,7 +126,7 @@ describe('generateTests', () => {
   it('reports generated and skipped files', async () => {
     const result = await generateTests({
       feature,
-      testProfile: DEFAULT_PROFILE,
+      testProfile: DEFAULT_TEST_PROFILE,
     });
     expect(result.generatedFiles).toContain('public/happy.spec.ts');
     expect(result.generatedFiles).toContain('hidden/boundary.spec.ts');
@@ -141,7 +141,7 @@ describe('generateTests', () => {
 
     const result = await generateTests({
       feature,
-      testProfile: DEFAULT_PROFILE,
+      testProfile: DEFAULT_TEST_PROFILE,
     });
 
     expect(await readUtf8(existingPath)).toBe('// custom content');
@@ -156,7 +156,7 @@ describe('generateTests', () => {
 
     await generateTests({
       feature,
-      testProfile: DEFAULT_PROFILE,
+      testProfile: DEFAULT_TEST_PROFILE,
     });
 
     expect(await readUtf8(helpersPath)).toBe('// custom helpers');
@@ -165,7 +165,7 @@ describe('generateTests', () => {
   it('returns correct testCaseCount', async () => {
     const result = await generateTests({
       feature,
-      testProfile: DEFAULT_PROFILE,
+      testProfile: DEFAULT_TEST_PROFILE,
     });
     expect(result.testCaseCount).toBe(2);
   });
@@ -192,7 +192,7 @@ describe('generateTests', () => {
 
     const result = await generateTests({
       feature,
-      testProfile: DEFAULT_PROFILE,
+      testProfile: DEFAULT_TEST_PROFILE,
     });
     expect(await pathExists(join(result.testsDir, 'infra.spec.ts'))).toBe(true);
   });
@@ -211,7 +211,7 @@ describe('generateTests (error cases)', () => {
     await expect(
       generateTests({
         feature,
-        testProfile: DEFAULT_PROFILE,
+        testProfile: DEFAULT_TEST_PROFILE,
       }),
     ).rejects.toThrow(/tests.json not found/);
   });
@@ -227,7 +227,7 @@ describe('generateTests (error cases)', () => {
     await expect(
       generateTests({
         feature,
-        testProfile: DEFAULT_PROFILE,
+        testProfile: DEFAULT_TEST_PROFILE,
       }),
     ).rejects.toThrow(/schema validation/);
   });

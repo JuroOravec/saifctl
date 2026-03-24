@@ -39,6 +39,7 @@ async function writeRunJson(projectDir: string, runId: string): Promise<void> {
       gitProviderId: 'github',
       testProfileId: 'vitest',
       sandboxProfileId: 'vitest',
+      agentProfileId: 'openhands',
       projectDir: '/tmp',
       maxRuns: 5,
       overrides: {},

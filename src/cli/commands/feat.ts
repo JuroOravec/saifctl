@@ -20,20 +20,34 @@ import { join, resolve } from 'node:path';
 import { cancel, confirm, intro, isCancel, outro, text } from '@clack/prompts';
 import { defineCommand, runMain } from 'citty';
 
-import {
-  DEFAULT_AGENT_PROFILE,
-  resolveAgentInstallScriptPath,
-  resolveAgentScriptPath,
-} from '../../agent-profiles/index.js';
-import { loadSaifConfig } from '../../config/load.js';
-import { type SaifConfig } from '../../config/schema.js';
+import { loadSaifacConfig } from '../../config/load.js';
+import { type SaifacConfig } from '../../config/schema.js';
 import { runDiscovery } from '../../design-discovery/run.js';
 import { runDesignTests } from '../../design-tests/design.js';
 import { generateTests } from '../../design-tests/write.js';
 import { DEFAULT_DESIGNER_PROFILE } from '../../designer-profiles/index.js';
 import type { ModelOverrides } from '../../llm-config.js';
 import { consola, setVerboseLogging } from '../../logger.js';
+import { logIterativeLoopSettings } from '../../orchestrator/loop.js';
 import { runDebug, runFail2Pass, runStart } from '../../orchestrator/modes.js';
+import {
+  mergeModelOverridesLayers,
+  modelOverridesFromSaifacConfig,
+  parseModelOverridesCliDelta,
+  pickAgentInstallScript,
+  pickAgentProfile,
+  pickAgentScript,
+  pickGateScript,
+  pickSandboxProfile,
+  pickStageScript,
+  pickStartupScript,
+  pickTestProfile,
+  pickTestScript,
+  resolveOrchestratorOpts,
+  resolveSandboxBaseDir,
+  resolveStagingEnvironment,
+  resolveTestImageTag,
+} from '../../orchestrator/options.js';
 import {
   readSandboxGateScript,
   resolveSandboxGateScriptPath,
@@ -41,6 +55,7 @@ import {
 import type { Feature } from '../../specs/discover.js';
 import { pathExists, readUtf8, writeUtf8 } from '../../utils/io.js';
 import {
+  featAgentArgs,
   featRunArgs,
   featTestsArgs,
   indexerArg,
@@ -57,43 +72,38 @@ import {
 } from '../args.js';
 import type { ParsedArgsFromCommand } from '../types.js';
 import {
+  buildOrchestratorCliInputFromFeatArgs,
   type FeatRunArgs,
   getFeatNameFromArgs,
   getFeatOrPrompt,
+  loadAgentScriptsFromPicks,
+  loadGateScriptFromPick,
+  loadStageScriptFromPick,
+  loadStartupScriptFromPick,
+  loadTestScriptFromPick,
   type OrchestratorArgs,
-  parseAgentEnv,
-  parseAgentLogFormat,
-  parseAgentProfile,
-  parseAgentScripts,
-  parseCedarPolicyPath,
-  parseCoderImage,
-  parseCodingEnvironment,
-  parseDangerousDebug,
-  parseDesignerProfile,
-  parseDiscoveryOptions,
-  parseGateRetries,
-  parseGateScript,
-  parseGitProvider,
-  parseIndexerProfile,
-  parseMaxRuns,
-  parseModelOverrides,
-  parsePr,
-  parseProjectDir,
-  parsePush,
-  parseResolveAmbiguity,
-  parseReviewerEnabled,
-  parseRunStorage,
-  parseSaifDir,
-  parseSandboxBaseDir,
-  parseSandboxProfile,
-  parseStageScript,
-  parseStagingEnvironment,
-  parseStartupScript,
-  parseTestImage,
-  parseTestProfile,
-  parseTestRetries,
-  parseTestScript,
+  pickDesignerProfile,
+  pickIndexerProfile,
+  readAgentInstallScriptPathFromCli,
+  readAgentProfileIdFromCli,
+  readAgentScriptPathFromCli,
+  readDesignerProfileIdFromCli,
+  readDiscoveryCliReads,
+  readGateScriptPathFromCli,
+  readIndexerProfileIdFromCli,
+  readProjectDirFromCli,
+  readSaifDirFromCli,
+  readSandboxBaseDirFromCli,
+  readSandboxProfileIdFromCli,
+  readStageScriptPathFromCli,
+  readStartupScriptPathFromCli,
+  readTestImageTagFromCli,
+  readTestProfileIdFromCli,
+  readTestScriptPathFromCli,
+  resolveCliProjectDir,
+  resolveDiscoveryOptions,
   resolveProjectName,
+  resolveSaifDirRelative,
   scriptSourcePathForReporting,
   shouldRunDiscovery,
 } from '../utils.js';
@@ -144,11 +154,11 @@ const newCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const projectDir = parseProjectDir(args);
+    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
     const nonInteractive = args.yes === true;
     const namePreFill = getFeatNameFromArgs(args);
 
-    const saifDir = parseSaifDir(args);
+    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
 
     if (nonInteractive && !namePreFill) {
       consola.error('Error: --name/-n is required when using --yes/-y');
@@ -269,18 +279,22 @@ async function _runDesignDiscovery(args: {
   'discovery-prompt-file'?: string;
   [key: string]: unknown;
 }) {
-  const projectDir = parseProjectDir(args);
-  const saifDir = parseSaifDir(args);
-  const config = await loadSaifConfig(saifDir, projectDir);
+  const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+  const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
+  const config = await loadSaifacConfig(saifDir, projectDir);
   const feature = await getFeatOrPrompt(args, projectDir);
-  const discovery = parseDiscoveryOptions(args, projectDir, config);
+  const discovery = resolveDiscoveryOptions(readDiscoveryCliReads(args), projectDir, config);
   if (!shouldRunDiscovery(discovery)) {
     consola.error(
       'Error: design-discovery requires discoveryMcps or discoveryTools (via --discovery-mcp, --discovery-tool, or config).',
     );
     process.exit(1);
   }
-  const overrides = parseModelOverrides(args, config);
+  const overrides = mergeModelOverridesLayers(
+    modelOverridesFromSaifacConfig(config),
+    undefined,
+    parseModelOverridesCliDelta(args),
+  );
   consola.log(`\nDiscovery (context gathering): ${feature.name}`);
   await runDiscovery({
     feature,
@@ -302,9 +316,9 @@ async function _runDesignSpecs(args: {
   'project-dir'?: string;
   [key: string]: unknown;
 }) {
-  const projectDir = parseProjectDir(args);
-  const saifDir = parseSaifDir(args);
-  const config = await loadSaifConfig(saifDir, projectDir);
+  const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+  const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
+  const config = await loadSaifacConfig(saifDir, projectDir);
   const nonInteractive = args.yes === true;
   const force = args.force === true;
   if (nonInteractive && !getFeatNameFromArgs(args)) {
@@ -312,8 +326,12 @@ async function _runDesignSpecs(args: {
     process.exit(1);
   }
   const feature = await getFeatOrPrompt(args, projectDir);
-  const designerProfile = parseDesignerProfile(args, config);
-  const overrides = parseModelOverrides(args, config);
+  const designerProfile = pickDesignerProfile(readDesignerProfileIdFromCli(args), config);
+  const overrides = mergeModelOverridesLayers(
+    modelOverridesFromSaifacConfig(config),
+    undefined,
+    parseModelOverridesCliDelta(args),
+  );
 
   const designerBaseOpts = { cwd: projectDir, feature, saifDir };
 
@@ -425,7 +443,7 @@ interface DesignTestsOptions {
   skipCatalog: boolean;
   force: boolean;
   overrides: ModelOverrides;
-  config?: SaifConfig;
+  config?: SaifacConfig;
   args: {
     'test-profile'?: string;
     indexer?: string;
@@ -443,9 +461,9 @@ async function _runDesignTests({
   config,
   args,
 }: DesignTestsOptions) {
-  const projectName = await resolveProjectName(args, projectDir, config);
-  const testProfile = parseTestProfile(args, config);
-  const indexerProfile = parseIndexerProfile(args, config);
+  const projectName = await resolveProjectName({ project: args.project, projectDir, config });
+  const testProfile = pickTestProfile(readTestProfileIdFromCli(args), config);
+  const indexerProfile = pickIndexerProfile(readIndexerProfileIdFromCli(args), config);
 
   if (!skipCatalog) {
     // 2a. Read specs and generate a plan of what to test as markdown and JSON.
@@ -503,11 +521,15 @@ const designTestsCommand = defineCommand({
   },
   args: designTestsArgs,
   async run({ args }) {
-    const projectDir = parseProjectDir(args);
-    const saifDir = parseSaifDir(args);
-    const config = await loadSaifConfig(saifDir, projectDir);
+    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
+    const config = await loadSaifacConfig(saifDir, projectDir);
     const feature = await getFeatOrPrompt(args, projectDir);
-    const overrides = parseModelOverrides(args, config);
+    const overrides = mergeModelOverridesLayers(
+      modelOverridesFromSaifacConfig(config),
+      undefined,
+      parseModelOverridesCliDelta(args),
+    );
 
     const skipCatalog = args['skip-catalog'] === true;
     const force = args.force === true;
@@ -548,23 +570,49 @@ async function _runDesignFail2pass(opts: {
   feature: Feature;
   projectDir: string;
   saifDir: string;
-  config?: SaifConfig;
+  config?: SaifacConfig;
   args: DesignFail2passArgs;
 }): Promise<void> {
   const { feature, projectDir, saifDir, config, args } = opts;
-  const sandboxBaseDir = parseSandboxBaseDir(args, config);
+  const sandboxBaseDir = readSandboxBaseDirFromCli(args) ?? resolveSandboxBaseDir(config);
 
-  const projectName = await resolveProjectName(args, projectDir, config);
-  const sandboxProfile = parseSandboxProfile(args, config);
-  const testProfile = parseTestProfile(args, config);
-  const testImage = parseTestImage(args, testProfile.id, config);
+  const projectName = await resolveProjectName({ project: args.project, projectDir, config });
+  const sandboxProfile = pickSandboxProfile(readSandboxProfileIdFromCli(args), config);
+  const testProfile = pickTestProfile(readTestProfileIdFromCli(args), config);
+  const testImage = resolveTestImageTag(readTestImageTagFromCli(args), testProfile.id, config);
+
+  const startupPick = pickStartupScript(readStartupScriptPathFromCli(args), config);
+  const gatePick = pickGateScript(readGateScriptPathFromCli(args), config);
+  const stagePick = pickStageScript(readStageScriptPathFromCli(args), config);
+  const agentProfile = pickAgentProfile(readAgentProfileIdFromCli(args), config);
 
   const [gateR, startupR, stageR, agentR, testR] = await Promise.all([
-    parseGateScript({ args, projectDir, config }),
-    parseStartupScript({ args, projectDir, config }),
-    parseStageScript({ args, projectDir, config }),
-    parseAgentScripts({ args, projectDir, config }),
-    parseTestScript({ args, projectDir, profileId: testProfile.id, config }),
+    loadGateScriptFromPick({
+      pick: gatePick,
+      sandboxProfileId: sandboxProfile.id,
+      projectDir,
+    }),
+    loadStartupScriptFromPick({
+      pick: startupPick,
+      sandboxProfileId: sandboxProfile.id,
+      projectDir,
+    }),
+    loadStageScriptFromPick({
+      pick: stagePick,
+      sandboxProfileId: sandboxProfile.id,
+      projectDir,
+    }),
+    loadAgentScriptsFromPicks({
+      installPick: pickAgentInstallScript(readAgentInstallScriptPathFromCli(args)),
+      scriptPick: pickAgentScript(readAgentScriptPathFromCli(args)),
+      agentProfileId: agentProfile.id,
+      projectDir,
+    }),
+    loadTestScriptFromPick({
+      pick: pickTestScript(readTestScriptPathFromCli(args), config),
+      testProfileId: testProfile.id,
+      projectDir,
+    }),
   ]);
   const gateScript = gateR.gateScript;
   const startupScript = startupR.startupScript;
@@ -572,7 +620,7 @@ async function _runDesignFail2pass(opts: {
   const { agentInstallScript, agentScript } = agentR;
   const testScript = testR.testScript;
 
-  const stagingEnvironment = parseStagingEnvironment(config);
+  const stagingEnvironment = resolveStagingEnvironment(config);
 
   consola.log(`\nFail2Pass verification: ${feature.name}`);
   const result = await runFail2Pass({
@@ -604,9 +652,9 @@ const designFail2passCommand = defineCommand({
   },
   args: designFail2passArgs,
   async run({ args }) {
-    const projectDir = parseProjectDir(args);
-    const saifDir = parseSaifDir(args);
-    const config = await loadSaifConfig(saifDir, projectDir);
+    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
+    const config = await loadSaifacConfig(saifDir, projectDir);
     const feature = await getFeatOrPrompt(args, projectDir);
     await _runDesignFail2pass({
       feature,
@@ -634,10 +682,10 @@ const designCommand = defineCommand({
     ...designFail2passArgs,
   },
   async run({ args }) {
-    const projectDir = parseProjectDir(args);
-    const saifDir = parseSaifDir(args);
-    const config = await loadSaifConfig(saifDir, projectDir);
-    const discovery = parseDiscoveryOptions(args, projectDir, config);
+    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
+    const config = await loadSaifacConfig(saifDir, projectDir);
+    const discovery = resolveDiscoveryOptions(readDiscoveryCliReads(args), projectDir, config);
 
     // 0. Design-discovery (when mcps or tools configured)
     if (shouldRunDiscovery(discovery)) {
@@ -682,6 +730,9 @@ const featDebugArgs = {
   profile: profileArg,
   'startup-script': startupScriptArg,
   'stage-script': stageScriptArg,
+  agent: featAgentArgs.agent,
+  'agent-script': featAgentArgs['agent-script'],
+  'agent-install-script': featAgentArgs['agent-install-script'],
 };
 
 // ---------------------------------------------------------------------------
@@ -711,129 +762,32 @@ const runCommand = defineCommand({
 });
 
 export const parseRunArgs = async (args: ParsedArgsFromCommand<typeof runCommand>) => {
-  const projectDir = parseProjectDir(args);
-  const saifDir = parseSaifDir(args);
-  const config = await loadSaifConfig(saifDir, projectDir);
+  const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+  const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
+  const config = await loadSaifacConfig(saifDir, projectDir);
 
   const feature = await getFeatOrPrompt(args, projectDir);
   const runArgs = args as FeatRunArgs;
   setVerboseLogging(runArgs.verbose === true);
 
-  const maxRuns = parseMaxRuns(runArgs, config);
-  const overrides = parseModelOverrides(args, config);
-  const sandboxBaseDir = parseSandboxBaseDir(args, config);
-  const projectName = await resolveProjectName(args, projectDir, config);
-  const testProfile = parseTestProfile(args, config);
-  const testImage = parseTestImage(runArgs, testProfile.id, config);
-  const resolveAmbiguity = parseResolveAmbiguity(runArgs, config);
-  const testRetries = parseTestRetries(runArgs, config);
-  const dangerousDebug = parseDangerousDebug(runArgs, config);
-  const cedarPolicyPath = parseCedarPolicyPath(runArgs, config);
-  const coderImage = parseCoderImage(runArgs, config);
-  const sandboxProfile = parseSandboxProfile(runArgs, config);
-  const agentProfile = parseAgentProfile(runArgs, config);
+  const cli = await buildOrchestratorCliInputFromFeatArgs(runArgs, { projectDir, saifDir, config });
+  const cliModelDelta = parseModelOverridesCliDelta(runArgs);
 
-  const [startupR, gateR, agentR, stageR, testR] = await Promise.all([
-    parseStartupScript({ args: runArgs, projectDir, config }),
-    parseGateScript({ args: runArgs, projectDir, config }),
-    parseAgentScripts({ args: runArgs, projectDir, config }),
-    parseStageScript({ args: runArgs, projectDir, config }),
-    parseTestScript({
-      args: runArgs,
-      projectDir,
-      profileId: testProfile.id,
-      config,
-    }),
-  ]);
-  const startupScript = startupR.startupScript;
-  const startupScriptFile = startupR.startupScriptFile;
-  const gateScript = gateR.gateScript;
-  const gateScriptFile = gateR.gateScriptFile;
-  const stageScript = stageR.stageScript;
-  const stageScriptFile = stageR.stageScriptFile;
-  const { agentInstallScript, agentInstallScriptFile, agentScript, agentScriptFile } = agentR;
-  const testScript = testR.testScript;
-  const testScriptFile = testR.testScriptFile;
-
-  const gateRetries = parseGateRetries(runArgs, config);
-  const reviewerEnabled = parseReviewerEnabled(runArgs, config);
-  const agentEnv = await parseAgentEnv({ args: runArgs, projectDir, config });
-  const agentLogFormat = parseAgentLogFormat(runArgs, agentProfile, config);
-  const push = parsePush(runArgs, config);
-  const pr = parsePr(runArgs, config);
-  const gitProvider = parseGitProvider(runArgs, config);
-  const runStorage = parseRunStorage(runArgs, projectDir, config);
-  const stagingEnvironment = parseStagingEnvironment(config);
-  const codingEnvironment = parseCodingEnvironment(config);
-
-  consola.log(`\nStarting iterative loop: ${feature.name}`);
-  consola.log(`  Max runs: ${maxRuns}`);
-  consola.log(`  Test retries: ${testRetries}`);
-  consola.log(`  Spec ambiguity resolution: ${resolveAmbiguity}`);
-  consola.log(`  Test image: ${testImage}`);
-  if (dangerousDebug) {
-    consola.log('  Leash: disabled (host execution)');
-  } else {
-    consola.log(`  Leash: enabled (image: ${coderImage})`);
-    consola.log(`  Cedar policy: ${cedarPolicyPath}`);
-  }
-  consola.log(`  Startup script: ${sandboxProfile.id} profile default`);
-  consola.log(`  Gate script: ${sandboxProfile.id} profile default`);
-  consola.log(`  Agent: ${agentProfile.displayName} (profile: ${agentProfile.id})`);
-  consola.log(`  Stage script: ${sandboxProfile.id} profile default`);
-  consola.log('  Test script: built-in (test-default.sh)');
-  consola.log(`  Agent log format: ${agentLogFormat}`);
-  consola.log(`  Agent env vars: ${Object.keys(agentEnv).join(', ') || 'none'}`);
-  consola.log(`  Gate retries: ${gateRetries}`);
-  if (push) consola.log(`  Push: ${push}${pr ? ` (+ PR via ${gitProvider.id})` : ''}`);
-  if (runArgs.verbose === true) consola.log('  Verbose: enabled');
-
-  return {
-    sandboxProfileId: sandboxProfile.id,
-    feature,
+  const orchestratorOpts = await resolveOrchestratorOpts({
+    mode: 'start',
     projectDir,
-    maxRuns,
-    overrides,
     saifDir,
-    sandboxBaseDir,
-    projectName,
-    testImage,
-    resolveAmbiguity,
-    testRetries,
-    dangerousDebug,
-    cedarPolicyPath,
-    coderImage,
-    startupScript,
-    startupScriptFile,
-    gateScript,
-    gateScriptFile,
-    agentInstallScript,
-    agentInstallScriptFile,
-    agentScript,
-    agentScriptFile,
-    stageScript,
-    stageScriptFile,
-    testScript,
-    testScriptFile,
-    testProfile,
-    agentEnv,
-    agentLogFormat,
-    gateRetries,
-    reviewerEnabled,
-    push,
-    pr,
-    gitProvider,
-    runStorage,
-    stagingEnvironment,
-    codingEnvironment,
-    resume: null,
-    verbose: !!runArgs.verbose,
-  };
-};
+    config,
+    feature,
+    cli,
+    cliModelDelta,
+    artifact: null,
+  });
 
-// ---------------------------------------------------------------------------
-// debug: Spin up staging container, stream logs
-// ---------------------------------------------------------------------------
+  logIterativeLoopSettings(orchestratorOpts);
+
+  return orchestratorOpts;
+};
 
 const debugCommand = defineCommand({
   meta: {
@@ -843,17 +797,29 @@ const debugCommand = defineCommand({
   },
   args: featDebugArgs,
   async run({ args }) {
-    const projectDir = parseProjectDir(args);
-    const saifDir = parseSaifDir(args);
-    const config = await loadSaifConfig(saifDir, projectDir);
+    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
+    const config = await loadSaifacConfig(saifDir, projectDir);
     const feature = await getFeatOrPrompt(args, projectDir);
-    const sandboxBaseDir = parseSandboxBaseDir(args, config);
-    const projectName = await resolveProjectName(args, projectDir, config);
-    const sandboxProfile = parseSandboxProfile(args, config);
+    const sandboxBaseDir = readSandboxBaseDirFromCli(args) ?? resolveSandboxBaseDir(config);
+    const projectName = await resolveProjectName({ project: args.project, projectDir, config });
+    const sandboxProfile = pickSandboxProfile(readSandboxProfileIdFromCli(args), config);
+
+    const startupPick = pickStartupScript(readStartupScriptPathFromCli(args), config);
+    const stagePick = pickStageScript(readStageScriptPathFromCli(args), config);
+    const agentProfile = pickAgentProfile(readAgentProfileIdFromCli(args), config);
 
     const [startupR, stageR] = await Promise.all([
-      parseStartupScript({ args, projectDir, config }),
-      parseStageScript({ args, projectDir, config }),
+      loadStartupScriptFromPick({
+        pick: startupPick,
+        sandboxProfileId: sandboxProfile.id,
+        projectDir,
+      }),
+      loadStageScriptFromPick({
+        pick: stagePick,
+        sandboxProfileId: sandboxProfile.id,
+        projectDir,
+      }),
     ]);
     const startupScript = startupR.startupScript;
     const stageScript = stageR.stageScript;
@@ -862,14 +828,15 @@ const debugCommand = defineCommand({
     const gateScript = await readSandboxGateScript(sandboxProfile.id);
     const gateScriptFile = scriptSourcePathForReporting(projectDir, gateAbs);
 
-    const agentInstallAbs = resolveAgentInstallScriptPath(DEFAULT_AGENT_PROFILE.id);
-    const agentScriptAbs = resolveAgentScriptPath(DEFAULT_AGENT_PROFILE.id);
-    const agentInstallScript = await readUtf8(agentInstallAbs);
-    const agentScript = await readUtf8(agentScriptAbs);
-    const agentInstallScriptFile = scriptSourcePathForReporting(projectDir, agentInstallAbs);
-    const agentScriptFile = scriptSourcePathForReporting(projectDir, agentScriptAbs);
+    const agentR = await loadAgentScriptsFromPicks({
+      installPick: pickAgentInstallScript(readAgentInstallScriptPathFromCli(args)),
+      scriptPick: pickAgentScript(readAgentScriptPathFromCli(args)),
+      agentProfileId: agentProfile.id,
+      projectDir,
+    });
+    const { agentInstallScript, agentScript, agentInstallScriptFile, agentScriptFile } = agentR;
 
-    const stagingEnvironment = parseStagingEnvironment(config);
+    const stagingEnvironment = resolveStagingEnvironment(config);
 
     consola.log(`\nDebug staging container: ${feature.name}`);
     consola.log('  Ctrl+C to stop and clean up.\n');

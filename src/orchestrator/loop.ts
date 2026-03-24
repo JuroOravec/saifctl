@@ -7,6 +7,8 @@ import { join } from 'node:path';
 
 import { isCancel, text } from '@clack/prompts';
 
+import { resolveAgentProfile } from '../agent-profiles/index.js';
+import type { SupportedAgentProfileId } from '../agent-profiles/types.js';
 import type {
   NormalizedCodingEnvironment,
   NormalizedStagingEnvironment,
@@ -33,6 +35,7 @@ import type { CleanupRegistry } from '../utils/cleanup.js';
 import { gitApply, gitClean, gitResetHard } from '../utils/git.js';
 import { appendUtf8, pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
 import { runVagueSpecsChecker } from './agents/vague-specs-check.js';
+import type { OrchestratorOpts } from './modes.js';
 import { applyPatchToHost } from './phases/apply-patch.js';
 import {
   destroySandbox,
@@ -53,6 +56,11 @@ import { getArgusBinaryPath } from './sidecars/reviewer/argus.js';
 export interface IterativeLoopOpts {
   /** Sandbox profile id (e.g. 'node-pnpm-python'). Used to resolve Dockerfile.coder for the staging container when tests.json does not specify build.dockerfile. */
   sandboxProfileId: SupportedSandboxProfileId;
+  /**
+   * Coding agent profile id (e.g. 'openhands', 'debug'). Persisted in run artifacts for accurate
+   * resume/inspect; scripts are resolved from this profile unless overridden via --agent-script.
+   */
+  agentProfileId: SupportedAgentProfileId;
   /** Resolved feature (name, absolutePath, relativePath). */
   feature: Feature;
   /** Absolute path to the project directory */
@@ -71,12 +79,12 @@ export interface IterativeLoopOpts {
   overrides: ModelOverrides;
   /**
    * Saifac directory name relative to repo root (e.g. 'saifac').
-   * Resolved by caller (e.g. agents CLI parseSaifDir).
+   * Resolved by caller (e.g. readSaifDirFromCli + resolveSaifDirRelative).
    */
   saifDir: string;
   /**
    * Project name prefix for sandbox directory names (e.g. 'crawlee-one').
-   * Resolved by caller (e.g. agents CLI parseProjectName from -p/--project or package.json).
+   * Resolved by caller (e.g. resolveProjectName from -p/--project or package.json).
    */
   projectName: string;
   /**
@@ -842,4 +850,32 @@ export async function prepareTestRunnerOpts({
   consola.log(`[orchestrator] test.sh written to ${testScriptPath}`);
 
   return { testsDir, reportDir: sandboxBasePath, testScriptPath };
+}
+
+/** Settings banner for `feat run` and `run resume` (after merge), using resolved orchestrator opts. */
+export function logIterativeLoopSettings(opts: OrchestratorOpts): void {
+  const agentProfile = resolveAgentProfile(opts.agentProfileId);
+  consola.log(`\nStarting iterative loop: ${opts.feature.name}`);
+  consola.log(`  Max runs: ${opts.maxRuns}`);
+  consola.log(`  Test retries: ${opts.testRetries}`);
+  consola.log(`  Spec ambiguity resolution: ${opts.resolveAmbiguity}`);
+  consola.log(`  Test image: ${opts.testImage}`);
+  if (opts.dangerousDebug) {
+    consola.log('  Leash: disabled (host execution)');
+  } else {
+    consola.log(`  Leash: enabled (image: ${opts.coderImage})`);
+    consola.log(`  Cedar policy: ${opts.cedarPolicyPath}`);
+  }
+  consola.log(`  Startup script: ${opts.sandboxProfileId} profile default`);
+  consola.log(`  Gate script: ${opts.sandboxProfileId} profile default`);
+  consola.log(`  Agent: ${agentProfile.displayName} (profile: ${agentProfile.id})`);
+  consola.log(`  Stage script: ${opts.sandboxProfileId} profile default`);
+  consola.log('  Test script: built-in (test-default.sh)');
+  consola.log(`  Agent log format: ${opts.agentLogFormat}`);
+  consola.log(`  Agent env vars: ${Object.keys(opts.agentEnv).join(', ') || 'none'}`);
+  consola.log(`  Gate retries: ${opts.gateRetries}`);
+  if (opts.push) {
+    consola.log(`  Push: ${opts.push}${opts.pr ? ` (+ PR via ${opts.gitProvider.id})` : ''}`);
+  }
+  if (opts.verbose === true) consola.log('  Verbose: enabled');
 }

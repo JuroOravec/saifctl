@@ -9,12 +9,14 @@
 
 import { join } from 'node:path';
 
+import type { SaifacConfig } from '../config/schema.js';
 import { getHatchetClient } from '../hatchet/client.js';
 import { serializeOrchestratorOpts } from '../hatchet/utils/serialize-opts.js';
 import {
   createFeatRunWorkflow,
   type FeatRunSerializedInput,
 } from '../hatchet/workflows/feat-run.workflow.js';
+import type { ModelOverrides } from '../llm-config.js';
 import { consola } from '../logger.js';
 import { hasFeatureSuccessfullyFailed } from '../provisioners/docker/index.js';
 import { createProvisioner } from '../provisioners/index.js';
@@ -24,20 +26,22 @@ import { deserializeArtifactConfig } from '../runs/utils/serialize.js';
 import { type Feature, resolveFeature } from '../specs/discover.js';
 import { CleanupRegistry } from '../utils/cleanup.js';
 import { pathExists, writeUtf8 } from '../utils/io.js';
+import { omit } from '../utils/omit.js';
 import {
   type IterativeLoopOpts,
+  logIterativeLoopSettings,
   type OrchestratorResult,
   prepareTestRunnerOpts,
   runIterativeLoop,
   type RunStorageContext,
   runVagueSpecsCheckerForFailure,
 } from './loop.js';
+import { type OrchestratorCliInput, resolveOrchestratorOpts } from './options.js';
 import { applyPatchToHost } from './phases/apply-patch.js';
 import {
   captureBaseGitState,
   cleanupResumeWorkspace,
   createResumeWorktree,
-  mergeResumeOpts,
   saveRunOnError,
 } from './resume.js';
 import { applyPatch, createSandbox, destroySandbox } from './sandbox.js';
@@ -108,7 +112,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
   agentInstallScriptFile: string;
   agentScriptFile: string;
   /**
-   * Run storage for persisting failed runs. Resolved by CLI via parseRunStorage.
+   * Run storage for persisting failed runs. Resolved by CLI via readStorageStringFromCli + resolveRunStorage.
    * Default: local (.saifac/runs/) when --storage is omitted. Set to null for --storage runs=none.
    */
   runStorage: RunStorage | null;
@@ -466,9 +470,14 @@ async function runStartCore(
 // Mode 3: resume (from storage)
 // ---------------------------------------------------------------------------
 
-interface ResumeOpts extends OrchestratorOpts {
+export interface ResumeOpts {
   runId: string;
+  projectDir: string;
+  saifDir: string;
+  config: SaifacConfig;
   runStorage: RunStorage;
+  cli: OrchestratorCliInput;
+  cliModelDelta: ModelOverrides | undefined;
 }
 
 /**
@@ -480,7 +489,7 @@ async function runResumeCore(
   opts: ResumeOpts,
   registry: CleanupRegistry,
 ): Promise<OrchestratorResult> {
-  const { runId, projectDir, runStorage, overrides } = opts;
+  const { runId, projectDir, runStorage, cli, cliModelDelta, config, saifDir } = opts;
 
   const artifact = await runStorage.getRun(runId);
   if (!artifact) {
@@ -489,7 +498,7 @@ async function runResumeCore(
 
   consola.log(`\n[orchestrator] MODE: resume — ${artifact.config.featureName} (run ${runId})`);
 
-  // Create temp worktree in `.saifac/worktrees/resume-<runId>`
+  // Fresh worktree under /tmp/saifac/resume-worktrees/ (from artifact), then fresh sandbox in runStartCore
   // to reconstruct the state of the workspace at the time of the run (+ agent's changes)
   const { worktreePath, branchName } = await createResumeWorktree({
     projectDir,
@@ -499,19 +508,34 @@ async function runResumeCore(
     runPatchDiff: artifact.runPatchDiff,
   });
 
-  // Load the original opts from the stored artifact and merge them with the CLI opts.
-  // User gets all original settings by default but can override via CLI.
-  // E.g. if user wants to keep all the same options except for the model, they can do:
-  // `saifac run resume <runId> --model anthropic/claude-3-5-sonnet-latest`
-  //
-  // NOTE: This also sets `resume.sandboxSourceDir` to `worktreePath`. Thus, telling
-  // runStartCore to use the worktree as the sandbox source directory.
-  const mergedOpts = await mergeResumeOpts({
-    artifact,
-    opts,
-    overrides,
-    worktreePath,
+  const deserialized = deserializeArtifactConfig(artifact.config);
+  const feature = await resolveFeature({
+    input: deserialized.featureName,
+    projectDir,
+    saifDir: deserialized.saifDir,
   });
+
+  const mergedOpts = await resolveOrchestratorOpts({
+    mode: 'resume',
+    projectDir,
+    saifDir,
+    config,
+    feature,
+    cli,
+    cliModelDelta,
+    artifact,
+  });
+
+  mergedOpts.resume = {
+    sandboxSourceDir: worktreePath,
+    runContext: {
+      baseCommitSha: artifact.baseCommitSha,
+      basePatchDiff: artifact.basePatchDiff,
+    },
+    initialErrorFeedback: artifact.lastFeedback,
+  };
+
+  logIterativeLoopSettings(mergedOpts);
 
   try {
     // Finally, run the same flow as when we run `saifac feat start <featureName>`
@@ -527,40 +551,32 @@ async function runResumeCore(
 // Mode 4: test
 // ---------------------------------------------------------------------------
 
-type SharedTestOpts = Pick<
-  OrchestratorOpts,
-  | 'sandboxProfileId'
-  | 'projectDir'
-  | 'testRetries'
-  | 'saifDir'
-  | 'projectName'
-  | 'sandboxBaseDir'
-  | 'testImage'
-  | 'stagingEnvironment'
-  | 'resolveAmbiguity'
-  | 'startupScript'
-  | 'startupScriptFile'
-  | 'gateScript'
-  | 'gateScriptFile'
-  | 'agentInstallScript'
-  | 'agentInstallScriptFile'
-  | 'agentScript'
-  | 'agentScriptFile'
-  | 'stageScript'
-  | 'stageScriptFile'
-  | 'testScript'
-  | 'testScriptFile'
-  | 'testProfile'
-  | 'push'
-  | 'pr'
-  | 'gitProvider'
-  | 'overrides'
-  | 'reviewerEnabled'
-  | 'verbose'
->;
-export interface TestFromRunOpts extends SharedTestOpts {
+/** Fields not needed for `runTestsCore` after test-from-run merge (feature / projectDir set at call site). */
+const TEST_FROM_RUN_OMIT_KEYS = [
+  'feature',
+  'maxRuns',
+  'dangerousDebug',
+  'cedarPolicyPath',
+  'coderImage',
+  'gateRetries',
+  'agentEnv',
+  'agentLogFormat',
+  'patchExclude',
+  'codingEnvironment',
+  'runStorage',
+  'resume',
+] as const satisfies readonly (keyof OrchestratorOpts)[];
+
+type SharedTestOpts = Omit<OrchestratorOpts, (typeof TEST_FROM_RUN_OMIT_KEYS)[number]>;
+
+export interface TestFromRunOpts {
   runId: string;
   runStorage: RunStorage;
+  projectDir: string;
+  saifDir: string;
+  config: SaifacConfig;
+  cli: OrchestratorCliInput;
+  cliModelDelta: ModelOverrides | undefined;
 }
 
 /**
@@ -578,7 +594,7 @@ async function runTestsFromRunCore(
   opts: TestFromRunOpts,
   registry: CleanupRegistry,
 ): Promise<OrchestratorResult> {
-  const { runId, projectDir, runStorage } = opts;
+  const { runId, projectDir, runStorage, saifDir, config, cli, cliModelDelta } = opts;
 
   const artifact = await runStorage.getRun(runId);
   if (!artifact) {
@@ -605,6 +621,19 @@ async function runTestsFromRunCore(
       saifDir: deserialized.saifDir,
     });
 
+    const merged = await resolveOrchestratorOpts({
+      mode: 'test-from-run',
+      projectDir,
+      saifDir,
+      config,
+      feature,
+      cli,
+      cliModelDelta,
+      artifact,
+    });
+
+    const shared = omit(merged, TEST_FROM_RUN_OMIT_KEYS);
+
     // Write the agent's patch diff to a temp file so runTestsCore can apply it.
     // The worktree is already at baseCommit+basePatch state; runPatchDiff is the
     // delta the coding agent produced. runTestsCore will apply it on top.
@@ -613,7 +642,7 @@ async function runTestsFromRunCore(
 
     return await runTestsCore(
       {
-        ...opts,
+        ...shared,
         feature,
         projectDir: worktreePath,
         patchPath,
@@ -932,8 +961,8 @@ export async function runDebug(
  * Resolves the directory `createSandbox` rsyncs FROM.
  *
  * - **Start:** the main project directory (`opts.projectDir`).
- * - **Resume:** the worktree with recreated state (`.saifac/worktrees/resume-<runId>`),
- *   i.e. `opts.resume.sandboxSourceDir`.
+ * - **Resume:** the ephemeral worktree path under `/tmp/saifac/resume-worktrees/`
+ *   (`opts.resume.sandboxSourceDir`), materialized from the run artifact.
  */
 export function getSandboxSourceDir(opts: {
   projectDir: string;

@@ -15,6 +15,7 @@ const minimalArtifact: RunArtifact = {
     gitProviderId: 'github',
     testProfileId: 'vitest',
     sandboxProfileId: 'vitest',
+    agentProfileId: 'openhands',
     projectDir: '/p',
     maxRuns: 3,
     overrides: {},

@@ -11,11 +11,19 @@
 
 import { defineCommand, runMain } from 'citty';
 
-import { loadSaifConfig } from '../../config/load.js';
+import { loadSaifacConfig } from '../../config/load.js';
 import { consola } from '../../logger.js';
 import { toRunInspectJson } from '../../runs/utils/run-inspect.js';
 import { projectDirArg, saifDirArg, storageArg } from '../args.js';
-import { parseProjectDir, parseRunId, parseRunStorage, parseSaifDir } from '../utils.js';
+import {
+  parseRunId,
+  readProjectDirFromCli,
+  readSaifDirFromCli,
+  readStorageStringFromCli,
+  resolveCliProjectDir,
+  resolveRunStorage,
+  resolveSaifDirRelative,
+} from '../utils.js';
 
 const commonRunArgs = {
   'project-dir': projectDirArg,
@@ -40,10 +48,10 @@ const lsCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const projectDir = parseProjectDir(args);
-    const saifDir = parseSaifDir(args);
-    const config = await loadSaifConfig(saifDir, projectDir);
-    const storage = parseRunStorage(args, projectDir, config);
+    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
+    const config = await loadSaifacConfig(saifDir, projectDir);
+    const storage = resolveRunStorage(readStorageStringFromCli(args), projectDir, config);
     if (!storage) {
       consola.log('Run storage is disabled (--storage none).');
       return;
@@ -95,10 +103,10 @@ const rmCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const projectDir = parseProjectDir(args);
-    const saifDir = parseSaifDir(args);
-    const config = await loadSaifConfig(saifDir, projectDir);
-    const storage = parseRunStorage(args, projectDir, config);
+    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
+    const config = await loadSaifacConfig(saifDir, projectDir);
+    const storage = resolveRunStorage(readStorageStringFromCli(args), projectDir, config);
     if (!storage) {
       consola.error('Run storage is disabled (--storage none).');
       process.exit(1);
@@ -134,10 +142,10 @@ const inspectCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const projectDir = parseProjectDir(args);
-    const saifDir = parseSaifDir(args);
-    const config = await loadSaifConfig(saifDir, projectDir);
-    const storage = parseRunStorage(args, projectDir, config);
+    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
+    const config = await loadSaifacConfig(saifDir, projectDir);
+    const storage = resolveRunStorage(readStorageStringFromCli(args), projectDir, config);
     if (!storage) {
       consola.error('Run storage is disabled (--storage none).');
       process.exit(1);
@@ -169,10 +177,10 @@ const clearCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const projectDir = parseProjectDir(args);
-    const saifDir = parseSaifDir(args);
-    const config = await loadSaifConfig(saifDir, projectDir);
-    const storage = parseRunStorage(args, projectDir, config);
+    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
+    const config = await loadSaifacConfig(saifDir, projectDir);
+    const storage = resolveRunStorage(readStorageStringFromCli(args), projectDir, config);
     if (!storage) {
       consola.log('Run storage is disabled (--storage none).');
       return;

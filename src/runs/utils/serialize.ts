@@ -5,15 +5,17 @@
  * to string/plain-object forms for persistence.
  */
 
+import type { SupportedAgentProfileId } from '../../agent-profiles/types.js';
 import type {
   NormalizedCodingEnvironment,
   NormalizedStagingEnvironment,
 } from '../../config/schema.js';
 import { getGitProvider } from '../../git/index.js';
+import type { GitProvider } from '../../git/types.js';
 import type { ModelOverrides } from '../../llm-config.js';
 import type { IterativeLoopOpts } from '../../orchestrator/loop.js';
 import type { PatchExcludeRule } from '../../orchestrator/sandbox.js';
-import { resolveTestProfile } from '../../test-profiles/index.js';
+import { resolveTestProfile, type TestProfile } from '../../test-profiles/index.js';
 
 /** JSON-serializable form of patch exclude rules (RegExp -> pattern string) */
 export interface SerializedPatchExcludeRule {
@@ -45,6 +47,7 @@ export interface PersistedScriptBundle {
  */
 export type SerializedLoopOpts = {
   sandboxProfileId: string;
+  agentProfileId: SupportedAgentProfileId;
   featureName: string;
   projectDir: string;
   maxRuns: number;
@@ -106,8 +109,8 @@ export function deserializeArtifactConfig(serialized: SerializedLoopOpts): Omit<
   SerializedLoopOpts,
   'gitProviderId' | 'testProfileId' | 'patchExcludeStr'
 > & {
-  gitProvider: { id: string };
-  testProfile: { id: string };
+  gitProvider: GitProvider;
+  testProfile: TestProfile;
   patchExclude?: PatchExcludeRule[];
 } {
   const { gitProviderId, testProfileId, patchExcludeStr, ...rest } = serialized;

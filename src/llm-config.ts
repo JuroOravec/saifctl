@@ -106,8 +106,8 @@ export interface LlmConfig {
  * --base-url coder=https://api.anthropic.com/v1,pr-summarizer=https://api.openai.com/v1
  * ```
  *
- * Produced by `parseModelOverrides()` in `src/cli/utils.ts` and threaded through
- * from command entry points down to any function that resolves an agent model.
+ * Built from config baseline + optional artifact + CLI delta, threaded through from command
+ * entry points down to any function that resolves an agent model.
  */
 export interface ModelOverrides {
   /** Global model; value of `--model` — applies to all agents. */
@@ -354,7 +354,7 @@ function parseModelString(raw: string): { provider: string; modelId: string } {
  *   3. Auto-discovery from standard API keys (ANTHROPIC_API_KEY, etc.)
  *
  * @param agentName - Canonical agent name (e.g. "coder", "vague-specs-check") used in `--model` agent=model parts.
- * @param overrides - Parsed CLI flags (from `parseModelOverrides()`).
+ * @param overrides - Effective model overrides (merged layers; see `mergeModelOverridesLayers`).
  */
 export function resolveAgentLlmConfig(agentName: string, overrides: ModelOverrides): LlmConfig {
   if (!isSupportedAgentName(agentName)) {
@@ -451,7 +451,7 @@ export function createProviderModel(config: LlmConfig): LanguageModelV3 {
  * Convenience wrapper for the common case in Mastra agent factories.
  *
  * @param agentName - Canonical agent name used in `--model` agent=model parts.
- * @param overrides - Parsed CLI flags (from `parseModelOverrides()`).
+ * @param overrides - Effective model overrides (merged layers; see `mergeModelOverridesLayers`).
  */
 export function resolveAgentModel(agentName: string, overrides: ModelOverrides): LanguageModelV3 {
   return createProviderModel(resolveAgentLlmConfig(agentName, overrides));

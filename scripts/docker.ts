@@ -25,7 +25,7 @@ import {
   SUPPORTED_SANDBOX_PROFILES,
 } from '../src/sandbox-profiles/index.js';
 import {
-  DEFAULT_PROFILE,
+  DEFAULT_TEST_PROFILE,
   resolveTestDockerfilePath,
   resolveTestProfile,
   SUPPORTED_PROFILES,
@@ -105,7 +105,7 @@ const testBuildCommand = defineCommand({
 
     const profilesToBuild: TestProfile[] = buildAll
       ? Object.values(SUPPORTED_PROFILES)
-      : [args['test-profile'] ? resolveTestProfile(args['test-profile']) : DEFAULT_PROFILE];
+      : [args['test-profile'] ? resolveTestProfile(args['test-profile']) : DEFAULT_TEST_PROFILE];
 
     consola.log(
       buildAll

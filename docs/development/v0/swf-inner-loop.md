@@ -134,7 +134,17 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 
 **`runStart`:** Passes `gateScript`, `agentScript`, and `gateRetries` to `createSandbox` and `runAgent`.
 
-**`runResume`:** Reconstructs workspace from storage, then delegates to `runStartCore` (which uses `createSandbox` and `runAgent`). Scripts come from the stored config; CLI overrides are merged in.
+**`runResume`:** Reconstructs workspace from storage, then delegates to `runStartCore` (which uses `createSandbox` and `runAgent`). Effective options are merged from defaults, the stored run artifact, and explicit CLI overrides (see below).
+
+#### Orchestrator option resolution (feat run, resume, test-from-run)
+
+For modes that need a full `OrchestratorOpts`, resolution is centralized in `src/orchestrator/options.ts` (`resolveOrchestratorOpts`):
+
+1. **Defaults** — `applyOrchestratorBaseline` in `src/orchestrator/options.ts` builds a complete baseline from `config.defaults`, package constants (`src/constants.ts`), and profile defaults via `read*` + `resolve*` (`src/orchestrator/options.ts`, `src/cli/utils.ts`) when no feat-run CLI flags apply.
+2. **Artifact** — When a stored run exists (resume / test-from-run), deserialized loop config from the artifact is merged on top (`mergeArtifactOntoDefaults` in the same module).
+3. **CLI** — `buildOrchestratorCliInputFromFeatArgs` in `src/cli/utils.ts` produces an `OrchestratorCliInput`: only flags the user actually set are non-`undefined`. `mergeDefinedOrchestratorOpts` in `src/orchestrator/options.ts` copies those keys onto the merged object; **`undefined` means “do not override”** the layer below (so resume keeps artifact values unless the user passes an override).
+
+**Model / base URL overrides** (`--model`, `--base-url`) use a separate merge: **config.defaults → artifact → CLI delta** via `mergeModelOverridesLayers` in `src/orchestrator/options.ts`, where the CLI delta comes from `parseModelOverridesCliDelta` (flags only, no config merge inside the delta).
 
 ### 7. CLI (citty — `src/cli/commands/feat.ts`, `src/cli/commands/run.ts`)
 
@@ -149,13 +159,12 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 | `--agent-env-file <path>` | Path to a `.env` file with extra env vars to forward                                   | —                    |
 | `--agent-log-format`      | How to parse agent stdout: `openhands` (JSON events) or `raw` (line stream)            | `openhands` (profile default; e.g. `debug` uses `raw`) |
 
-**Parsing** (see `src/cli/utils.ts` helpers used by `parseRunArgs` in `feat.ts`):
+**Parsing** (see `src/cli/utils.ts`; orchestration wiring in `feat.ts` / `run.ts`):
 
+- For **`saifac feat run`**, `parseRunArgs` builds CLI input + model delta, then **`resolveOrchestratorOpts`** applies defaults → artifact (none on fresh start) → CLI as described above.
 - `parseGateScript({ args, projectDir, config })`: If `--gate-script` is not set or empty, returns `readSandboxGateScript(profile.id)`. Otherwise reads the file from `projectDir`.
-- `parseGateRetries(args, config)`: If `--gate-retries` is not set, returns 10 (or config default). Otherwise parses a positive integer.
+- Gate retries, agent env, log format, and other orchestrator fields used by the inner loop are resolved inside **`buildOrchestratorOptsFromFeatArgs`** / **`applyOrchestratorBaseline`** (`src/orchestrator/options.ts`, with defaults in `options.ts` + `constants.ts`) and **`buildOrchestratorCliInputFromFeatArgs`** (`src/cli/utils.ts`) (not duplicated ad hoc in `feat.ts`).
 - `parseAgentScripts({ args, projectDir, config })`: Resolves `agent-install.sh` and `agent.sh` from the agent profile or from `--agent-install-script` / `--agent-script` paths.
-- `parseAgentEnv({ args, projectDir, config })`: Merges config baseline, `--agent-env-file`, then `--agent-env` (CLI wins). Malformed entries emit a warning and are skipped.
-- `parseAgentLogFormat(args, agentProfile, config)`: Returns `'raw'` if `--agent-log-format raw`; otherwise profile/config default.
 
 ---
 
@@ -324,7 +333,7 @@ Running the gate _inside_ the container eliminates the host-side attack surface 
 
 ### Why `gateScript` and `gateRetries` are required in `OrchestratorOpts`
 
-Defaults are applied by the CLI, not by the orchestrator. All `OrchestratorOpts` fields are non-optional where possible; the CLI resolves `--gate-script` and `--gate-retries` and passes concrete values. Modes that do not use the inner loop (e.g. `fail2pass`, `test`) still receive these fields but with placeholder values.
+Defaults are applied before the orchestrator runs: `applyOrchestratorBaseline` / `buildOrchestratorOptsFromFeatArgs` in `src/orchestrator/options.ts` (and, after merge, `resolveOrchestratorOpts`) produce a fully populated `OrchestratorOpts`. All fields are non-optional where possible so downstream code does not branch on “missing config.” Modes that do not use the inner loop (e.g. `fail2pass`, `test`) still receive these fields but may use placeholder values where the inner loop is not invoked.
 
 ### Why the default gate lives in a separate file
 

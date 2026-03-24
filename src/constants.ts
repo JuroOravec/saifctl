@@ -36,3 +36,30 @@ export const LLM_API_KEYS = [
   'ANTHROPIC_API_KEY',
   'OPENROUTER_API_KEY',
 ] as const;
+
+// ---------------------------------------------------------------------------
+// Orchestrator defaults
+// ---------------------------------------------------------------------------
+
+/** Max full pipeline runs before giving up when not set via CLI or config. */
+export const DEFAULT_ORCHESTRATOR_MAX_RUNS = 5;
+
+/** Full test suite re-runs on failure when not set via CLI or config. */
+export const DEFAULT_ORCHESTRATOR_TEST_RETRIES = 1;
+
+/** Inner gate retries (agent → gate → feedback) when not set via CLI or config. */
+export const DEFAULT_ORCHESTRATOR_GATE_RETRIES = 10;
+
+/** Ambiguous-spec handling when not set via CLI or config. */
+export const DEFAULT_RESOLVE_AMBIGUITY: 'off' | 'prompt' | 'ai' = 'ai';
+
+/** Host-side dangerous debug when not set via CLI or config. */
+export const DEFAULT_DANGEROUS_DEBUG = false;
+
+/** Semantic reviewer enabled when not set via CLI or config. */
+export const DEFAULT_REVIEWER_ENABLED = true;
+
+/** Bundled Cedar policy when not set via CLI or config. */
+export function defaultCedarPolicyPath(): string {
+  return join(getSaifRoot(), 'src', 'orchestrator', 'policies', 'default.cedar');
+}

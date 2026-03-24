@@ -19,6 +19,7 @@ import { resolveTestProfile } from '../../test-profiles/index.js';
 
 export interface SerializedOrchestratorOpts extends Record<string, unknown> {
   sandboxProfileId: string;
+  agentProfileId: string;
   featureName: string;
   featureAbsolutePath: string;
   featureRelativePath: string;
@@ -125,6 +126,7 @@ export function deserializeOrchestratorOpts(serialized: Record<string, unknown>)
 
   return {
     sandboxProfileId: s.sandboxProfileId as OrchestratorOpts['sandboxProfileId'],
+    agentProfileId: s.agentProfileId as OrchestratorOpts['agentProfileId'],
     feature: {
       name: s.featureName,
       absolutePath: s.featureAbsolutePath,

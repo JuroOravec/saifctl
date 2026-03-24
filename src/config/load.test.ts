@@ -4,8 +4,9 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { consola } from '../logger.js';
 import { writeUtf8 } from '../utils/io.js';
-import { loadSaifConfig } from './load.js';
+import { loadSaifacConfig } from './load.js';
 
 async function makeTempDir(): Promise<string> {
   const dir = join(tmpdir(), `saifac-config-test-${Math.random().toString(36).slice(2)}`);
@@ -13,7 +14,7 @@ async function makeTempDir(): Promise<string> {
   return dir;
 }
 
-describe('loadSaifConfig', () => {
+describe('loadSaifacConfig', () => {
   let projectDir: string;
 
   beforeEach(async () => {
@@ -25,14 +26,14 @@ describe('loadSaifConfig', () => {
   });
 
   it('returns empty config when saifac dir does not exist', async () => {
-    const config = await loadSaifConfig('saifac', projectDir);
+    const config = await loadSaifacConfig('saifac', projectDir);
     expect(config).toEqual({});
   });
 
   it('returns empty config when saifac dir exists but has no config file', async () => {
     const saifDir = join(projectDir, 'saifac');
     await mkdir(saifDir, { recursive: true });
-    const config = await loadSaifConfig('saifac', projectDir);
+    const config = await loadSaifacConfig('saifac', projectDir);
     expect(config).toEqual({});
   });
 
@@ -51,7 +52,7 @@ describe('loadSaifConfig', () => {
       }),
     );
 
-    const config = await loadSaifConfig('saifac', projectDir);
+    const config = await loadSaifacConfig('saifac', projectDir);
     expect(config.defaults).toBeDefined();
     expect(config.defaults?.maxRuns).toBe(10);
     expect(config.defaults?.testRetries).toBe(2);
@@ -68,7 +69,7 @@ describe('loadSaifConfig', () => {
       "module.exports = { defaults: { maxRuns: 7, globalStorage: 'memory' } };",
     );
 
-    const config = await loadSaifConfig('saifac', projectDir);
+    const config = await loadSaifacConfig('saifac', projectDir);
     expect(config.defaults?.maxRuns).toBe(7);
     expect(config.defaults?.globalStorage).toBe('memory');
   });
@@ -79,7 +80,7 @@ describe('loadSaifConfig', () => {
     await writeUtf8(join(saifDir, 'config.json'), JSON.stringify({ defaults: { maxRuns: 3 } }));
     await writeUtf8(join(saifDir, 'config.js'), 'module.exports = { defaults: { maxRuns: 99 } };');
 
-    const config = await loadSaifConfig('saifac', projectDir);
+    const config = await loadSaifacConfig('saifac', projectDir);
     // cosmiconfig search order: config.json is typically before config.js in searchPlaces
     expect([3, 99]).toContain(config.defaults?.maxRuns);
   });
@@ -97,7 +98,7 @@ describe('loadSaifConfig', () => {
       }),
     );
 
-    const config = await loadSaifConfig('saifac', projectDir);
+    const config = await loadSaifacConfig('saifac', projectDir);
     expect(config.defaults?.globalStorage).toBe('s3');
     expect(config.defaults?.storages).toEqual({ runs: 'local', tasks: 's3://bucket/tasks' });
   });
@@ -114,7 +115,7 @@ describe('loadSaifConfig', () => {
       }),
     );
 
-    const config = await loadSaifConfig('saifac', projectDir);
+    const config = await loadSaifacConfig('saifac', projectDir);
     expect(config.defaults?.agentEnv).toEqual({
       OPENAI_API_KEY: 'sk-test',
       CUSTOM_VAR: 'value',
@@ -123,7 +124,7 @@ describe('loadSaifConfig', () => {
 
   it('exits on invalid config (wrong type)', async () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never);
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consolaSpy = vi.spyOn(consola, 'error').mockImplementation(() => {});
 
     const saifDir = join(projectDir, 'saifac');
     await mkdir(saifDir, { recursive: true });
@@ -132,12 +133,12 @@ describe('loadSaifConfig', () => {
       JSON.stringify({ defaults: { maxRuns: 'not-a-number' } }),
     );
 
-    await loadSaifConfig('saifac', projectDir);
+    await loadSaifacConfig('saifac', projectDir);
 
     expect(exitSpy).toHaveBeenCalledWith(1);
-    expect(consoleSpy).toHaveBeenCalled();
+    expect(consolaSpy).toHaveBeenCalled();
 
     exitSpy.mockRestore();
-    consoleSpy.mockRestore();
+    consolaSpy.mockRestore();
   });
 });

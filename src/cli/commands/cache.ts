@@ -13,10 +13,16 @@ import { normalize, resolve } from 'node:path';
 import { defineCommand, runMain } from 'citty';
 
 import { consola } from '../../logger.js';
+import { resolveSandboxBaseDir } from '../../orchestrator/options.js';
 import { DEFAULT_SANDBOX_BASE_DIR, SAIFAC_TEMP_ROOT } from '../../orchestrator/sandbox.js';
 import { pathExists } from '../../utils/io.js';
 import { projectDirArg, sandboxBaseDirArg } from '../args.js';
-import { parseProjectDir, parseSandboxBaseDir, resolveProjectName } from '../utils.js';
+import {
+  readProjectDirFromCli,
+  readSandboxBaseDirFromCli,
+  resolveCliProjectDir,
+  resolveProjectName,
+} from '../utils.js';
 
 function isSaifacTempRoot(dir: string): boolean {
   return normalize(resolve(dir)) === normalize(resolve(SAIFAC_TEMP_ROOT));
@@ -34,7 +40,7 @@ const listCommand = defineCommand({
     'sandbox-base-dir': sandboxBaseDirArg,
   },
   async run({ args }) {
-    const sandboxBase = parseSandboxBaseDir(args);
+    const sandboxBase = readSandboxBaseDirFromCli(args) ?? resolveSandboxBaseDir();
     const listAll = args.all === true;
 
     if (!(await pathExists(sandboxBase))) {
@@ -56,8 +62,8 @@ const listCommand = defineCommand({
       return;
     }
 
-    const projectDir = parseProjectDir(args);
-    const projName = await resolveProjectName(args, projectDir);
+    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+    const projName = await resolveProjectName({ project: args.project, projectDir });
     const prefix = `${projName}-`;
     const matching = entries.filter((e) => e.startsWith(prefix));
 
@@ -93,7 +99,7 @@ const clearCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const sandboxBase = parseSandboxBaseDir(args);
+    const sandboxBase = readSandboxBaseDirFromCli(args) ?? resolveSandboxBaseDir();
     const clearAll = args.all === true;
 
     if (clearAll && isSaifacTempRoot(sandboxBase)) {
@@ -128,8 +134,8 @@ const clearCommand = defineCommand({
       return;
     }
 
-    const projectDir = parseProjectDir(args);
-    const projName = await resolveProjectName(args, projectDir);
+    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+    const projName = await resolveProjectName({ project: args.project, projectDir });
     const prefix = `${projName}-`;
     const matching = entries.filter((e) => e.startsWith(prefix));
 

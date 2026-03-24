@@ -7,13 +7,13 @@ import { resolve } from 'node:path';
 
 import { pathExists, writeUtf8 } from '../utils/io.js';
 
-const CONFIG_TEMPLATE = `import type { SaifConfig } from 'safe-ai-factory';
+const CONFIG_TEMPLATE = `import type { SaifacConfig } from 'safe-ai-factory';
 
 /**
  * SAIFAC configuration.
  * See docs/config.md and docs/services.md
  */
-const config: SaifConfig = {
+const config: SaifacConfig = {
   // CLI defaults
   defaults: {
     // project: 'my-app',
@@ -65,7 +65,7 @@ const SEARCH_PLACES = [
  * @param projectDir - Project root
  * @returns true if a config was scaffolded, false if one already existed
  */
-export async function scaffoldSaifConfig(saifDir: string, projectDir: string): Promise<boolean> {
+export async function scaffoldSaifacConfig(saifDir: string, projectDir: string): Promise<boolean> {
   const configDir = resolve(projectDir, saifDir);
 
   for (const name of SEARCH_PLACES) {

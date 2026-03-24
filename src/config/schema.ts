@@ -101,7 +101,7 @@ export type NormalizedStagingEnvironment = Omit<RawStagingEnvironment, 'app' | '
 /** Normalized coding environment — always present (defaults to `{ provisioner: 'docker' }` when omitted). */
 export type NormalizedCodingEnvironment = NonNullable<EnvironmentsConfig['coding']>;
 
-export const saifConfigDefaultsSchema = z.object({
+export const saifacConfigDefaultsSchema = z.object({
   // Run params
   maxRuns: z.number().int().positive().optional(),
   testRetries: z.number().int().positive().optional(),
@@ -181,10 +181,10 @@ export const saifConfigDefaultsSchema = z.object({
   agentInstallScript: z.string().optional(),
 });
 
-export const saifConfigSchema = z.object({
-  defaults: saifConfigDefaultsSchema.optional(),
+export const saifacConfigSchema = z.object({
+  defaults: saifacConfigDefaultsSchema.optional(),
   environments: environmentsSchema.optional(),
 });
 
-export type SaifConfig = z.infer<typeof saifConfigSchema>;
-export type SaifConfigDefaults = z.infer<typeof saifConfigDefaultsSchema>;
+export type SaifacConfig = z.infer<typeof saifacConfigSchema>;
+export type SaifacConfigDefaults = z.infer<typeof saifacConfigDefaultsSchema>;

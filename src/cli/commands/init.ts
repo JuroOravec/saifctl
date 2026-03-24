@@ -9,11 +9,17 @@
 
 import { defineCommand, runMain } from 'citty';
 
-import { scaffoldSaifConfig } from '../../config/scaffold.js';
+import { scaffoldSaifacConfig } from '../../config/scaffold.js';
 import { resolveIndexerProfile } from '../../indexer-profiles/index.js';
 import { consola } from '../../logger.js';
 import { indexerArg, projectDirArg, saifDirArg } from '../args.js';
-import { parseProjectDir, parseSaifDir, resolveProjectName } from '../utils.js';
+import {
+  readProjectDirFromCli,
+  readSaifDirFromCli,
+  resolveCliProjectDir,
+  resolveProjectName,
+  resolveSaifDirRelative,
+} from '../utils.js';
 
 const initCommand = defineCommand({
   meta: {
@@ -31,12 +37,12 @@ const initCommand = defineCommand({
     indexer: indexerArg,
   },
   async run({ args }) {
-    const projectDir = parseProjectDir(args);
-    const saifDir = parseSaifDir(args);
+    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
     const indexerProfile = resolveIndexerProfile(args.indexer);
-    const projectName = await resolveProjectName(args, projectDir);
+    const projectName = await resolveProjectName({ project: args.project, projectDir });
 
-    const scaffolded = await scaffoldSaifConfig(saifDir, projectDir);
+    const scaffolded = await scaffoldSaifacConfig(saifDir, projectDir);
     if (scaffolded) {
       consola.log(`\nCreated ${saifDir}/config.ts (no config found).`);
     }

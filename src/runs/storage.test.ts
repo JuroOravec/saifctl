@@ -17,6 +17,7 @@ const dummyArtifact: RunArtifact = {
     gitProviderId: 'github',
     testProfileId: 'vitest',
     sandboxProfileId: 'vitest',
+    agentProfileId: 'openhands',
     projectDir: '/tmp',
     maxRuns: 5,
     overrides: {},

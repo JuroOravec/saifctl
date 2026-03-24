@@ -6,103 +6,57 @@ import { resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { SaifConfig } from '../config/schema.js';
+import type { SaifacConfig } from '../config/schema.js';
+import { consola } from '../logger.js';
 import {
-  parseModelOverrides,
-  parseReviewerEnabled,
-  parseStorageOverrides,
+  buildOrchestratorCliInputFromFeatArgs,
+  type FeatRunArgs,
+  readStorageStringFromCli,
+  resolveStorageOverrides,
   scriptSourcePathForReporting,
 } from './utils.js';
 
-describe('parseModelOverrides', () => {
-  let exitSpy: ReturnType<typeof vi.spyOn>;
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
-
-  beforeEach(() => {
-    // @ts-expect-error allow mock implementation of exit
-    exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {});
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    exitSpy.mockRestore();
-    consoleErrorSpy.mockRestore();
-  });
-
-  it('rejects unknown agent in --model', () => {
-    parseModelOverrides({ model: 'bad-agent=openai/gpt-4o' });
-    expect(exitSpy).toHaveBeenCalledWith(1);
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('unknown agent "bad-agent"'),
-    );
-  });
-
-  it('rejects unknown agent in --base-url', () => {
-    // KEY_EQ_PATTERN (\w+=) only matches keys without hyphens; use badagent so it's parsed as key=value
-    parseModelOverrides({ 'base-url': 'badagent=https://api.example.com/v1' });
-    expect(exitSpy).toHaveBeenCalledWith(1);
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('unknown agent "badagent"'),
-    );
-  });
-
-  it('accepts valid agent names', () => {
-    const overrides = parseModelOverrides({
-      model: 'coder=openai/gpt-4o,vague-specs-check=openai/gpt-4o-mini',
+describe('buildOrchestratorCliInputFromFeatArgs', () => {
+  it('loads bundled agent scripts for --agent when install/script paths omitted', async () => {
+    const cli = await buildOrchestratorCliInputFromFeatArgs({ agent: 'debug' } as FeatRunArgs, {
+      projectDir: process.cwd(),
+      saifDir: 'saifac',
+      config: {} as SaifacConfig,
     });
-    expect(exitSpy).not.toHaveBeenCalled();
-    expect(overrides.agentModels).toEqual({
-      coder: 'openai/gpt-4o',
-      'vague-specs-check': 'openai/gpt-4o-mini',
-    });
+    expect(cli.agentProfileId).toBe('debug');
+    expect(cli.agentInstallScript).toContain('[agent-install/debug]');
+    expect(cli.agentScript).toBeTruthy();
   });
 });
 
-describe('parseReviewerEnabled', () => {
-  it('disables reviewer when citty sets reviewer=false (--no-reviewer)', () => {
-    expect(parseReviewerEnabled({ reviewer: false })).toBe(false);
-  });
-
-  it('disables reviewer when no-reviewer is explicitly true', () => {
-    expect(parseReviewerEnabled({ 'no-reviewer': true })).toBe(false);
-  });
-
-  it('defaults to enabled when flags omitted', () => {
-    expect(parseReviewerEnabled({})).toBe(true);
-    expect(parseReviewerEnabled({}, {})).toBe(true);
-  });
-
-  it('respects config defaults.reviewerEnabled when no CLI skip', () => {
-    const config: SaifConfig = { defaults: { reviewerEnabled: false } };
-    expect(parseReviewerEnabled({}, config)).toBe(false);
-  });
-});
-
-describe('parseStorageOverrides', () => {
+describe('resolveStorageOverrides', () => {
   let exitSpy: ReturnType<typeof vi.spyOn>;
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let consolaErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     // @ts-expect-error allow mock implementation of exit
     exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never);
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consolaErrorSpy = vi.spyOn(consola, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
     exitSpy.mockRestore();
-    consoleErrorSpy.mockRestore();
+    consolaErrorSpy.mockRestore();
   });
 
   it('rejects unknown storage keys', () => {
-    parseStorageOverrides({ storage: 'badkey=local' });
+    resolveStorageOverrides(readStorageStringFromCli({ storage: 'badkey=local' }), undefined);
     expect(exitSpy).toHaveBeenCalledWith(1);
-    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('unknown key "badkey"'));
+    expect(consolaErrorSpy).toHaveBeenCalledWith(expect.stringContaining('unknown key "badkey"'));
   });
 
   it('accepts valid storage keys', () => {
-    const overrides = parseStorageOverrides({
-      storage: 'runs=local,tasks=s3://bucket/tasks',
-    });
+    const overrides = resolveStorageOverrides(
+      readStorageStringFromCli({
+        storage: 'runs=local,tasks=s3://bucket/tasks',
+      }),
+      undefined,
+    );
     expect(exitSpy).not.toHaveBeenCalled();
     expect(overrides.storages).toEqual({
       runs: 'local',
