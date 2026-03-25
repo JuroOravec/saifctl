@@ -71,7 +71,7 @@ To start a new feature, create a directory for your specs and tests:
 saifac feat new
 
 # With name and description:
-saifac feat new -n add-login -d "Add login to the React website: email/password auth"
+saifac feat new -n add-login --desc "Add login to the React website: email/password auth"
 ```
 
 This creates a new feature directory:

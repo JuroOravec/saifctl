@@ -20,7 +20,7 @@ saifac feature new [options]
 | Argument        | Alias | Type    | Description                                                                                     |
 | --------------- | ----- | ------- | ----------------------------------------------------------------------------------------------- |
 | `--name`        | `-n`  | string  | Feature name (kebab-case, e.g. add-greeting-cmd). When omitted, prompts interactively.          |
-| `--desc`        | `-d`  | string  | Brief description. When omitted, prompts interactively.                                         |
+| `--desc`        | —     | string  | Brief description. When omitted, prompts interactively.                                         |
 | `--yes`         | `-y`  | boolean | Non-interactive mode. Requires `--name`/`-n`. Skips all prompts; description defaults to empty. |
 | `--saifac-dir`  | —     | string  | Path to saifac directory (default: `saifac`)                                                    |
 | `--project-dir` | —     | string  | Project directory (default: current working directory)                                          |
@@ -42,14 +42,14 @@ saifac feat new -n add-login
 With description (skips description prompt):
 
 ```bash
-saifac feat new -d "Add login endpoint"
+saifac feat new --desc "Add login endpoint"
 ```
 
 Non-interactive (no prompts at all):
 
 ```bash
 saifac feat new -y -n add-login
-saifac feat new -y -n add-login -d "Add login endpoint"
+saifac feat new -y -n add-login --desc "Add login endpoint"
 ```
 
 Custom saifac directory:

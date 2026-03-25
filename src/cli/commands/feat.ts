@@ -138,7 +138,6 @@ const newCommand = defineCommand({
     'project-dir': projectDirArg,
     desc: {
       type: 'string',
-      alias: 'd',
       description: 'Brief description. When provided, skips the description prompt.',
     },
   },
