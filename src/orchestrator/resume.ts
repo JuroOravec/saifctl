@@ -6,22 +6,30 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdir, realpath, rm, unlink } from 'node:fs/promises';
+import { mkdir, realpath, rm, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { consola } from '../logger.js';
-import type { RunStorage } from '../runs/types.js';
+import {
+  type RunPatchStep,
+  type RunSaveOptions,
+  type RunStorage,
+  StaleArtifactError,
+} from '../runs/types.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from '../runs/utils/artifact.js';
 import {
   git,
+  gitAdd,
   gitApply,
   gitBranchDelete,
+  gitCommit,
   gitDiff,
   gitWorktreeAdd,
   gitWorktreeRemove,
 } from '../utils/git.js';
-import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
+import { pathExists, readUtf8, spawnAsync, spawnWait, writeUtf8 } from '../utils/io.js';
 import { type RunStorageContext } from './loop.js';
+import { applyRunPatchStepInRepo } from './patch.js';
 import { SAIFAC_TEMP_ROOT, type Sandbox } from './sandbox.js';
 
 // ---------------------------------------------------------------------------
@@ -29,20 +37,94 @@ import { SAIFAC_TEMP_ROOT, type Sandbox } from './sandbox.js';
 // ---------------------------------------------------------------------------
 
 /**
+ * Builds one combined patch for **untracked** files so resume can recreate the working tree
+ * faithfully.
+ *
+ * Git does not include untracked paths in `git diff HEAD`, so we list them with
+ * `ls-files --others --exclude-standard`, skip directories, and turn each file (or symlink)
+ * into a normal "new file" unified diff via `git diff --no-index /dev/null <path>` (with
+ * `--binary` where needed). Concatenated result is meant for `git apply` alongside tracked diffs.
+ */
+async function diffUntrackedFilesVersusDevNull(projectDir: string): Promise<string> {
+  // Untracked paths only (honors .gitignore via --exclude-standard), NUL-separated for odd filenames.
+  const lsRaw = await git({
+    cwd: projectDir,
+    args: ['ls-files', '-z', '--others', '--exclude-standard'],
+  });
+  const listOut = lsRaw
+    .split('\0')
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  const chunks: string[] = [];
+  for (const rel of listOut) {
+    const abs = join(projectDir, rel);
+    let st;
+    try {
+      st = await stat(abs);
+    } catch {
+      continue;
+    }
+    // Skip directories — only files and symlinks become valid "add file" hunks for `git apply`.
+    if (!st.isFile() && !st.isSymbolicLink()) {
+      continue;
+    }
+
+    // Same shape as "new file" in a normal commit diff; exit 1 with stdout means "there is a diff" (git convention).
+    const r = await spawnWait({
+      command: 'git',
+      cwd: projectDir,
+      args: ['diff', '--no-index', '--binary', '--', '/dev/null', rel],
+    });
+    if (r.code !== 0 && r.code !== 1) {
+      consola.warn(
+        `[orchestrator] git diff --no-index for untracked ${rel} exited ${r.code}: ${r.stderr.trim()}`,
+      );
+      continue;
+    }
+    if (r.code === 1 && r.stdout.trim()) {
+      chunks.push(r.stdout.endsWith('\n') ? r.stdout : `${r.stdout}\n`);
+    }
+  }
+
+  return chunks.join('');
+}
+
+/**
  * Captures the current git state so we can reconstruct it when resuming.
- * Returns baseCommitSha and basePatchDiff (`git diff HEAD`: staged + unstaged in one patch).
+ * Returns baseCommitSha and basePatchDiff: tracked changes (`git diff --binary HEAD`) plus untracked
+ * files (`git diff --no-index --binary …`) so binary files round-trip through `git apply` on resume.
  */
 export async function captureBaseGitState(projectDir: string): Promise<RunStorageContext> {
   let baseCommitSha: string;
   let basePatchDiff: string | undefined;
 
   try {
+    // Resume always replays from a known commit; anything not in that commit must be captured as a patch.
     baseCommitSha = (await git({ cwd: projectDir, args: ['rev-parse', 'HEAD'] })).trim();
     const status = (await git({ cwd: projectDir, args: ['status', '--porcelain'] })).trim();
     if (status) {
-      const combined = await gitDiff({ cwd: projectDir, args: ['HEAD'] });
-      // Empty check only — do not trim the diff body (trailing newline matters for git apply).
-      basePatchDiff = combined.trim() === '' ? undefined : combined;
+      // Tracked: diff vs index/HEAD
+      // Untracked: synthetic "add file" hunks so `git apply` can recreate them later.
+      const tracked = await gitDiff({ cwd: projectDir, args: ['--binary', 'HEAD'] });
+      const untracked = await diffUntrackedFilesVersusDevNull(projectDir);
+
+      const hasTracked = tracked.trim().length > 0;
+      const hasUntracked = untracked.trim().length > 0;
+      if (!hasTracked && !hasUntracked) {
+        basePatchDiff = undefined;
+      } else {
+        const parts: string[] = [];
+        if (hasTracked) {
+          parts.push(tracked.endsWith('\n') ? tracked : `${tracked}\n`);
+        }
+        if (hasUntracked) {
+          parts.push(untracked.endsWith('\n') ? untracked : `${untracked}\n`);
+        }
+        const combined = parts.join('');
+        // Empty check only — do not trim the diff body (trailing newline matters for git apply).
+        basePatchDiff = combined.trim() === '' ? undefined : combined;
+      }
     }
   } catch (err) {
     consola.warn('[orchestrator] Could not capture base git state for run storage:', err);
@@ -60,12 +142,14 @@ export interface CreateResumeWorktreeParams {
   runId: string;
   baseCommitSha: string;
   basePatchDiff: string | undefined;
-  runPatchDiff: string;
+  runPatchSteps: RunPatchStep[];
 }
 
 export interface CreateResumeWorktreeResult {
   worktreePath: string;
   branchName: string;
+  /** Directory tree (no `.git`) at base + base patch — before any `runPatchSteps`; used to build sandbox "Base state". */
+  baseSnapshotPath: string;
 }
 
 async function gitWorktreeListForDebug(cwd: string): Promise<string> {
@@ -84,12 +168,16 @@ async function gitWorktreeListForDebug(cwd: string): Promise<string> {
  *
  * Layers applied on top of `baseCommitSha`:
  * - Base patch diff — uncommitted host changes at run start (optional).
- * - Run patch diff — agent output from the stored artifact.
+ * - Dedicated **saifac: base patch** commit (always, including empty when there was no base patch).
+ * - Each `runPatchStep` applied and committed in order.
+ *
+ * Also writes {@link CreateResumeWorktreeResult#baseSnapshotPath}: a copy of the tree after the
+ * base patch (before run steps) for sandbox `rsync` + replayed `runPatchSteps` commits.
  */
 export async function createResumeWorktree(
   params: CreateResumeWorktreeParams,
 ): Promise<CreateResumeWorktreeResult> {
-  const { projectDir, runId, baseCommitSha, basePatchDiff, runPatchDiff } = params;
+  const { projectDir, runId, baseCommitSha, basePatchDiff, runPatchSteps } = params;
 
   try {
     await git({ cwd: projectDir, args: ['rev-parse', baseCommitSha] });
@@ -102,15 +190,16 @@ export async function createResumeWorktree(
   const gitEnv = {
     ...process.env,
     GIT_AUTHOR_NAME: process.env.GIT_AUTHOR_NAME ?? 'saifac',
-    GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL ?? 'saifac@localhost',
+    GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL ?? 'saifac@safeaifactory.com',
     GIT_COMMITTER_NAME: process.env.GIT_COMMITTER_NAME ?? 'saifac',
-    GIT_COMMITTER_EMAIL: process.env.GIT_COMMITTER_EMAIL ?? 'saifac@localhost',
+    GIT_COMMITTER_EMAIL: process.env.GIT_COMMITTER_EMAIL ?? 'saifac@safeaifactory.com',
   };
 
   const resumeWorktreesBase = join(SAIFAC_TEMP_ROOT, 'resume-worktrees');
   await mkdir(resumeWorktreesBase, { recursive: true });
   const dirKey = createHash('sha256').update(projectDir).digest('hex').slice(0, 16);
   const worktreePath = join(resumeWorktreesBase, `${dirKey}-${runId}`);
+  const baseSnapshotPath = join(resumeWorktreesBase, `${dirKey}-${runId}-base`);
   const branchName = `saifac-resume-${runId}`;
 
   // Same runId may have left a broken worktree dir / branch from a prior attempt; git would
@@ -122,6 +211,9 @@ export async function createResumeWorktree(
   }
   if (await pathExists(worktreePath)) {
     await rm(worktreePath, { recursive: true, force: true });
+  }
+  if (await pathExists(baseSnapshotPath)) {
+    await rm(baseSnapshotPath, { recursive: true, force: true });
   }
   try {
     await gitBranchDelete({ cwd: projectDir, branch: branchName, force: true, stdio: 'pipe' });
@@ -158,11 +250,39 @@ export async function createResumeWorktree(
   };
 
   try {
+    // Anchor commit for "what the host looked like when the run started": either apply the saved
+    // dirty-tree diff then commit, or an empty commit so later steps always sit on top of a named base.
     if (basePatchDiff?.trim()) {
       await applyPatchFromString(basePatchDiff);
+      await gitAdd({ cwd: worktreePath, env: gitEnv });
+      await gitCommit({
+        cwd: worktreePath,
+        env: gitEnv,
+        message: 'saifac: base patch',
+        verbose: false,
+        stdio: 'inherit',
+      });
+    } else {
+      await git({
+        cwd: worktreePath,
+        env: gitEnv,
+        args: ['commit', '--allow-empty', '-q', '-m', 'saifac: base patch'],
+      });
     }
-    if (runPatchDiff.trim()) {
-      await applyPatchFromString(runPatchDiff);
+
+    // Plain directory tree (no .git) right after the base patch — rsync source for the sandbox
+    // "Base state" before replaying runPatchSteps inside code/.
+    await mkdir(baseSnapshotPath, { recursive: true });
+    await spawnAsync({
+      command: 'rsync',
+      args: ['-a', '--exclude=.git', `${worktreePath}/`, `${baseSnapshotPath}/`],
+      cwd: projectDir,
+      stdio: 'inherit',
+    });
+
+    // Agent output from the artifact, one commit per step, on the worktree the user will inspect / link from.
+    for (const step of runPatchSteps) {
+      await applyRunPatchStepInRepo({ cwd: worktreePath, step, gitEnv });
     }
   } catch (err: unknown) {
     // Remove worktree on failure. cleanupResumeWorkspace only invokes onError when *cleanup*
@@ -189,7 +309,20 @@ export async function createResumeWorktree(
     );
   }
 
-  return { worktreePath: canonicalWorktreePath, branchName };
+  let canonicalBaseSnapshotPath: string;
+  try {
+    canonicalBaseSnapshotPath = await realpath(baseSnapshotPath);
+  } catch (err) {
+    throw new Error(
+      `[orchestrator] Could not realpath base snapshot ${baseSnapshotPath}: ${String(err)}`,
+    );
+  }
+
+  return {
+    worktreePath: canonicalWorktreePath,
+    branchName,
+    baseSnapshotPath: canonicalBaseSnapshotPath,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -229,6 +362,8 @@ export interface CreateSaveRunHandlerParams {
   runContext: RunStorageContext;
   opts: BuildRunArtifactOpts;
   runStorage: RunStorage;
+  /** Optimistic lock when resuming (same as `run inspect`). */
+  saveRunOptions?: RunSaveOptions;
 }
 
 /**
@@ -236,25 +371,45 @@ export interface CreateSaveRunHandlerParams {
  * When the user hits Ctrl+C before the loop finishes, persists a failed run artifact (patch may be empty).
  */
 export async function saveRunOnError(params: CreateSaveRunHandlerParams): Promise<void> {
-  const { sandbox, runContext, opts, runStorage } = params;
-
+  const { sandbox, runContext, opts, runStorage, saveRunOptions } = params;
   const runId = sandbox.runId;
-  const patchPath = join(sandbox.sandboxBasePath, 'patch.diff');
-  const runPatchDiff = (await pathExists(patchPath)) ? (await readUtf8(patchPath)).trimEnd() : '';
+
+  // Interrupt path: reuse steps the loop already flushed to disk so resume isn’t blind;
+  // bad/missing JSON → empty array.
+  const stepsPath = join(sandbox.sandboxBasePath, 'run-patch-steps.json');
+  let runPatchSteps: RunPatchStep[] = [];
+  if (await pathExists(stepsPath)) {
+    try {
+      const raw = JSON.parse(await readUtf8(stepsPath)) as unknown;
+      if (Array.isArray(raw)) {
+        runPatchSteps = raw as RunPatchStep[];
+      }
+    } catch {
+      runPatchSteps = [];
+    }
+  }
 
   const artifact = buildRunArtifact({
     runId,
     baseCommitSha: runContext.baseCommitSha,
     basePatchDiff: runContext.basePatchDiff,
-    runPatchDiff,
+    runPatchSteps,
     specRef: opts.feature.relativePath,
     lastFeedback: runContext.lastErrorFeedback,
     status: 'failed',
     opts,
   });
 
-  await runStorage.saveRun(runId, artifact);
-  consola.log(
-    `[orchestrator] Run artifact saved (interrupted). Resume with: saifac run resume ${runId}`,
-  );
+  try {
+    await runStorage.saveRun(runId, artifact, saveRunOptions);
+    consola.log(
+      `[orchestrator] Run artifact saved (interrupted). Resume with: saifac run resume ${runId}`,
+    );
+  } catch (err) {
+    if (err instanceof StaleArtifactError) {
+      consola.warn(`[orchestrator] ${err.message}`);
+      return;
+    }
+    throw err;
+  }
 }

@@ -2,12 +2,14 @@
  * Phase: apply-patch — apply sandbox patch to host via git worktree.
  */
 
+import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { generatePRSummary } from '../../git/agents/pr-summarizer.js';
 import type { GitProvider } from '../../git/types.js';
 import type { ModelOverrides } from '../../llm-config.js';
 import { consola } from '../../logger.js';
+import type { RunPatchStep } from '../../runs/types.js';
 import type { Feature } from '../../specs/discover.js';
 import {
   gitAdd,
@@ -19,7 +21,8 @@ import {
   gitWorktreePrune,
   gitWorktreeRemove,
 } from '../../utils/git.js';
-import { pathExists, readUtf8 } from '../../utils/io.js';
+import { pathExists, readUtf8, writeUtf8 } from '../../utils/io.js';
+import { resolveRunPatchStepAuthor } from '../patch.js';
 
 export type { OrchestratorResult } from '../loop.js';
 
@@ -63,7 +66,7 @@ export interface ApplyPatchOpts {
  *
  * Flow:
  *   1. Create a temporary worktree at <sandboxBasePath>/worktree on branch saifac/<featureName>-<runId>
- *   2. Apply patch.diff and commit inside the worktree
+ *   2. Apply `run-patch-steps.json` (incremental commits) inside the worktree
  *   3. Optionally push the branch to the remote target
  *   4. Optionally open a Pull Request via the configured git provider
  *   5. Remove the worktree (branch remains in the main repo's git history)
@@ -89,16 +92,28 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
   // patch.diff is written to sandboxBasePath (parent of codePath) by extractPatch,
   // deliberately outside the git working tree so `git clean -fd` cannot delete it.
   const sandboxBasePath = join(codePath, '..');
-  const patchFile = join(sandboxBasePath, 'patch.diff');
+  const stepsPath = join(sandboxBasePath, 'run-patch-steps.json');
 
-  if (!(await pathExists(patchFile))) {
-    consola.warn('[orchestrator] No patch.diff found in sandbox; skipping host apply');
+  if (!(await pathExists(stepsPath))) {
+    consola.warn('[orchestrator] No run-patch-steps.json found in sandbox; skipping host apply');
+    return;
+  }
+
+  let steps: RunPatchStep[] = [];
+  try {
+    steps = JSON.parse(await readUtf8(stepsPath)) as RunPatchStep[];
+  } catch {
+    consola.warn('[orchestrator] Invalid run-patch-steps.json; skipping host apply');
+    return;
+  }
+  if (!Array.isArray(steps) || steps.length === 0) {
+    consola.warn('[orchestrator] run-patch-steps.json is empty; skipping host apply');
     return;
   }
 
   // Reject patches that touch .git/hooks/ — a hook injected here would run on the
   // host machine the next time any git operation triggers it.
-  const patchContent = await readUtf8(patchFile);
+  const patchContent = steps.map((s) => s.diff).join('\n');
   if (/^diff --git.*\.git\/hooks\//m.test(patchContent)) {
     throw new Error(
       '[orchestrator] Patch rejected: contains changes to .git/hooks/. ' +
@@ -106,15 +121,18 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
     );
   }
 
+  const patchFile = join(sandboxBasePath, 'patch.diff');
+  await writeUtf8(patchFile, patchContent.endsWith('\n') ? patchContent : `${patchContent}\n`);
+
   const branchName = `saifac/${feature.name}-${runId}`;
   const wtPath = join(sandboxBasePath, 'worktree');
 
   const gitEnv = {
     ...process.env,
     GIT_AUTHOR_NAME: process.env.GIT_AUTHOR_NAME ?? 'saifac',
-    GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL ?? 'saifac@localhost',
+    GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL ?? 'saifac@safeaifactory.com',
     GIT_COMMITTER_NAME: process.env.GIT_COMMITTER_NAME ?? 'saifac',
-    GIT_COMMITTER_EMAIL: process.env.GIT_COMMITTER_EMAIL ?? 'saifac@localhost',
+    GIT_COMMITTER_EMAIL: process.env.GIT_COMMITTER_EMAIL ?? 'saifac@safeaifactory.com',
   };
 
   // Capture the current branch for the PR base *before* touching anything
@@ -141,16 +159,24 @@ export async function applyPatchToHost(opts: ApplyPatchOpts): Promise<void> {
       await gitApply({ cwd: wtPath, env: gitEnv, patchFile: hostBasePatchPath });
     }
 
-    // 2b. Apply the agent's patch inside the worktree
-    await gitApply({ cwd: wtPath, env: gitEnv, patchFile: patchFile });
-    await gitAdd({ cwd: wtPath, env: gitEnv });
-    await gitCommit({
-      cwd: wtPath,
-      env: gitEnv,
-      message: `feat(${feature.name}): auto-generated implementation`,
-      verbose,
-    });
-    consola.log(`[orchestrator] Committed patch on branch ${branchName}`);
+    // 2b. Apply each incremental step (preserves commit messages / authors from the run)
+    for (const step of steps) {
+      if (!step.diff.trim()) continue;
+      const tmpPatch = join(sandboxBasePath, '.saifac-host-step.patch');
+      const safe = step.diff.endsWith('\n') ? step.diff : `${step.diff}\n`;
+      await writeUtf8(tmpPatch, safe);
+      await gitApply({ cwd: wtPath, env: gitEnv, patchFile: tmpPatch });
+      await unlink(tmpPatch).catch(() => {});
+      await gitAdd({ cwd: wtPath, env: gitEnv });
+      await gitCommit({
+        cwd: wtPath,
+        env: gitEnv,
+        message: step.message,
+        author: resolveRunPatchStepAuthor(step),
+        verbose,
+      });
+    }
+    consola.log(`[orchestrator] Committed ${steps.length} patch step(s) on branch ${branchName}`);
 
     // 4. Push
     if (push) {

@@ -68,7 +68,9 @@ Star the repository to get notified of the Alpha drop, or [Join the Design Partn
 
 ### Step-by-step guide
 
-See the [Step-by-step guide](docs/usage.md) for a detailed walkthrough of the workflow.
+See the [Step-by-step usage](docs/usage.md) for a detailed walkthrough of the workflow.
+
+For shorter, task-focused tutorials, see [Guides](./docs/guides/README.md).
 
 ## VSCode extension
 
@@ -77,7 +79,7 @@ The SAIFAC VSCode extension provides a dedicated sidebar panel to manage your en
 **What the extension does:**
 
 - **Manage Features:** Visual tree view of your features. Create new features, or manage existing ones through GUI.
-- **Design & Run:** One-click actions to generate specs (`saifac feat design`), start the coding swarm (`saifac feat run`), or drop into a debug container (`saifac feat debug`).
+- **Design & Run:** One-click actions to generate specs (`saifac feat design`) and start the coding swarm (`saifac feat run`).
 - **Track Runs:** A Kubernetes-style dashboard of all your agent runs. See status (success/failed), view run configs, and instantly resume failed runs or clear old ones.
 
 ## Requirements
@@ -102,6 +104,7 @@ Dive into the details of what you can customize in the [Features guide](./docs/f
 ## Reference
 
 - [Usage](./docs/usage.md)
+- [Guides](./docs/guides/README.md) — Step-by-step tutorials
 - [Configuration](./docs/config.md)
 - [Agents](docs/agents/README.md)
 - [Security & Isolation](./docs/security.md)

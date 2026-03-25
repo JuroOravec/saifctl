@@ -5,7 +5,7 @@
  * --dangerous-debug direct). Returns the raw patch content produced by the agent.
  *
  * This is the inner atom for a single attempt:
- *   setup provisioner → runAgent → teardown provisioner → extractPatch
+ *   setup provisioner → runAgent → teardown provisioner → extractIncrementalRoundPatch
  *
  * The entire operation runs inside a `try/finally` so teardown() always fires,
  * even when Hatchet cancels the step (ctx.abortController.signal fires).
@@ -17,11 +17,12 @@ import { getSaifRoot } from '../../constants.js';
 import { resolveAgentLlmConfig } from '../../llm-config.js';
 import { consola } from '../../logger.js';
 import { createProvisioner } from '../../provisioners/index.js';
+import type { RunPatchStep } from '../../runs/types.js';
 import type { CleanupRegistry } from '../../utils/cleanup.js';
-import { gitApply } from '../../utils/git.js';
+import { git } from '../../utils/git.js';
 import type { IterativeLoopOpts } from '../loop.js';
 import {
-  extractPatch,
+  extractIncrementalRoundPatch,
   listFilePathsInUnifiedDiff,
   type PatchExcludeRule,
   type Sandbox,
@@ -61,14 +62,20 @@ export interface RunAgentPhaseInput {
 }
 
 export interface RunAgentPhaseOutput {
-  /** Filtered diff produced by the agent. Empty string when the agent made no changes. */
+  /** Filtered diffs concatenated (bookkeeping / test gate). Empty when the agent made no changes. */
   patchContent: string;
   /** Absolute path to patch.diff written to sandboxBasePath */
   patchPath: string;
+  /** HEAD at the start of this round (for Ralph reset on failure). */
+  preRoundHeadSha: string;
+  /** One entry per sandbox commit this round (+ optional WIP step); empty when no capture-worthy changes. */
+  steps: RunPatchStep[];
 }
 
 export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgentPhaseOutput> {
   const { sandbox, attempt, errorFeedback, task, patchExclude, opts, registry, signal } = input;
+
+  const preRoundHead = (await git({ cwd: sandbox.codePath, args: ['rev-parse', 'HEAD'] })).trim();
   const {
     overrides,
     projectDir,
@@ -134,7 +141,13 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
     await codingProvisioner.teardown({ runId: codingRunId });
   }
 
-  const { patch: patchContent, patchPath } = await extractPatch(sandbox.codePath, {
+  const {
+    patch: patchContent,
+    patchPath,
+    steps,
+  } = await extractIncrementalRoundPatch(sandbox.codePath, {
+    preRoundHeadSha: preRoundHead,
+    attempt,
     exclude: patchExclude,
   });
 
@@ -151,11 +164,5 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
     );
   }
 
-  if (patchContent.trim()) {
-    // Re-apply so tests can run against the patched code.
-    // extractPatch resets to base state, so we need to re-apply.
-    await gitApply({ cwd: sandbox.codePath, patchFile: patchPath });
-  }
-
-  return { patchContent, patchPath };
+  return { patchContent, patchPath, preRoundHeadSha: preRoundHead, steps };
 }

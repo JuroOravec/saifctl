@@ -514,7 +514,6 @@ Before the Coder Agent starts, the black box testing agent runs the generated te
 | —    | [`saifac feat design-tests`](feat-design-tests.md)         | Generate tests from existing specs (second step of design).                                 |     |
 | 5    | [`saifac feat design-fail2pass`](feat-design-fail2pass.md) | Run tests against main; at least one feature test must fail (third step of design workflow) |
 | 6    | `saifac feat run`                                          | Start an agent to implement the specs. Runs until it passes your tests.                     |
-| —    | `saifac feat debug`                                        | Debug: spin up staging container only, stream logs until Ctrl+C                             |
 | 7    | (PR merged to main)                                        | Human or automation                                                                         |
 | —    | `saifac cache list`                                        | List sandbox dirs for this project (`--all`: all projects)                                  |
 | —    | `saifac cache clear`                                       | Remove sandbox entries for this project (`--all`: everything)                               |

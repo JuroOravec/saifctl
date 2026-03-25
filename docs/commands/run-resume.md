@@ -101,6 +101,7 @@ Once the workspace is reconstructed, `run resume` follows the same flow as `feat
 
 ## See also
 
+- [Guide: Fix agent mistakes with inspect + resume](../guides/inspect-and-resume.md) — Step-by-step (VS Code / Cursor)
 - [Runs](../runs.md) — Storage backends, portability, resumption overview
 - [`feat run`](feat-run.md) — Full flag list and new-run behavior
 - [`run list`](run-list.md) — List stored run IDs

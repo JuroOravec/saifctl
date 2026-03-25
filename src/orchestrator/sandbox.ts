@@ -28,9 +28,11 @@ import { minimatch } from 'minimatch';
 
 import type { TestCatalog } from '../design-tests/schema.js';
 import { consola } from '../logger.js';
+import type { RunPatchStep } from '../runs/types.js';
 import type { Feature } from '../specs/discover.js';
-import { git, gitAdd, gitClean, gitCommit, gitDiff, gitInit, gitResetHard } from '../utils/git.js';
+import { git, gitAdd, gitCommit, gitDiff, gitInit } from '../utils/git.js';
 import { pathExists, readUtf8, spawnAsync, writeUtf8 } from '../utils/io.js';
+import { replayRunPatchSteps, SAIFAC_DEFAULT_AUTHOR } from './patch.js';
 
 /** Recursively removes all directories named "hidden" under baseDir. Exported for testing. */
 export async function removeAllHiddenDirs(baseDir: string): Promise<number> {
@@ -188,6 +190,15 @@ export interface CreateSandboxOpts {
    * When false/omitted, commits use `-q` for quieter output.
    */
   verbose?: boolean;
+  /**
+   * When set, rsync the code tree from this directory instead of {@link projectDir}.
+   * Used for resume: base snapshot (before `runPatchSteps`) so the sandbox can replay commits.
+   */
+  codeSourceDir?: string;
+  /**
+   * Incremental steps to replay after the initial "Base state" commit (resume / test-from-run).
+   */
+  runPatchSteps?: RunPatchStep[];
 }
 
 /**
@@ -196,12 +207,15 @@ export interface CreateSandboxOpts {
  * 1. rsync repo → sandboxBasePath/code/ (honoring .gitignore)
  * 2. Remove ALL hidden/ dirs under saifac/features/ so the coder agent cannot see holdout
  *    tests from any feature (current or others)
- * 3. git init + initial commit inside code/ (clean baseline for diffing)
+ * 3. git init + "Base state" commit, then replay {@link CreateSandboxOpts#runPatchSteps}
  * 4. Write gate.sh (user-supplied or default) to sandboxBasePath/gate.sh
  * 5. Write startup.sh (from profile or --startup-script) to sandboxBasePath/startup.sh
  * 6. Write agent-install.sh (from agent profile or --agent-install-script) to sandboxBasePath/agent-install.sh
  * 7. Write agent.sh (from agent profile or --agent-script) to sandboxBasePath/agent.sh
  * 8. Write stage.sh (from profile or --stage-script) to sandboxBasePath/stage.sh
+ *
+ * If `{projectName}-{feature}-{runId}` already exists under {@link CreateSandboxOpts#sandboxBaseDir},
+ * throws immediately (avoids clobbering an in-flight or leaked sandbox).
  */
 export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   const {
@@ -216,7 +230,9 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
     agentScript,
     stageScript,
     verbose,
+    runPatchSteps = [],
   } = opts;
+  const codeRsyncSource = opts.codeSourceDir ?? projectDir;
   const runId = opts.runId ?? Math.random().toString(36).substring(2, 9);
 
   const dirName = `${projectName}-${feature.name}-${runId}`;
@@ -228,6 +244,15 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   const agentPath = join(sandboxBasePath, 'agent.sh');
   const stagePath = join(sandboxBasePath, 'stage.sh');
   const hostBasePatchPath = join(sandboxBasePath, 'host-base.patch');
+
+  if (await pathExists(sandboxBasePath)) {
+    throw new Error(
+      `[sandbox] Sandbox directory already exists: ${sandboxBasePath}\n` +
+        `Another \`feat run\` / \`run resume\` may still be using it, or a previous run exited without cleanup. ` +
+        `Stop the other process, remove this directory, or wait until it finishes. ` +
+        `(Future: \`run fork\` for a second workspace.)`,
+    );
+  }
 
   consola.log(`[sandbox] Creating isolated sandbox at ${sandboxBasePath}`);
   await mkdir(codePath, { recursive: true });
@@ -242,7 +267,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
     );
   }
 
-  const hostBasePatch = await gitDiff({ cwd: projectDir, args: ['HEAD'] });
+  const hostBasePatch = await gitDiff({ cwd: projectDir, args: ['--binary', 'HEAD'] });
   await writeUtf8(hostBasePatchPath, hostBasePatch);
   if (hostBasePatch.trim()) {
     const lineCount = hostBasePatch.split('\n').length;
@@ -256,8 +281,8 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   // rsync the repo into code/, respecting .gitignore to skip node_modules etc.
   await spawnAsync({
     command: 'rsync',
-    args: ['-a', '--filter=:- .gitignore', '--exclude=.git', `${projectDir}/`, `${codePath}/`],
-    cwd: projectDir,
+    args: ['-a', '--filter=:- .gitignore', '--exclude=.git', `${codeRsyncSource}/`, `${codePath}/`],
+    cwd: codeRsyncSource,
     stdio: 'inherit',
   });
 
@@ -304,12 +329,31 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
     env: {
       ...process.env,
       GIT_AUTHOR_NAME: 'saifac',
-      GIT_AUTHOR_EMAIL: 'saifac@localhost',
+      GIT_AUTHOR_EMAIL: 'saifac@safeaifactory.com',
       GIT_COMMITTER_NAME: 'saifac',
-      GIT_COMMITTER_EMAIL: 'saifac@localhost',
+      GIT_COMMITTER_EMAIL: 'saifac@safeaifactory.com',
     },
   });
   consola.log(`[sandbox] git init + initial commit done in ${codePath}`);
+
+  const replayGitEnv = {
+    ...process.env,
+    GIT_AUTHOR_NAME: 'saifac',
+    GIT_AUTHOR_EMAIL: 'saifac@safeaifactory.com',
+    GIT_COMMITTER_NAME: 'saifac',
+    GIT_COMMITTER_EMAIL: 'saifac@safeaifactory.com',
+  };
+
+  // Apply all commits that have been made to the sandbox since the initial commit.
+  if (runPatchSteps.length > 0) {
+    await replayRunPatchSteps({
+      cwd: codePath,
+      steps: runPatchSteps,
+      gitEnv: replayGitEnv,
+      verbose: !!verbose,
+    });
+    consola.log(`[sandbox] Replayed ${runPatchSteps.length} run patch step(s) in ${codePath}`);
+  }
 
   // Write gate.sh: user-supplied content or the built-in pnpm check default.
   // Mounted read-only at /saifac/gate.sh inside the coder container.
@@ -377,67 +421,141 @@ export interface ExtractPatchOpts {
   exclude?: PatchExcludeRule[];
 }
 
+export interface ExtractIncrementalRoundPatchOpts extends ExtractPatchOpts {
+  /** `git rev-parse` at the start of this agent round (before the agent ran). */
+  preRoundHeadSha: string;
+  /** Outer loop attempt index (1-based), for default commit message. */
+  attempt: number;
+  /** Override default `saifac: coding attempt <attempt>`. */
+  message?: string;
+  /** Override default {@link SAIFAC_DEFAULT_AUTHOR}. */
+  author?: string;
+}
+
 /**
- * Extracts a git patch from changes in the code directory since the base commit.
+ * After an agent round: record **one {@link RunPatchStep} per commit** on the first-parent chain
+ * from `preRoundHeadSha` to `HEAD`, then optionally **one more step** for leftover uncommitted work
+ * (committed here with `saifac: coding attempt <n>` unless overridden).
  *
- * Any file sections matched by an `exclude` rule are stripped (reward-hacking prevention).
- * Writes patch.diff to sandboxBasePath (parent of codePath) so that `git clean -fd`
- * inside codePath cannot delete it before it is applied.
+ * Does **not** reset the repo — HEAD stays at the tip so tests run on the real tree.
+ * On failed tests the caller should `git reset --hard` to `preRoundHeadSha` and drop all steps
+ * from this round from `runPatchSteps`.
  *
- * Resets the sandbox back to base state so the next attempt starts clean.
- *
- * Returns both the patch content and the path where patch.diff was written.
+ * Writes combined `patch.diff` beside `code/` (for bookkeeping / PR summarizer).
+ * Uses `git diff --binary` so binary files survive `git apply` on replay / host apply.
  */
-export async function extractPatch(
+export async function extractIncrementalRoundPatch(
   codePath: string,
-  opts: ExtractPatchOpts = {},
-): Promise<{ patch: string; patchPath: string }> {
-  // Write outside the git working tree so git clean cannot delete it.
+  opts: ExtractIncrementalRoundPatchOpts,
+): Promise<{ patch: string; patchPath: string; steps: RunPatchStep[] }> {
   const sandboxBasePath = join(codePath, '..');
   const patchPath = join(sandboxBasePath, 'patch.diff');
   const gitEnv = {
     ...process.env,
     GIT_AUTHOR_NAME: 'saifac',
-    GIT_AUTHOR_EMAIL: 'saifac@localhost',
+    GIT_AUTHOR_EMAIL: 'saifac@safeaifactory.com',
     GIT_COMMITTER_NAME: 'saifac',
-    GIT_COMMITTER_EMAIL: 'saifac@localhost',
+    GIT_COMMITTER_EMAIL: 'saifac@safeaifactory.com',
   };
 
-  // Resolve the root commit (the "Base state" commit created before the agent ran).
-  // This is always the first commit in the sandbox repo — the only commit that exists
-  // before any agent changes. We need this because some agents may commit their changes,
-  // so `git diff HEAD` would be empty. Diffing from the root commit to HEAD captures all
-  // agent changes whether committed or not.
-  const rootCommit = (
-    await git({ cwd: codePath, env: gitEnv, args: ['rev-list', '--max-parents=0', 'HEAD'] })
-  ).trim();
+  const preRoundHead = opts.preRoundHeadSha.trim();
+  const exclude = opts.exclude ?? [];
+  const steps: RunPatchStep[] = [];
 
-  // Stage any uncommitted changes and commit them so they appear in the range diff.
-  // Unstage `.saifac/` entirely (same as orchestrator/scripts/reviewer.sh): factory-internal
-  // paths (task, argus config, review JSON, etc.) must not appear in the capture commit.
+  // Commits the agent made this round only (linear history — merges follow first parent).
+  const revListRaw = (
+    await git({
+      cwd: codePath,
+      env: gitEnv,
+      args: ['rev-list', '--reverse', '--first-parent', `${preRoundHead}..HEAD`],
+    })
+  ).trim();
+  const commitShas = revListRaw
+    ? revListRaw
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+    : [];
+
+  // Each commit becomes its own replayable step: diff from parent → stored message/author from that commit.
+  for (const sha of commitShas) {
+    const parent = (
+      await git({ cwd: codePath, env: gitEnv, args: ['rev-parse', `${sha}^`] })
+    ).trim();
+    const rawPatch = await gitDiff({
+      cwd: codePath,
+      env: gitEnv,
+      args: ['--binary', parent, sha],
+    });
+    const message = (
+      await git({ cwd: codePath, env: gitEnv, args: ['log', '-1', '--format=%B', sha] })
+    ).trimEnd();
+    const author = (
+      await git({ cwd: codePath, env: gitEnv, args: ['log', '-1', '--format=%an <%ae>', sha] })
+    ).trim();
+    const patch = exclude.length ? filterPatchHunks(rawPatch, exclude) : rawPatch;
+    const normalizedPatch = patch.endsWith('\n') ? patch : `${patch}\n`;
+    if (!normalizedPatch.trim()) continue;
+    steps.push({ message, diff: normalizedPatch, author });
+  }
+
+  // Leftover uncommitted / unstaged changes:
+  // Stage them, optionally make one temporary commit so we can diff it,
+  // then either record a WIP step or undo the commit.
+  // if exclude rules stripped everything — working tree stays ready for tests either way.
   await gitAdd({ cwd: codePath, env: gitEnv });
+  // Omit `.saifac/` from the staged changes
   try {
     await git({ cwd: codePath, env: gitEnv, args: ['reset', 'HEAD', '--', '.saifac'] });
   } catch {
-    // .saifac may be absent or empty in index; ignore.
+    /* .saifac may be absent */
   }
-  const stagedOut = (
+
+  // If there are any staged changes after the `gitAdd` above,
+  // create a commit for them.
+  const hasStagedChanges = (
     await git({ cwd: codePath, env: gitEnv, args: ['diff', '--cached', '--name-only'] })
   ).trim();
-  if (stagedOut) {
-    await gitCommit({ cwd: codePath, env: gitEnv, message: 'saifac: capture uncommitted changes' });
+  if (hasStagedChanges) {
+    const lastCommitSha = (
+      await git({ cwd: codePath, env: gitEnv, args: ['rev-parse', 'HEAD'] })
+    ).trim();
+
+    // Create a commit with unstaged / uncommitted changes.
+    const wipMessage = opts.message ?? `saifac: coding attempt ${opts.attempt}`;
+    const wipAuthor = opts.author ?? SAIFAC_DEFAULT_AUTHOR;
+    await gitCommit({
+      cwd: codePath,
+      env: gitEnv,
+      message: wipMessage,
+      author: wipAuthor,
+      verbose: false,
+    });
+
+    // Decide whether the commit we just created contains any changes
+    // after we strip from it forbidden paths (e.g. `.saifac/`).
+    // If not, revert the commit.
+    const rawWip = await gitDiff({
+      cwd: codePath,
+      env: gitEnv,
+      args: ['--binary', lastCommitSha, 'HEAD'],
+    });
+    const wipPatch = exclude.length ? filterPatchHunks(rawWip, exclude) : rawWip;
+    const normalizedWip = wipPatch.endsWith('\n') ? wipPatch : `${wipPatch}\n`;
+    if (normalizedWip.trim()) {
+      steps.push({ message: wipMessage, diff: normalizedWip, author: wipAuthor });
+    } else {
+      // Nothing left after exclude rules — drop the capture commit but keep changes staged (same tree for tests).
+      await git({ cwd: codePath, env: gitEnv, args: ['reset', '--soft', 'HEAD~1'] });
+    }
   }
 
-  const rawPatch = await gitDiff({ cwd: codePath, env: gitEnv, args: [`${rootCommit}..HEAD`] });
+  // Single file for humans / PR summarizer: all step diffs back-to-back (steps[] is the source of truth for replay).
+  const combinedPatch =
+    steps.length > 0 ? `${steps.map((s) => s.diff.replace(/\n+$/, '')).join('\n')}\n` : '';
+  await writeUtf8(patchPath, combinedPatch);
 
-  const patch = opts.exclude?.length ? filterPatchHunks(rawPatch, opts.exclude) : rawPatch;
-  await writeUtf8(patchPath, patch);
-
-  // Reset back to base state (root commit) for next attempt.
-  await gitResetHard({ cwd: codePath, env: gitEnv, ref: rootCommit });
-  await gitClean({ cwd: codePath, env: gitEnv });
-
-  return { patch, patchPath };
+  return { patch: combinedPatch, patchPath, steps };
 }
 
 /**

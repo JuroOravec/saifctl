@@ -147,11 +147,6 @@
         "icon": "$(play)"
       },
       {
-        "command": "saifac.debugFeature",
-        "title": "Debug",
-        "icon": "$(debug)"
-      },
-      {
         "command": "saifac.designFeature",
         "title": "Design",
         "icon": "$(edit)"
@@ -244,14 +239,9 @@
           "group": "inline@1"
         },
         {
-          "command": "saifac.debugFeature",
-          "when": "viewItem == feature",
-          "group": "inline@2"
-        },
-        {
           "command": "saifac.designFeature",
           "when": "viewItem == feature",
-          "group": "inline@3"
+          "group": "inline@2"
         },
         {
           "command": "saifac.resumeRun",

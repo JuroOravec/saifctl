@@ -33,7 +33,7 @@ async function writeRunJson(
   const doc = {
     runId,
     baseCommitSha: 'abc',
-    runPatchDiff: '',
+    runPatchSteps: [],
     specRef: 'saifac/features/x',
     config: { featureName: row.featureName },
     status: row.status,

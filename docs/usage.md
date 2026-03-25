@@ -309,6 +309,10 @@ After the tests successfully failed, you can start your coding agent.
 
 **Infra vs genuine failures:** When tests fail at `fail2pass`, you can be certain it's genuine errors. Tests run in containers, which means tests can fail due to infra or network errors. However, `safe-ai-factory` handles this with health checks from the test runner to the staging container.
 
+## Guides
+
+- [Fix agent mistakes with inspect and resume](guides/inspect-and-resume.md) — open the saved run’s coding container in VS Code or Cursor, edit by hand, then `run resume`.
+
 ## Notes
 
 - The coder agent runs inside a **Leash** container by default.

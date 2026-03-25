@@ -13,9 +13,11 @@ import { describe, expect, it } from 'vitest';
 import { resolveFeature } from '../specs/discover.js';
 import { git, gitAdd, gitCommit, gitInit } from '../utils/git.js';
 import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
+import { sandboxHasCommitsBeyondInitialImport } from './loop.js';
 import {
   createSandbox,
   destroySandbox,
+  extractIncrementalRoundPatch,
   filterPatchHunks,
   listFilePathsInUnifiedDiff,
   removeAllHiddenDirs,
@@ -113,6 +115,154 @@ index 0000000..1111111 100644
     const result = filterPatchHunks(patchWithTask, [{ type: 'glob', pattern: '.saifac/**' }]);
     expect(result).not.toContain('.saifac/task.md');
     expect(result).toContain('src/index.ts');
+  });
+});
+
+describe('sandboxHasCommitsBeyondInitialImport', () => {
+  const gitEnv = {
+    ...process.env,
+    GIT_AUTHOR_NAME: 'T',
+    GIT_AUTHOR_EMAIL: 't@test.dev',
+    GIT_COMMITTER_NAME: 'T',
+    GIT_COMMITTER_EMAIL: 't@test.dev',
+  };
+
+  it('is false when only the initial sandbox import commit exists', async () => {
+    const base = await mkdtemp(join(process.cwd(), 'sb-commits-0-'));
+    const codePath = join(base, 'code');
+    try {
+      await mkdir(codePath, { recursive: true });
+      await gitInit({ cwd: codePath, stdio: 'pipe' });
+      await writeUtf8(join(codePath, 'README.md'), 'v0\n');
+      await gitAdd({ cwd: codePath, env: gitEnv });
+      await gitCommit({ cwd: codePath, env: gitEnv, message: 'Base state' });
+      await expect(sandboxHasCommitsBeyondInitialImport(codePath)).resolves.toBe(false);
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
+  });
+
+  it('is true after an additional commit (e.g. replayed runPatchSteps)', async () => {
+    const base = await mkdtemp(join(process.cwd(), 'sb-commits-1-'));
+    const codePath = join(base, 'code');
+    try {
+      await mkdir(codePath, { recursive: true });
+      await gitInit({ cwd: codePath, stdio: 'pipe' });
+      await writeUtf8(join(codePath, 'README.md'), 'v0\n');
+      await gitAdd({ cwd: codePath, env: gitEnv });
+      await gitCommit({ cwd: codePath, env: gitEnv, message: 'Base state' });
+      await writeUtf8(join(codePath, 'x.txt'), 'x\n');
+      await gitAdd({ cwd: codePath, env: gitEnv });
+      await gitCommit({ cwd: codePath, env: gitEnv, message: 'replay step' });
+      await expect(sandboxHasCommitsBeyondInitialImport(codePath)).resolves.toBe(true);
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('extractIncrementalRoundPatch', () => {
+  const gitEnv = {
+    ...process.env,
+    GIT_AUTHOR_NAME: 'T',
+    GIT_AUTHOR_EMAIL: 't@test.dev',
+    GIT_COMMITTER_NAME: 'T',
+    GIT_COMMITTER_EMAIL: 't@test.dev',
+  };
+
+  it('returns one step per commit on the first-parent chain', async () => {
+    const base = await mkdtemp(join(process.cwd(), 'extract-round-'));
+    const codePath = join(base, 'code');
+    try {
+      await mkdir(codePath, { recursive: true });
+      await gitInit({ cwd: codePath, stdio: 'pipe' });
+      await writeUtf8(join(codePath, 'README.md'), 'v0\n');
+      await gitAdd({ cwd: codePath, env: gitEnv });
+      await gitCommit({ cwd: codePath, env: gitEnv, message: 'Base state' });
+      const preRound = (await git({ cwd: codePath, args: ['rev-parse', 'HEAD'] })).trim();
+
+      await writeUtf8(join(codePath, 'a.txt'), 'a\n');
+      await gitAdd({ cwd: codePath, env: gitEnv });
+      await gitCommit({
+        cwd: codePath,
+        env: gitEnv,
+        message: 'commit one',
+        author: 'Agent1 <a1@x.dev>',
+      });
+
+      await writeUtf8(join(codePath, 'b.txt'), 'b\n');
+      await gitAdd({ cwd: codePath, env: gitEnv });
+      await gitCommit({
+        cwd: codePath,
+        env: gitEnv,
+        message: 'commit two',
+        author: 'Agent2 <a2@x.dev>',
+      });
+
+      const { steps, patch } = await extractIncrementalRoundPatch(codePath, {
+        preRoundHeadSha: preRound,
+        attempt: 1,
+      });
+      expect(steps).toHaveLength(2);
+      expect(steps[0].message).toContain('commit one');
+      expect(steps[0].author).toContain('Agent1');
+      expect(steps[1].message).toContain('commit two');
+      expect(steps[1].author).toContain('Agent2');
+      expect(patch).toContain('a.txt');
+      expect(patch).toContain('b.txt');
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
+  });
+
+  it('records a single WIP step when there are no new commits but staged changes', async () => {
+    const base = await mkdtemp(join(process.cwd(), 'extract-wip-'));
+    const codePath = join(base, 'code');
+    try {
+      await mkdir(codePath, { recursive: true });
+      await gitInit({ cwd: codePath, stdio: 'pipe' });
+      await writeUtf8(join(codePath, 'README.md'), 'v0\n');
+      await gitAdd({ cwd: codePath, env: gitEnv });
+      await gitCommit({ cwd: codePath, env: gitEnv, message: 'Base state' });
+      const preRound = (await git({ cwd: codePath, args: ['rev-parse', 'HEAD'] })).trim();
+
+      await writeUtf8(join(codePath, 'wip.txt'), 'wip\n');
+      await gitAdd({ cwd: codePath, env: gitEnv });
+
+      const { steps, patch } = await extractIncrementalRoundPatch(codePath, {
+        preRoundHeadSha: preRound,
+        attempt: 1,
+      });
+      expect(steps).toHaveLength(1);
+      expect(steps[0].message).toBe('saifac: coding attempt 1');
+      expect(patch).toContain('wip.txt');
+      const headAfter = (await git({ cwd: codePath, args: ['rev-parse', 'HEAD'] })).trim();
+      expect(headAfter).not.toBe(preRound);
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
+  });
+
+  it('returns no steps when nothing changed since preRoundHead', async () => {
+    const base = await mkdtemp(join(process.cwd(), 'extract-empty-'));
+    const codePath = join(base, 'code');
+    try {
+      await mkdir(codePath, { recursive: true });
+      await gitInit({ cwd: codePath, stdio: 'pipe' });
+      await writeUtf8(join(codePath, 'README.md'), 'v0\n');
+      await gitAdd({ cwd: codePath, env: gitEnv });
+      await gitCommit({ cwd: codePath, env: gitEnv, message: 'Base state' });
+      const preRound = (await git({ cwd: codePath, args: ['rev-parse', 'HEAD'] })).trim();
+
+      const { steps, patch } = await extractIncrementalRoundPatch(codePath, {
+        preRoundHeadSha: preRound,
+        attempt: 1,
+      });
+      expect(steps).toEqual([]);
+      expect(patch).toBe('');
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
   });
 });
 
@@ -319,6 +469,74 @@ describe('createSandbox + destroySandbox (integration)', () => {
 
       // 9. Assert sandbox dir is gone
       expect(await pathExists(sandboxBasePath)).toBe(false);
+    } finally {
+      await rm(projectDir, { recursive: true, force: true });
+      if (await pathExists(sandboxBaseDir)) {
+        await rm(sandboxBaseDir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('throws when sandbox dir already exists (collision)', async () => {
+    const projectDir = await mkdtemp(join(process.cwd(), 'createSandbox-project-'));
+    const sandboxBaseDir = await mkdtemp(join(process.cwd(), 'createSandbox-sandbox-'));
+    try {
+      await writeUtf8(join(projectDir, '.gitignore'), 'node_modules\n');
+      await gitInit({ cwd: projectDir });
+      await writeUtf8(join(projectDir, 'README.md'), 'dummy');
+      await gitAdd({ cwd: projectDir, paths: ['README.md'] });
+      await gitCommit({
+        cwd: projectDir,
+        message: 'Initial',
+        env: {
+          ...process.env,
+          GIT_AUTHOR_NAME: 'test',
+          GIT_AUTHOR_EMAIL: 'test@test',
+          GIT_COMMITTER_NAME: 'test',
+          GIT_COMMITTER_EMAIL: 'test@test',
+        },
+      });
+
+      const saifDir = 'saifac';
+      const featureTests = join(projectDir, saifDir, 'features', 'my-feature', 'tests');
+      await mkdir(join(featureTests, 'public'), { recursive: true });
+      await mkdir(join(featureTests, 'hidden'), { recursive: true });
+      await writeUtf8(join(featureTests, 'tests.json'), JSON.stringify(TEST_CATALOG, null, 2));
+      await writeUtf8(
+        join(featureTests, 'public', 'foo.spec.ts'),
+        "import { expect } from 'vitest';\n",
+      );
+      await writeUtf8(
+        join(featureTests, 'hidden', 'bar.spec.ts'),
+        "import { expect } from 'vitest';\n",
+      );
+
+      const feature = await resolveFeature({
+        input: 'my-feature',
+        projectDir,
+        saifDir: 'saifac',
+      });
+
+      const baseOpts = {
+        feature,
+        projectDir,
+        saifDir,
+        projectName: 'test-proj',
+        sandboxBaseDir,
+        runId: 'resume-lock-1',
+        gateScript: GATE_SCRIPT,
+        startupScript: STARTUP_SCRIPT,
+        agentInstallScript: AGENT_INSTALL_SCRIPT,
+        agentScript: AGENT_SCRIPT,
+        stageScript: STAGE_SCRIPT,
+      };
+
+      const first = await createSandbox(baseOpts);
+      await expect(createSandbox(baseOpts)).rejects.toThrow(/Sandbox directory already exists/);
+
+      await destroySandbox(first.sandboxBasePath);
+      await createSandbox(baseOpts);
+      await destroySandbox(first.sandboxBasePath);
     } finally {
       await rm(projectDir, { recursive: true, force: true });
       if (await pathExists(sandboxBaseDir)) {

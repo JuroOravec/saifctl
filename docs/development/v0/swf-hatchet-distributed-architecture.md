@@ -137,7 +137,7 @@ interface Run {
   // Git state (same as local RunArtifact)
   baseCommitSha: string;
   basePatchDiff: string;
-  runPatchDiff: string;
+  runPatchSteps: { message: string; diff: string; author?: string }[];
 
   // Context
   specRef: string;
@@ -632,8 +632,8 @@ running under Hatchet, the worker process owns signal handling. Two changes:
 Today `loop.ts` saves a `RunArtifact` to storage in its `finally` block on failure.
 In the Hatchet path:
 
-- Each iteration step returns its `runPatchDiff` and `lastFeedback` as step output.
-- The parent `convergence-loop` step reads those on failure and calls `runStorage.saveRun()`.
+- The `run-agent` child step returns **`steps`**: an array of `RunPatchStep` objects (one per sandbox commit on the first-parent chain for that attempt, plus an optional WIP step), plus combined `patchContent` for the test phase. On failure or abort, the parent pops **`agentOut.steps.length`** entries from `runPatchStepsAccum` (same as local `loop.ts` with `roundStepCount`).
+- The parent `convergence-loop` step updates `run-patch-steps.json` after each attempt and, on failure paths, builds/saves a `RunArtifact` via `runStorage.saveRun()` (see `feat-run.workflow.ts`).
 - Same `RunArtifact` schema as today — `saifac run resume` continues to work unchanged.
 
 ---

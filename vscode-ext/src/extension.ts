@@ -188,15 +188,6 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  const debugFeatureCmd = vscode.commands.registerCommand(
-    'saifac.debugFeature',
-    withCliGuard((item?: vscode.TreeItem) => {
-      const name = getItemName(item);
-      const cwd = getCwdForFeature(item);
-      if (name) cliService.debugFeature(name, cwd);
-    }),
-  );
-
   const designFeatureCmd = vscode.commands.registerCommand(
     'saifac.designFeature',
     withCliGuard((item?: vscode.TreeItem) => {
@@ -310,7 +301,6 @@ export async function activate(context: vscode.ExtensionContext) {
     createFileCmd,
     refreshFeaturesCmd,
     runFeatureCmd,
-    debugFeatureCmd,
     designFeatureCmd,
     refreshRunsCmd,
     resumeRunCmd,

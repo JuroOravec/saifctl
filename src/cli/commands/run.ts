@@ -9,6 +9,7 @@
  *   clear         Clear stored runs (optionally filtered)
  *   resume        Resume a stored run from storage
  *   test          Re-test a stored run's patch (no coding agent)
+ *   inspect       Open an idle coding container for a stored run
  */
 
 import { defineCommand, runMain } from 'citty';
@@ -17,12 +18,13 @@ import { loadSaifacConfig } from '../../config/load.js';
 import { type SaifacConfig } from '../../config/schema.js';
 import type { ModelOverrides } from '../../llm-config.js';
 import { consola, outputCliData, setVerboseLogging } from '../../logger.js';
-import { runResume, runTestsFromRun } from '../../orchestrator/modes.js';
+import { runInspect, runResume, runTestsFromRun } from '../../orchestrator/modes.js';
 import {
   type OrchestratorCliInput,
   parseModelOverridesCliDelta,
 } from '../../orchestrator/options.js';
 import { toRunInfoJson } from '../../runs/utils/run-info.js';
+import { omit } from '../../utils/omit.js';
 import { featResumeArgs, projectDirArg, runTestArgs, saifDirArg, storageArg } from '../args.js';
 import {
   buildOrchestratorCliInputFromFeatArgs,
@@ -234,6 +236,50 @@ const clearCommand = defineCommand({
   },
 });
 
+const inspectCommand = defineCommand({
+  meta: {
+    name: 'inspect',
+    description:
+      'Open an idle coding container for a stored run. Changes made in the container are saved.',
+  },
+  args: {
+    ...commonRunArgs,
+    ...omit(featResumeArgs, ['dangerous-debug', 'dangerous-no-leash']),
+    leash: {
+      type: 'boolean' as const,
+      description:
+        'Use Leash/Cedar in the inspect session (same constraints as the coding agent). Default is plain Docker so you can git commit inside the container.',
+    },
+    runId: {
+      type: 'positional' as const,
+      description: 'Run ID to inspect',
+      required: true,
+    },
+  },
+  async run({ args }) {
+    // `leash` is a special option for `run inspect` only
+    const runArgs = args as FeatRunArgs & { leash?: boolean };
+    const ctx = await parseResumeOrchestratorCli(runArgs);
+    const runStorage = resolveRunStorage(
+      readStorageStringFromCli(runArgs),
+      ctx.projectDir,
+      ctx.config,
+    );
+    if (!runStorage) {
+      consola.error('Run storage is disabled (--storage none). Cannot inspect a stored run.');
+      process.exit(1);
+    }
+    const runId = parseRunId(args);
+
+    await runInspect({
+      ...ctx,
+      runId,
+      runStorage,
+      inspectLeash: !!runArgs.leash,
+    });
+  },
+});
+
 const resumeCommand = defineCommand({
   meta: {
     name: 'resume',
@@ -342,6 +388,7 @@ const runCommand = defineCommand({
     info: infoCommand,
     clear: clearCommand,
     resume: resumeCommand,
+    inspect: inspectCommand,
     test: testCommand,
   },
 });

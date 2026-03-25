@@ -26,25 +26,73 @@ import {
   type RunTestsOpts,
   type TestsResult,
 } from '../provisioners/types.js';
-import type { RunStorage } from '../runs/types.js';
+import { type RunPatchStep, StaleArtifactError } from '../runs/types.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from '../runs/utils/artifact.js';
 import type { SupportedSandboxProfileId } from '../sandbox-profiles/types.js';
 import type { Feature } from '../specs/discover.js';
 import type { TestProfile } from '../test-profiles/types.js';
 import type { CleanupRegistry } from '../utils/cleanup.js';
-import { gitApply, gitClean, gitResetHard } from '../utils/git.js';
+import { git, gitClean, gitResetHard } from '../utils/git.js';
 import { appendUtf8, pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
 import { runVagueSpecsChecker } from './agents/vague-specs-check.js';
 import type { OrchestratorOpts } from './modes.js';
 import { applyPatchToHost } from './phases/apply-patch.js';
 import {
   destroySandbox,
-  extractPatch,
+  extractIncrementalRoundPatch,
   listFilePathsInUnifiedDiff,
   type PatchExcludeRule,
   type Sandbox,
 } from './sandbox.js';
 import { getArgusBinaryPath } from './sidecars/reviewer/argus.js';
+
+/**
+ * Builds `extractPatch` exclude rules: fixed guardrails plus optional caller rules.
+ *
+ * Always excludes:
+ * - `{saifDir}/**` — reward-hacking prevention (agent must not modify its own test specs).
+ * - `.git/hooks/**` — prevents a malicious patch from installing hooks that execute on the host
+ *   when the orchestrator runs `git commit` in applyPatchToHost.
+ * - `.saifac/**` — factory-internal workspace state (e.g. per-round task file), not product code.
+ */
+export function buildPatchExcludeRules(
+  saifDir: string,
+  patchExclude?: PatchExcludeRule[],
+): PatchExcludeRule[] {
+  return [
+    { type: 'glob', pattern: `${saifDir}/**` },
+    { type: 'glob', pattern: '.git/hooks/**' },
+    { type: 'glob', pattern: '.saifac/**' },
+    ...(patchExclude ?? []),
+  ];
+}
+
+/**
+ * True when the disposable sandbox git repo has any commit after its initial import commit
+ * (`rev-list --max-parents=0`).
+ *
+ * The sandbox doesn't inherit host's git history, instead we do a fresh git init + "Base state".
+ * So any new commits beyond the first one are changes made by the agent.
+ */
+export async function sandboxHasCommitsBeyondInitialImport(codePath: string): Promise<boolean> {
+  try {
+    const rootsRaw = (
+      await git({ cwd: codePath, args: ['rev-list', '--max-parents=0', 'HEAD'] })
+    ).trim();
+    const root = rootsRaw
+      .split('\n')
+      .find((l) => l.trim())
+      ?.trim();
+    if (!root) return false;
+    const countStr = (
+      await git({ cwd: codePath, args: ['rev-list', '--count', `${root}..HEAD`] })
+    ).trim();
+    const n = Number.parseInt(countStr, 10);
+    return Number.isFinite(n) && n > 0;
+  } catch {
+    return false;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Shared: Iterative Loop (used by 'start' and 'continue')
@@ -223,6 +271,15 @@ export interface IterativeLoopOpts {
    * When true, verbose logs are enabled.
    */
   verbose?: boolean;
+  /**
+   * When resuming, seed {@link RunArtifact#runPatchSteps} (replayed in sandbox before the loop).
+   */
+  seedRunPatchSteps?: RunPatchStep[];
+  /**
+   * When true, skip the coding agent and run only staging + tests (+ optional apply to host on pass).
+   * Used by `saifac run test` (stored run re-verification).
+   */
+  testOnly?: boolean;
 }
 
 export interface OrchestratorResult {
@@ -233,6 +290,143 @@ export interface OrchestratorResult {
   /** Path to the winning patch.diff if success=true */
   patchPath?: string;
   message: string;
+}
+
+/** Result of the inner test-retry + vague-specs loop (shared by agent loop and test-only mode). */
+export type StagingTestVerificationResult =
+  | { kind: 'passed'; lastRunId: string }
+  | { kind: 'aborted' }
+  | {
+      kind: 'exhausted';
+      /** Present when resolveAmbiguity ran on a failed attempt */
+      lastVagueSpecsCheckResult?: { ambiguityResolved: boolean; sanitizedHint: string };
+      testAttempts: number;
+    };
+
+/**
+ * Runs staging + tests with {@link OrchestratorOpts#testRetries} and optional vague-specs handling.
+ * Does not apply the patch to the host — caller does that on `kind: 'passed'`.
+ */
+export async function runStagingTestVerification(params: {
+  sandbox: Sandbox;
+  orchestratorOpts: OrchestratorOpts;
+  registry: CleanupRegistry | null;
+  testRunnerOpts: Awaited<ReturnType<typeof prepareTestRunnerOpts>>;
+  /** Outer loop attempt index (1-based), used in test run IDs. */
+  outerAttempt: number;
+}): Promise<StagingTestVerificationResult> {
+  const {
+    sandboxProfileId,
+    feature,
+    projectDir,
+    projectName,
+    testImage,
+    resolveAmbiguity,
+    testProfile,
+    overrides,
+    testRetries,
+    stagingEnvironment,
+  } = params.orchestratorOpts;
+  const { sandbox, registry, testRunnerOpts, outerAttempt } = params;
+
+  let testAttempts = 0;
+  let lastRunId = '';
+  let lastVagueSpecsCheckResult:
+    | Awaited<ReturnType<typeof runVagueSpecsCheckerForFailure>>
+    | undefined;
+
+  while (testAttempts < testRetries) {
+    testAttempts++;
+    lastRunId = `${sandbox.runId}-${outerAttempt}-${testAttempts}`;
+    consola.log(
+      `\n[orchestrator] Test attempt ${testAttempts}/${testRetries} (outer attempt ${outerAttempt})`,
+    );
+
+    const stagingProvisioner = createProvisioner(stagingEnvironment);
+    registry?.registerProvisioner(stagingProvisioner, lastRunId);
+    await stagingProvisioner.setup({
+      runId: lastRunId,
+      projectName,
+      featureName: feature.name,
+      projectDir,
+    });
+
+    const result: TestsResult = await (async (): Promise<TestsResult> => {
+      try {
+        const stagingHandle = await stagingProvisioner.startStaging({
+          sandboxProfileId,
+          codePath: sandbox.codePath,
+          projectDir,
+          stagingEnvironment,
+          feature,
+          projectName,
+          startupPath: sandbox.startupPath,
+          stagePath: sandbox.stagePath,
+        });
+
+        return await stagingProvisioner.runTests({
+          ...testRunnerOpts,
+          stagingHandle,
+          testImage,
+          runId: lastRunId,
+          feature,
+          projectName,
+          reportPath: join(sandbox.sandboxBasePath, 'results.xml'),
+        });
+      } finally {
+        registry?.deregisterProvisioner(stagingProvisioner);
+        await stagingProvisioner.teardown({ runId: lastRunId });
+      }
+    })();
+
+    if (result.runnerError) {
+      throw new Error(
+        `Test runner error on attempt ${outerAttempt}: ${result.runnerError}\n` +
+          `Check that runner.spec.ts and tests.json are present and valid.\n` +
+          `Stderr:\n${result.stderr}`,
+      );
+    }
+
+    if (result.status === 'passed') {
+      return { kind: 'passed', lastRunId };
+    }
+    if (result.status === 'aborted') {
+      return { kind: 'aborted' };
+    }
+
+    // Failure path - Check for spec ambiguity.
+    //    If spec is ambiguous, the agent CANNOT faithfully completed the task
+    //    to match the hidden tests.
+    //    We use AI agent to determine if the spec is ambiguous:
+    //    - yes, we ask the human (or AI) for clarification and update specs and tests.
+    //    - no, we treat errors as genuine code errors and continue the loop.
+    if (resolveAmbiguity !== 'off' && result.testSuites) {
+      const vagueResult = await runVagueSpecsCheckerForFailure({
+        projectName,
+        projectDir,
+        feature,
+        testSuites: result.testSuites,
+        resolveAmbiguity,
+        testProfile,
+        overrides,
+      });
+
+      if (vagueResult.ambiguityResolved) {
+        consola.log('[orchestrator] Spec ambiguity resolved — retrying tests with updated tests.');
+        // Spec was updated and tests regenerated — retry tests with updated suite.
+        // Don't count this attempt against testRetries since the spec was at fault.
+        testAttempts--;
+        continue;
+      }
+      lastVagueSpecsCheckResult = vagueResult;
+    }
+  }
+
+  return {
+    kind: 'exhausted',
+    lastVagueSpecsCheckResult,
+    testAttempts,
+  };
 }
 
 export interface RunStorageContext {
@@ -246,8 +440,7 @@ export interface RunStorageContext {
 
 export async function runIterativeLoop(
   sandbox: Sandbox,
-  opts: IterativeLoopOpts & {
-    runStorage: RunStorage | null;
+  opts: OrchestratorOpts & {
     runContext: RunStorageContext | null;
     /** When resuming from storage: seed the first agent round with this feedback */
     initialErrorFeedback: string | null;
@@ -255,7 +448,6 @@ export async function runIterativeLoop(
   },
 ): Promise<OrchestratorResult> {
   const {
-    sandboxProfileId,
     feature,
     projectDir,
     maxRuns,
@@ -263,8 +455,6 @@ export async function runIterativeLoop(
     saifDir,
     projectName,
     registry,
-    testImage,
-    resolveAmbiguity,
     dangerousDebug,
     dangerousNoLeash,
     cedarPolicyPath,
@@ -276,8 +466,6 @@ export async function runIterativeLoop(
     agentEnv,
     agentLogFormat,
     testScript,
-    testProfile,
-    testRetries,
     reviewerEnabled,
     codingEnvironment,
   } = opts;
@@ -286,8 +474,8 @@ export async function runIterativeLoop(
   const runContext = opts.runContext;
   const runId = sandbox.runId;
 
-  /** Last agent patch text after each extractPatch (used for run storage on success or failure). */
-  let lastAgentPatchForStorage = '';
+  /** Accumulated incremental steps (seeded from resume + each successful coding round). */
+  let runPatchStepsAccum: RunPatchStep[] = [...(opts.seedRunPatchSteps ?? [])];
   let lastErrorFeedback = '';
 
   // Resolve the coder agent's LLM config once per loop.
@@ -301,20 +489,7 @@ export async function runIterativeLoop(
           argusBinaryPath: await getArgusBinaryPath(),
         }
       : null;
-  // Always exclude saifac/ and .git/hooks/ regardless of any additional caller-supplied rules.
-  // saifac/: reward-hacking prevention (agent must not modify its own test specs).
-  // .git/hooks/: prevents a malicious patch from installing hooks that execute on the host
-  //   when the orchestrator runs `git commit` in applyPatchToHost.
-  // .saifac/: factory-internal workspace state (e.g. per-round task file), not product code.
-  const saifExclude: PatchExcludeRule = { type: 'glob', pattern: `${saifDir}/**` };
-  const gitHooksExclude: PatchExcludeRule = { type: 'glob', pattern: '.git/hooks/**' };
-  const saifacWorkspaceMetaExclude: PatchExcludeRule = { type: 'glob', pattern: '.saifac/**' };
-  const patchExclude: PatchExcludeRule[] = [
-    saifExclude,
-    gitHooksExclude,
-    saifacWorkspaceMetaExclude,
-    ...(opts.patchExclude ?? []),
-  ];
+  const patchExclude = buildPatchExcludeRules(saifDir, opts.patchExclude);
 
   const testRunnerOpts = await prepareTestRunnerOpts({
     feature,
@@ -331,18 +506,31 @@ export async function runIterativeLoop(
     // and downstream tooling see every run.
     if (runStorage && runContext) {
       try {
-        const { registry: _reg, runStorage: _rs, runContext: _rc, ...loopOpts } = opts;
+        const {
+          registry: _reg,
+          runStorage: _rs,
+          runContext: _rc,
+          resume: _resume,
+          ...loopOpts
+        } = opts;
         const artifact = buildRunArtifact({
           runId,
           baseCommitSha: runContext.baseCommitSha,
           basePatchDiff: runContext.basePatchDiff,
-          runPatchDiff: lastAgentPatchForStorage,
+          runPatchSteps: runPatchStepsAccum,
           specRef: feature.relativePath,
           lastFeedback: didSucceed ? undefined : lastErrorFeedback || undefined,
           status: didSucceed ? 'completed' : 'failed',
           opts: loopOpts as BuildRunArtifactOpts,
         });
-        await runStorage.saveRun(runId, artifact);
+        const expectedArtifactRevision = _resume?.artifactRevisionAtResume;
+        await runStorage.saveRun(
+          runId,
+          artifact,
+          expectedArtifactRevision === undefined
+            ? undefined
+            : { ifRevisionEquals: expectedArtifactRevision },
+        );
         if (didSucceed) {
           consola.log(`[orchestrator] Run artifact saved (completed). Run ID: ${runId}`);
         } else {
@@ -351,7 +539,11 @@ export async function runIterativeLoop(
           );
         }
       } catch (err) {
-        consola.warn('[orchestrator] Failed to save run state:', err);
+        if (err instanceof StaleArtifactError) {
+          consola.warn(`[orchestrator] ${err.message}`);
+        } else {
+          consola.warn('[orchestrator] Failed to save run state:', err);
+        }
       }
     }
     if (!sandboxDestroyed) {
@@ -377,9 +569,83 @@ export async function runIterativeLoop(
   let sandboxDestroyed = false;
 
   return await withCleanup(async () => {
+    if (opts.testOnly) {
+      consola.log(
+        '\n[orchestrator] test-only — skipping coding agent; verifying stored patch with staging tests.',
+      );
+      await writeUtf8(
+        join(sandbox.sandboxBasePath, 'run-patch-steps.json'),
+        JSON.stringify(runPatchStepsAccum),
+      );
+
+      const verifyOnly = await runStagingTestVerification({
+        sandbox,
+        orchestratorOpts: opts,
+        registry,
+        testRunnerOpts,
+        outerAttempt: 1,
+      });
+
+      if (verifyOnly.kind === 'passed') {
+        consola.log('\n[orchestrator] ✓ ALL TESTS PASSED — applying patch to host');
+        await applyPatchToHost({
+          codePath: sandbox.codePath,
+          projectDir,
+          feature,
+          runId: verifyOnly.lastRunId,
+          hostBasePatchPath: sandbox.hostBasePatchPath,
+          push,
+          pr,
+          gitProvider,
+          overrides,
+          verbose: opts.verbose,
+        });
+        await destroySandbox(sandbox.sandboxBasePath);
+        sandboxDestroyed = true;
+
+        return {
+          success: true,
+          attempts: 1,
+          runId,
+          message: 'Stored run verified; patch applied to host repository.',
+        };
+      }
+
+      if (verifyOnly.kind === 'aborted') {
+        consola.log('\n[orchestrator] Tests aborted.');
+        await destroySandbox(sandbox.sandboxBasePath);
+        sandboxDestroyed = true;
+        return {
+          success: false,
+          attempts: 1,
+          runId,
+          message: 'Tests were aborted.',
+        };
+      }
+
+      const base = 'An external service attempted to use this project and failed. ';
+      const hint =
+        verifyOnly.lastVagueSpecsCheckResult?.sanitizedHint ??
+        'Re-read the plan and specification, and fix the implementation.';
+      const feedback = base + hint;
+      lastErrorFeedback = feedback;
+      if (runContext) runContext.lastErrorFeedback = feedback;
+
+      return {
+        success: false,
+        attempts: 1,
+        runId,
+        message: `Tests failed after ${verifyOnly.testAttempts} run(s). Last error:\n${feedback}`,
+      };
+    }
+
     while (attempts < maxRuns) {
       attempts++;
       consola.log(`\n[orchestrator] ===== ATTEMPT ${attempts}/${maxRuns} =====`);
+
+      const preRoundHead = (
+        await git({ cwd: sandbox.codePath, args: ['rev-parse', 'HEAD'] })
+      ).trim();
 
       // 1. Run agent (fresh context every iteration — Ralph Wiggum)
       //    The coding provisioner sets up its network + compose services, runs the agent,
@@ -421,13 +687,25 @@ export async function runIterativeLoop(
         await codingProvisioner.teardown({ runId: codingRunId });
       }
 
-      // 2. Extract the patch, stripping any excluded paths (reward-hacking prevention)
-      const { patch: patchContent, patchPath } = await extractPatch(sandbox.codePath, {
-        exclude: patchExclude,
-      });
-      lastAgentPatchForStorage = patchContent;
+      // 2. Extract incremental patch(es) for this round (one RunPatchStep per agent commit + optional WIP).
+      const { patch: patchContent, steps: roundSteps } = await extractIncrementalRoundPatch(
+        sandbox.codePath,
+        {
+          preRoundHeadSha: preRoundHead,
+          attempt: attempts,
+          exclude: patchExclude,
+        },
+      );
 
-      if (!patchContent.trim()) {
+      // Detect if there has been any changes made to the sandbox by the agent.
+      // Previously we checked only the current patch, but changes may be already committed.
+      // So to truly know if no changes were made, we need to also look at the sandbox history.
+      const roundStepCount = roundSteps.length;
+      const roundPatchEmpty = roundStepCount === 0 || !patchContent.trim();
+      const hasPriorWorkInSandbox = await sandboxHasCommitsBeyondInitialImport(sandbox.codePath);
+
+      // No changes whatsoever - no patch, no commits
+      if (roundPatchEmpty && !hasPriorWorkInSandbox) {
         consola.warn('[orchestrator] Agent produced no changes (empty patch). Skipping tests.');
         errorFeedback =
           'No changes were made. Please implement the feature as described in the plan.';
@@ -436,144 +714,92 @@ export async function runIterativeLoop(
         continue;
       }
 
-      consola.log(`[orchestrator] Extracted patch (${patchContent.length} bytes)`);
-
-      const patchPaths = listFilePathsInUnifiedDiff(patchContent);
-      if (patchPaths.length === 0) {
-        consola.warn(
-          '[orchestrator] No paths parsed from patch diff --git headers — patch may be malformed or empty of file sections.',
-        );
-      } else {
+      // No changes this round, but the sandbox already has commits (e.g. resumed runPatchSteps)
+      if (roundPatchEmpty && hasPriorWorkInSandbox) {
         consola.log(
-          `[orchestrator] Files in patch content (${patchPaths.length}): ${patchPaths.join(', ')}`,
+          '[orchestrator] No new changes this coding round, but the sandbox already has commits (e.g. resumed runPatchSteps) — running tests on the current tree.',
         );
-      }
-
-      // Re-apply the patch for tests (extractPatch resets to base state).
-      // patchPath is outside codePath so git clean cannot have deleted it.
-      await gitApply({ cwd: sandbox.codePath, patchFile: patchPath });
-
-      // 3. Mutual Verification (with test retries for flaky environments)
-      let testAttempts = 0;
-      let lastRunId = '';
-      let lastVagueSpecsCheckResult:
-        | Awaited<ReturnType<typeof runVagueSpecsCheckerForFailure>>
-        | undefined;
-
-      while (testAttempts < testRetries) {
-        testAttempts++;
-        lastRunId = `${sandbox.runId}-${attempts}-${testAttempts}`;
-        consola.log(
-          `\n[orchestrator] Test attempt ${testAttempts}/${testRetries} (outer attempt ${attempts}/${maxRuns})`,
-        );
-
-        const stagingProvisioner = createProvisioner(opts.stagingEnvironment);
-        registry?.registerProvisioner(stagingProvisioner, lastRunId);
-        await stagingProvisioner.setup({
-          runId: lastRunId,
-          projectName,
-          featureName: feature.name,
-          projectDir,
-        });
-
-        const result: TestsResult = await (async (): Promise<TestsResult> => {
-          try {
-            const stagingHandle = await stagingProvisioner.startStaging({
-              sandboxProfileId,
-              codePath: sandbox.codePath,
-              projectDir,
-              stagingEnvironment: opts.stagingEnvironment,
-              feature,
-              projectName,
-              startupPath: sandbox.startupPath,
-              stagePath: sandbox.stagePath,
-            });
-
-            return await stagingProvisioner.runTests({
-              ...testRunnerOpts,
-              stagingHandle,
-              testImage,
-              runId: lastRunId,
-              feature,
-              projectName,
-              reportPath: join(sandbox.sandboxBasePath, 'results.xml'),
-            });
-          } finally {
-            registry?.deregisterProvisioner(stagingProvisioner);
-            await stagingProvisioner.teardown({ runId: lastRunId });
-          }
-        })();
-        if (result.runnerError) {
-          throw new Error(
-            `Test runner error on attempt ${attempts}: ${result.runnerError}\n` +
-              `Check that runner.spec.ts and tests.json are present and valid.\n` +
-              `Stderr:\n${result.stderr}`,
+        if (runPatchStepsAccum.length > 0) {
+          await writeUtf8(
+            join(sandbox.sandboxBasePath, 'run-patch-steps.json'),
+            JSON.stringify(runPatchStepsAccum),
           );
         }
+      }
 
-        if (result.status === 'passed') {
-          // 4. Success path
-          consola.log('\n[orchestrator] ✓ ALL TESTS PASSED — applying patch to host');
-          await applyPatchToHost({
-            codePath: sandbox.codePath,
-            projectDir,
-            feature,
-            runId: lastRunId,
-            hostBasePatchPath: sandbox.hostBasePatchPath,
-            push,
-            pr,
-            gitProvider,
-            overrides,
-            verbose: opts.verbose,
-          });
-          await destroySandbox(sandbox.sandboxBasePath);
-          sandboxDestroyed = true;
+      // Changes this round - add the steps to the runPatchStepsAccum and write to file
+      if (!roundPatchEmpty) {
+        runPatchStepsAccum = [...runPatchStepsAccum, ...roundSteps];
+        await writeUtf8(
+          join(sandbox.sandboxBasePath, 'run-patch-steps.json'),
+          JSON.stringify(runPatchStepsAccum),
+        );
 
-          return {
-            success: true,
-            attempts,
-            runId,
-            message: `Feature implemented successfully in ${attempts} attempt(s).`,
-          };
-        } else if (result.status === 'aborted') {
-          consola.log(`\n[orchestrator] Tests aborted after ${attempts} attempt(s).`);
-          await destroySandbox(sandbox.sandboxBasePath);
-          sandboxDestroyed = true;
-          return {
-            success: false,
-            attempts,
-            message: `Tests were aborted after ${attempts} attempt(s).`,
-          };
+        consola.log(`[orchestrator] Extracted patch (${patchContent.length} bytes)`);
+
+        const patchPaths = listFilePathsInUnifiedDiff(patchContent);
+        if (patchPaths.length === 0) {
+          consola.warn(
+            '[orchestrator] No paths parsed from patch diff --git headers — patch may be malformed or empty of file sections.',
+          );
+        } else {
+          consola.log(
+            `[orchestrator] Files in patch content (${patchPaths.length}): ${patchPaths.join(', ')}`,
+          );
         }
+      }
 
-        // 5. Failure path - Check for spec ambiguity.
-        //    If spec is ambiguous, the agent CANNOT faithfully completed the task
-        //    to match the hidden tests.
-        //    We use AI agent to determine if the spec is ambiguous:
-        //    - yes, we ask the human (or AI) for clarification and update specs and tests.
-        //    - no, we treat errors as genuine code errors and continue the loop.
-        if (resolveAmbiguity !== 'off' && result.testSuites) {
-          const VagueSpecsCheckResult = await runVagueSpecsCheckerForFailure({
-            projectName,
-            projectDir,
-            feature,
-            testSuites: result.testSuites,
-            resolveAmbiguity,
-            testProfile,
-            overrides,
-          });
+      // 3. Mutual Verification (with test retries for flaky environments)
+      const verify = await runStagingTestVerification({
+        sandbox,
+        orchestratorOpts: opts,
+        registry,
+        testRunnerOpts,
+        outerAttempt: attempts,
+      });
 
-          if (VagueSpecsCheckResult.ambiguityResolved) {
-            // Spec was updated and tests regenerated — retry tests with updated suite.
-            // Don't count this attempt against testRetries since the spec was at fault.
-            consola.log(
-              '[orchestrator] Spec ambiguity resolved — retrying tests with updated tests.',
-            );
-            testAttempts--;
-          } else {
-            lastVagueSpecsCheckResult = VagueSpecsCheckResult;
-          }
+      if (verify.kind === 'passed') {
+        // 4. Success path
+        consola.log('\n[orchestrator] ✓ ALL TESTS PASSED — applying patch to host');
+        await applyPatchToHost({
+          codePath: sandbox.codePath,
+          projectDir,
+          feature,
+          runId: verify.lastRunId,
+          hostBasePatchPath: sandbox.hostBasePatchPath,
+          push,
+          pr,
+          gitProvider,
+          overrides,
+          verbose: opts.verbose,
+        });
+        await destroySandbox(sandbox.sandboxBasePath);
+        sandboxDestroyed = true;
+
+        return {
+          success: true,
+          attempts,
+          runId,
+          message: `Feature implemented successfully in ${attempts} attempt(s).`,
+        };
+      }
+
+      if (verify.kind === 'aborted') {
+        consola.log(`\n[orchestrator] Tests aborted after ${attempts} attempt(s).`);
+        if (roundStepCount > 0) {
+          runPatchStepsAccum = runPatchStepsAccum.slice(0, -roundStepCount);
         }
+        await writeUtf8(
+          join(sandbox.sandboxBasePath, 'run-patch-steps.json'),
+          JSON.stringify(runPatchStepsAccum),
+        );
+        await destroySandbox(sandbox.sandboxBasePath);
+        sandboxDestroyed = true;
+        return {
+          success: false,
+          attempts,
+          message: `Tests were aborted after ${attempts} attempt(s).`,
+        };
       }
 
       // Exhausted test retries — treat as genunine failure and send feedback to the agent.
@@ -585,7 +811,7 @@ export async function runIterativeLoop(
       //       so the agent doesn't think it can fix the failure by changing tests.
       const base = 'An external service attempted to use this project and failed. ';
       const hint =
-        lastVagueSpecsCheckResult?.sanitizedHint ??
+        verify.lastVagueSpecsCheckResult?.sanitizedHint ??
         'Re-read the plan and specification, and fix the implementation.';
       errorFeedback = base + hint;
 
@@ -593,11 +819,19 @@ export async function runIterativeLoop(
       if (runContext) runContext.lastErrorFeedback = errorFeedback;
 
       consola.log(
-        `\n[orchestrator] Attempt ${attempts} FAILED (tests failed after ${testAttempts} run(s)).`,
+        `\n[orchestrator] Attempt ${attempts} FAILED (tests failed after ${verify.testAttempts} run(s)).`,
       );
 
-      // Reset sandbox to base state for next coder agent run
-      await gitResetHard({ cwd: sandbox.codePath });
+      if (roundStepCount > 0) {
+        runPatchStepsAccum = runPatchStepsAccum.slice(0, -roundStepCount);
+      }
+      await writeUtf8(
+        join(sandbox.sandboxBasePath, 'run-patch-steps.json'),
+        JSON.stringify(runPatchStepsAccum),
+      );
+
+      // Reset to state at start of this attempt (Ralph: discard failed round only; keep resume seed)
+      await gitResetHard({ cwd: sandbox.codePath, ref: preRoundHead });
       await gitClean({ cwd: sandbox.codePath });
     }
 
@@ -889,4 +1123,5 @@ export function logIterativeLoopSettings(opts: OrchestratorOpts): void {
     consola.log(`  Push: ${opts.push}${opts.pr ? ` (+ PR via ${opts.gitProvider.id})` : ''}`);
   }
   if (opts.verbose === true) consola.log('  Verbose: enabled');
+  if (opts.testOnly) consola.log('  Test-only: skip coding agent (verification / `run test`)');
 }

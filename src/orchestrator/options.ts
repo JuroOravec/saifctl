@@ -362,6 +362,7 @@ async function applyOrchestratorBaseline(
     codingEnvironment,
     resume: null,
     verbose: false,
+    testOnly: false,
   };
 }
 
@@ -446,6 +447,7 @@ async function mergeArtifactOntoDefaults(
     projectDir: ctx.projectDir,
     saifDir: d.saifDir,
     resume: null,
+    testOnly: false,
     runStorage: defaults.runStorage,
     sandboxBaseDir: defaults.sandboxBaseDir,
     sandboxProfileId: d.sandboxProfileId as OrchestratorOpts['sandboxProfileId'],

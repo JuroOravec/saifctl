@@ -13,7 +13,7 @@ flowchart TD
     subgraph outer [Outer Loop - modes.ts]
         A[createSandbox] --> B[write gate.sh to sandboxBasePath]
         B --> C[runOpenHands]
-        C --> D[extractPatch]
+        C --> D[extractIncrementalRoundPatch]
         D --> E[Test Runner containers]
         E -->|fail| F[errorFeedback → restart]
         F --> C

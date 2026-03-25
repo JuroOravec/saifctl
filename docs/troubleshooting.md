@@ -90,5 +90,6 @@ You can also enable BuildKit for plain **`docker build`** (avoids the legacy bui
 
 See also:
 
+- [Guides: fix agent mistakes with inspect + resume](guides/inspect-and-resume.md) — when the agent is wrong or stuck (not a Docker setup issue)
 - [Environment variables](env-vars.md) — **`DOCKER_HOST`** and **`SAIFAC_LEASH_BIN`**
 - [Docker images & host notes](development/docker.md) — short summary of dockerode vs CLI

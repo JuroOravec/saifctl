@@ -7,7 +7,7 @@ const minimalArtifact: RunArtifact = {
   runId: 'r1',
   baseCommitSha: 'abc',
   basePatchDiff: 'base-diff-content',
-  runPatchDiff: 'run-diff-content',
+  runPatchSteps: [{ message: 'm', diff: 'run-diff-content' }],
   specRef: 'saifac/features/x',
   lastFeedback: 'feedback line',
   config: {
@@ -24,6 +24,7 @@ const minimalArtifact: RunArtifact = {
     testImage: 'img',
     resolveAmbiguity: 'ai',
     dangerousDebug: false,
+    dangerousNoLeash: false,
     cedarPolicyPath: '',
     coderImage: '',
     push: null,
@@ -61,7 +62,7 @@ describe('toRunInfoJson', () => {
   it('omits patch diff fields', () => {
     const view = toRunInfoJson(minimalArtifact);
     expect(view).not.toHaveProperty('basePatchDiff');
-    expect(view).not.toHaveProperty('runPatchDiff');
+    expect(view).not.toHaveProperty('runPatchSteps');
   });
 
   it('omits script bodies but keeps *File paths', () => {

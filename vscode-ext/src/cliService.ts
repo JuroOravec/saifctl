@@ -111,14 +111,6 @@ export class SaifCliService {
     });
   }
 
-  public debugFeature(featureName: string, cwd: string): void {
-    this.executeInTerminal({
-      command: `saifac feat debug ${escapeArg(featureName)}`,
-      terminalName: `SAIFAC Debug: ${featureName}`,
-      cwd,
-    });
-  }
-
   public designFeature(featureName: string, cwd: string): void {
     this.executeInTerminal({
       command: `saifac feat design ${escapeArg(featureName)}`,

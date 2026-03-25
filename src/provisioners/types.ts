@@ -6,6 +6,7 @@
  *   2. startStaging() — build & boot the application under test (Container A) with sidecar
  *   3. runTests()     — run test runner (black-box tests) (Container B) and return results
  *   4. runAgent()     — spawn the AI coding agent container and return when it exits
+ *   4b. startInspect() — idle coder container for `run inspect` (same mounts/network as runAgent)
  *   5. teardown()     — stop and remove all resources created during this run
  *
  * DockerProvisioner is the concrete implementation for Docker (with optional Compose services).
@@ -211,6 +212,44 @@ export interface RunAgentOpts {
   signal?: AbortSignal;
 }
 
+/**
+ * Options for {@link Provisioner.startInspect}.
+ * Use the same `task` and `errorFeedback` as the first coding round in `runIterativeLoop` / `run resume`:
+ * `task` from `buildInitialTask`, `errorFeedback` from `initialErrorFeedback` (artifact `lastFeedback` on resume).
+ */
+export interface StartInspectOpts {
+  codePath: string;
+  sandboxBasePath: string;
+  saifDir: string;
+  feature?: Feature;
+  /** Base task string — same as passed to {@link Provisioner.runAgent}. */
+  task: string;
+  /** Test failure feedback for the prompt — same as the resume loop’s first-round `errorFeedback`. */
+  errorFeedback?: string;
+  coderImage: string;
+  dangerousNoLeash: boolean;
+  cedarPolicyPath: string;
+  startupPath: string;
+  agentInstallPath: string;
+  agentPath: string;
+  agentEnv: Record<string, string>;
+  agentLogFormat: 'openhands' | 'raw';
+  reviewer: RunAgentOpts['reviewer'];
+  gateRetries: number;
+  llmConfig: LlmConfig;
+  signal?: AbortSignal;
+}
+
+/** Handle for an idle coding container started by {@link Provisioner.startInspect}. */
+export interface CoderInspectSessionHandle {
+  /** Container name (Leash target / dangerous-no-leash docker run --name). */
+  containerName: string;
+  /** In-container workspace path (bind-mounted from the sandbox code dir). */
+  workspacePath: string;
+  /** Stop the idle session: terminate the Leash/docker parent process and clean up direct-run containers. */
+  stop(): Promise<void>;
+}
+
 export interface ProvisionerTeardownOpts {
   runId: string;
 }
@@ -262,6 +301,15 @@ export interface Provisioner {
    * dangerous-debug: Runs `bash coder-start.sh` directly on the host.
    */
   runAgent(opts: RunAgentOpts): Promise<AgentResult>;
+
+  /**
+   * Idle coding container for `run inspect`: same image, mounts, network, and compose stack as
+   * {@link runAgent}, but the container runs `sleep infinity` (no agent loop).
+   *
+   * Requires {@link setup} first. Call {@link CoderInspectSessionHandle.stop}, then {@link teardown}.
+   * {@link RunAgentOpts.dangerousDebug} is not supported — reject before calling.
+   */
+  startInspect(opts: StartInspectOpts): Promise<CoderInspectSessionHandle>;
 
   /**
    * 5. Tear down all resources created during this run.

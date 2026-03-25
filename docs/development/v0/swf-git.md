@@ -6,11 +6,11 @@ This document describes all the ways Git is used throughout the AI-Driven Softwa
 
 1. [Overview](#1-overview)
 2. [Sandbox Creation](#2-sandbox-creation)
-3. [Patch Extraction](#3-patch-extraction)
+3. [Patch extraction (incremental rounds)](#3-patch-extraction-incremental-rounds)
 4. [Patch Exclude Rules (Reward-Hacking Prevention)](#4-patch-exclude-rules-reward-hacking-prevention)
 5. [Sandbox Reset Between Attempts](#5-sandbox-reset-between-attempts)
 6. [Patch Application for Tests](#6-patch-application-for-tests)
-7. [Iterative Loop: Re-Apply Before Verification](#7-iterative-loop-re-apply-before-verification)
+7. [Iterative loop: commit, then verify](#7-iterative-loop-commit-then-verify)
 8. [Success Path: Apply Patch to Host via Worktree](#8-success-path-apply-patch-to-host-via-worktree)
    - [Sandbox vs. worktree source asymmetry](#sandbox-vs-worktree-source-asymmetry)
 9. [Push Target Resolution and GITHUB_TOKEN](#9-push-target-resolution-and-github_token)
@@ -25,7 +25,7 @@ The Software Factory uses Git in three distinct phases:
 | Phase       | Where                                                     | Purpose                                                                                                                                                                |
 | ----------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Sandbox** | Isolated `code/` directory inside `/tmp/saifac/sandboxes/` | A _fresh_ Git repo (not a clone) used solely for diffing agent changes against a baseline. The host's `.git` is never mounted or copied, to avoid exposing git history |
-| **Tests**   | Same sandbox                                              | **`feat run` / `run resume`:** after `extractPatch`, the patch is re-applied with `git apply` so staging sees the candidate tree. **`run test`:** the patch is applied to the sandbox with `git apply`.                                                |
+| **Tests**   | Same sandbox                                              | **`feat run` / `run resume`:** after each round, `extractIncrementalRoundPatch` leaves `code/` at a new commit — staging/tests run on that tree (no extra `git apply` of the round diff). **`run test`:** same sandbox layout as resume (base snapshot + replayed `runPatchSteps`); **`runIterativeLoop`** runs in **test-only** mode (no coding agent) and reuses the same staging / test-retry / vague-specs path. |
 | **Success** | Host repository                                           | A Git worktree is used to create a feature branch, apply the patch, commit, and optionally push/PR—_without ever changing the main working tree's checked-out branch_. |
 
 The host repository's working directory is **never** modified during the loop. All agent edits happen in the sandbox. Only after tests pass does the orchestrator create a separate worktree, apply the patch there, commit it, and optionally push. The user's current branch and uncommitted work remain untouched—enabling safe parallel runs of multiple agents.
@@ -69,45 +69,31 @@ The host repository's working directory is **never** modified during the loop. A
    git commit -m "Base state"
    ```
 
-   Uses fixed author/committer (`saifac`, `saifac@localhost`) for reproducibility.
+   Uses fixed author/committer (`saifac`, `saifac@safeaifactory.com`) for reproducibility.
 
-4. **Why a fresh repo?** The sandbox is a _pure file copy_ used for diffing. The agent (OpenHands) writes files; we need a clean baseline to compute `git diff HEAD` and produce a patch. Cloning the host repo would bring along its history and remotes—unnecessary and potentially confusing when we later apply the patch to a different branch.
+4. **Why a fresh repo?** The sandbox is a _pure file copy_ used for diffing. The agent (OpenHands) writes files; we need a clean baseline to compute per-round diffs. Cloning the host repo would bring along its history and remotes—unnecessary and potentially confusing when we later apply the patch to a different branch.
+
+**Resume / `run test`:** `createSandbox()` may set `codeSourceDir` to a **base snapshot** directory (tree before `runPatchSteps`) and pass `runPatchSteps` to **replay** each step as its own commit after `"Base state"`. The sandbox is still built with **rsync**, not `git clone --local`.
 
 ---
 
-## 3. Patch Extraction
+## 3. Patch extraction (incremental rounds)
 
-**Location:** `src/orchestrator/sandbox.ts` → `extractPatch()`
+**Location:** `src/orchestrator/sandbox.ts` → `extractIncrementalRoundPatch()`
 
-After the agent (OpenHands) finishes an attempt, the orchestrator extracts a unified diff of all changes since the base commit.
+After each agent round, the orchestrator walks the **first-parent** chain from `preRoundHeadSha` to `HEAD` and emits **one `RunPatchStep` per commit** (message and author from that commit; diff `parent..commit`, with exclude rules applied). Any **leftover staged** work (including “only uncommitted” rounds) gets **one** extra commit with `saifac: coding attempt <n>` and a matching step.
 
 ### Sequence
 
-1. **Stage all changes:**
+1. **`git rev-list --reverse --first-parent preRoundHead..HEAD`** — ordered commit SHAs for this round.
 
-   ```bash
-   git add .
-   ```
+2. **Per commit:** `git diff parent..sha`, `%B` / `%an <%ae>` for message and author, then **filter** excluded paths (see [§4](#4-patch-exclude-rules-reward-hacking-prevention)). Empty diffs after filtering are skipped.
 
-2. **Produce the raw patch:**
+3. **`git add`**, unstage `.saifac/`. If the index is non-empty, **commit** with the round default message/author, then append the WIP step (`git diff` from tip-before-WIP to `HEAD`). If the filtered WIP diff is empty, the capture commit is undone with `git reset --soft HEAD~1` so excluded-only staging does not advance `HEAD` without a recorded step.
 
-   ```bash
-   git diff HEAD
-   ```
+4. **Write** combined **`patch.diff`** beside `code/` and append all new steps to **`run-patch-steps.json`** (callers merge into the accumulator).
 
-   This yields a unified diff of staged changes versus `HEAD` (the "Base state" commit).
-
-3. **Filter out excluded paths** (reward-hacking prevention; see [§4](#4-patch-exclude-rules-reward-hacking-prevention)).
-
-4. **Write `patch.diff`** to `sandboxBasePath` (parent of `code/`):
-
-   ```
-   {sandboxBasePath}/patch.diff
-   ```
-
-   **Why outside `code/`?** Because the next step resets the working tree with `git clean -fd`. If `patch.diff` were inside `code/`, it would be deleted. Writing it to the sandbox root keeps it safe across the reset.
-
-5. **Reset the sandbox** for the next attempt (see [§5](#5-sandbox-reset-between-attempts)).
+The sandbox **is not** reset before tests: staging runs against `code/` at `HEAD`. On test failure, the loop **pops every step from this round** from the accumulator, updates `run-patch-steps.json`, and **resets** to `preRoundHeadSha` (see [§5](#5-sandbox-reset-between-attempts)).
 
 ---
 
@@ -132,61 +118,57 @@ The agent must not be able to "cheat" by modifying tests or specs to fake a pass
 
 ---
 
-## 5. Sandbox Reset Between Attempts
+## 5. Sandbox reset between attempts
 
-**Location:** `sandbox.ts` → `extractPatch()`, `modes.ts` → iterative loop failure path
+**Location:** `loop.ts` → iterative loop failure path (`gitResetHard` / `gitClean`)
 
-After extracting the patch (or when an tests fail and we are about to retry OpenHands), the sandbox is reset to the baseline so the next attempt starts from a clean slate.
+After **failed** tests (or when the agent must retry), the orchestrator **drops the whole outer attempt** from the artifact: it removes **all** `runPatchSteps` entries recorded for that attempt (one entry per sandbox commit on the first-parent chain, plus an optional WIP step — see [§3](#3-patch-extraction-incremental-rounds)), then resets `code/` to **`preRoundHeadSha`**, the commit that was `HEAD` at the **start** of that attempt (includes any commits from earlier successful rounds in the same run, and seed steps when resuming).
 
 ### Commands
 
 ```bash
-git reset --hard HEAD
+git reset --hard "${preRoundHeadSha}"
 git clean -fd
 ```
 
-- `git reset --hard HEAD`: Discards all uncommitted changes and restores the working tree to the "Base state" commit.
+- `git reset --hard`: Restores the tree to the state before **this attempt’s** commits (all of them), i.e. back to `preRoundHeadSha`.
 - `git clean -fd`: Removes untracked files and directories.
 
-**Ralph Wiggum technique:** Each OpenHands run starts from this clean state. The agent has no memory of previous attempts beyond what we explicitly feed back (e.g., sanitized error hints). State is persisted via the file system and the patch we extract—not via chat history.
+**Ralph Wiggum technique:** Each OpenHands run starts from this clean state. The agent has no memory of previous attempts beyond what we explicitly feed back (e.g., sanitized error hints). State is persisted via the file system and **`runPatchSteps`** — not via chat history.
 
 ---
 
-## 6. Patch Application for Tests
+## 6. Patch application for tests
 
-**`saifac feat run` / `run resume` (inner loop):** **Location:** `sandbox.ts` → `applyPatch()`, `loop.ts` — after `extractPatch()` resets `code/`, the orchestrator runs `git apply` on `sandboxBasePath/patch.diff` so the Staging container sees the candidate implementation before tests.
+**`saifac feat run` / `run resume` (inner loop):** **Location:** `loop.ts` — after `extractIncrementalRoundPatch`, `code/` is already at the round commit; staging mounts that tree. There is **no** `git apply` of `patch.diff` for verification in this path.
 
-**`saifac run test`:** **Location:** `resume.ts` → `createResumeWorktree()`, `sandbox.ts` → `createSandbox()`, `modes.ts` → `runTestsCore()`.
+**`saifac run test`:** **Location:** `modes.ts` → `runFromStoredRunCore({ testOnly: true })` → `runStartCore` → `loop.ts` → `runIterativeLoop` with **`OrchestratorOpts.testOnly`**. Worktree and sandbox setup match **`run resume`**: `resume.ts` → `createResumeWorktree()`, then `sandbox.ts` → `createSandbox()` with the resume worktree as **`sandboxSourceDir`**, **base snapshot** as **`codeSourceDir`**, and **`seedRunPatchSteps`** replayed into `code/`.
 
-The stored `basePatchDiff` and `runPatchDiff` are applied in the **temporary resume worktree** (same reconstruction as `run resume`). The sandbox is built by rsyncing that directory into `code/` and committing it. **There is no second `git apply` of `runPatchDiff` inside `runTestsCore`** — the patched files are already present. A `.saifac-run-test.patch` file may still be written under the worktree for bookkeeping; host apply after success still relies on `patch.diff` beside `code/` when using `applyPatchToHost` (see [§8](#8-success-path-apply-patch-to-host-via-worktree)).
+The stored `basePatchDiff` (tracked/staged vs `HEAD` **plus untracked files**) is applied in the **temporary resume worktree**, then **`saifac: base patch`** is committed, then each **`runPatchStep`** is applied and committed in order (**same reconstruction as `run resume`**). The sandbox is built by **rsync** from a **base snapshot** (before run steps) plus **replay** of `runPatchSteps` inside `code/` — not via `git clone --local`. There is **no** second code path such as a separate `runTestsCore`: the orchestrator writes **`run-patch-steps.json`** in the sandbox from the stored steps, runs **`runStagingTestVerification`** (staging + test retries + optional vague-specs handling), and persists outcomes through the same **`cleanupAndSaveRun`** path as **`run resume`**.
+
+**Host apply:** **`applyPatchToHost`** is called with **`projectDir`** set to the **CLI project directory** (the user’s repo root), **not** the ephemeral resume worktree. `git worktree add` for the success path therefore starts from the host repo’s `HEAD` without the stored patch already present, so each incremental step applies cleanly. Using the resume worktree as `projectDir` here would replay steps onto a tree that already contains them and can produce errors such as *already exists in working directory* (see [§8](#8-success-path-apply-patch-to-host-via-worktree)).
 
 ---
 
-## 7. Iterative Loop: Re-Apply Before Verification
+## 7. Iterative loop: commit, then verify
 
-**Location:** `modes.ts` → `runIterativeLoop()`
+**Location:** `modes.ts` → `runStartCore` → `runIterativeLoop()` (`loop.ts`)
 
 In **saifac feat run** and **saifac run resume**, the flow is:
 
-1. OpenHands runs and modifies files in the sandbox.
-2. `extractPatch()` produces `patch.diff` and **resets** the sandbox (see [§3](#3-patch-extraction), [§5](#5-sandbox-reset-between-attempts)).
-3. Before starting the Staging and Test Runner containers, we **re-apply** the patch:
+1. Remember `preRoundHeadSha` (current `HEAD` in `code/` before the agent runs).
+2. OpenHands runs and modifies files in the sandbox.
+3. `extractIncrementalRoundPatch` records **one `RunPatchStep` per agent commit** (first-parent chain) plus an optional WIP step, and appends them to **`run-patch-steps.json`** (see [§3](#3-patch-extraction-incremental-rounds)).
+4. The Staging container uses the **`code/`** tree **as committed** — no separate `git apply` step before tests.
+5. If tests fail, the last step is removed, `code/` is reset to `preRoundHeadSha`, feedback is sent to OpenHands, and the loop repeats.
 
-   ```bash
-   git apply "${patchPath}"
-   ```
-
-   `patchPath` points to `sandboxBasePath/patch.diff`, which is outside `code/` and thus survived `git clean -fd`.
-
-4. The Staging container is built from (or mounts) the patched `code/` directory. The Test Runner runs the tests.
-
-5. If tests fail, the loop continues: we reset again, feed feedback to OpenHands, and repeat.
+**`saifac run test`** enters the same `runIterativeLoop` with **`testOnly`**: steps 1–2 and 5 are skipped (no agent, no reset-and-retry outer loop). The sandbox already reflects replayed **`runPatchSteps`**; the loop writes **`run-patch-steps.json`**, runs **`runStagingTestVerification`** once, then success/failure handling matches the normal path (including **`applyPatchToHost`** when tests pass). **Hatchet:** `feat-run` → `convergence-loop` branches the same way when **`testOnly`** is set on serialized opts.
 
 ---
 
 ## 8. Success Path: Apply Patch to Host via Worktree
 
-**Location:** `src/orchestrator/modes.ts` → `applyPatchToHost()`
+**Location:** `src/orchestrator/phases/apply-patch.ts` → `applyPatchToHost()` (invoked from `loop.ts` / Hatchet `apply-patch` task)
 
 When all tests pass, the orchestrator applies the winning patch to the **host** repository. To avoid mutating the user's checked-out branch (and to support parallel agent runs), we use **Git worktrees**.
 
@@ -198,7 +180,7 @@ When all tests pass, the orchestrator applies the winning patch to the **host** 
 
 ### Flow
 
-1. **Read `patch.diff`** from `sandboxBasePath/patch.diff` (same location as in the iterative loop).
+1. **Read `run-patch-steps.json`** from `sandboxBasePath` (ordered `{ message, diff, author? }[]`). A combined **`patch.diff`** may be written beside it for the PR summarizer (concatenated step diffs).
 
 2. **Security check:** Reject patches that touch `.git/hooks/` (see [§10](#10-security-considerations)).
 
@@ -212,13 +194,7 @@ When all tests pass, the orchestrator applies the winning patch to the **host** 
    - The worktree lives inside the sandbox so it is removed when `destroySandbox` runs.
    - The main repo's `HEAD` is never changed.
 
-4. **Apply and commit** inside the worktree:
-
-   ```bash
-   git apply "${patchFile}"
-   git add .
-   git commit -m "feat(${featureName}): auto-generated implementation"
-   ```
+4. **Apply host-base snapshot** (if any) so the worktree matches the sandbox baseline, then **for each step**: `git apply` the step diff, `git add .`, `git commit` with that step’s **message** and **author** (see `applyPatchToHost` in `phases/apply-patch.ts`).
 
 5. **Optional push:** If `--push` is set, resolve the push target (see [§9](#9-push-target-resolution-and-github_token)) and:
 
@@ -307,7 +283,7 @@ Patches that modify `.git/hooks/` are **rejected** before application. A malicio
 
 - **Worktree:** The main working tree is never checked out to a different branch. Multiple agents can run simultaneously; each creates its own worktree and branch.
 - **Branch naming:** `saifac/<featureName>-<runId>` ensures that two runs for the same change (e.g. retries or different attempt numbers) do not collide.
-- **Sandbox isolation:** Each run has its own sandbox directory. Patches are written to `sandboxBasePath/patch.diff`, not to a shared location.
+- **Sandbox isolation:** Each run has its own sandbox directory. Canonical steps live in `sandboxBasePath/run-patch-steps.json` (and a combined `patch.diff` may be written for summarization), not in a shared location.
 
 ### Patch exclude rules
 
@@ -325,16 +301,13 @@ By stripping `saifac/**` and `.git/hooks/**` from every patch, we prevent:
 | Sandbox creation  | `git init`                                        | `codePath`   |
 | Sandbox creation  | `git add .`                                       | `codePath`   |
 | Sandbox creation  | `git commit -m "Base state"`                      | `codePath`   |
-| Patch extraction  | `git add .`                                       | `codePath`   |
-| Patch extraction  | `git diff HEAD`                                   | `codePath`   |
-| Patch extraction  | `git reset --hard HEAD`                           | `codePath`   |
-| Patch extraction  | `git clean -fd`                                   | `codePath`   |
-| Tests / re-apply  | `git apply "${patchPath}"`                        | `codePath`   |
-| Failure reset     | `git reset --hard HEAD`                           | `codePath`   |
+| Patch extraction  | `git add` / commit (one round)                     | `codePath`   |
+| Patch extraction  | `git diff "${preRoundHeadSha}" HEAD`              | `codePath`   |
+| Failure reset     | `git reset --hard "${preRoundHeadSha}"`           | `codePath`   |
 | Failure reset     | `git clean -fd`                                   | `codePath`   |
 | Success: worktree | `git branch --show-current`                       | `projectDir` |
 | Success: worktree | `git worktree add "${wtPath}" -b "${branchName}"` | `projectDir` |
-| Success: commit   | `git apply`, `git add .`, `git commit`            | `wtPath`     |
+| Success: commit   | per-step `git apply` + `git commit` (from JSON) | `wtPath`     |
 | Success: push     | `git push "${pushUrl}" "${branchName}"`           | `wtPath`     |
 | Success: cleanup  | `git worktree remove --force "${wtPath}"`         | `projectDir` |
 | Success: fallback | `git worktree prune`                              | `projectDir` |

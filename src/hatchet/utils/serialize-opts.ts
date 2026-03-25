@@ -14,6 +14,7 @@ import { getGitProvider } from '../../git/index.js';
 import type { OrchestratorOpts } from '../../orchestrator/modes.js';
 import type { PatchExcludeRule } from '../../orchestrator/sandbox.js';
 import { createRunStorage } from '../../runs/storage.js';
+import type { RunPatchStep } from '../../runs/types.js';
 import type { SerializedPatchExcludeRule } from '../../runs/utils/serialize.js';
 import { resolveTestProfile } from '../../test-profiles/index.js';
 
@@ -62,7 +63,11 @@ export interface SerializedOrchestratorOpts extends Record<string, unknown> {
   agentScriptFile: string;
   resume: {
     sandboxSourceDir: string;
+    baseSnapshotPath?: string;
+    seedRunPatchSteps?: RunPatchStep[];
     initialErrorFeedback?: string;
+    persistedRunId?: string;
+    artifactRevisionAtResume?: number;
     runContext: {
       baseCommitSha: string;
       basePatchDiff?: string;
@@ -99,7 +104,11 @@ export function serializeOrchestratorOpts(opts: OrchestratorOpts): SerializedOrc
     resume: resume
       ? {
           sandboxSourceDir: resume.sandboxSourceDir,
+          baseSnapshotPath: resume.baseSnapshotPath,
+          seedRunPatchSteps: resume.seedRunPatchSteps,
           initialErrorFeedback: resume.initialErrorFeedback,
+          persistedRunId: resume.persistedRunId,
+          artifactRevisionAtResume: resume.artifactRevisionAtResume,
           runContext: {
             baseCommitSha: resume.runContext.baseCommitSha,
             basePatchDiff: resume.runContext.basePatchDiff,
@@ -172,7 +181,11 @@ export function deserializeOrchestratorOpts(serialized: Record<string, unknown>)
     resume: s.resume
       ? {
           sandboxSourceDir: s.resume.sandboxSourceDir,
+          baseSnapshotPath: s.resume.baseSnapshotPath,
+          seedRunPatchSteps: s.resume.seedRunPatchSteps ?? [],
           initialErrorFeedback: s.resume.initialErrorFeedback,
+          persistedRunId: s.resume.persistedRunId,
+          artifactRevisionAtResume: s.resume.artifactRevisionAtResume,
           runContext: s.resume.runContext,
         }
       : null,

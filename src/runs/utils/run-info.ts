@@ -21,8 +21,8 @@ const SCRIPT_BODY_KEYS = [
 export function toRunInfoJson(artifact: RunArtifact): Record<string, unknown> {
   const clone = structuredClone(artifact);
   delete clone.basePatchDiff;
-  /** @ts-expect-error - runPatchDiff is not a property of RunArtifact */
-  delete clone.runPatchDiff;
+  /** @ts-expect-error - runPatchSteps is not a property of RunArtifact */
+  delete clone.runPatchSteps;
 
   for (const k of SCRIPT_BODY_KEYS) {
     delete clone.config[k];

@@ -117,6 +117,10 @@ export interface GitCommitOpts {
   message: string;
   env?: NodeJS.ProcessEnv;
   /**
+   * `git commit --author=...` (e.g. `Name <email>`). When omitted, git uses env author/committer.
+   */
+  author?: string;
+  /**
    * When true, omit `-q` so git prints per-file summaries.
    * When false or omitted, pass `-q` for quieter output.
    */
@@ -133,6 +137,9 @@ export async function gitCommit(opts: GitCommitOpts): Promise<void> {
     args.push('-q');
   }
   args.push('-m', opts.message);
+  if (opts.author?.trim()) {
+    args.push('--author', opts.author.trim());
+  }
   await spawnAsync({
     command: GIT,
     cwd: opts.cwd,

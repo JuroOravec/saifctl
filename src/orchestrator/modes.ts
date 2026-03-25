@@ -1,50 +1,54 @@
 /**
- * Four orchestration modes for the Software Factory.
+ * Orchestration modes for the Software Factory.
  *
  *  1. fail2pass      — Verify at least one feature test fails on current codebase (sanity check; partial overlap OK)
  *  2. start          — Create a fresh sandbox and run the iterative agent loop
  *  3. resume         — Resume a failed run from storage then calls start
  *  4. test           — Re-test a stored run's patch without running the coding agent loop
+ *  5. inspect        — Idle coding container for a stored run (changes made in the container are saved)
  */
 
 import { join } from 'node:path';
 
 import type { SaifacConfig } from '../config/schema.js';
+import { getSaifRoot } from '../constants.js';
 import { getHatchetClient } from '../hatchet/client.js';
 import { serializeOrchestratorOpts } from '../hatchet/utils/serialize-opts.js';
 import {
   createFeatRunWorkflow,
   type FeatRunSerializedInput,
 } from '../hatchet/workflows/feat-run.workflow.js';
-import type { ModelOverrides } from '../llm-config.js';
+import { type ModelOverrides, resolveAgentLlmConfig } from '../llm-config.js';
 import { consola } from '../logger.js';
 import { hasFeatureSuccessfullyFailed } from '../provisioners/docker/index.js';
 import { createProvisioner } from '../provisioners/index.js';
-import { type TestsResult } from '../provisioners/types.js';
-import type { RunStorage } from '../runs/types.js';
+import { type CoderInspectSessionHandle } from '../provisioners/types.js';
+import { type RunPatchStep, type RunStorage, StaleArtifactError } from '../runs/types.js';
+import { buildRunArtifact, type BuildRunArtifactOpts } from '../runs/utils/artifact.js';
 import { deserializeArtifactConfig } from '../runs/utils/serialize.js';
-import { type Feature, resolveFeature } from '../specs/discover.js';
+import { resolveFeature } from '../specs/discover.js';
 import { CleanupRegistry } from '../utils/cleanup.js';
-import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
-import { omit } from '../utils/omit.js';
+import { git } from '../utils/git.js';
+import { writeUtf8 } from '../utils/io.js';
 import {
+  buildInitialTask,
+  buildPatchExcludeRules,
   type IterativeLoopOpts,
   logIterativeLoopSettings,
   type OrchestratorResult,
   prepareTestRunnerOpts,
   runIterativeLoop,
   type RunStorageContext,
-  runVagueSpecsCheckerForFailure,
 } from './loop.js';
 import { type OrchestratorCliInput, resolveOrchestratorOpts } from './options.js';
-import { applyPatchToHost } from './phases/apply-patch.js';
 import {
   captureBaseGitState,
   cleanupResumeWorkspace,
   createResumeWorktree,
   saveRunOnError,
 } from './resume.js';
-import { createSandbox, destroySandbox } from './sandbox.js';
+import { createSandbox, destroySandbox, extractIncrementalRoundPatch } from './sandbox.js';
+import { getArgusBinaryPath } from './sidecars/reviewer/argus.js';
 
 export interface OrchestratorOpts extends IterativeLoopOpts {
   /**
@@ -125,6 +129,24 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
     sandboxSourceDir: string;
     runContext: RunStorageContext;
     initialErrorFeedback?: string;
+    /** Base tree copy (before run steps) — sandbox rsync source for resume/tests/inspect */
+    baseSnapshotPath?: string;
+    /** Stored `runPatchSteps` replayed after the sandbox "Base state" commit */
+    seedRunPatchSteps?: RunPatchStep[];
+    /**
+     * When resuming from `run storage`, the run id to reuse for the sandbox and persisted artifact
+     * (same as the key passed to `saifac run resume <id>`).
+     */
+    persistedRunId?: string;
+    /**
+     * Stored {@link RunArtifact#artifactRevision} at resume time (missing treated as 0).
+     *
+     * Used for optimistic locking on `saveRun`, same pattern as `run inspect`.
+     *
+     * This is used to prevent race conditions when multiple processes are trying to save the same run.
+     * If the revision is not the same as the one in storage, the save will fail.
+     */
+    artifactRevisionAtResume?: number;
   } | null;
   /**
    * When true, append the semantic reviewer step to the gate script.
@@ -363,9 +385,10 @@ async function runStartCore(
     agentScript,
     stageScript,
     runStorage,
+    testOnly,
   } = opts;
 
-  consola.log(`\n[orchestrator] MODE: start — ${feature.name}`);
+  consola.log(`\n[orchestrator] MODE: ${testOnly ? 'test' : 'start'} — ${feature.name}`);
 
   const sandboxSourceDir = getSandboxSourceDir(opts);
 
@@ -429,6 +452,7 @@ async function runStartCore(
   const sandbox = await createSandbox({
     feature,
     projectDir: sandboxSourceDir,
+    codeSourceDir: opts.resume?.baseSnapshotPath ?? sandboxSourceDir,
     saifDir,
     projectName,
     sandboxBaseDir,
@@ -438,6 +462,8 @@ async function runStartCore(
     agentScript,
     stageScript,
     verbose: opts.verbose,
+    runPatchSteps: opts.resume?.seedRunPatchSteps ?? [],
+    runId: opts.resume?.persistedRunId,
   });
 
   registry.setEmergencySandboxPath(sandbox.sandboxBasePath);
@@ -445,12 +471,14 @@ async function runStartCore(
   // ─── Save run artifact on interrupt (Ctrl+C) ───────────────────────────────
   // Normal exit (success or failure) is handled inside runIterativeLoop cleanup.
   if (runStorage) {
+    const resumeRev = opts.resume?.artifactRevisionAtResume;
     registry.setBeforeCleanup(async () => {
       await saveRunOnError({
         sandbox,
         runContext,
         opts,
         runStorage,
+        saveRunOptions: resumeRev === undefined ? undefined : { ifRevisionEquals: resumeRev },
       });
     });
   }
@@ -462,6 +490,7 @@ async function runStartCore(
     runStorage,
     runContext,
     initialErrorFeedback: opts.resume?.initialErrorFeedback ?? null,
+    seedRunPatchSteps: opts.resume?.seedRunPatchSteps ?? [],
     registry,
   });
 }
@@ -484,28 +513,40 @@ export interface ResumeOpts {
  * Resumes a run from storage. Fetches the artifact, prepares workspace from
  * baseCommitSha + diffs, creates a fresh sandbox, and runs the loop.
  * Delegates to runStartCore with resume opts.
+ *
+ * Used by both `run resume` and `run test`.
  */
 async function runResumeCore(
-  opts: ResumeOpts,
+  opts: ResumeOpts & { testOnly?: boolean },
   registry: CleanupRegistry,
 ): Promise<OrchestratorResult> {
-  const { runId, projectDir, runStorage, cli, cliModelDelta, config, saifDir } = opts;
+  const {
+    runId,
+    projectDir,
+    runStorage,
+    cli,
+    cliModelDelta,
+    config,
+    saifDir,
+    testOnly = false,
+  } = opts;
 
   const artifact = await runStorage.getRun(runId);
   if (!artifact) {
     throw new Error(`Run not found: ${runId}. List runs with: saifac run ls`);
   }
 
-  consola.log(`\n[orchestrator] MODE: resume — ${artifact.config.featureName} (run ${runId})`);
+  const mode = testOnly ? 'test' : 'resume';
+  consola.log(`\n[orchestrator] MODE: ${mode} — ${artifact.config.featureName} (run ${runId})`);
 
   // Fresh worktree under /tmp/saifac/resume-worktrees/ (from artifact), then fresh sandbox in runStartCore
   // to reconstruct the state of the workspace at the time of the run (+ agent's changes)
-  const { worktreePath, branchName } = await createResumeWorktree({
+  const { worktreePath, branchName, baseSnapshotPath } = await createResumeWorktree({
     projectDir,
     runId,
     baseCommitSha: artifact.baseCommitSha,
     basePatchDiff: artifact.basePatchDiff,
-    runPatchDiff: artifact.runPatchDiff,
+    runPatchSteps: artifact.runPatchSteps,
   });
 
   const deserialized = deserializeArtifactConfig(artifact.config);
@@ -527,11 +568,15 @@ async function runResumeCore(
 
   mergedOpts.resume = {
     sandboxSourceDir: worktreePath,
+    baseSnapshotPath,
+    seedRunPatchSteps: artifact.runPatchSteps,
     runContext: {
       baseCommitSha: artifact.baseCommitSha,
       basePatchDiff: artifact.basePatchDiff,
     },
     initialErrorFeedback: artifact.lastFeedback,
+    persistedRunId: runId,
+    artifactRevisionAtResume: artifact.artifactRevision ?? 0,
   };
 
   logIterativeLoopSettings(mergedOpts);
@@ -547,73 +592,52 @@ async function runResumeCore(
 }
 
 // ---------------------------------------------------------------------------
-// Mode 4: test
+// Mode 3b: inspect (stored run → resume worktree + sandbox + idle coder container)
 // ---------------------------------------------------------------------------
 
-/** Fields not needed for `runTestsCore` after test-from-run merge (feature / projectDir set at call site). */
-const TEST_FROM_RUN_OMIT_KEYS = [
-  'feature',
-  'maxRuns',
-  'dangerousDebug',
-  'dangerousNoLeash',
-  'cedarPolicyPath',
-  'coderImage',
-  'gateRetries',
-  'agentEnv',
-  'agentLogFormat',
-  'patchExclude',
-  'codingEnvironment',
-  'runStorage',
-  'resume',
-] as const satisfies readonly (keyof OrchestratorOpts)[];
-
-type SharedTestOpts = Omit<OrchestratorOpts, (typeof TEST_FROM_RUN_OMIT_KEYS)[number]>;
-
-export interface TestFromRunOpts {
-  runId: string;
-  runStorage: RunStorage;
-  projectDir: string;
-  saifDir: string;
-  config: SaifacConfig;
-  cli: OrchestratorCliInput;
-  cliModelDelta: ModelOverrides | undefined;
-}
+export type InspectOpts = Omit<ResumeOpts, 'dangerousDebug'> & {
+  /**
+   * When true, run the inspect container under Leash/Cedar like the coding agent.
+   * Default (false/omitted) uses plain `docker run` so operations blocked by Cedar (e.g. git commit) work.
+   */
+  inspectLeash?: boolean;
+};
 
 /**
- * Re-tests the patch from a stored run without running the coding agent loop.
+ * Opens the same coding environment as the first round of `run resume`, with an idle container
+ * (`sleep infinity`). When the process is stopped, code changes from the container are extracted
+ * and saved the same way as when we run the coding agent. Thus, allowing the user
+ * to manually code the feature and save the changes to the run storage.
  *
- * 1. Fetches the run artifact from storage.
- * 2. Reconstructs the workspace (base commit + basePatchDiff + runPatchDiff) via a git worktree.
- * 3. Writes the agent patch to `.saifac-run-test.patch`.
- * 4. Delegates to runTestsCore (sandbox copy → staging → tests → optional downstream push/PR).
- *
- * Useful after a run completes/fails/pauses to re-run just the test phase with
- * updated tests, a different test profile, or to promote a passing patch to a PR.
+ * Not wrapped with the cleanup-registry decorator: SIGINT ends the wait and
+ * runs a controlled teardown (save + destroy) instead of the global registry exit path.
  */
-async function runTestsFromRunCore(
-  opts: TestFromRunOpts,
-  registry: CleanupRegistry,
-): Promise<OrchestratorResult> {
-  const { runId, projectDir, runStorage, saifDir, config, cli, cliModelDelta } = opts;
+export async function runInspect(opts: InspectOpts): Promise<void> {
+  const { runId, projectDir, runStorage, cli, cliModelDelta, config, saifDir, inspectLeash } = opts;
+  const inspectDangerousNoLeash = inspectLeash !== true;
+
+  if (!runStorage) {
+    throw new Error('Run inspect requires run storage (do not use --storage with runs=none).');
+  }
 
   const artifact = await runStorage.getRun(runId);
   if (!artifact) {
     throw new Error(`Run not found: ${runId}. List runs with: saifac run ls`);
   }
 
-  consola.log(
-    `\n[orchestrator] MODE: test-from-run — ${artifact.config.featureName} (run ${runId})`,
-  );
+  consola.log(`\n[orchestrator] MODE: inspect — ${artifact.config.featureName} (run ${runId})`);
 
-  // Same worktree reconstruction as `run resume` (base + run patches). Sandbox rsync + initial
-  // commit already contain agent output
-  const { worktreePath, branchName } = await createResumeWorktree({
+  const { worktreePath, branchName, baseSnapshotPath } = await createResumeWorktree({
     projectDir,
     runId,
     baseCommitSha: artifact.baseCommitSha,
     basePatchDiff: artifact.basePatchDiff,
-    runPatchDiff: artifact.runPatchDiff,
+    runPatchSteps: artifact.runPatchSteps,
   });
+
+  const expectedRevision = artifact.artifactRevision ?? 0;
+  const prevStepsJson = JSON.stringify(artifact.runPatchSteps);
+  let inspectSaveError: unknown;
 
   try {
     const deserialized = deserializeArtifactConfig(artifact.config);
@@ -623,7 +647,7 @@ async function runTestsFromRunCore(
       saifDir: deserialized.saifDir,
     });
 
-    const merged = await resolveOrchestratorOpts({
+    const mergedOpts = await resolveOrchestratorOpts({
       projectDir,
       saifDir,
       config,
@@ -633,329 +657,207 @@ async function runTestsFromRunCore(
       artifact,
     });
 
-    const shared = omit(merged, TEST_FROM_RUN_OMIT_KEYS);
+    if (mergedOpts.dangerousDebug) {
+      consola.warn(
+        '[inspect] Run inspect does not support --dangerous-debug (host-based coding); ignoring.',
+      );
+      mergedOpts.dangerousDebug = false;
+    }
 
-    // Write the agent's patch diff to a temp file so runTestsCore can apply it on success..
-    const patchPath = join(worktreePath, '.saifac-run-test.patch');
-    await writeUtf8(patchPath, artifact.runPatchDiff);
-
-    return await runTestsCore(
-      {
-        ...shared,
-        feature,
-        projectDir: worktreePath,
-        patchPath,
+    mergedOpts.resume = {
+      sandboxSourceDir: worktreePath,
+      baseSnapshotPath,
+      seedRunPatchSteps: artifact.runPatchSteps,
+      runContext: {
+        baseCommitSha: artifact.baseCommitSha,
+        basePatchDiff: artifact.basePatchDiff,
       },
-      registry,
-    );
+      initialErrorFeedback: artifact.lastFeedback,
+    };
+
+    logIterativeLoopSettings(mergedOpts);
+
+    const sandboxSourceDir = getSandboxSourceDir(mergedOpts);
+    const sandbox = await createSandbox({
+      feature,
+      projectDir: sandboxSourceDir,
+      codeSourceDir: mergedOpts.resume?.baseSnapshotPath ?? sandboxSourceDir,
+      saifDir,
+      projectName: mergedOpts.projectName,
+      sandboxBaseDir: mergedOpts.sandboxBaseDir,
+      gateScript: mergedOpts.gateScript,
+      startupScript: mergedOpts.startupScript,
+      agentInstallScript: mergedOpts.agentInstallScript,
+      agentScript: mergedOpts.agentScript,
+      stageScript: mergedOpts.stageScript,
+      verbose: mergedOpts.verbose,
+      runPatchSteps: mergedOpts.resume?.seedRunPatchSteps ?? [],
+    });
+
+    const preInspectHead = (
+      await git({ cwd: sandbox.codePath, args: ['rev-parse', 'HEAD'] })
+    ).trim();
+
+    const patchExclude = buildPatchExcludeRules(saifDir, mergedOpts.patchExclude);
+
+    const runContext = mergedOpts.resume.runContext;
+    const inspectRunId = `${sandbox.runId}-inspect`;
+    const codingProvisioner = createProvisioner(mergedOpts.codingEnvironment);
+
+    const task = await buildInitialTask({ feature, saifDir });
+    const errorFeedback = artifact.lastFeedback ?? '';
+
+    const coderLlmConfig = resolveAgentLlmConfig('coder', mergedOpts.overrides);
+    const reviewer =
+      mergedOpts.reviewerEnabled && !mergedOpts.dangerousDebug
+        ? {
+            llmConfig: resolveAgentLlmConfig('reviewer', mergedOpts.overrides),
+            scriptPath: join(getSaifRoot(), 'src', 'orchestrator', 'scripts', 'reviewer.sh'),
+            argusBinaryPath: await getArgusBinaryPath(),
+          }
+        : null;
+
+    let inspectHandle: CoderInspectSessionHandle | null = null;
+
+    try {
+      try {
+        await codingProvisioner.setup({
+          runId: inspectRunId,
+          projectName: mergedOpts.projectName,
+          featureName: feature.name,
+          projectDir: mergedOpts.projectDir,
+        });
+
+        inspectHandle = await codingProvisioner.startInspect({
+          codePath: sandbox.codePath,
+          sandboxBasePath: sandbox.sandboxBasePath,
+          task,
+          errorFeedback,
+          saifDir,
+          feature,
+          coderImage: mergedOpts.coderImage,
+          dangerousNoLeash: inspectDangerousNoLeash,
+          cedarPolicyPath: mergedOpts.cedarPolicyPath,
+          startupPath: sandbox.startupPath,
+          agentInstallPath: sandbox.agentInstallPath,
+          agentPath: sandbox.agentPath,
+          agentEnv: mergedOpts.agentEnv,
+          agentLogFormat: mergedOpts.agentLogFormat,
+          reviewer,
+          gateRetries: mergedOpts.gateRetries,
+          llmConfig: coderLlmConfig,
+        });
+
+        consola.log(`\n[inspect] Attach your editor with Dev Containers or \`docker exec -it\`:`);
+        consola.log(`  Container: \`${inspectHandle.containerName}\``);
+        consola.log(`  Workspace: \`${inspectHandle.workspacePath}\``);
+        consola.log('[inspect] Press Ctrl+C when done to save changes and clean up.\n');
+
+        await new Promise<void>((resolve) => {
+          const onExit = (sig: string) => {
+            consola.log(
+              `\n[inspect] ${sig} received — stopping session and cleaning up Docker (this may take a few seconds)...`,
+            );
+            resolve();
+          };
+          process.once('SIGINT', () => onExit('SIGINT'));
+          process.once('SIGTERM', () => onExit('SIGTERM'));
+        });
+      } finally {
+        const ignore = () => {};
+        process.on('SIGINT', ignore);
+        process.on('SIGTERM', ignore);
+        try {
+          if (inspectHandle) {
+            await inspectHandle.stop().catch((err: unknown) => {
+              consola.warn('[inspect] inspect session stop:', err);
+            });
+          }
+          await codingProvisioner.teardown({ runId: inspectRunId }).catch((err: unknown) => {
+            consola.warn('[inspect] provisioner teardown:', err);
+          });
+
+          // Extract any changes made in the container
+          const { steps: inspectSteps } = await extractIncrementalRoundPatch(sandbox.codePath, {
+            preRoundHeadSha: preInspectHead,
+            attempt: 1,
+            message: 'saifac: inspect session',
+            exclude: patchExclude,
+          });
+          const nextSteps =
+            inspectSteps.length > 0
+              ? [...artifact.runPatchSteps, ...inspectSteps]
+              : artifact.runPatchSteps;
+          const nextJson = JSON.stringify(nextSteps);
+          if (nextJson !== prevStepsJson) {
+            const { runStorage: _rs, resume: _r, ...artifactLoopOpts } = mergedOpts;
+            const newArtifact = buildRunArtifact({
+              runId,
+              baseCommitSha: runContext.baseCommitSha,
+              basePatchDiff: runContext.basePatchDiff,
+              runPatchSteps: nextSteps,
+              specRef: feature.relativePath,
+              lastFeedback: artifact.lastFeedback,
+              status: artifact.status,
+              opts: artifactLoopOpts as BuildRunArtifactOpts,
+            });
+            try {
+              await runStorage.saveRun(runId, newArtifact, {
+                ifRevisionEquals: expectedRevision,
+              });
+              consola.log('[inspect] Saved updated run patch steps to storage.');
+            } catch (e) {
+              if (e instanceof StaleArtifactError) {
+                consola.warn(`[inspect] ${e.message}`);
+                const fallback = join(projectDir, `.saifac-inspect-stale-${runId}.json`);
+                await writeUtf8(fallback, nextJson);
+                consola.warn(
+                  `[inspect] Wrote working tree steps to ${fallback} — merge manually after reloading the run.`,
+                );
+              } else {
+                inspectSaveError = e;
+              }
+            }
+          } else {
+            consola.log('[inspect] No patch changes; skipping save.');
+          }
+        } finally {
+          process.removeListener('SIGINT', ignore);
+          process.removeListener('SIGTERM', ignore);
+        }
+      }
+    } finally {
+      await destroySandbox(sandbox.sandboxBasePath);
+    }
   } finally {
     await cleanupResumeWorkspace({ worktreePath, projectDir, branchName }, () => {
-      // Best-effort cleanup — log but don't throw
       consola.warn(`[orchestrator] Could not clean up worktree at ${worktreePath}`);
     });
   }
+
+  if (inspectSaveError) throw inspectSaveError;
 }
 
-type TestOpts = SharedTestOpts & {
-  feature: Feature;
-  /**
-   * Path to the stored run patch on disk (e.g. `.saifac-run-test.patch` inside the resume worktree).
-   * Used for logging and result metadata.
-   */
-  patchPath: string | null;
-};
+// ---------------------------------------------------------------------------
+// Mode 4: test
+// ---------------------------------------------------------------------------
+
+export type TestFromRunOpts = ResumeOpts;
 
 /**
- * Builds a sandbox from `projectDir` (resume worktree for `run test`) and runs tests.
+ * Re-tests the patch from a stored run without running the coding agent loop.
  *
- * If tests fail, retries up to testRetries (useful for flaky environments).
- * If tests pass, applies the patch to the host repo and opens a PR.
+ * Useful after a run completes/fails/pauses to re-run just the test phase with
+ * updated tests, a different test profile, or to promote a passing patch to a PR.
+ *
+ * Same pipeline as {@link runResume} with {@link OrchestratorOpts#testOnly}: materialize worktree,
+ * sandbox, staging tests, optional host apply — and persist results like resume.
  */
-async function runTestsCore(
-  opts: TestOpts,
+async function runTestsFromRunCore(
+  opts: TestFromRunOpts,
   registry: CleanupRegistry,
 ): Promise<OrchestratorResult> {
-  const {
-    sandboxProfileId,
-    feature,
-    projectDir,
-    patchPath,
-    testRetries,
-    saifDir,
-    projectName,
-    sandboxBaseDir,
-    testImage,
-    stagingEnvironment,
-    resolveAmbiguity,
-    startupScript,
-    gateScript,
-    agentInstallScript,
-    agentScript,
-    stageScript,
-    testScript,
-    testProfile,
-    push,
-    pr,
-    gitProvider,
-    overrides,
-    verbose,
-  } = opts;
-
-  if (!patchPath) {
-    throw new Error("mode='test' requires --patch pointing to a patch file.");
-  }
-  if (!(await pathExists(patchPath))) {
-    throw new Error(`Patch file not found: ${patchPath}`);
-  }
-
-  consola.log(`\n[orchestrator] MODE: test — ${feature.name}`);
-  consola.log(`[orchestrator] Patch: ${patchPath}`);
-
-  const sandbox = await createSandbox({
-    feature,
-    projectDir,
-    saifDir,
-    projectName,
-    sandboxBaseDir,
-    startupScript,
-    gateScript,
-    agentInstallScript,
-    agentScript,
-    stageScript,
-    verbose,
-  });
-  registry.setEmergencySandboxPath(sandbox.sandboxBasePath);
-
-  // applyPatchToHost reads sandboxBasePath/patch.diff; the agent loop normally writes it via extractPatch.
-  // test-from-run already has the patch at patchPath — copy so host apply / push / PR work.
-  await writeUtf8(join(sandbox.sandboxBasePath, 'patch.diff'), await readUtf8(patchPath));
-
-  const testRunnerOpts = await prepareTestRunnerOpts({
-    feature,
-    sandboxBasePath: sandbox.sandboxBasePath,
-    testScript,
-  });
-
-  let lastStderr = '';
-  let attempts = 0;
-
-  try {
-    while (attempts < testRetries) {
-      attempts++;
-      consola.log(`\n[orchestrator] Test attempt ${attempts}/${testRetries}`);
-
-      const runId = `${sandbox.runId}-${attempts}`;
-      const provisioner = createProvisioner(stagingEnvironment);
-      registry.registerProvisioner(provisioner, runId);
-
-      await provisioner.setup({ runId, projectName, featureName: feature.name, projectDir });
-
-      const result: TestsResult = await (async (): Promise<TestsResult> => {
-        try {
-          const stagingHandle = await provisioner.startStaging({
-            sandboxProfileId,
-            codePath: sandbox.codePath,
-            projectDir,
-            stagingEnvironment,
-            feature,
-            projectName,
-            startupPath: sandbox.startupPath,
-            stagePath: sandbox.stagePath,
-          });
-
-          return await provisioner.runTests({
-            ...testRunnerOpts,
-            stagingHandle,
-            testImage,
-            runId,
-            feature,
-            projectName,
-            reportPath: join(sandbox.sandboxBasePath, 'results.xml'),
-          });
-        } finally {
-          registry.deregisterProvisioner(provisioner);
-          await provisioner.teardown({ runId });
-        }
-      })();
-
-      lastStderr = result.stderr;
-
-      if (result.runnerError) {
-        throw new Error(
-          `Test runner error on attempt ${attempts}: ${result.runnerError}\n` +
-            `Check that runner.spec.ts and tests.json are present and valid.\n` +
-            `Stderr:\n${result.stderr}`,
-        );
-      }
-
-      if (result.status === 'passed') {
-        consola.log('\n[orchestrator] ✓ ALL TESTS PASSED');
-        await applyPatchToHost({
-          codePath: sandbox.codePath,
-          projectDir,
-          feature,
-          runId,
-          hostBasePatchPath: sandbox.hostBasePatchPath,
-          push,
-          pr,
-          gitProvider,
-          overrides,
-          verbose,
-        });
-        return {
-          success: true,
-          attempts,
-          patchPath,
-          message: `Patch verified and applied to host repository after ${attempts} attempt(s).`,
-        };
-      } else if (result.status === 'aborted') {
-        consola.log(`\n[orchestrator] Tests aborted after ${attempts} attempt(s).`);
-        return {
-          success: false,
-          attempts,
-          message: `Tests were aborted after ${attempts} attempt(s).`,
-        };
-      }
-
-      consola.log(`\n[orchestrator] Test attempt ${attempts} FAILED`);
-
-      if (resolveAmbiguity !== 'off' && result.testSuites) {
-        const VagueSpecsCheckResult = await runVagueSpecsCheckerForFailure({
-          projectDir,
-          feature,
-          testSuites: result.testSuites,
-          resolveAmbiguity,
-          testProfile,
-          projectName,
-          overrides,
-        });
-
-        if (VagueSpecsCheckResult.ambiguityResolved) {
-          // Spec updated and tests regenerated — retry the same patch against the new tests.
-          // Don't count this attempt against testRetries since the spec was at fault.
-          consola.log(
-            '[orchestrator] Spec ambiguity resolved — retrying tests with updated tests.',
-          );
-          attempts--;
-        }
-      }
-    }
-
-    return {
-      success: false,
-      attempts,
-      message: `Tests failed after ${testRetries} attempt(s). Last stderr:\n${lastStderr}`,
-    };
-  } finally {
-    await destroySandbox(sandbox.sandboxBasePath);
-    registry.clearEmergencySandboxPath();
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Debug mode
-// ---------------------------------------------------------------------------
-
-/**
- * Spins up the agent container (+ any ephemeral containers from tests.json)
- * and streams its logs live until Ctrl+C. No test runner, no test run.
- *
- * Useful for diagnosing startup failures: installation script output, sidecar boot
- * errors, missing binaries, etc.
- */
-export async function runDebug(
-  opts: Pick<
-    OrchestratorOpts,
-    | 'sandboxProfileId'
-    | 'feature'
-    | 'projectDir'
-    | 'saifDir'
-    | 'projectName'
-    | 'sandboxBaseDir'
-    | 'stagingEnvironment'
-    | 'startupScript'
-    | 'gateScript'
-    | 'agentInstallScript'
-    | 'agentScript'
-    | 'stageScript'
-    | 'startupScriptFile'
-    | 'gateScriptFile'
-    | 'stageScriptFile'
-    | 'testScriptFile'
-    | 'agentInstallScriptFile'
-    | 'agentScriptFile'
-  >,
-): Promise<void> {
-  const {
-    sandboxProfileId,
-    feature,
-    projectDir,
-    saifDir,
-    projectName,
-    sandboxBaseDir,
-    stagingEnvironment,
-    startupScript,
-    gateScript,
-    agentInstallScript,
-    agentScript,
-    stageScript,
-  } = opts;
-
-  consola.log(`\n[orchestrator] DEBUG MODE — ${feature.name}`);
-
-  const sandbox = await createSandbox({
-    feature,
-    projectDir,
-    saifDir,
-    projectName,
-    sandboxBaseDir,
-    startupScript,
-    gateScript,
-    agentInstallScript,
-    agentScript,
-    stageScript,
-  });
-  const runId = sandbox.runId;
-  const provisioner = createProvisioner(stagingEnvironment);
-
-  // pnpm forwards SIGTERM immediately after Ctrl+C. Ignore both signals while
-  // the finally block is running so Docker API calls aren't cut short.
-  const ignoreSignal = () => {};
-  process.on('SIGINT', ignoreSignal);
-  process.on('SIGTERM', ignoreSignal);
-
-  try {
-    await provisioner.setup({ runId, projectName, featureName: feature.name, projectDir });
-
-    const stagingHandle = await provisioner.startStaging({
-      sandboxProfileId,
-      codePath: sandbox.codePath,
-      projectDir,
-      stagingEnvironment,
-      feature,
-      projectName,
-      startupPath: sandbox.startupPath,
-      stagePath: sandbox.stagePath,
-    });
-
-    consola.log(`\n[debug] Staging app ready — target: ${stagingHandle.targetUrl}`);
-    consola.log(`[debug] Sidecar: ${stagingHandle.sidecarUrl}`);
-    consola.log('[debug] Press Ctrl+C to stop.\n');
-
-    // Block until SIGINT
-    await new Promise<void>((resolve) => {
-      process.once('SIGINT', () => {
-        consola.log('\n[debug] SIGINT received — tearing down...');
-        resolve();
-      });
-    });
-  } finally {
-    await provisioner.teardown({ runId });
-    await destroySandbox(sandbox.sandboxBasePath);
-    process.removeListener('SIGINT', ignoreSignal);
-    process.removeListener('SIGTERM', ignoreSignal);
-    consola.log('[debug] Cleanup complete.');
-  }
+  return runResumeCore({ ...opts, testOnly: true }, registry);
 }
 
 /**

@@ -10,7 +10,6 @@
  *   design-fail2pass  Verify generated tests. Runs tests against main; at least one feature test must fail (third step of design workflow).
  *   design            Generate specs, tests, and validate the tests (full design workflow)
  *   run               Start an agent to implement the specs. Runs until it passes your tests.
- *   debug             Spin up staging container only, stream logs (Ctrl+C to stop)
  *   Alias: saifac feature
  */
 
@@ -29,7 +28,7 @@ import { DEFAULT_DESIGNER_PROFILE } from '../../designer-profiles/index.js';
 import type { ModelOverrides } from '../../llm-config.js';
 import { consola, setVerboseLogging } from '../../logger.js';
 import { logIterativeLoopSettings } from '../../orchestrator/loop.js';
-import { runDebug, runFail2Pass, runStart } from '../../orchestrator/modes.js';
+import { runFail2Pass, runStart } from '../../orchestrator/modes.js';
 import {
   mergeModelOverridesLayers,
   modelOverridesFromSaifacConfig,
@@ -48,26 +47,17 @@ import {
   resolveStagingEnvironment,
   resolveTestImageTag,
 } from '../../orchestrator/options.js';
-import {
-  readSandboxGateScript,
-  resolveSandboxGateScriptPath,
-} from '../../sandbox-profiles/index.js';
 import type { Feature } from '../../specs/discover.js';
 import { pathExists, readUtf8, writeUtf8 } from '../../utils/io.js';
 import {
-  featAgentArgs,
   featRunArgs,
   featTestsArgs,
   indexerArg,
   modelOverrideArgs,
   nameArg,
-  profileArg,
   projectArg,
   projectDirArg,
   saifDirArg,
-  sandboxBaseDirArg,
-  stageScriptArg,
-  startupScriptArg,
   testProfileArg,
 } from '../args.js';
 import type { ParsedArgsFromCommand } from '../types.js';
@@ -104,7 +94,6 @@ import {
   resolveDiscoveryOptions,
   resolveProjectName,
   resolveSaifDirRelative,
-  scriptSourcePathForReporting,
   shouldRunDiscovery,
 } from '../utils.js';
 
@@ -718,24 +707,6 @@ const designCommand = defineCommand({
 });
 
 // ---------------------------------------------------------------------------
-// debug: Spin up staging container, stream logs
-// ---------------------------------------------------------------------------
-
-const featDebugArgs = {
-  name: nameArg,
-  'saifac-dir': saifDirArg,
-  'project-dir': projectDirArg,
-  project: projectArg,
-  'sandbox-base-dir': sandboxBaseDirArg,
-  profile: profileArg,
-  'startup-script': startupScriptArg,
-  'stage-script': stageScriptArg,
-  agent: featAgentArgs.agent,
-  'agent-script': featAgentArgs['agent-script'],
-  'agent-install-script': featAgentArgs['agent-install-script'],
-};
-
-// ---------------------------------------------------------------------------
 // run: Start new iterative OpenHands loop until tests pass
 // ---------------------------------------------------------------------------
 
@@ -788,81 +759,6 @@ export const parseRunArgs = async (args: ParsedArgsFromCommand<typeof runCommand
   return orchestratorOpts;
 };
 
-const debugCommand = defineCommand({
-  meta: {
-    name: 'debug',
-    description:
-      'Spin up the staging container and stream its logs (Ctrl+C to stop). Useful for diagnosing startup failures.',
-  },
-  args: featDebugArgs,
-  async run({ args }) {
-    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
-    const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
-    const config = await loadSaifacConfig(saifDir, projectDir);
-    const feature = await getFeatOrPrompt(args, projectDir);
-    const sandboxBaseDir = readSandboxBaseDirFromCli(args) ?? resolveSandboxBaseDir(config);
-    const projectName = await resolveProjectName({ project: args.project, projectDir, config });
-    const sandboxProfile = pickSandboxProfile(readSandboxProfileIdFromCli(args), config);
-
-    const startupPick = pickStartupScript(readStartupScriptPathFromCli(args), config);
-    const stagePick = pickStageScript(readStageScriptPathFromCli(args), config);
-    const agentProfile = pickAgentProfile(readAgentProfileIdFromCli(args), config);
-
-    const [startupR, stageR] = await Promise.all([
-      loadStartupScriptFromPick({
-        pick: startupPick,
-        sandboxProfileId: sandboxProfile.id,
-        projectDir,
-      }),
-      loadStageScriptFromPick({
-        pick: stagePick,
-        sandboxProfileId: sandboxProfile.id,
-        projectDir,
-      }),
-    ]);
-    const startupScript = startupR.startupScript;
-    const stageScript = stageR.stageScript;
-
-    const gateAbs = resolveSandboxGateScriptPath(sandboxProfile.id);
-    const gateScript = await readSandboxGateScript(sandboxProfile.id);
-    const gateScriptFile = scriptSourcePathForReporting(projectDir, gateAbs);
-
-    const agentR = await loadAgentScriptsFromPicks({
-      installPick: pickAgentInstallScript(readAgentInstallScriptPathFromCli(args)),
-      scriptPick: pickAgentScript(readAgentScriptPathFromCli(args)),
-      agentProfileId: agentProfile.id,
-      projectDir,
-    });
-    const { agentInstallScript, agentScript, agentInstallScriptFile, agentScriptFile } = agentR;
-
-    const stagingEnvironment = resolveStagingEnvironment(config);
-
-    consola.log(`\nDebug staging container: ${feature.name}`);
-    consola.log('  Ctrl+C to stop and clean up.\n');
-
-    await runDebug({
-      sandboxProfileId: sandboxProfile.id,
-      feature,
-      projectDir,
-      saifDir,
-      sandboxBaseDir,
-      projectName,
-      stagingEnvironment,
-      startupScript,
-      startupScriptFile: startupR.startupScriptFile,
-      gateScript,
-      gateScriptFile,
-      agentInstallScript,
-      agentInstallScriptFile,
-      agentScript,
-      agentScriptFile,
-      stageScript,
-      stageScriptFile: stageR.stageScriptFile,
-      testScriptFile: '',
-    });
-  },
-});
-
 const featCommand = defineCommand({
   meta: {
     name: 'feat',
@@ -876,7 +772,6 @@ const featCommand = defineCommand({
     'design-fail2pass': designFail2passCommand,
     design: designCommand,
     run: runCommand,
-    debug: debugCommand,
   },
 });
 

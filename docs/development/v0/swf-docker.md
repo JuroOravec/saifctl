@@ -269,16 +269,6 @@ export default {
 
 ---
 
-## Debug Mode
-
-`saifac feat debug`:
-
-- Creates a sandbox, starts the staging container (config from `saifac/config.ts` `environments.staging.app`).
-- Streams logs to the terminal until Ctrl+C.
-- No test runner. Useful for diagnosing `pnpm install`, sidecar startup, or web server failures.
-
----
-
 ## Security
 
 - **No Docker socket in Test Runner:** The Test Runner never has access to `/var/run/docker.sock`. It communicates with the Staging container exclusively over HTTP.

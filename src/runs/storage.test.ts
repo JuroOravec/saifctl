@@ -5,12 +5,12 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { createRunStorage } from './storage.js';
-import type { RunArtifact } from './types.js';
+import { type RunArtifact, StaleArtifactError } from './types.js';
 
 const dummyArtifact: RunArtifact = {
   runId: 'test-1',
   baseCommitSha: 'abc123',
-  runPatchDiff: 'diff',
+  runPatchSteps: [{ message: 'm', diff: 'diff' }],
   specRef: 'saifac/features/x',
   config: {
     featureName: 'x',
@@ -26,6 +26,7 @@ const dummyArtifact: RunArtifact = {
     testImage: 'test:latest',
     resolveAmbiguity: 'ai',
     dangerousDebug: false,
+    dangerousNoLeash: false,
     cedarPolicyPath: '',
     coderImage: '',
     push: null,
@@ -79,6 +80,75 @@ describe('createRunStorage', () => {
       await storage!.saveRun('run-1', { ...dummyArtifact, runId: 'run-1' });
       const got = await storage!.getRun('run-1');
       expect(got?.runId).toBe('run-1');
+      expect(got?.artifactRevision).toBe(1);
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('increments artifactRevision on each save and preserves startedAt', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      const t0 = '2026-01-01T12:00:00.000Z';
+      await storage.saveRun('run-1', {
+        ...dummyArtifact,
+        runId: 'run-1',
+        startedAt: t0,
+        updatedAt: t0,
+      });
+      const r1 = await storage.getRun('run-1');
+      expect(r1?.artifactRevision).toBe(1);
+      expect(r1?.startedAt).toBe(t0);
+
+      const t1 = '2026-01-02T12:00:00.000Z';
+      await storage.saveRun('run-1', {
+        ...dummyArtifact,
+        runId: 'run-1',
+        runPatchSteps: [{ message: 'm', diff: 'updated' }],
+        startedAt: t1,
+        updatedAt: t1,
+      });
+      const r2 = await storage.getRun('run-1');
+      expect(r2?.artifactRevision).toBe(2);
+      expect(r2?.startedAt).toBe(t0);
+      expect(r2?.runPatchSteps).toEqual([{ message: 'm', diff: 'updated' }]);
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('saveRun with ifRevisionEquals succeeds when revision matches', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      await storage.saveRun('run-1', { ...dummyArtifact, runId: 'run-1' });
+      expect((await storage.getRun('run-1'))?.artifactRevision).toBe(1);
+
+      await storage.saveRun(
+        'run-1',
+        { ...dummyArtifact, runId: 'run-1', runPatchSteps: [{ message: 'm', diff: 'v2' }] },
+        { ifRevisionEquals: 1 },
+      );
+      expect((await storage.getRun('run-1'))?.artifactRevision).toBe(2);
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('saveRun with ifRevisionEquals throws StaleArtifactError on mismatch', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      await storage.saveRun('run-1', { ...dummyArtifact, runId: 'run-1' });
+      await expect(
+        storage.saveRun(
+          'run-1',
+          { ...dummyArtifact, runId: 'run-1', runPatchSteps: [{ message: 'm', diff: 'stale' }] },
+          { ifRevisionEquals: 0 },
+        ),
+      ).rejects.toThrow(StaleArtifactError);
+      expect((await storage.getRun('run-1'))?.artifactRevision).toBe(1);
     } finally {
       await rm(tmp, { recursive: true, force: true });
     }

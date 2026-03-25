@@ -112,10 +112,10 @@ git -C "$WORKSPACE" reset HEAD -- .saifac 2>/dev/null || true
 # Only commit if there's actually something staged
 if ! git -C "$WORKSPACE" diff --cached --quiet; then
   echo "[reviewer] Committing changes..."
-  # Coder containers often have no git user.* config; match sandbox.ts / extractPatch (GIT_* saifac@localhost).
+  # Coder containers often have no git user.* config; match sandbox.ts / extractPatch (GIT_* saifac@safeaifactory.com).
   git -C "$WORKSPACE" \
     -c user.name=saifac \
-    -c user.email=saifac@localhost \
+    -c user.email=saifac@safeaifactory.com \
     commit -m "saifac: capture uncommitted changes"
 fi
 

@@ -3,7 +3,7 @@
  */
 
 import type { IterativeLoopOpts } from '../../orchestrator/loop.js';
-import type { RunArtifact, RunStatus } from '../types.js';
+import type { RunArtifact, RunPatchStep, RunStatus } from '../types.js';
 import { type PersistedScriptBundle, serializeArtifactConfig } from './serialize.js';
 
 export type BuildRunArtifactOpts = Omit<
@@ -19,7 +19,7 @@ export interface BuildRunArtifactParams {
   runId: string;
   baseCommitSha: string;
   basePatchDiff: string | undefined;
-  runPatchDiff: string;
+  runPatchSteps: RunPatchStep[];
   specRef: string;
   lastFeedback?: string;
   status: RunStatus;
@@ -37,7 +37,7 @@ export function buildRunArtifact(params: BuildRunArtifactParams): RunArtifact {
     runId: params.runId,
     baseCommitSha: params.baseCommitSha,
     basePatchDiff: params.basePatchDiff,
-    runPatchDiff: params.runPatchDiff,
+    runPatchSteps: params.runPatchSteps,
     specRef: params.specRef,
     lastFeedback: params.lastFeedback,
     config,

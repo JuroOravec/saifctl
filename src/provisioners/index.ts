@@ -6,6 +6,7 @@
  *   startStaging() → build & boot the application under test
  *   runTests()     → run the black-box test suite and return results
  *   runAgent()     → spawn the AI coding agent
+ *   startInspect() → idle coder container for `run inspect`
  *   teardown()     → stop and remove all resources
  *
  * Usage:

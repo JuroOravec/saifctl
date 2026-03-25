@@ -11,6 +11,7 @@
  *   startStaging() → docker build + createContainer + putArchive + start + health-wait
  *   runTests()     → createContainer + start + wait + demux logs + parse JUnit XML
  *   runAgent()     → spawn Leash CLI + network-attach workaround
+ *   startInspect() → idle coder container for `run inspect` (`sleep infinity`)
  *   teardown()     → containers + images + compose down + network
  */
 
@@ -41,12 +42,14 @@ import {
 } from '../../utils/io.js';
 import type {
   AgentResult,
+  CoderInspectSessionHandle,
   Provisioner,
   ProvisionerSetupOpts,
   ProvisionerTeardownOpts,
   RunAgentOpts,
   RunTestsOpts,
   StagingHandle,
+  StartInspectOpts,
   StartStagingOpts,
   TestsResult,
 } from '../types.js';
@@ -208,7 +211,6 @@ class DockerRegistry {
 
   async cleanup(): Promise<void> {
     const containersToStop = [...this.containers];
-    const networksToRemove = [...this.networks];
     const imagesToRemove = [...this.images];
     this.containers = [];
     this.networks = [];
@@ -221,9 +223,9 @@ class DockerRegistry {
         consola.warn(`[docker] Warning: could not remove ${handle.name}: ${String(err)}`);
       }
     }
-    for (const net of networksToRemove) {
-      await removeDockerNetwork(net);
-    }
+    // Bridge networks are removed only from teardown() after `compose down` and after
+    // ad-hoc containers (e.g. inspect `docker run`) are gone. Removing networks
+    // here would race them and yield "active endpoints" errors.
     for (const tag of imagesToRemove) {
       await removeDockerImage(tag);
     }
@@ -934,6 +936,14 @@ export class DockerProvisioner implements Provisioner {
       `[agent-runner] Command: ${cmd} ${argsForPrint!.map((s) => s.slice(0, 100)).join(' ')}`,
     );
 
+    if (!dangerousDebug && !dangerousNoLeash) {
+      await runDocker(['rm', '-f', leashTargetContainerName(sandboxBasePath)], {
+        stdio: 'pipe',
+      }).catch(() => {
+        /* stale leash-target-* from a prior run */
+      });
+    }
+
     const timeoutMs = 20 * 60 * 1000;
 
     // WORKAROUND(leash-network): See full explanation in the original agent-runner.ts.
@@ -1032,6 +1042,427 @@ export class DockerProvisioner implements Provisioner {
 
     consola.log(`[agent-runner] Finished with exit code ${exitCode}`);
     return { success: exitCode === 0, exitCode, output };
+  }
+
+  // ── 4b. startInspect ───────────────────────────────────────────────
+
+  async startInspect(opts: StartInspectOpts): Promise<CoderInspectSessionHandle> {
+    const {
+      codePath,
+      sandboxBasePath,
+      task,
+      errorFeedback,
+      saifDir,
+      feature,
+      coderImage,
+      dangerousNoLeash,
+      cedarPolicyPath,
+      startupPath,
+      agentInstallPath,
+      agentPath,
+      agentEnv,
+      agentLogFormat,
+      reviewer,
+      gateRetries,
+      llmConfig,
+      signal,
+    } = opts;
+
+    let dockerDirectRunContainerToRemove: string | null = null;
+    const safeAgentEnv = filterAgentEnv(agentEnv);
+    const taskPrompt = await buildTaskPrompt({
+      codePath,
+      task,
+      saifDir,
+      feature,
+      errorFeedback,
+    });
+    const llmModel = llmConfig.fullModelString;
+    const llmApiKey = llmConfig.apiKey;
+    const llmProvider = llmConfig.provider;
+    const llmBaseUrl = llmConfig.baseURL;
+    const containerName = leashTargetContainerName(sandboxBasePath);
+
+    let cmd: string;
+    let args: string[];
+    let argsForPrint: string[];
+    let spawnCwd: string;
+    let spawnEnv: Record<string, string>;
+
+    if (dangerousNoLeash) {
+      assertSafeImageTag(coderImage);
+      const saifacDir = await assembleSaifacDir({
+        sandboxBasePath,
+        coderStartScript: CODER_START_SCRIPT,
+        gatePath: join(sandboxBasePath, 'gate.sh'),
+        startupPath,
+        agentInstallPath,
+        agentPath,
+        reviewerScriptPath: reviewer?.scriptPath,
+      });
+
+      const codePathHost = await dockerHostBindPath(codePath);
+      const saifacDirHost = await dockerHostBindPath(saifacDir);
+
+      const envForward: Record<string, string> = {
+        LLM_MODEL: llmModel,
+        LLM_API_KEY: llmApiKey,
+        ...(llmProvider ? { LLM_PROVIDER: llmProvider } : {}),
+        ...(llmBaseUrl ? { LLM_BASE_URL: llmBaseUrl } : {}),
+        OPENHANDS_WORK_DIR: '/tmp/openhands-state',
+        ...safeAgentEnv,
+      };
+
+      for (const key of [
+        'ANTHROPIC_API_KEY',
+        'OPENAI_API_KEY',
+        'OPENROUTER_API_KEY',
+        'GEMINI_API_KEY',
+        'DASHSCOPE_API_KEY',
+      ]) {
+        const val = process.env[key];
+        if (val) envForward[key] = val;
+      }
+
+      if (reviewer) {
+        envForward.SAIFAC_REVIEWER_SCRIPT = '/saifac/reviewer.sh';
+        envForward.REVIEWER_LLM_PROVIDER = reviewer.llmConfig.provider;
+        envForward.REVIEWER_LLM_MODEL = reviewer.llmConfig.modelId;
+        envForward.REVIEWER_LLM_API_KEY = reviewer.llmConfig.apiKey;
+        if (reviewer.llmConfig.baseURL) {
+          envForward.REVIEWER_LLM_BASE_URL = reviewer.llmConfig.baseURL;
+        }
+      }
+
+      envForward.SAIFAC_WORKSPACE_BASE = CONTAINER_WORKSPACE;
+      envForward.SAIFAC_INITIAL_TASK = taskPrompt;
+      envForward.SAIFAC_GATE_RETRIES = String(gateRetries);
+      envForward.SAIFAC_STARTUP_SCRIPT = '/saifac/startup.sh';
+      envForward.SAIFAC_AGENT_INSTALL_SCRIPT = '/saifac/agent-install.sh';
+      envForward.SAIFAC_AGENT_SCRIPT = '/saifac/agent.sh';
+
+      const dockerRunArgs: string[] = [
+        'run',
+        '--rm',
+        '-i',
+        '--name',
+        containerName,
+        '-w',
+        CONTAINER_WORKSPACE,
+        '--cap-drop=ALL',
+        '--security-opt=no-new-privileges',
+        '-v',
+        `${codePathHost}:${CONTAINER_WORKSPACE}`,
+        '-v',
+        `${saifacDirHost}:/saifac:ro`,
+      ];
+
+      if (this.networkName) {
+        dockerRunArgs.push('--network', this.networkName);
+      }
+
+      if (reviewer) {
+        const argusBinaryHost = await dockerHostBindPath(reviewer.argusBinaryPath);
+        dockerRunArgs.push('-v', `${argusBinaryHost}:/usr/local/bin/argus:ro`);
+      }
+
+      for (const [key, val] of Object.entries(envForward)) {
+        dockerRunArgs.push(`-e${key}=${val}`);
+      }
+
+      dockerRunArgs.push(coderImage, 'bash', '-c', 'sleep infinity');
+
+      const SENSITIVE_ENV_KEYS = new Set([
+        'LLM_API_KEY',
+        'REVIEWER_LLM_API_KEY',
+        'ANTHROPIC_API_KEY',
+        'OPENAI_API_KEY',
+        'OPENROUTER_API_KEY',
+        'GEMINI_API_KEY',
+        'DASHSCOPE_API_KEY',
+      ]);
+      argsForPrint = dockerRunArgs.map((a) => {
+        if (!a.startsWith('-e')) return a;
+        const eq = a.indexOf('=');
+        if (eq <= 2) return a;
+        const k = a.slice(2, eq);
+        if (SENSITIVE_ENV_KEYS.has(k)) return `-e${k}=****`;
+        if (k === 'SAIFAC_INITIAL_TASK') return `-e${k}=<task (${a.length - eq - 1} chars)>`;
+        return a;
+      });
+
+      cmd = 'docker';
+      args = dockerRunArgs;
+      spawnCwd = codePathHost;
+      spawnEnv = {
+        ...Object.fromEntries(
+          Object.entries(process.env).filter(([, v]) => v !== undefined) as [string, string][],
+        ),
+      };
+
+      consola.log('[inspect-session] Mode: dangerous-no-leash (docker run; idle)');
+      consola.log(`[inspect-session] Container name: ${containerName}`);
+
+      dockerDirectRunContainerToRemove = containerName;
+    } else {
+      const saifacDir = await assembleSaifacDir({
+        sandboxBasePath,
+        coderStartScript: CODER_START_SCRIPT,
+        gatePath: join(sandboxBasePath, 'gate.sh'),
+        startupPath,
+        agentInstallPath,
+        agentPath,
+        reviewerScriptPath: reviewer?.scriptPath,
+      });
+
+      const codePathHost = await dockerHostBindPath(codePath);
+      const saifacDirHost = await dockerHostBindPath(saifacDir);
+
+      const envForward: Record<string, string> = {
+        LLM_MODEL: llmModel,
+        LLM_API_KEY: llmApiKey,
+        ...(llmProvider ? { LLM_PROVIDER: llmProvider } : {}),
+        ...(llmBaseUrl ? { LLM_BASE_URL: llmBaseUrl } : {}),
+        OPENHANDS_WORK_DIR: '/tmp/openhands-state',
+        ...safeAgentEnv,
+      };
+
+      for (const key of [
+        'ANTHROPIC_API_KEY',
+        'OPENAI_API_KEY',
+        'OPENROUTER_API_KEY',
+        'GEMINI_API_KEY',
+        'DASHSCOPE_API_KEY',
+      ]) {
+        const val = process.env[key];
+        if (val) envForward[key] = val;
+      }
+
+      const leashArgs: string[] = [
+        'leash',
+        '--no-interactive',
+        '--verbose',
+        '--image',
+        coderImage,
+        '--volume',
+        `${codePathHost}:${CONTAINER_WORKSPACE}`,
+        '--volume',
+        `${saifacDirHost}:/saifac:ro`,
+      ];
+
+      if (reviewer) {
+        const argusBinaryHost = await dockerHostBindPath(reviewer.argusBinaryPath);
+        leashArgs.push('--volume', `${argusBinaryHost}:/usr/local/bin/argus:ro`);
+        envForward.SAIFAC_REVIEWER_SCRIPT = '/saifac/reviewer.sh';
+        envForward.REVIEWER_LLM_PROVIDER = reviewer.llmConfig.provider;
+        envForward.REVIEWER_LLM_MODEL = reviewer.llmConfig.modelId;
+        envForward.REVIEWER_LLM_API_KEY = reviewer.llmConfig.apiKey;
+        if (reviewer.llmConfig.baseURL) {
+          envForward.REVIEWER_LLM_BASE_URL = reviewer.llmConfig.baseURL;
+        }
+      }
+
+      if (await pathExists(cedarPolicyPath)) {
+        const cedarPolicyHost = await dockerHostBindPath(cedarPolicyPath);
+        leashArgs.push('--policy', cedarPolicyHost);
+        consola.log(`[inspect-session] Cedar policy: ${cedarPolicyHost}`);
+      } else {
+        throw new Error(`Cedar policy file not found at ${cedarPolicyPath}`);
+      }
+
+      for (const [key, val] of Object.entries(envForward)) {
+        leashArgs.push('--env', `${key}=${val}`);
+      }
+
+      leashArgs.push(
+        '--env',
+        `SAIFAC_WORKSPACE_BASE=${CONTAINER_WORKSPACE}`,
+        '--env',
+        `SAIFAC_INITIAL_TASK=${taskPrompt}`,
+        '--env',
+        `SAIFAC_GATE_RETRIES=${String(gateRetries)}`,
+        '--env',
+        `SAIFAC_STARTUP_SCRIPT=/saifac/startup.sh`,
+        '--env',
+        `SAIFAC_AGENT_INSTALL_SCRIPT=/saifac/agent-install.sh`,
+        '--env',
+        `SAIFAC_AGENT_SCRIPT=/saifac/agent.sh`,
+        'bash',
+        '-c',
+        'sleep infinity',
+      );
+
+      const SENSITIVE_ENV_KEYS = new Set([
+        'LLM_API_KEY',
+        'REVIEWER_LLM_API_KEY',
+        'ANTHROPIC_API_KEY',
+        'OPENAI_API_KEY',
+        'OPENROUTER_API_KEY',
+        'GEMINI_API_KEY',
+        'DASHSCOPE_API_KEY',
+      ]);
+      argsForPrint = leashArgs.map((a) => {
+        if (!a.includes('=')) return a;
+        const eq = a.indexOf('=');
+        const k = a.slice(0, eq);
+        if (SENSITIVE_ENV_KEYS.has(k)) return `${k}=****`;
+        if (k === 'SAIFAC_INITIAL_TASK') return `${k}=<task (${a.length - eq - 1} chars)>`;
+        return a;
+      });
+
+      const leashBin = resolveLeashCliPath();
+      cmd = process.execPath;
+      args = [leashBin, ...leashArgs.slice(1)];
+      spawnCwd = codePathHost;
+
+      const workspaceId = leashWorkspaceId(sandboxBasePath);
+      spawnEnv = {
+        ...Object.fromEntries(
+          Object.entries(process.env).filter(([, v]) => v !== undefined) as [string, string][],
+        ),
+        ...(this.networkName ? { TARGET_CONTAINER: `leash-target-${workspaceId}` } : {}),
+      };
+
+      consola.log(`[inspect-session] Mode: leash (idle; container: ${coderImage})`);
+    }
+
+    consola.log(
+      `[inspect-session] Command: ${cmd} ${argsForPrint.map((s) => s.slice(0, 100)).join(' ')}`,
+    );
+
+    await runDocker(['rm', '-f', containerName], { stdio: 'pipe' }).catch(() => {
+      /* stale leash-target-* from a prior inspect/agent session */
+    });
+
+    if (signal?.aborted) {
+      throw new Error('inspect-session: aborted before start');
+    }
+
+    let networkAttach: NetworkAttachHandle | null = null;
+    if (!dangerousNoLeash && this.networkName) {
+      networkAttach = startLeashNetworkAttach(this.networkName, leashWorkspaceId(sandboxBasePath));
+    }
+
+    const removeDirectDocker = (): void => {
+      if (!dockerDirectRunContainerToRemove) return;
+      const n = dockerDirectRunContainerToRemove;
+      void runDocker(['rm', '-f', n], { stdio: 'pipe' }).catch(() => {});
+    };
+
+    const child = spawn(cmd, args, {
+      cwd: spawnCwd,
+      env: spawnEnv,
+      stdio: ['inherit', 'pipe', 'pipe'],
+    });
+
+    let stdoutBuf = '';
+    child.stdout?.on('data', (chunk: Buffer) => {
+      const text = chunk.toString();
+      if (agentLogFormat === 'raw') {
+        for (const line of text.split('\n')) {
+          if (line.trim()) process.stdout.write(`[inspect] ${line}\n`);
+        }
+      } else {
+        stdoutBuf += text;
+        const segments = stdoutBuf.split('--JSON Event--');
+        stdoutBuf = segments.pop() ?? '';
+        for (const segment of segments) {
+          printOpenHandsSegment(segment);
+        }
+      }
+    });
+    child.stderr?.on('data', (chunk: Buffer) => {
+      process.stderr.write(chunk.toString());
+    });
+
+    let detachAbortListener: (() => void) | null = null;
+    let abortPromise: Promise<never> | null = null;
+    if (signal) {
+      let rejectAbort: ((reason: unknown) => void) | undefined;
+      const onAbort = () => {
+        networkAttach?.cancel();
+        removeDirectDocker();
+        child.kill('SIGTERM');
+        rejectAbort?.(new Error('inspect-session: cancelled'));
+      };
+      abortPromise = new Promise<never>((_, reject) => {
+        rejectAbort = reject;
+        signal.addEventListener('abort', onAbort, { once: true });
+      });
+      detachAbortListener = () => signal.removeEventListener('abort', onAbort);
+    }
+
+    const waitReady = (async () => {
+      await waitForContainerRunning(containerName, 180_000);
+      if (!dangerousNoLeash && this.networkName) {
+        await waitForContainerOnNetwork({
+          networkName: this.networkName,
+          containerName,
+          timeoutMs: 90_000,
+        });
+      }
+    })();
+
+    try {
+      if (abortPromise) {
+        await Promise.race([waitReady, abortPromise]);
+      } else {
+        await waitReady;
+      }
+    } catch (err) {
+      networkAttach?.cancel();
+      if (detachAbortListener !== null) detachAbortListener();
+      if (!child.killed) child.kill('SIGTERM');
+      removeDirectDocker();
+      throw err;
+    }
+
+    if (detachAbortListener !== null) detachAbortListener();
+    consola.log(
+      `[inspect-session] Ready — container ${containerName}, workspace ${CONTAINER_WORKSPACE}`,
+    );
+
+    let stopped = false;
+    const stop = async (): Promise<void> => {
+      if (stopped) return;
+      stopped = true;
+      networkAttach?.cancel();
+      const directName = dockerDirectRunContainerToRemove;
+      if (directName) {
+        try {
+          await runDocker(['rm', '-f', directName], { stdio: 'pipe' });
+        } catch {
+          // Container may already be gone (--rm) or removal races with docker CLI — ignore
+        }
+        dockerDirectRunContainerToRemove = null;
+      }
+      if (child.exitCode === null && !child.killed) {
+        child.kill('SIGTERM');
+        await new Promise<void>((resolve) => {
+          const t = setTimeout(() => {
+            child.kill('SIGKILL');
+            resolve();
+          }, 3_000);
+          child.once('close', () => {
+            clearTimeout(t);
+            resolve();
+          });
+        });
+      }
+      // Leash path does not set dockerDirectRunContainerToRemove; ensure the target is gone
+      // so teardown can remove the bridge (same name as no-leash for Dev Container parity).
+      try {
+        await runDocker(['rm', '-f', containerName], { stdio: 'pipe' });
+      } catch {
+        /* already removed */
+      }
+    };
+
+    return {
+      containerName,
+      workspacePath: CONTAINER_WORKSPACE,
+      stop,
+    };
   }
 
   // ── 5. teardown ───────────────────────────────────────────────────────────
@@ -1511,4 +1942,63 @@ async function getSidecarBinary(): Promise<Buffer> {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Polls `docker inspect` until the container exists and `State.Running` is true.
+ * Used right after `docker run` / Leash starts the coder target: the process may return before
+ * the container transitions to running, and inspect can briefly fail if the name is not visible yet.
+ */
+async function waitForContainerRunning(containerName: string, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const { stdout } = await runDocker(['inspect', '-f', '{{.State.Running}}', containerName], {
+        stdio: 'pipe',
+      });
+      if (stdout.trim() === 'true') return;
+    } catch {
+      /* container may not exist yet */
+    }
+    await sleep(300);
+  }
+  throw new Error(
+    `[inspect-session] Timeout after ${timeoutMs}ms waiting for container "${containerName}" to run`,
+  );
+}
+
+/**
+ * Waits until Docker reports the given container as connected to the named bridge network.
+ * After `docker network connect` (or equivalent), attachment can lag; staging/compose services
+ * on that network are only reachable once the endpoint appears on the network’s container list.
+ */
+async function waitForContainerOnNetwork(opts: {
+  networkName: string;
+  containerName: string;
+  timeoutMs: number;
+}): Promise<void> {
+  const { networkName, containerName, timeoutMs } = opts;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const listed = await docker.listNetworks({ filters: { name: [networkName] } });
+      const match = listed.find((n) => n.Name === networkName) ?? listed[0];
+      if (!match) {
+        await sleep(250);
+        continue;
+      }
+      const data = await docker.getNetwork(match.Id).inspect();
+      const containers = data.Containers ?? {};
+      const connected = Object.values(containers).some(
+        (c) => (c.Name ?? '').replace(/^\//, '') === containerName,
+      );
+      if (connected) return;
+    } catch {
+      /* retry */
+    }
+    await sleep(300);
+  }
+  throw new Error(
+    `[inspect-session] Timeout after ${timeoutMs}ms waiting for "${containerName}" on network "${networkName}"`,
+  );
 }
