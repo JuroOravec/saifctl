@@ -1,12 +1,12 @@
 /**
  * Run storage types for persisting agent run artifacts.
  *
- * Persisted for every run when storage is enabled (completed or failed) for `run ls`, resume, and tests.
+ * Persisted for every run when storage is enabled for `run ls`, resume, and tests.
  */
 
 import type { SerializedLoopOpts } from './utils/serialize.js';
 
-export type RunStatus = 'failed' | 'completed';
+export type RunStatus = 'failed' | 'completed' | 'running';
 
 /**
  * One-off rules apply only until the coding round finishes;
@@ -40,7 +40,7 @@ export interface RunCommit {
   author?: string;
 }
 
-/** Options for {@link RunStorage.saveRun} compare-and-swap updates. */
+/** Options for {@link RunStorage.saveRun} optimistic locking updates. */
 export interface RunSaveOptions {
   /**
    * When set, the save succeeds only if the stored artifact's
@@ -62,6 +62,19 @@ export class StaleArtifactError extends Error {
     super(
       `Run "${runId}" artifact revision mismatch: expected ${expectedRevision}, stored ${actualRevision}. ` +
         `Another process may have updated this run; reload the artifact and retry.`,
+    );
+  }
+}
+
+/** Thrown by {@link RunStorage.setStatusRunning} when the stored run already has status {@link RunStatus} `"running"`. */
+export class RunAlreadyRunningError extends Error {
+  override readonly name = 'RunAlreadyRunningError';
+
+  constructor(readonly runId: string) {
+    super(
+      `Run "${runId}" already has status "running". ` +
+        `If the process died without saving a final status, manually edit or delete the run artifact ` +
+        `(e.g. .saifac/runs/${runId}.json) to clear the stale "running" status.`,
     );
   }
 }
@@ -97,19 +110,4 @@ export interface RunArtifact {
   status: RunStatus;
   startedAt: string;
   updatedAt: string;
-}
-
-/** Domain interface for run storage. Implemented by RunsStorage. */
-export interface RunStorage {
-  /** The URI used to create this storage instance (e.g. "local", "s3://bucket/prefix"). */
-  readonly uri: string;
-  /**
-   * Persists the artifact and sets {@link RunArtifact#artifactRevision} to (previous revision ?? 0) + 1.
-   * Preserves `startedAt` and `taskId` from an existing record when appropriate (fresh builds often reset `startedAt`).
-   */
-  saveRun(runId: string, artifact: RunArtifact, options?: RunSaveOptions): Promise<void>;
-  getRun(runId: string): Promise<RunArtifact | null>;
-  listRuns(filter?: { taskId?: string; status?: RunStatus }): Promise<RunArtifact[]>;
-  deleteRun(runId: string): Promise<void>;
-  clearRuns(filter?: { taskId?: string; status?: RunStatus }): Promise<void>;
 }

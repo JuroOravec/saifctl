@@ -34,6 +34,7 @@ import {
   parseModelOverridesCliDelta,
 } from '../../orchestrator/options.js';
 import { forkStoredRun } from '../../runs/fork.js';
+import type { RunStatus } from '../../runs/types.js';
 import { toRunInfoJson } from '../../runs/utils/run-info.js';
 import { omit } from '../../utils/omit.js';
 import {
@@ -94,7 +95,7 @@ const lsCommand = defineCommand({
     },
     status: {
       type: 'string' as const,
-      description: 'Filter by status (failed, completed, etc.)',
+      description: 'Filter by status (failed, completed, running, etc.)',
     },
   },
   async run({ args }) {
@@ -110,8 +111,7 @@ const lsCommand = defineCommand({
     const runs = (
       await storage.listRuns({
         taskId: typeof args.task === 'string' ? args.task : undefined,
-        status:
-          typeof args.status === 'string' ? (args.status as 'failed' | 'completed') : undefined,
+        status: typeof args.status === 'string' ? (args.status as RunStatus) : undefined,
       })
     ).slice();
     runs.sort((a, b) => {

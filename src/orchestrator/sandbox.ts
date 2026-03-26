@@ -56,6 +56,8 @@ export async function removeAllHiddenDirs(baseDir: string): Promise<number> {
 export interface Sandbox {
   /** Run ID suffix used in the sandbox directory name */
   runId: string;
+  /** The revision to use for optimistic locking on final run saves. */
+  runningArtifactRevision?: number;
   /** e.g. /tmp/saifac/sandboxes/{proj}-{feat}-{runId} */
   sandboxBasePath: string;
   /** sandboxBasePath/code — copy of the repo (committed tree or working tree) */

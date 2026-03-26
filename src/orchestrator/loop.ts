@@ -454,6 +454,11 @@ export interface RunStorageContext {
    * Mutated when `once` rules are consumed after each coding round.
    */
   rules: RunRule[];
+  /**
+   * Holds the revision to use for the next optimistic locking write.
+   * Undefined when that write was skipped or failed.
+   */
+  expectedArtifactRevision?: number;
 }
 
 export async function runIterativeLoop(
@@ -541,13 +546,11 @@ export async function runIterativeLoop(
           status: didSucceed ? 'completed' : 'failed',
           opts: loopOpts as BuildRunArtifactOpts,
         });
-        const expectedArtifactRevision = _resume?.artifactRevisionAtResume;
+        const expectedRev = runContext.expectedArtifactRevision;
         await runStorage.saveRun(
           runId,
           artifact,
-          expectedArtifactRevision === undefined
-            ? undefined
-            : { ifRevisionEquals: expectedArtifactRevision },
+          expectedRev !== undefined ? { ifRevisionEquals: expectedRev } : undefined,
         );
         if (didSucceed) {
           consola.log(`[orchestrator] Run artifact saved (completed). Run ID: ${runId}`);

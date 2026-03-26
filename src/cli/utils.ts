@@ -27,8 +27,7 @@ import {
   pickAgentScript,
   resolveAgentLogFormat as resolveAgentLogFormatLayer,
 } from '../orchestrator/options.js';
-import { createRunStorage } from '../runs/storage.js';
-import type { RunStorage } from '../runs/types.js';
+import { createRunStorage, type RunStorage } from '../runs/storage.js';
 import {
   readSandboxGateScript,
   readSandboxStageScript,

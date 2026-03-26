@@ -55,7 +55,12 @@ import { runAgentPhase } from '../../orchestrator/phases/run-agent-phase.js';
 import { runTestPhase } from '../../orchestrator/phases/run-test-phase.js';
 import { createSandbox, destroySandbox, type Sandbox } from '../../orchestrator/sandbox.js';
 import { activeOnceRuleIds, markOnceRulesConsumed, rulesForPrompt } from '../../runs/rules.js';
-import { type RunCommit, type RunRule, StaleArtifactError } from '../../runs/types.js';
+import {
+  RunAlreadyRunningError,
+  type RunCommit,
+  type RunRule,
+  StaleArtifactError,
+} from '../../runs/types.js';
 import { buildRunArtifact } from '../../runs/utils/artifact.js';
 import { gitClean, gitResetHard } from '../../utils/git.js';
 import { pathExists, readUtf8, writeUtf8 } from '../../utils/io.js';
@@ -327,7 +332,7 @@ export function createFeatRunWorkflow() {
       const opts = deserializeOrchestratorOpts(input.serializedOpts);
       const src = getSandboxSourceDir(opts);
       const persistedRunId = opts.resume?.persistedRunId;
-      return (await createSandbox({
+      const sandboxRaw = await createSandbox({
         feature: opts.feature,
         projectDir: src,
         codeSourceDir: opts.resume?.baseSnapshotPath ?? src,
@@ -343,7 +348,34 @@ export function createFeatRunWorkflow() {
         runCommits: opts.resume?.seedRunCommits ?? [],
         runId: persistedRunId,
         includeDirty: opts.includeDirty,
-      })) as Sandbox & { [x: string]: JsonValue };
+      });
+
+      // ─── Set status to "running" ─────
+      const runStorage = opts.runStorage;
+      if (runStorage) {
+        try {
+          const { runStorage: _rs, resume: _res, ...loopOpts } = opts;
+          const runningArtifact = buildRunArtifact({
+            runId: sandboxRaw.runId,
+            baseCommitSha: input.runContext.baseCommitSha,
+            basePatchDiff: input.runContext.basePatchDiff,
+            runCommits: opts.resume?.seedRunCommits ?? [],
+            specRef: opts.feature.relativePath,
+            rules: input.runContext.rules,
+            status: 'running',
+            opts: loopOpts,
+          });
+          sandboxRaw.runningArtifactRevision = await runStorage.setStatusRunning(
+            sandboxRaw.runId,
+            runningArtifact,
+          );
+        } catch (err) {
+          if (err instanceof RunAlreadyRunningError) throw err;
+          consola.warn('[hatchet] Failed to set run status to "running":', err);
+        }
+      }
+
+      return sandboxRaw as Sandbox & { [x: string]: JsonValue };
     },
   });
 
@@ -600,7 +632,8 @@ export function createFeatRunWorkflow() {
             rules: loopResult.rules,
             opts: loopOpts,
           });
-          const expectedArtifactRevision = opts.resume?.artifactRevisionAtResume;
+          const expectedArtifactRevision =
+            sandboxRaw.runningArtifactRevision ?? opts.resume?.artifactRevisionAtResume;
           await runStorage.saveRun(
             sandboxRaw.runId,
             artifact,
@@ -670,7 +703,8 @@ export function createFeatRunWorkflow() {
             rules: loopResult?.rules ?? input.runContext.rules,
             opts: loopOpts,
           });
-          const expectedArtifactRevision = opts.resume?.artifactRevisionAtResume;
+          const expectedArtifactRevision =
+            sandboxRaw.runningArtifactRevision ?? opts.resume?.artifactRevisionAtResume;
           await runStorage.saveRun(
             sandboxRaw.runId,
             artifact,

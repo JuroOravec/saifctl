@@ -10,7 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SaifacConfig } from '../config/schema.js';
 import { getGitProvider } from '../git/index.js';
-import { type RunArtifact, type RunStorage, StaleArtifactError } from '../runs/types.js';
+import { type RunStorage } from '../runs/storage.js';
+import { type RunArtifact, StaleArtifactError } from '../runs/types.js';
 import type { Feature } from '../specs/discover.js';
 import { resolveTestProfile } from '../test-profiles/index.js';
 import type { OrchestratorOpts } from './modes.js';
@@ -307,6 +308,7 @@ describe('runInspect', () => {
     overrides: {
       getRun?: ReturnType<typeof vi.fn>;
       saveRun?: ReturnType<typeof vi.fn>;
+      setStatusRunning?: ReturnType<typeof vi.fn>;
     } = {},
   ) {
     return {
@@ -315,10 +317,11 @@ describe('runInspect', () => {
         overrides.getRun ??
         vi.fn().mockResolvedValue({ ...baseArtifact, runId: baseArtifact.runId }),
       saveRun: overrides.saveRun ?? vi.fn().mockResolvedValue(undefined),
+      setStatusRunning: overrides.setStatusRunning ?? vi.fn().mockResolvedValue(1),
       listRuns: vi.fn(),
       deleteRun: vi.fn(),
       clearRuns: vi.fn(),
-    };
+    } as unknown as RunStorage;
   }
 
   it('throws when run storage is null', async () => {
@@ -371,6 +374,24 @@ describe('runInspect', () => {
         cliModelDelta: undefined,
       }),
     ).rejects.toThrow(/Run not found/);
+  });
+
+  it('throws when stored run status is running', async () => {
+    const runInspect = await importRunInspect();
+    const storage = makeStorage({
+      getRun: vi.fn().mockResolvedValue({ ...baseArtifact, status: 'running' }),
+    });
+    await expect(
+      runInspect({
+        runId: baseArtifact.runId,
+        projectDir,
+        saifDir: 'saifac',
+        config: {} as SaifacConfig,
+        runStorage: storage,
+        cli: {} as unknown as OrchestratorCliInput,
+        cliModelDelta: undefined,
+      }),
+    ).rejects.toThrow(/already running/);
   });
 
   it('creates worktree and sandbox, then on SIGINT skips save when patch unchanged', async () => {

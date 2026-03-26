@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { createRunStorage } from './storage.js';
-import { type RunArtifact, StaleArtifactError } from './types.js';
+import { RunAlreadyRunningError, type RunArtifact, StaleArtifactError } from './types.js';
 
 const dummyArtifact: RunArtifact = {
   runId: 'test-1',
@@ -32,6 +32,7 @@ const dummyArtifact: RunArtifact = {
     coderImage: '',
     push: null,
     pr: false,
+    includeDirty: false,
     gateRetries: 10,
     reviewerEnabled: true,
     agentEnv: {},
@@ -73,7 +74,7 @@ describe('createRunStorage', () => {
     }
   });
 
-  it('returns RunsStorage for local', async () => {
+  it('returns RunStorage for local', async () => {
     const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
     try {
       const storage = createRunStorage('local', tmp);
@@ -137,6 +138,76 @@ describe('createRunStorage', () => {
     }
   });
 
+  it('setStatusRunning writes running status and returns new revision', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      const t0 = '2026-01-01T12:00:00.000Z';
+      const rev = await storage.setStatusRunning('run-1', {
+        ...dummyArtifact,
+        runId: 'run-1',
+        status: 'running',
+        startedAt: t0,
+        updatedAt: t0,
+      });
+      expect(rev).toBe(1);
+      const got = await storage.getRun('run-1');
+      expect(got?.status).toBe('running');
+      expect(got?.artifactRevision).toBe(1);
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('setStatusRunning throws RunAlreadyRunningError when stored status is already running', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      await storage.setStatusRunning('run-1', {
+        ...dummyArtifact,
+        runId: 'run-1',
+        status: 'running',
+      });
+      await expect(
+        storage.setStatusRunning('run-1', {
+          ...dummyArtifact,
+          runId: 'run-1',
+          status: 'running',
+        }),
+      ).rejects.toThrow(RunAlreadyRunningError);
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('setStatusRunning after failed increments revision and preserves startedAt', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      const t0 = '2026-01-01T12:00:00.000Z';
+      await storage.saveRun('run-1', {
+        ...dummyArtifact,
+        runId: 'run-1',
+        status: 'failed',
+        startedAt: t0,
+        updatedAt: t0,
+      });
+      expect((await storage.getRun('run-1'))?.artifactRevision).toBe(1);
+
+      const rev = await storage.setStatusRunning('run-1', {
+        ...dummyArtifact,
+        runId: 'run-1',
+        status: 'running',
+      });
+      expect(rev).toBe(2);
+      const got = await storage.getRun('run-1');
+      expect(got?.status).toBe('running');
+      expect(got?.startedAt).toBe(t0);
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
   it('saveRun with ifRevisionEquals throws StaleArtifactError on mismatch', async () => {
     const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
     try {
@@ -155,7 +226,7 @@ describe('createRunStorage', () => {
     }
   });
 
-  it('returns RunsStorage for file URI with custom base path', async () => {
+  it('returns RunStorage for file URI with custom base path', async () => {
     const tmp = await mkdtemp(join(tmpdir(), 'saifac-'));
     const customBase = join(tmp, 'custom-base');
     try {

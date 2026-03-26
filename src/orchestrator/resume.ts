@@ -10,12 +10,8 @@ import { mkdir, realpath, rm, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { consola } from '../logger.js';
-import {
-  type RunCommit,
-  type RunSaveOptions,
-  type RunStorage,
-  StaleArtifactError,
-} from '../runs/types.js';
+import { type RunStorage } from '../runs/storage.js';
+import { type RunCommit, type RunSaveOptions, StaleArtifactError } from '../runs/types.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from '../runs/utils/artifact.js';
 import {
   git,
@@ -317,7 +313,7 @@ export interface CreateSaveRunHandlerParams {
   runContext: RunStorageContext;
   opts: BuildRunArtifactOpts;
   runStorage: RunStorage;
-  /** Optimistic lock when resuming (same as `run inspect`). */
+  /** Optimistic lock for the next save (from `runContext.expectedArtifactRevision`). */
   saveRunOptions?: RunSaveOptions;
 }
 

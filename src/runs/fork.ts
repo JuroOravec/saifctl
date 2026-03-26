@@ -6,7 +6,7 @@ import type { ResumeOpts } from '../orchestrator/modes.js';
 import { resolveOrchestratorOpts } from '../orchestrator/options.js';
 import { resolveFeature } from '../specs/discover.js';
 import { cloneRunRules } from './rules.js';
-import type { RunStorage } from './types.js';
+import type { RunStorage } from './storage.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from './utils/artifact.js';
 import { deserializeArtifactConfig } from './utils/serialize.js';
 

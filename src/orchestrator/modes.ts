@@ -25,7 +25,8 @@ import { hasFeatureSuccessfullyFailed } from '../provisioners/docker/index.js';
 import { createProvisioner } from '../provisioners/index.js';
 import { type CoderInspectSessionHandle } from '../provisioners/types.js';
 import { cloneRunRules, rulesForPrompt } from '../runs/rules.js';
-import { type RunCommit, type RunStorage, StaleArtifactError } from '../runs/types.js';
+import { type RunStorage } from '../runs/storage.js';
+import { RunAlreadyRunningError, type RunCommit, StaleArtifactError } from '../runs/types.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from '../runs/utils/artifact.js';
 import { deserializeArtifactConfig } from '../runs/utils/serialize.js';
 import { resolveFeature } from '../specs/discover.js';
@@ -493,17 +494,43 @@ async function runStartCore(
 
   registry.setEmergencySandboxPath(sandbox.sandboxBasePath);
 
+  // ─── Set status to "running" ─────
+  if (runStorage) {
+    try {
+      const { runStorage: _rs, resume: _res, ...loopOpts } = opts;
+      const runningArtifact = buildRunArtifact({
+        runId: sandbox.runId,
+        baseCommitSha: runContext.baseCommitSha,
+        basePatchDiff: runContext.basePatchDiff,
+        runCommits: opts.resume?.seedRunCommits ?? [],
+        specRef: feature.relativePath,
+        rules: runContext.rules,
+        status: 'running',
+        opts: loopOpts,
+      });
+      runContext.expectedArtifactRevision = await runStorage.setStatusRunning(
+        sandbox.runId,
+        runningArtifact,
+      );
+    } catch (err) {
+      if (err instanceof RunAlreadyRunningError) throw err;
+      consola.warn('[orchestrator] Failed to set run status to "running":', err);
+    }
+  }
+
   // ─── Save run artifact on interrupt (Ctrl+C) ───────────────────────────────
   // Normal exit (success or failure) is handled inside runIterativeLoop cleanup.
   if (runStorage) {
-    const resumeRev = opts.resume?.artifactRevisionAtResume;
     registry.setBeforeCleanup(async () => {
       await saveRunOnError({
         sandbox,
         runContext,
         opts,
         runStorage,
-        saveRunOptions: resumeRev === undefined ? undefined : { ifRevisionEquals: resumeRev },
+        saveRunOptions:
+          runContext.expectedArtifactRevision !== undefined
+            ? { ifRevisionEquals: runContext.expectedArtifactRevision }
+            : undefined,
       });
     });
   }
@@ -559,6 +586,12 @@ async function runResumeCore(
   const artifact = await runStorage.getRun(runId);
   if (!artifact) {
     throw new Error(`Run not found: ${runId}. List runs with: saifac run ls`);
+  }
+  if (artifact.status === 'running') {
+    throw new Error(
+      `Run "${runId}" is already running (status: "running"). ` +
+        `If the process died, manually edit or delete the run artifact (e.g. .saifac/runs/${runId}.json).`,
+    );
   }
 
   const mode = testOnly ? 'test' : 'resume';
@@ -649,6 +682,12 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
   const artifact = await runStorage.getRun(runId);
   if (!artifact) {
     throw new Error(`Run not found: ${runId}. List runs with: saifac run ls`);
+  }
+  if (artifact.status === 'running') {
+    throw new Error(
+      `Run "${runId}" is already running (status: "running"). ` +
+        `If the process died, manually edit or delete the run artifact (e.g. .saifac/runs/${runId}.json).`,
+    );
   }
 
   consola.log(`\n[orchestrator] MODE: inspect — ${artifact.config.featureName} (run ${runId})`);
