@@ -42,8 +42,7 @@ For any CLI not in the list:
 
 ```bash
 saifac feat run \
-  --agent-script ./my-agent-runner.sh \
-  --agent-log-format raw
+  --agent-script ./my-agent-runner.sh
 ```
 
 Your script must read from `$SAIFAC_TASK_PATH` and invoke the agent.

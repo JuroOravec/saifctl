@@ -119,7 +119,6 @@ export const saifacConfigDefaultsSchema = z.object({
    * When false (default), only files at `HEAD` are copied (`git archive`).
    */
   includeDirty: z.boolean().optional(),
-  agentLogFormat: z.enum(['openhands', 'raw']).optional(),
   push: z.string().optional(),
   pr: z.boolean().optional(),
   gitProvider: z.enum(['github', 'gitlab', 'bitbucket', 'azure', 'gitea']).optional(),

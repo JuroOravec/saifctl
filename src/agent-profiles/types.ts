@@ -8,6 +8,8 @@
  *   - coder-start.sh             → runs agent-install.sh before the loop
  */
 
+import type { AgentStdoutStrategy } from '../orchestrator/logs.js';
+
 export interface AgentProfile {
   /**
    * Profile identifier used in --agent CLI flag.
@@ -19,11 +21,10 @@ export interface AgentProfile {
   displayName: string;
 
   /**
-   * Default log format for the agent's stdout.
-   * - `'openhands'` — parse OpenHands --json event stream (pretty-printed)
-   * - `'raw'`       — stream lines as-is with an [agent] prefix
+   * Structured stdout handling inside the `[SAIFAC:AGENT_*]` window (segment split + per-segment CLI formatting).
+   * Use `null` when the agent emits plain line-oriented output (line-wise events + `[prefix]` formatting).
    */
-  defaultLogFormat: 'openhands' | 'raw';
+  stdoutStrategy: AgentStdoutStrategy | null;
 }
 
 export const SUPPORTED_AGENT_PROFILE_IDS = [

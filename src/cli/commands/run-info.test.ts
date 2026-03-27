@@ -55,7 +55,6 @@ async function writeRunJson(projectDir: string, runId: string): Promise<void> {
       gateRetries: 10,
       reviewerEnabled: true,
       agentEnv: {},
-      agentLogFormat: 'openhands',
       testScript: 'TEST_CONTENT',
       gateScript: 'GATE_CONTENT',
       startupScript: 'START_CONTENT',

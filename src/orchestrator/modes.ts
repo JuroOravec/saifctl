@@ -11,6 +11,7 @@
 import { mkdir, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
+import { resolveAgentProfile } from '../agent-profiles/index.js';
 import type { SaifacConfig } from '../config/schema.js';
 import { getSaifRoot } from '../constants.js';
 import { getHatchetClient } from '../hatchet/client.js';
@@ -21,9 +22,9 @@ import {
 } from '../hatchet/workflows/feat-run.workflow.js';
 import { type ModelOverrides, resolveAgentLlmConfig } from '../llm-config.js';
 import { consola } from '../logger.js';
-import { hasFeatureSuccessfullyFailed } from '../provisioners/docker/index.js';
 import { createProvisioner } from '../provisioners/index.js';
-import { type CoderInspectSessionHandle } from '../provisioners/types.js';
+import { defaultProvisionerLog } from '../provisioners/logs.js';
+import { type CoderInspectSessionHandle, type TestsResult } from '../provisioners/types.js';
 import { cloneRunRules, rulesForPrompt } from '../runs/rules.js';
 import { type RunStorage } from '../runs/storage.js';
 import {
@@ -38,6 +39,7 @@ import { resolveFeature } from '../specs/discover.js';
 import { CleanupRegistry } from '../utils/cleanup.js';
 import { git } from '../utils/git.js';
 import { writeUtf8 } from '../utils/io.js';
+import { createAgentStdoutPipe, createDefaultAgentLog } from './logs.js';
 import {
   buildInitialTask,
   buildPatchExcludeRules,
@@ -332,6 +334,7 @@ async function runFail2PassCore(
       projectName,
       startupPath: sandbox.startupPath,
       stagePath: sandbox.stagePath,
+      onLog: defaultProvisionerLog,
     });
 
     const result = await provisioner.runTests({
@@ -342,6 +345,7 @@ async function runFail2PassCore(
       feature,
       projectName,
       reportPath: join(sandbox.sandboxBasePath, 'results.xml'),
+      onLog: defaultProvisionerLog,
     });
 
     if (result.runnerError) {
@@ -411,8 +415,6 @@ async function runStartCore(
     runStorage,
     testOnly,
   } = opts;
-
-  consola.log(`\n[orchestrator] MODE: ${testOnly ? 'test' : 'start'} — ${feature.name}`);
 
   if (opts.includeDirty) {
     consola.warn(
@@ -498,6 +500,11 @@ async function runStartCore(
     runId: opts.resume?.persistedRunId,
     includeDirty: opts.includeDirty,
   });
+
+  consola.log(
+    `\n[orchestrator] MODE: ${testOnly ? 'test' : 'start'} — ${feature.name} (run ${sandbox.runId})`,
+  );
+  logIterativeLoopSettings(opts, { runId: sandbox.runId });
 
   registry.setEmergencySandboxPath(sandbox.sandboxBasePath);
 
@@ -647,10 +654,9 @@ async function runResumeCore(
     artifactRevisionAtResume: artifact.artifactRevision ?? 0,
   };
 
-  logIterativeLoopSettings(mergedOpts);
-
   try {
     // Finally, run the same flow as when we run `saifac feat start <featureName>`
+    // (runStartCore logs MODE + settings after createSandbox, including Run ID.)
     return await runStartCore(mergedOpts, registry);
   } finally {
     await cleanupResumeWorkspace({ worktreePath, projectDir, branchName }, () => {
@@ -750,8 +756,6 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
       initialErrorFeedback: artifact.lastFeedback,
     };
 
-    logIterativeLoopSettings(mergedOpts);
-
     const sandboxSourceDir = getSandboxSourceDir(mergedOpts);
     const sandbox = await createSandbox({
       feature,
@@ -769,6 +773,8 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
       runCommits: mergedOpts.resume?.seedRunCommits ?? [],
       includeDirty: mergedOpts.includeDirty,
     });
+
+    logIterativeLoopSettings(mergedOpts, { runId });
 
     const preInspectHead = (
       await git({ cwd: sandbox.codePath, args: ['rev-parse', 'HEAD'] })
@@ -808,6 +814,16 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
           projectDir: mergedOpts.projectDir,
         });
 
+        const inspectAgentProfile = resolveAgentProfile(mergedOpts.agentProfileId);
+        const inspectLogStrategy = inspectAgentProfile.stdoutStrategy;
+        const { onAgentStdout, onAgentStdoutEnd } = createAgentStdoutPipe({
+          stdoutStrategy: inspectLogStrategy,
+          onAgentLog: createDefaultAgentLog({
+            linePrefix: 'inspect',
+            stdoutStrategy: inspectLogStrategy,
+          }),
+        });
+
         inspectHandle = await codingProvisioner.startInspect({
           codePath: sandbox.codePath,
           sandboxBasePath: sandbox.sandboxBasePath,
@@ -822,10 +838,13 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
           agentInstallPath: sandbox.agentInstallPath,
           agentPath: sandbox.agentPath,
           agentEnv: mergedOpts.agentEnv,
-          agentLogFormat: mergedOpts.agentLogFormat,
+          onAgentStdout,
+          onAgentStdoutEnd,
+          onLog: defaultProvisionerLog,
           reviewer,
           gateRetries: mergedOpts.gateRetries,
           llmConfig: coderLlmConfig,
+          runId,
         });
 
         consola.log(`\n[inspect] Attach your editor with Dev Containers or \`docker exec -it\`:`);
@@ -1156,4 +1175,20 @@ export function getSandboxSourceDir(opts: {
   resume: { sandboxSourceDir: string } | null;
 }): string {
   return opts.resume?.sandboxSourceDir ?? opts.projectDir;
+}
+
+/**
+ * Checks if the feature tests successfully failed.
+ *
+ * Skips `sidecar:health` tests (infra health-check).
+ */
+function hasFeatureSuccessfullyFailed(result: TestsResult): boolean {
+  if (!result.testSuites) return result.status === 'failed';
+  for (const suite of result.testSuites) {
+    for (const assertion of suite.assertionResults) {
+      if (assertion.ancestorTitles.includes('sidecar:health')) continue;
+      if (assertion.status === 'failed') return true;
+    }
+  }
+  return false;
 }

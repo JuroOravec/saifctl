@@ -6,9 +6,9 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  resolveAgentInstallScriptPath,
   resolveAgentProfile,
   resolveAgentScriptPath,
-  resolveAgentInstallScriptPath,
   SUPPORTED_AGENT_PROFILE_IDS,
   SUPPORTED_AGENT_PROFILES,
 } from './index.js';
@@ -18,12 +18,18 @@ describe('agent profiles', () => {
     expect(SUPPORTED_AGENT_PROFILE_IDS).toContain('debug');
   });
 
-  it('resolves debug profile with raw log format', () => {
+  it('resolves debug profile (line-wise agent stdout; no structured strategy)', () => {
     const p = resolveAgentProfile('debug');
     expect(p.id).toBe('debug');
     expect(p.displayName).toBe('Debug (no LLM)');
-    expect(p.defaultLogFormat).toBe('raw');
+    expect(p.stdoutStrategy).toBeNull();
     expect(SUPPORTED_AGENT_PROFILES.debug).toBe(p);
+  });
+
+  it('openhands profile exposes stdout strategy', () => {
+    const p = resolveAgentProfile('openhands');
+    expect(p.stdoutStrategy).toBeDefined();
+    expect(p.stdoutStrategy!.formatSegment).toBeTypeOf('function');
   });
 
   it('resolves debug script paths under agent-profiles/debug', () => {

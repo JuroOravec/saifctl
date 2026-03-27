@@ -16,6 +16,9 @@
 import type { LlmConfig } from '../llm-config.js';
 import type { SupportedSandboxProfileId } from '../sandbox-profiles/types.js';
 import type { Feature } from '../specs/discover.js';
+import type { ProvisionerOnLog } from './logs.js';
+
+export type { ProvisionerLogEvent, ProvisionerLogSource, ProvisionerOnLog } from './logs.js';
 
 // ---------------------------------------------------------------------------
 // Shared value objects (implementation-agnostic)
@@ -121,6 +124,8 @@ export interface StartStagingOpts {
    * Mounted read-only at /saifac/stage.sh; starts the app (or keeps container alive).
    */
   stagePath: string;
+  /** Infra log lines from the staging container "follow" (-f) stream (stdout/stderr). */
+  onLog: ProvisionerOnLog;
 }
 
 export interface RunTestsOpts {
@@ -153,9 +158,13 @@ export interface RunTestsOpts {
    * immediately and the result is returned with status='aborted'.
    */
   signal?: AbortSignal;
+  /** Infra log lines from the test-runner container "follow" (-f) stream (stdout/stderr). */
+  onLog: ProvisionerOnLog;
 }
 
 export interface RunAgentOpts {
+  /** Orchestrator run id; injected as `SAIFAC_RUN_ID` for coder-start and logs. */
+  runId: string;
   /** Absolute path to the sandbox code directory (host path). */
   codePath: string;
   /**
@@ -195,7 +204,18 @@ export interface RunAgentOpts {
    * filtered out by the runner before forwarding.
    */
   agentEnv: Record<string, string>;
-  agentLogFormat: 'openhands' | 'raw';
+  /**
+   * Raw stdout chunks from the agent container. Separate from onLog because these logs
+   * may have agent-specific log formatting applied to them.
+   */
+  onAgentStdout: (chunk: string) => void;
+  /** When the child stdout stream ends, flush any buffered state. */
+  onAgentStdoutEnd?: () => void;
+  /**
+   * Raw stderr chunks from the agent container + other non-agent logs.
+   * These logs are not agent-specific.
+   */
+  onLog: ProvisionerOnLog;
   /**
    * Settings for the semantic reviewer (argus-ai). null = reviewer disabled.
    */
@@ -233,11 +253,17 @@ export interface StartInspectOpts {
   agentInstallPath: string;
   agentPath: string;
   agentEnv: Record<string, string>;
-  agentLogFormat: 'openhands' | 'raw';
   reviewer: RunAgentOpts['reviewer'];
   gateRetries: number;
   llmConfig: LlmConfig;
+  runId: string;
   signal?: AbortSignal;
+  /** Same stdout contract as {@link RunAgentOpts.onAgentStdout}. */
+  onAgentStdout: (chunk: string) => void;
+  /** Same as {@link RunAgentOpts.onAgentStdoutEnd}. */
+  onAgentStdoutEnd?: () => void;
+  /** Same as {@link RunAgentOpts.onLog}. */
+  onLog: ProvisionerOnLog;
 }
 
 /** Handle for an idle coding container started by {@link Provisioner.startInspect}. */
@@ -258,6 +284,7 @@ export interface ProvisionerTeardownOpts {
 // Core interface
 // ---------------------------------------------------------------------------
 
+/** Infrastructure adaptor contract (Docker today, Kubernetes later). */
 export interface Provisioner {
   /**
    * 1. Initialize the isolated environment and start background services.

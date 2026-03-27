@@ -4,7 +4,7 @@
  * Supported profiles: openhands | aider | claude | codex | gemini | qwen | opencode | copilot | kilocode | mini-swe-agent | terminus | forge | deepagents | debug
  *
  * Each profile directory contains:
- *   - profile.ts        → AgentProfile metadata (id, displayName, defaultLogFormat)
+ *   - profile.ts        → AgentProfile metadata (id, displayName, stdoutStrategy — strategy or `null`)
  *   - agent.sh          → script invoked by coder-start.sh on each inner round
  *   - agent-install.sh  → one-time install script run after project startup, before the loop
  */

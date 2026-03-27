@@ -99,6 +99,11 @@ export const featTestsArgs = {
   'test-image': testImageArg,
   'startup-script': startupScriptArg,
   'stage-script': stageScriptArg,
+  'include-dirty': {
+    type: 'boolean' as const,
+    description:
+      'Include untracked and uncommitted files in the sandbox copy. Default: only committed files (HEAD).',
+  },
 };
 
 // Agent args — used by run, resume (coder container).
@@ -203,11 +208,6 @@ const featRunCoreArgs = {
     type: 'string' as const,
     description: 'Max gate retries per run (default: 10).',
   },
-  'include-dirty': {
-    type: 'boolean' as const,
-    description:
-      'Include untracked and uncommitted files in the sandbox copy. Default: only committed files (HEAD).',
-  },
   'agent-env': {
     type: 'string' as const,
     description:
@@ -217,10 +217,6 @@ const featRunCoreArgs = {
     type: 'string' as const,
     description:
       'Single path or comma-separated paths to .env file(s). Later overrides earlier for duplicate keys (e.g. ./a.env,./b.env).',
-  },
-  'agent-log-format': {
-    type: 'string' as const,
-    description: 'How to parse agent stdout. openhands | raw (default: from agent profile).',
   },
 };
 

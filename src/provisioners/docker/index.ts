@@ -40,6 +40,7 @@ import {
   spawnWait,
   writeUtf8,
 } from '../../utils/io.js';
+import { type ProvisionerLogSource, type ProvisionerOnLog } from '../logs.js';
 import type {
   AgentResult,
   CoderInspectSessionHandle,
@@ -54,13 +55,9 @@ import type {
   TestsResult,
 } from '../types.js';
 import { detectRunnerError, parseJUnitXmlFromFile } from '../utils/test-parser.js';
-import { filterAgentEnv, printOpenHandsSegment } from './agent-log.js';
 import { resolveLeashCliPath } from './resolve-leash-cli.js';
 
-// ---------------------------------------------------------------------------
 // Docker client singleton
-// ---------------------------------------------------------------------------
-
 const docker = new Docker();
 
 // ---------------------------------------------------------------------------
@@ -121,20 +118,6 @@ let sidecarBinaryCache: Buffer | null = null;
 const CONTAINER_WORKSPACE = '/workspace';
 
 /**
- * Resolve symlinks on the host path before passing to `docker run -v`.
- * On macOS, `/tmp` often symlinks to `/private/tmp`; mixing non-canonical paths with
- * Colima/Docker Desktop bind mounts can yield empty mounts (e.g. `/saifac/startup.sh` missing).
- * Leash also uses `getcwd()` as `callerDir`; keep {@link spawn} `cwd` aligned with the same path.
- */
-async function dockerHostBindPath(hostPath: string): Promise<string> {
-  try {
-    return await realpath(hostPath);
-  } catch {
-    return hostPath;
-  }
-}
-
-/**
  * Assemble all per-run orchestration scripts into a single directory so they
  * can be mounted as one directory volume (`--volume <dir>:/saifac:ro`).
  *
@@ -172,143 +155,6 @@ async function assembleSaifacDir(opts: {
   }
 
   return saifacDir;
-}
-
-// ---------------------------------------------------------------------------
-// Internal container/network tracking
-// ---------------------------------------------------------------------------
-
-interface ContainerHandle {
-  id: string;
-  name: string;
-  container: Docker.Container;
-}
-
-class DockerRegistry {
-  private containers: ContainerHandle[] = [];
-  private networks: string[] = [];
-  private images: string[] = [];
-
-  registerContainers(handles: ContainerHandle[]): void {
-    this.containers.push(...handles);
-  }
-  registerNetwork(name: string): void {
-    if (name) this.networks.push(name);
-  }
-  registerImage(tag: string): void {
-    if (tag) this.images.push(tag);
-  }
-  deregisterContainers(handles: ContainerHandle[]): void {
-    const ids = new Set(handles.map((h) => h.id));
-    this.containers = this.containers.filter((h) => !ids.has(h.id));
-  }
-  deregisterNetwork(name: string): void {
-    this.networks = this.networks.filter((n) => n !== name);
-  }
-  deregisterImage(tag: string): void {
-    this.images = this.images.filter((t) => t !== tag);
-  }
-
-  async cleanup(): Promise<void> {
-    const containersToStop = [...this.containers];
-    const imagesToRemove = [...this.images];
-    this.containers = [];
-    this.networks = [];
-    this.images = [];
-
-    for (const handle of containersToStop) {
-      try {
-        await handle.container.remove({ force: true });
-      } catch (err) {
-        consola.warn(`[docker] Warning: could not remove ${handle.name}: ${String(err)}`);
-      }
-    }
-    // Bridge networks are removed only from teardown() after `compose down` and after
-    // ad-hoc containers (e.g. inspect `docker run`) are gone. Removing networks
-    // here would race them and yield "active endpoints" errors.
-    for (const tag of imagesToRemove) {
-      await removeDockerImage(tag);
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Network diagnostics (bridge / staging / test-runner visibility)
-// ---------------------------------------------------------------------------
-
-function formatContainerNetworkEndpoint(
-  networks: Record<string, { Aliases?: string[]; IPAddress?: string }> | undefined,
-  preferredNetwork: string,
-): string {
-  if (!networks || Object.keys(networks).length === 0) {
-    return '(no networks in container inspect)';
-  }
-  const preferred = networks[preferredNetwork];
-  if (preferred) {
-    const aliases = Array.isArray(preferred.Aliases) ? preferred.Aliases : [];
-    return `on "${preferredNetwork}" aliases=${JSON.stringify(aliases)} ip=${preferred.IPAddress ?? '?'}`;
-  }
-  const summary = Object.entries(networks).map(([k, v]) => ({
-    networkKey: k,
-    aliases: Array.isArray(v.Aliases) ? v.Aliases : [],
-    ip: v.IPAddress ?? '?',
-  }));
-  return `expected key "${preferredNetwork}" missing; attached: ${JSON.stringify(summary)}`;
-}
-
-async function logStagingContainerNetworkAliases(opts: {
-  container: Docker.Container;
-  networkName: string;
-  containerName: string;
-}): Promise<void> {
-  const { container, networkName, containerName } = opts;
-  try {
-    const info = await container.inspect();
-    const nets = info.NetworkSettings?.Networks as
-      | Record<string, { Aliases?: string[]; IPAddress?: string }>
-      | undefined;
-    const detail = formatContainerNetworkEndpoint(nets, networkName);
-    consola.log(`[docker] ${containerName} — ${detail}`);
-  } catch (err) {
-    consola.warn(
-      `[docker] Could not inspect staging container "${containerName}" for network aliases: ${String(err)}`,
-    );
-  }
-}
-
-async function logBridgeNetworkEndpoints(opts: {
-  networkName: string;
-  context: string;
-}): Promise<void> {
-  const { networkName, context } = opts;
-  try {
-    const listed = await docker.listNetworks({ filters: { name: [networkName] } });
-    const match = listed.find((n) => n.Name === networkName) ?? listed[0];
-    if (!match) {
-      consola.warn(`[docker] (${context}) No Docker network matched filter name="${networkName}"`);
-      return;
-    }
-    if (match.Name !== networkName) {
-      consola.warn(
-        `[docker] (${context}) listNetworks returned "${match.Name}" (wanted exact "${networkName}")`,
-      );
-    }
-    const net = docker.getNetwork(match.Id);
-    const data = await net.inspect();
-    const containers = data.Containers ?? {};
-    const rows = Object.values(containers).map((c) => ({
-      name: c.Name.replace(/^\//, ''),
-      ipv4: c.IPv4Address,
-    }));
-    consola.log(
-      `[docker] (${context}) Bridge "${data.Name}" id=${data.Id.slice(0, 12)}… driver=${data.Driver} endpointCount=${rows.length}:`,
-    );
-    consola.log(`[docker] (${context})   ${JSON.stringify(rows)}`);
-  } catch (err) {
-    consola.warn(
-      `[docker] (${context}) Could not inspect network "${networkName}": ${String(err)}`,
-    );
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -364,9 +210,16 @@ export class DockerProvisioner implements Provisioner {
       );
 
       // Attach every compose service to the SAIFAC bridge network
-      await this.attachComposeSvcToNetwork(absoluteFile);
+      await attachComposeSvcToNetwork({
+        composeProjectName: this.composeProjectName,
+        absoluteFile,
+        networkName: this.networkName,
+      });
 
-      const serviceNames = await this.listComposeServices(absoluteFile);
+      const serviceNames = await listComposeServices({
+        composeProjectName: this.composeProjectName,
+        absoluteFile,
+      });
       consola.log(
         `[docker] Compose project "${this.composeProjectName}" up — services: ${serviceNames.join(', ')}`,
       );
@@ -385,6 +238,7 @@ export class DockerProvisioner implements Provisioner {
       projectName,
       startupPath,
       stagePath,
+      onLog,
     } = opts;
 
     const containerConfig = stagingEnvironment.app;
@@ -392,7 +246,7 @@ export class DockerProvisioner implements Provisioner {
     const imageTag = `saifac-stage-${projectName}-${feature.name}-img-${this.runId}`;
 
     // Build ephemeral staging image
-    await this.buildStagingImage({
+    await buildStagingImage({
       sandboxProfileId: sandboxProfileId as SupportedSandboxProfileId,
       codePath,
       projectDir,
@@ -458,7 +312,12 @@ export class DockerProvisioner implements Provisioner {
     const handle: ContainerHandle = { id: container.id, name: containerName, container };
     this.registry.registerContainers([handle]);
 
-    streamContainerLogs(container, containerName);
+    streamContainerLogs({
+      container,
+      source: 'staging',
+      containerLabel: containerName,
+      forwardLog: onLog,
+    });
 
     // Wait for sidecar health endpoint
     await waitForContainerReady({ containerName, container, port: containerConfig.sidecarPort });
@@ -483,6 +342,7 @@ export class DockerProvisioner implements Provisioner {
       projectName,
       runId,
       signal,
+      onLog,
     } = opts;
 
     assertSafeImageTag(testImage);
@@ -551,7 +411,12 @@ export class DockerProvisioner implements Provisioner {
     const handle: ContainerHandle = { id: container.id, name: containerName, container };
     this.registry.registerContainers([handle]);
 
-    streamContainerLogs(container, containerName);
+    streamContainerLogs({
+      container,
+      source: 'test-runner',
+      containerLabel: containerName,
+      forwardLog: onLog,
+    });
 
     consola.log(`[docker] Waiting for test runner to complete...`);
 
@@ -635,9 +500,12 @@ export class DockerProvisioner implements Provisioner {
       agentInstallPath,
       agentPath,
       agentEnv,
-      agentLogFormat,
       reviewer,
       signal,
+      runId,
+      onAgentStdout,
+      onAgentStdoutEnd,
+      onLog,
     } = opts;
 
     /** Set for `--dangerous-no-leash` so abort/error can `docker rm -f` the named container. */
@@ -678,6 +546,7 @@ export class DockerProvisioner implements Provisioner {
         SAIFAC_GATE_SCRIPT: `${sandboxBasePath}/gate.sh`,
         SAIFAC_AGENT_SCRIPT: agentPath,
         SAIFAC_TASK_PATH: saifacTaskFilePath(codePath),
+        SAIFAC_RUN_ID: runId,
       };
       consola.log('[agent-runner] Mode: dangerous-debug (host execution, filesystem sandbox only)');
     } else if (dangerousNoLeash) {
@@ -732,6 +601,7 @@ export class DockerProvisioner implements Provisioner {
       envForward.SAIFAC_STARTUP_SCRIPT = '/saifac/startup.sh';
       envForward.SAIFAC_AGENT_INSTALL_SCRIPT = '/saifac/agent-install.sh';
       envForward.SAIFAC_AGENT_SCRIPT = '/saifac/agent.sh';
+      envForward.SAIFAC_RUN_ID = runId;
 
       const dockerRunArgs: string[] = [
         'run',
@@ -884,6 +754,8 @@ export class DockerProvisioner implements Provisioner {
         `SAIFAC_AGENT_INSTALL_SCRIPT=/saifac/agent-install.sh`,
         '--env',
         `SAIFAC_AGENT_SCRIPT=/saifac/agent.sh`,
+        '--env',
+        `SAIFAC_RUN_ID=${runId}`,
         // Invoke via bash so the script doesn't need +x in the mounted directory.
         // This mirrors how gate.sh and reviewer.sh are invoked inside coder-start.sh.
         'bash',
@@ -969,29 +841,17 @@ export class DockerProvisioner implements Provisioner {
         });
 
         let collected = '';
-        let stdoutBuf = '';
+        const endAgentStdout = (): void => onAgentStdoutEnd?.();
 
         child.stdout.on('data', (chunk: Buffer) => {
           const text = chunk.toString();
           collected += text;
-
-          if (agentLogFormat === 'raw') {
-            for (const line of text.split('\n')) {
-              if (line.trim()) process.stdout.write(`[agent] ${line}\n`);
-            }
-          } else {
-            stdoutBuf += text;
-            const segments = stdoutBuf.split('--JSON Event--');
-            stdoutBuf = segments.pop() ?? '';
-            for (const segment of segments) {
-              printOpenHandsSegment(segment);
-            }
-          }
+          onAgentStdout(text);
         });
 
         child.stderr.on('data', (chunk: Buffer) => {
           const text = chunk.toString();
-          process.stderr.write(text);
+          onLog({ source: 'coder', stream: 'stderr', raw: text });
           collected += text;
         });
 
@@ -1022,6 +882,7 @@ export class DockerProvisioner implements Provisioner {
           signal?.removeEventListener('abort', onAbort);
           networkAttach?.cancel();
           removeDirectDockerContainer();
+          endAgentStdout();
           reject(err);
         });
 
@@ -1030,7 +891,7 @@ export class DockerProvisioner implements Provisioner {
           signal?.removeEventListener('abort', onAbort);
           networkAttach?.cancel();
           if ((code ?? 1) !== 0) removeDirectDockerContainer();
-          if (agentLogFormat !== 'raw' && stdoutBuf.trim()) printOpenHandsSegment(stdoutBuf);
+          endAgentStdout();
           resolve({ exitCode: code ?? 1, output: collected });
         });
       },
@@ -1061,11 +922,14 @@ export class DockerProvisioner implements Provisioner {
       agentInstallPath,
       agentPath,
       agentEnv,
-      agentLogFormat,
       reviewer,
       gateRetries,
       llmConfig,
       signal,
+      runId,
+      onAgentStdout,
+      onAgentStdoutEnd,
+      onLog,
     } = opts;
 
     let dockerDirectRunContainerToRemove: string | null = null;
@@ -1140,6 +1004,7 @@ export class DockerProvisioner implements Provisioner {
       envForward.SAIFAC_STARTUP_SCRIPT = '/saifac/startup.sh';
       envForward.SAIFAC_AGENT_INSTALL_SCRIPT = '/saifac/agent-install.sh';
       envForward.SAIFAC_AGENT_SCRIPT = '/saifac/agent.sh';
+      envForward.SAIFAC_RUN_ID = runId;
 
       const dockerRunArgs: string[] = [
         'run',
@@ -1287,6 +1152,8 @@ export class DockerProvisioner implements Provisioner {
         `SAIFAC_AGENT_INSTALL_SCRIPT=/saifac/agent-install.sh`,
         '--env',
         `SAIFAC_AGENT_SCRIPT=/saifac/agent.sh`,
+        '--env',
+        `SAIFAC_RUN_ID=${runId}`,
         'bash',
         '-c',
         'sleep infinity',
@@ -1355,24 +1222,19 @@ export class DockerProvisioner implements Provisioner {
       stdio: ['inherit', 'pipe', 'pipe'],
     });
 
-    let stdoutBuf = '';
+    const endInspectStdout = (): void => onAgentStdoutEnd?.();
     child.stdout?.on('data', (chunk: Buffer) => {
-      const text = chunk.toString();
-      if (agentLogFormat === 'raw') {
-        for (const line of text.split('\n')) {
-          if (line.trim()) process.stdout.write(`[inspect] ${line}\n`);
-        }
-      } else {
-        stdoutBuf += text;
-        const segments = stdoutBuf.split('--JSON Event--');
-        stdoutBuf = segments.pop() ?? '';
-        for (const segment of segments) {
-          printOpenHandsSegment(segment);
-        }
-      }
+      onAgentStdout(chunk.toString());
+    });
+    child.once('close', () => {
+      endInspectStdout();
     });
     child.stderr?.on('data', (chunk: Buffer) => {
-      process.stderr.write(chunk.toString());
+      onLog({
+        source: 'inspect',
+        stream: 'stderr',
+        raw: chunk.toString(),
+      });
     });
 
     let detachAbortListener: (() => void) | null = null;
@@ -1502,107 +1364,10 @@ export class DockerProvisioner implements Provisioner {
       this.networkName = '';
     }
   }
-
-  // ── Private helpers ───────────────────────────────────────────────────────
-
-  private async buildStagingImage(opts: {
-    sandboxProfileId: SupportedSandboxProfileId;
-    codePath: string;
-    projectDir: string;
-    dockerfile?: string | null;
-    imageTag: string;
-  }): Promise<void> {
-    const { sandboxProfileId, codePath, projectDir, dockerfile, imageTag } = opts;
-    let dockerfilePath: string;
-
-    if (dockerfile) {
-      dockerfilePath = resolve(projectDir, dockerfile);
-      if (!(await pathExists(dockerfilePath))) {
-        throw new Error(
-          `[docker] config environments.staging.app.build.dockerfile "${dockerfile}" not found at ${dockerfilePath}`,
-        );
-      }
-      consola.log(`[docker] Using custom Dockerfile: ${dockerfilePath}`);
-    } else {
-      dockerfilePath = resolveSandboxCoderDockerfilePath(sandboxProfileId);
-      if (!(await pathExists(dockerfilePath))) {
-        throw new Error(
-          `[docker] Profile "${sandboxProfileId}" requires Dockerfile.coder at ${dockerfilePath} but it is missing.`,
-        );
-      }
-      consola.log(`[docker] Using profile ${sandboxProfileId} Dockerfile.coder`);
-    }
-
-    // Write a .dockerignore to keep the build context clean
-    await writeUtf8(
-      join(codePath, '.dockerignore'),
-      ['node_modules', '.git', '*.log', 'dist', 'build', '.cache'].join('\n') + '\n',
-    );
-
-    consola.log(`[docker] Building staging container image: ${imageTag}`);
-    await runDocker(['build', '-f', dockerfilePath, '-t', imageTag, codePath], {
-      stdio: 'inherit',
-    });
-    consola.log(`[docker] Staging container image built: ${imageTag}`);
-  }
-
-  private async listComposeServices(absoluteFile: string): Promise<string[]> {
-    try {
-      const { stdout } = await runDocker([
-        'compose',
-        '-p',
-        this.composeProjectName,
-        '-f',
-        absoluteFile,
-        'ps',
-        '--services',
-      ]);
-      return stdout
-        .split('\n')
-        .map((l) => l.trim())
-        .filter(Boolean);
-    } catch {
-      return [];
-    }
-  }
-
-  private async attachComposeSvcToNetwork(absoluteFile: string): Promise<void> {
-    const serviceNames = await this.listComposeServices(absoluteFile);
-    for (const service of serviceNames) {
-      try {
-        const { stdout } = await runDocker([
-          'compose',
-          '-p',
-          this.composeProjectName,
-          '-f',
-          absoluteFile,
-          'ps',
-          '-q',
-          service,
-        ]);
-        const containerName = stdout.trim();
-        if (!containerName) continue;
-
-        await runDocker(
-          ['network', 'connect', '--alias', service, this.networkName, containerName],
-          {
-            stdio: 'inherit',
-          },
-        );
-        consola.log(
-          `[docker] Connected compose service "${service}" (${containerName}) to network "${this.networkName}"`,
-        );
-      } catch (err) {
-        consola.warn(
-          `[docker] Warning: could not attach compose service "${service}" to network "${this.networkName}": ${String(err)}`,
-        );
-      }
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
-// Utility: network management
+// Utility: Resource management
 // ---------------------------------------------------------------------------
 
 async function ensureCreateNetwork(name: string): Promise<void> {
@@ -1644,114 +1409,6 @@ async function removeDockerImage(imageTag: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Utility: container health check
-// ---------------------------------------------------------------------------
-
-async function waitForContainerReady(opts: {
-  containerName: string;
-  container: Docker.Container;
-  port: number;
-  timeoutMs?: number;
-}): Promise<void> {
-  const { containerName, container, port, timeoutMs = 180_000 } = opts;
-  const healthCmd = [
-    'node',
-    '-e',
-    `fetch('http://localhost:${port}/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))`,
-  ];
-
-  const deadline = Date.now() + timeoutMs;
-  let attempt = 0;
-
-  consola.log(`[docker] Waiting for ${containerName} to be ready on port ${port}...`);
-
-  while (Date.now() < deadline) {
-    attempt++;
-    try {
-      const info = await container.inspect();
-      if (!info.State.Running) {
-        throw new Error(
-          `[docker] ${containerName} exited (code ${info.State.ExitCode ?? '?'}) before the sidecar became ready. ` +
-            `Check the container logs above for startup errors.`,
-        );
-      }
-      const exec = await container.exec({
-        Cmd: healthCmd,
-        AttachStdout: true,
-        AttachStderr: true,
-      });
-      const stream = await exec.start({ hijack: true, stdin: false });
-      await new Promise<void>((res) => stream.on('end', res));
-      const inspect = await exec.inspect();
-      if ((inspect.ExitCode ?? -1) === 0) {
-        consola.log(`[docker] ${containerName} is ready (attempt ${attempt})`);
-        return;
-      }
-    } catch (err) {
-      consola.log(`[docker] Health check error (attempt ${attempt}): ${String(err)}`);
-    }
-    await sleep(500);
-  }
-
-  consola.warn(`[docker] ${containerName} did not become ready within ${timeoutMs}ms`);
-}
-
-// ---------------------------------------------------------------------------
-// Utility: log streaming & demux
-// ---------------------------------------------------------------------------
-
-function streamContainerLogs(container: Docker.Container, label: string): void {
-  void container
-    .logs({ follow: true, stdout: true, stderr: true, timestamps: false })
-    .then((stream: NodeJS.ReadableStream) => {
-      const out = new PassThrough();
-      const err = new PassThrough();
-      docker.modem.demuxStream(stream, out, err);
-
-      let buf = '';
-      function onChunk(chunk: Buffer | string) {
-        buf += typeof chunk === 'string' ? chunk : chunk.toString('utf8');
-        const lines = buf.split('\n');
-        buf = lines.pop() ?? '';
-        for (const line of lines) {
-          if (line) process.stdout.write(`[${label}] ${line}\n`);
-        }
-      }
-      function onEnd() {
-        if (buf) process.stdout.write(`[${label}] ${buf}\n`);
-        buf = '';
-      }
-      out.on('data', onChunk);
-      out.on('end', onEnd);
-      err.on('data', onChunk);
-      err.on('end', onEnd);
-    })
-    .catch(() => {});
-}
-
-function demuxDockerLogs(buffer: Buffer): { stdout: string; stderr: string } {
-  if (!Buffer.isBuffer(buffer)) return { stdout: String(buffer), stderr: '' };
-
-  let stdout = '';
-  let stderr = '';
-  let offset = 0;
-
-  while (offset < buffer.length) {
-    if (offset + 8 > buffer.length) break;
-    const streamType = buffer[offset];
-    const size = buffer.readUInt32BE(offset + 4);
-    offset += 8;
-    if (offset + size > buffer.length) break;
-    const payload = buffer.slice(offset, offset + size).toString('utf8');
-    offset += size;
-    if (streamType === 1) stdout += payload;
-    else if (streamType === 2) stderr += payload;
-  }
-
-  return { stdout, stderr };
-}
-
-// ---------------------------------------------------------------------------
 // Utility: image tag safety
 // ---------------------------------------------------------------------------
 
@@ -1765,7 +1422,7 @@ function assertSafeImageTag(tag: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Utility: staging image tag helper (used by modes.ts for cleanup)
+// Utility: staging image tag helper
 // ---------------------------------------------------------------------------
 
 export function getStagingImageTag(
@@ -1777,19 +1434,45 @@ export function getStagingImageTag(
   return `saifac-stage-${projectName}-${featureName}-img-${runId}`;
 }
 
-// ---------------------------------------------------------------------------
-// Utility: hasFeatureSuccessfullyFailed (used by modes.ts for fail2pass)
-// ---------------------------------------------------------------------------
+async function buildStagingImage(opts: {
+  sandboxProfileId: SupportedSandboxProfileId;
+  codePath: string;
+  projectDir: string;
+  dockerfile?: string | null;
+  imageTag: string;
+}): Promise<void> {
+  const { sandboxProfileId, codePath, projectDir, dockerfile, imageTag } = opts;
+  let dockerfilePath: string;
 
-export function hasFeatureSuccessfullyFailed(result: TestsResult): boolean {
-  if (!result.testSuites) return result.status === 'failed';
-  for (const suite of result.testSuites) {
-    for (const assertion of suite.assertionResults) {
-      if (assertion.ancestorTitles.includes('sidecar:health')) continue;
-      if (assertion.status === 'failed') return true;
+  if (dockerfile) {
+    dockerfilePath = resolve(projectDir, dockerfile);
+    if (!(await pathExists(dockerfilePath))) {
+      throw new Error(
+        `[docker] config environments.staging.app.build.dockerfile "${dockerfile}" not found at ${dockerfilePath}`,
+      );
     }
+    consola.log(`[docker] Using custom Dockerfile: ${dockerfilePath}`);
+  } else {
+    dockerfilePath = resolveSandboxCoderDockerfilePath(sandboxProfileId);
+    if (!(await pathExists(dockerfilePath))) {
+      throw new Error(
+        `[docker] Profile "${sandboxProfileId}" requires Dockerfile.coder at ${dockerfilePath} but it is missing.`,
+      );
+    }
+    consola.log(`[docker] Using profile ${sandboxProfileId} Dockerfile.coder`);
   }
-  return false;
+
+  // Write a .dockerignore to keep the build context clean
+  await writeUtf8(
+    join(codePath, '.dockerignore'),
+    ['node_modules', '.git', '*.log', 'dist', 'build', '.cache'].join('\n') + '\n',
+  );
+
+  consola.log(`[docker] Building staging container image: ${imageTag}`);
+  await runDocker(['build', '-f', dockerfilePath, '-t', imageTag, codePath], {
+    stdio: 'inherit',
+  });
+  consola.log(`[docker] Staging container image built: ${imageTag}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -1809,8 +1492,72 @@ function leashWorkspaceId(sandboxBasePath: string): string {
  * Docker container name for the coder target when `TARGET_CONTAINER` is set for Leash
  * (`leash-target-<workspaceId>`). Used for `--dangerous-no-leash` so names match Leash runs.
  */
-export function leashTargetContainerName(sandboxBasePath: string): string {
+function leashTargetContainerName(sandboxBasePath: string): string {
   return `leash-target-${leashWorkspaceId(sandboxBasePath)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Utility: Docker compose
+// ---------------------------------------------------------------------------
+
+async function listComposeServices(opts: {
+  composeProjectName: string;
+  absoluteFile: string;
+}): Promise<string[]> {
+  const { composeProjectName, absoluteFile } = opts;
+  try {
+    const { stdout } = await runDocker([
+      'compose',
+      '-p',
+      composeProjectName,
+      '-f',
+      absoluteFile,
+      'ps',
+      '--services',
+    ]);
+    return stdout
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+async function attachComposeSvcToNetwork(opts: {
+  composeProjectName: string;
+  absoluteFile: string;
+  networkName: string;
+}): Promise<void> {
+  const { composeProjectName, absoluteFile, networkName } = opts;
+  const serviceNames = await listComposeServices({ composeProjectName, absoluteFile });
+  for (const service of serviceNames) {
+    try {
+      const { stdout } = await runDocker([
+        'compose',
+        '-p',
+        composeProjectName,
+        '-f',
+        absoluteFile,
+        'ps',
+        '-q',
+        service,
+      ]);
+      const containerName = stdout.trim();
+      if (!containerName) continue;
+
+      await runDocker(['network', 'connect', '--alias', service, networkName, containerName], {
+        stdio: 'inherit',
+      });
+      consola.log(
+        `[docker] Connected compose service "${service}" (${containerName}) to network "${networkName}"`,
+      );
+    } catch (err) {
+      consola.warn(
+        `[docker] Warning: could not attach compose service "${service}" to network "${networkName}": ${String(err)}`,
+      );
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1864,7 +1611,7 @@ function startLeashNetworkAttach(networkName: string, workspaceId: string): Netw
 }
 
 // ---------------------------------------------------------------------------
-// Utility: task prompt builder (moved from agent-runner.ts)
+// Utility: task prompt builder
 // ---------------------------------------------------------------------------
 
 interface BuildTaskPromptOpts {
@@ -1909,7 +1656,7 @@ async function buildTaskPrompt(opts: BuildTaskPromptOpts): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
-// Sidecar binary loader (moved from staging.ts)
+// Sidecar binary loader
 // ---------------------------------------------------------------------------
 
 async function getSidecarBinary(): Promise<Buffer> {
@@ -1939,6 +1686,10 @@ async function getSidecarBinary(): Promise<Buffer> {
   sidecarBinaryCache = await readFileBuffer(binaryPath);
   return sidecarBinaryCache;
 }
+
+// ---------------------------------------------------------------------------
+// Utility: Container polling
+// ---------------------------------------------------------------------------
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -2003,6 +1754,60 @@ async function waitForContainerOnNetwork(opts: {
   );
 }
 
+/**
+ * Waits until the container is ready.
+ *
+ * Checks the container's health endpoint.
+ */
+async function waitForContainerReady(opts: {
+  containerName: string;
+  container: Docker.Container;
+  port: number;
+  timeoutMs?: number;
+}): Promise<void> {
+  const { containerName, container, port, timeoutMs = 180_000 } = opts;
+  const healthCmd = [
+    'node',
+    '-e',
+    `fetch('http://localhost:${port}/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))`,
+  ];
+
+  const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
+
+  consola.log(`[docker] Waiting for ${containerName} to be ready on port ${port}...`);
+
+  while (Date.now() < deadline) {
+    attempt++;
+    try {
+      const info = await container.inspect();
+      if (!info.State.Running) {
+        throw new Error(
+          `[docker] ${containerName} exited (code ${info.State.ExitCode ?? '?'}) before the sidecar became ready. ` +
+            `Check the container logs above for startup errors.`,
+        );
+      }
+      const exec = await container.exec({
+        Cmd: healthCmd,
+        AttachStdout: true,
+        AttachStderr: true,
+      });
+      const stream = await exec.start({ hijack: true, stdin: false });
+      await new Promise<void>((res) => stream.on('end', res));
+      const inspect = await exec.inspect();
+      if ((inspect.ExitCode ?? -1) === 0) {
+        consola.log(`[docker] ${containerName} is ready (attempt ${attempt})`);
+        return;
+      }
+    } catch (err) {
+      consola.log(`[docker] Health check error (attempt ${attempt}): ${String(err)}`);
+    }
+    await sleep(500);
+  }
+
+  consola.warn(`[docker] ${containerName} did not become ready within ${timeoutMs}ms`);
+}
+
 // ---------------------------------------------------------------------------
 // Other utilities
 // ---------------------------------------------------------------------------
@@ -2046,4 +1851,241 @@ export function filterAgentEnv(agentEnv: Record<string, string>): Record<string,
     result[key] = val;
   }
   return result;
+}
+
+/**
+ * Resolve symlinks on the host path before passing to `docker run -v`.
+ * On macOS, `/tmp` often symlinks to `/private/tmp`; mixing non-canonical paths with
+ * Colima/Docker Desktop bind mounts can yield empty mounts (e.g. `/saifac/startup.sh` missing).
+ * Leash also uses `getcwd()` as `callerDir`; keep {@link spawn} `cwd` aligned with the same path.
+ */
+async function dockerHostBindPath(hostPath: string): Promise<string> {
+  try {
+    return await realpath(hostPath);
+  } catch {
+    return hostPath;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Utility: Logging
+// ---------------------------------------------------------------------------
+
+/**
+ * Split a single Docker API log buffer into stdout vs stderr text.
+ *
+ * Docker multiplexes both streams into one binary payload: each frame is an 8-byte header
+ * (stream type + payload length) followed by UTF-8 bytes. This is used when logs are fetched
+ * as a bounded buffer (e.g. after a container exits), not for live `follow: true` streaming
+ * where we already demux via `dockerode.modem.demuxStream`.
+ */
+function demuxDockerLogs(buffer: Buffer): { stdout: string; stderr: string } {
+  if (!Buffer.isBuffer(buffer)) return { stdout: String(buffer), stderr: '' };
+
+  let stdout = '';
+  let stderr = '';
+  let offset = 0;
+
+  while (offset < buffer.length) {
+    // Docker frame: 8-byte header (stream id byte + padding, then big-endian payload length).
+    if (offset + 8 > buffer.length) break;
+    const streamType = buffer[offset]; // 1 = stdout, 2 = stderr (other types ignored)
+    const size = buffer.readUInt32BE(offset + 4);
+    offset += 8;
+    if (offset + size > buffer.length) break; // truncated buffer — stop cleanly
+    const payload = buffer.slice(offset, offset + size).toString('utf8');
+    offset += size;
+    if (streamType === 1) stdout += payload;
+    else if (streamType === 2) stderr += payload;
+  }
+
+  return { stdout, stderr };
+}
+
+function formatContainerNetworkEndpoint(
+  networks: Record<string, { Aliases?: string[]; IPAddress?: string }> | undefined,
+  preferredNetwork: string,
+): string {
+  if (!networks || Object.keys(networks).length === 0) {
+    return '(no networks in container inspect)';
+  }
+  const preferred = networks[preferredNetwork];
+  if (preferred) {
+    const aliases = Array.isArray(preferred.Aliases) ? preferred.Aliases : [];
+    return `on "${preferredNetwork}" aliases=${JSON.stringify(aliases)} ip=${preferred.IPAddress ?? '?'}`;
+  }
+  const summary = Object.entries(networks).map(([k, v]) => ({
+    networkKey: k,
+    aliases: Array.isArray(v.Aliases) ? v.Aliases : [],
+    ip: v.IPAddress ?? '?',
+  }));
+  return `expected key "${preferredNetwork}" missing; attached: ${JSON.stringify(summary)}`;
+}
+
+async function logStagingContainerNetworkAliases(opts: {
+  container: Docker.Container;
+  networkName: string;
+  containerName: string;
+}): Promise<void> {
+  const { container, networkName, containerName } = opts;
+  try {
+    const info = await container.inspect();
+    const nets = info.NetworkSettings?.Networks as
+      | Record<string, { Aliases?: string[]; IPAddress?: string }>
+      | undefined;
+    const detail = formatContainerNetworkEndpoint(nets, networkName);
+    consola.log(`[docker] ${containerName} — ${detail}`);
+  } catch (err) {
+    consola.warn(
+      `[docker] Could not inspect staging container "${containerName}" for network aliases: ${String(err)}`,
+    );
+  }
+}
+
+async function logBridgeNetworkEndpoints(opts: {
+  networkName: string;
+  context: string;
+}): Promise<void> {
+  const { networkName, context } = opts;
+  try {
+    const listed = await docker.listNetworks({ filters: { name: [networkName] } });
+    const match = listed.find((n) => n.Name === networkName) ?? listed[0];
+    if (!match) {
+      consola.warn(`[docker] (${context}) No Docker network matched filter name="${networkName}"`);
+      return;
+    }
+    if (match.Name !== networkName) {
+      consola.warn(
+        `[docker] (${context}) listNetworks returned "${match.Name}" (wanted exact "${networkName}")`,
+      );
+    }
+    const net = docker.getNetwork(match.Id);
+    const data = await net.inspect();
+    const containers = data.Containers ?? {};
+    const rows = Object.values(containers).map((c) => ({
+      name: c.Name.replace(/^\//, ''),
+      ipv4: c.IPv4Address,
+    }));
+    consola.log(
+      `[docker] (${context}) Bridge "${data.Name}" id=${data.Id.slice(0, 12)}… driver=${data.Driver} endpointCount=${rows.length}:`,
+    );
+    consola.log(`[docker] (${context})   ${JSON.stringify(rows)}`);
+  } catch (err) {
+    consola.warn(
+      `[docker] (${context}) Could not inspect network "${networkName}": ${String(err)}`,
+    );
+  }
+}
+
+function streamContainerLogs(opts: {
+  container: Docker.Container;
+  source: ProvisionerLogSource;
+  containerLabel: string;
+  forwardLog: ProvisionerOnLog;
+}): void {
+  const { container, source, containerLabel, forwardLog } = opts;
+  void container
+    .logs({ follow: true, stdout: true, stderr: true, timestamps: false })
+    .then((stream: NodeJS.ReadableStream) => {
+      const out = new PassThrough();
+      const err = new PassThrough();
+      docker.modem.demuxStream(stream, out, err);
+
+      const makeHandler = (streamKind: 'stdout' | 'stderr') => {
+        let buf = '';
+        const onData = (chunk: Buffer | string) => {
+          buf += typeof chunk === 'string' ? chunk : chunk.toString('utf8');
+          const lines = buf.split('\n');
+          buf = lines.pop() ?? '';
+          for (const line of lines) {
+            if (line) {
+              forwardLog({
+                source,
+                stream: streamKind,
+                containerLabel,
+                raw: line,
+              });
+            }
+          }
+        };
+        const onEnd = () => {
+          if (buf) {
+            forwardLog({
+              source,
+              stream: streamKind,
+              containerLabel,
+              raw: buf,
+            });
+            buf = '';
+          }
+        };
+        return { onData, onEnd };
+      };
+
+      const stdoutH = makeHandler('stdout');
+      const stderrH = makeHandler('stderr');
+      out.on('data', stdoutH.onData);
+      out.on('end', stdoutH.onEnd);
+      err.on('data', stderrH.onData);
+      err.on('end', stderrH.onEnd);
+    })
+    .catch(() => {});
+}
+
+// ---------------------------------------------------------------------------
+// Internal container/network tracking
+// ---------------------------------------------------------------------------
+
+interface ContainerHandle {
+  id: string;
+  name: string;
+  container: Docker.Container;
+}
+
+class DockerRegistry {
+  private containers: ContainerHandle[] = [];
+  private networks: string[] = [];
+  private images: string[] = [];
+
+  registerContainers(handles: ContainerHandle[]): void {
+    this.containers.push(...handles);
+  }
+  registerNetwork(name: string): void {
+    if (name) this.networks.push(name);
+  }
+  registerImage(tag: string): void {
+    if (tag) this.images.push(tag);
+  }
+  deregisterContainers(handles: ContainerHandle[]): void {
+    const ids = new Set(handles.map((h) => h.id));
+    this.containers = this.containers.filter((h) => !ids.has(h.id));
+  }
+  deregisterNetwork(name: string): void {
+    this.networks = this.networks.filter((n) => n !== name);
+  }
+  deregisterImage(tag: string): void {
+    this.images = this.images.filter((t) => t !== tag);
+  }
+
+  async cleanup(): Promise<void> {
+    const containersToStop = [...this.containers];
+    const imagesToRemove = [...this.images];
+    this.containers = [];
+    this.networks = [];
+    this.images = [];
+
+    for (const handle of containersToStop) {
+      try {
+        await handle.container.remove({ force: true });
+      } catch (err) {
+        consola.warn(`[docker] Warning: could not remove ${handle.name}: ${String(err)}`);
+      }
+    }
+    // Bridge networks are removed only from teardown() after `compose down` and after
+    // ad-hoc containers (e.g. inspect `docker run`) are gone. Removing networks
+    // here would race them and yield "active endpoints" errors.
+    for (const tag of imagesToRemove) {
+      await removeDockerImage(tag);
+    }
+  }
 }

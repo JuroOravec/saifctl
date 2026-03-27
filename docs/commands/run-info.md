@@ -68,7 +68,6 @@ Example of the default **pretty-printed** output:
     "gateRetries": 10,
     "reviewerEnabled": true,
     "agentEnv": {},
-    "agentLogFormat": "openhands",
     "startupScriptFile": "sandbox-profiles/vitest/startup.sh",
     "gateScriptFile": "sandbox-profiles/vitest/gate.sh",
     "stageScriptFile": "sandbox-profiles/vitest/stage.sh",

@@ -13,13 +13,16 @@
 
 import { join } from 'node:path';
 
+import { resolveAgentProfile } from '../../agent-profiles/index.js';
 import { getSaifRoot } from '../../constants.js';
 import { resolveAgentLlmConfig } from '../../llm-config.js';
 import { consola } from '../../logger.js';
 import { createProvisioner } from '../../provisioners/index.js';
+import { defaultProvisionerLog } from '../../provisioners/logs.js';
 import type { RunCommit } from '../../runs/types.js';
 import type { CleanupRegistry } from '../../utils/cleanup.js';
 import { git } from '../../utils/git.js';
+import { createAgentStdoutPipe, createDefaultAgentLog } from '../logs.js';
 import type { IterativeLoopOpts } from '../loop.js';
 import {
   extractIncrementalRoundPatch,
@@ -52,7 +55,7 @@ export interface RunAgentPhaseInput {
     | 'coderImage'
     | 'gateRetries'
     | 'agentEnv'
-    | 'agentLogFormat'
+    | 'agentProfileId'
     | 'reviewerEnabled'
     | 'codingEnvironment'
     | 'saifDir'
@@ -88,12 +91,13 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
     coderImage,
     gateRetries,
     agentEnv,
-    agentLogFormat,
+    agentProfileId,
     reviewerEnabled,
     codingEnvironment,
     saifDir,
   } = opts;
 
+  const agentProfile = resolveAgentProfile(agentProfileId);
   const coderLlmConfig = resolveAgentLlmConfig('coder', overrides);
   const reviewer =
     reviewerEnabled && !dangerousDebug
@@ -118,6 +122,15 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
 
     await prepareRoundsStatsFile(sandbox.sandboxBasePath);
 
+    const logStrategy = agentProfile.stdoutStrategy;
+    const { onAgentStdout, onAgentStdoutEnd } = createAgentStdoutPipe({
+      stdoutStrategy: logStrategy,
+      onAgentLog: createDefaultAgentLog({
+        linePrefix: 'agent',
+        stdoutStrategy: logStrategy,
+      }),
+    });
+
     await codingProvisioner.runAgent({
       codePath: sandbox.codePath,
       sandboxBasePath: sandbox.sandboxBasePath,
@@ -135,8 +148,11 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
       agentInstallPath: sandbox.agentInstallPath,
       agentPath: sandbox.agentPath,
       agentEnv,
-      agentLogFormat,
+      onAgentStdout,
+      onAgentStdoutEnd,
+      onLog: defaultProvisionerLog,
       reviewer,
+      runId: sandbox.runId,
       signal,
     });
   } finally {

@@ -66,7 +66,6 @@ export type SerializedLoopOpts = {
   gitProviderId: string;
   gateRetries: number;
   agentEnv: Record<string, string>;
-  agentLogFormat: 'openhands' | 'raw';
   testScript: string;
   testProfileId: string;
   testRetries: number;

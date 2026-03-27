@@ -110,7 +110,7 @@ verbose flag is controlled by the VS Code setting `saifac.verbose` (in
 Several parts of the codebase write directly to stdout/stderr without going
 through consola:
 
-- `src/provisioners/docker/agent-log.ts` — Docker container log lines and LLM
+- `src/provisioners/docker/index.ts` — Docker container log lines and LLM
   thought tokens streamed in real time.
 - `src/provisioners/docker/index.ts` — `[agent]` lines from container
   stdout/stderr; sidecar stderr.

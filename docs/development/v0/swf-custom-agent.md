@@ -175,31 +175,13 @@ saifac feat run \
 
 ---
 
-## Step 5: Set the Agent Log Format
-
-Non-OpenHands agents usually don't emit the `--json` event stream. Use `--agent-log-format raw` so stdout is streamed line-by-line instead of parsed as JSON:
-
-```bash
-saifac feat run \
-  --agent-script ./aider-runner.sh \
-  --agent-log-format raw
-```
-
-| Value                 | Behaviour                                                               |
-| --------------------- | ----------------------------------------------------------------------- |
-| `openhands` (default) | Parse OpenHands `--json` events; pretty-print actions, thoughts, errors |
-| `raw`                 | Stream each line with an `[agent]` prefix; suitable for any agent       |
-
----
-
-## Step 6: Run the Factory Loop
+## Step 5: Run the Factory Loop
 
 Invoke `saifac feat run` (or `saifac run resume <runId>` for resume) with all flags combined:
 
 ```bash
 saifac feat run \
   --agent-script ./aider-runner.sh \
-  --agent-log-format raw \
   --agent-env-file ./agent.env \
   --startup-script ./startup-with-aider.sh
 ```
@@ -243,8 +225,7 @@ For `saifac run resume`, the same flags apply — you can change the agent scrip
 
    saifac feat run \
      --agent-script ./aider-runner.sh \
-     --startup-script ./startup-with-aider.sh \
-     --agent-log-format raw
+     --startup-script ./startup-with-aider.sh
    ```
 
 ---
@@ -256,7 +237,6 @@ If you use `--dangerous-debug`, the agent runs directly on the host (no Docker/L
 ```bash
 saifac feat run \
   --agent-script ./aider-runner.sh \
-  --agent-log-format raw \
   --dangerous-debug
 ```
 
@@ -265,6 +245,15 @@ In this mode:
 - The workspace is the sandbox `code/` directory (path passed as `SAIFAC_WORKSPACE_BASE`)
 - `$SAIFAC_TASK_PATH` points to `{sandbox}/code/.saifac/task.md`
 - Your agent must be installed on the host
+
+## Agent logging
+
+The factory uses the **selected agent profile**:
+
+- Profiles with a non-null `stdoutStrategy` (e.g. **OpenHands**) split and pretty-print structured segments inside the `[SAIFAC:AGENT_*]` window (e.g. OpenHands converts JSON events to `[think]`, `[agent]`, `[inspect]`, errors, etc.)
+- Profiles with **`stdoutStrategy: null`** stream **line-wise** output with an `[agent]` prefix inside that same window.
+
+Using `--agent-script` without changing `--agent` still uses the **current profile’s** strategy. Pick `--agent aider` (or another non-OpenHands profile) when your script is not emitting OpenHands JSON events.
 
 ---
 
@@ -276,7 +265,7 @@ In this mode:
 | Agent receives empty task    | `$SAIFAC_TASK_PATH` is unset or wrong                           | Don't override `SAIFAC_TASK_PATH` via `--agent-env`; the factory sets it automatically |
 | `--agent-env` var is ignored | Variable is reserved                                             | Don't pass `SAIFAC_*`, `LLM_*`, `REVIEWER_LLM_*` via `--agent-env`                     |
 | Agent not found in container | Agent isn't installed in the coder image or startup script       | Install in `--startup-script` or build a custom `--coder-image`                         |
-| Garbled or missing output    | Using default `openhands` log format with a non-OpenHands agent  | Add `--agent-log-format raw`                                                            |
+| Garbled or missing output    | OpenHands profile parsing applied to non–OpenHands output       | Use `--agent aider` (or another matching profile) or adjust `--agent` to match your script’s output shape |
 
 ---
 

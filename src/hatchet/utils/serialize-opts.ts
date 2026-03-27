@@ -41,7 +41,6 @@ export interface SerializedOrchestratorOpts extends Record<string, unknown> {
   gitProviderId: string;
   gateRetries: number;
   agentEnv: Record<string, string>;
-  agentLogFormat: 'openhands' | 'raw';
   testScript: string;
   testProfileId: string;
   testRetries: number;
@@ -166,7 +165,6 @@ export function deserializeOrchestratorOpts(serialized: Record<string, unknown>)
     gitProvider: getGitProvider(s.gitProviderId),
     gateRetries: s.gateRetries,
     agentEnv: s.agentEnv,
-    agentLogFormat: s.agentLogFormat,
     testScript: s.testScript,
     testProfile: resolveTestProfile(s.testProfileId),
     testRetries: s.testRetries,

@@ -105,7 +105,6 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 - `agentPath` — absolute host path to `sandboxBasePath/agent.sh`; mounted `:ro` at `/saifac/agent.sh`
 - `gateRetries` — max gate retries (required; caller supplies default)
 - `agentEnv` — extra env vars to forward into the container (reserved keys filtered out)
-- `agentLogFormat` — `'openhands'` (parse JSON event stream) or `'raw'` (line-stream)
 
 **Leash mode:**
 
@@ -129,7 +128,6 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 - `gateScript: string` — content of the gate script
 - `agentScript: string` — content of the agent runner script
 - `agentEnv: Record<string, string>` — extra env vars to forward to the agent
-- `agentLogFormat: 'openhands' | 'raw'` — how to display agent stdout
 - `gateRetries: number` — max gate retries (default: 10)
 
 **`runStart`:** Passes `gateScript`, `agentScript`, and `gateRetries` to `createSandbox` and `runAgent`.
@@ -157,13 +155,12 @@ For modes that need a full `OrchestratorOpts`, resolution is centralized in `src
 | `--agent-script`          | Path to a bash script that runs the coding agent; reads task from `$SAIFAC_TASK_PATH` | Built-in (OpenHands) |
 | `--agent-env KEY=VALUE`   | Extra env var to forward into the agent container (repeatable)                         | —                    |
 | `--agent-env-file <path>` | Path to a `.env` file with extra env vars to forward                                   | —                    |
-| `--agent-log-format`      | How to parse agent stdout: `openhands` (JSON events) or `raw` (line stream)            | `openhands` (profile default; e.g. `debug` uses `raw`) |
 
 **Parsing** (see `src/cli/utils.ts`; orchestration wiring in `feat.ts` / `run.ts`):
 
 - For **`saifac feat run`**, `parseRunArgs` builds CLI input + model delta, then **`resolveOrchestratorOpts`** applies defaults → artifact (none on fresh start) → CLI as described above.
 - `parseGateScript({ args, projectDir, config })`: If `--gate-script` is not set or empty, returns `readSandboxGateScript(profile.id)`. Otherwise reads the file from `projectDir`.
-- Gate retries, agent env, log format, and other orchestrator fields used by the inner loop are resolved inside **`buildOrchestratorOptsFromFeatArgs`** / **`applyOrchestratorBaseline`** (`src/orchestrator/options.ts`, with defaults in `options.ts` + `constants.ts`) and **`buildOrchestratorCliInputFromFeatArgs`** (`src/cli/utils.ts`) (not duplicated ad hoc in `feat.ts`).
+- Gate retries, agent env, and other orchestrator fields used by the inner loop are resolved inside **`buildOrchestratorOptsFromFeatArgs`** / **`applyOrchestratorBaseline`** (`src/orchestrator/options.ts`, with defaults in `options.ts` + `constants.ts`) and **`buildOrchestratorCliInputFromFeatArgs`** (`src/cli/utils.ts`) (not duplicated ad hoc in `feat.ts`).
 - `parseAgentScripts({ args, projectDir, config })`: Resolves `agent-install.sh` and `agent.sh` from the agent profile or from `--agent-install-script` / `--agent-script` paths.
 
 ---
@@ -241,7 +238,7 @@ saifac feat run --gate-retries 3
 set -euo pipefail
 aider --message-file "$SAIFAC_TASK_PATH" --yes
 
-saifac feat run --agent-script ./aider-runner.sh --agent-log-format raw
+saifac feat run --agent-script ./aider-runner.sh
 ```
 
 ### Custom agent script (Claude Code)
@@ -252,7 +249,7 @@ saifac feat run --agent-script ./aider-runner.sh --agent-log-format raw
 set -euo pipefail
 claude --print "$(cat "$SAIFAC_TASK_PATH")"
 
-saifac feat run --agent-script ./claude-runner.sh --agent-log-format raw
+saifac feat run --agent-script ./claude-runner.sh
 ```
 
 ### Forwarding custom env vars

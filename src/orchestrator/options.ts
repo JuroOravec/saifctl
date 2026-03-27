@@ -199,7 +199,6 @@ const ORCHESTRATOR_MERGE_KEYS = [
   'testScriptFile',
   'testProfile',
   'agentEnv',
-  'agentLogFormat',
   'gateRetries',
   'reviewerEnabled',
   'includeDirty',
@@ -315,7 +314,6 @@ async function applyOrchestratorBaseline(
     fileRaw: undefined,
     pairSegments: [],
   });
-  const agentLogFormat = resolveAgentLogFormat(noCli, agentProfile, config);
   const push = config?.defaults?.push ?? null;
   const pr = resolvePr(config, push);
   const targetBranch = null;
@@ -355,7 +353,6 @@ async function applyOrchestratorBaseline(
     testScriptFile: testR.testScriptFile,
     testProfile,
     agentEnv,
-    agentLogFormat,
     gateRetries,
     reviewerEnabled,
     includeDirty,
@@ -553,23 +550,6 @@ export function resolveTestImageTag(
     (trimmed ? trimmed : null) ?? config?.defaults?.testImage ?? `saifac-test-${profileId}:latest`;
   validateImageTag(tag, '--test-image');
   return tag;
-}
-
-/* eslint-disable-next-line max-params */
-export function resolveAgentLogFormat(
-  cliRaw: string | undefined,
-  agentProfile: AgentProfile,
-  config?: SaifacConfig,
-): 'openhands' | 'raw' {
-  const raw = cliRaw?.trim();
-  if (raw === 'raw') return 'raw';
-  if (raw === 'openhands') return 'openhands';
-  if (raw) {
-    consola.warn(
-      `[cli] Unknown --agent-log-format "${raw}"; falling back to profile default (${agentProfile.defaultLogFormat}).`,
-    );
-  }
-  return config?.defaults?.agentLogFormat ?? agentProfile.defaultLogFormat;
 }
 
 /** Bundled profile script vs project-relative path (CLI + `config.defaults`). */

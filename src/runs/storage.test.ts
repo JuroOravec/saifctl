@@ -36,7 +36,6 @@ const dummyArtifact: RunArtifact = {
     gateRetries: 10,
     reviewerEnabled: true,
     agentEnv: {},
-    agentLogFormat: 'openhands',
     testScript: 'test',
     gateScript: '#',
     startupScript: '#',

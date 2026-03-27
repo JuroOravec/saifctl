@@ -51,7 +51,6 @@ saifac feature run [options]
 | `--no-reviewer`        | —     | boolean | Disable the semantic AI reviewer. Use when Argus is unavailable or to speed up runs.                                                                                |
 | `--agent-env`          | —     | string  | Extra env for the agent container. Repeatable; each use is `KEY=VALUE` or comma-separated `KEY1=VAL1,KEY2=VAL2`. Values cannot contain commas.                     |
 | `--agent-env-file`     | —     | string  | Single path or comma-separated paths to .env file(s). Later overrides earlier for duplicate keys.                                                                   |
-| `--agent-log-format`   | —     | string  | How to parse agent stdout. `openhands` \| `raw` (default: from agent profile)                                                                                       |
 | `--storage`            | —     | string  | Where run state is stored. Bare global (`local`, `none`, `file:///path`, `s3`, `s3://bucket/prefix`) or per-key `runs=…` / `tasks=…` with the same value forms; comma-separated mixes. Feat run uses the `runs` key (default: local). `none` disables persistence. |
 | `--push`               | —     | string  | Push feature branch after success. Accepts Git URL, slug (owner/repo), or remote name.                                                                              |
 | `--pr`                 | —     | boolean | Open a Pull Request after pushing. Requires `--push` and provider token env var.                                                                                    |
@@ -98,7 +97,7 @@ Use a custom coder image or agent:
 
 ```bash
 saifac feat run -n add-login --coder-image my-saifac-coder:latest
-saifac feat run -n add-login --agent aider --agent-log-format raw
+saifac feat run -n add-login --agent aider
 ```
 
 Use custom run storage (S3, custom path):

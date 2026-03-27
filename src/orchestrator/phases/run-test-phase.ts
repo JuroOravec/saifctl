@@ -9,6 +9,7 @@ import { join } from 'node:path';
 
 import { consola } from '../../logger.js';
 import { createProvisioner } from '../../provisioners/index.js';
+import { defaultProvisionerLog } from '../../provisioners/logs.js';
 import type { TestsResult } from '../../provisioners/types.js';
 import type { CleanupRegistry } from '../../utils/cleanup.js';
 import { type IterativeLoopOpts, prepareTestRunnerOpts } from '../loop.js';
@@ -82,6 +83,7 @@ export async function runTestPhase(input: RunTestPhaseInput): Promise<RunTestPha
           projectName,
           startupPath: sandbox.startupPath,
           stagePath: sandbox.stagePath,
+          onLog: defaultProvisionerLog,
         });
 
         return await stagingProvisioner.runTests({
@@ -93,6 +95,7 @@ export async function runTestPhase(input: RunTestPhaseInput): Promise<RunTestPha
           projectName,
           reportPath: join(sandbox.sandboxBasePath, 'results.xml'),
           signal,
+          onLog: defaultProvisionerLog,
         });
       } finally {
         registry?.deregisterProvisioner(stagingProvisioner);

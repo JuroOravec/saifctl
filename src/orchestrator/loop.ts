@@ -22,6 +22,7 @@ import type { GitProvider } from '../git/types.js';
 import { type ModelOverrides, resolveAgentLlmConfig } from '../llm-config.js';
 import { consola } from '../logger.js';
 import { createProvisioner } from '../provisioners/index.js';
+import { defaultProvisionerLog } from '../provisioners/logs.js';
 import {
   type AssertionSuiteResult,
   type RunTestsOpts,
@@ -53,6 +54,7 @@ import type { CleanupRegistry } from '../utils/cleanup.js';
 import { git, gitClean, gitResetHard } from '../utils/git.js';
 import { appendUtf8, pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
 import { runVagueSpecsChecker } from './agents/vague-specs-check.js';
+import { createAgentStdoutPipe, createDefaultAgentLog } from './logs.js';
 import type { OrchestratorOpts } from './modes.js';
 import { applyPatchToHost } from './phases/apply-patch.js';
 import {
@@ -241,15 +243,6 @@ export interface IterativeLoopOpts {
    */
   agentEnv: Record<string, string>;
   /**
-   * Controls how agent stdout is parsed and displayed.
-   *
-   * - `'openhands'` (default) — parse OpenHands --json event stream; pretty-print
-   *   action events, thought blocks, and errors.
-   * - `'raw'` — stream lines as-is with an `[agent]` prefix; suitable for any
-   *   agent CLI that does not emit OpenHands-style JSON events.
-   */
-  agentLogFormat: 'openhands' | 'raw';
-  /**
    * Content of the test script to write into the sandbox and bind-mount at
    * /usr/local/bin/test.sh inside the Test Runner container (read-only).
    *
@@ -402,6 +395,7 @@ export async function runStagingTestVerification(params: {
           projectName,
           startupPath: sandbox.startupPath,
           stagePath: sandbox.stagePath,
+          onLog: defaultProvisionerLog,
         });
 
         return await stagingProvisioner.runTests({
@@ -412,6 +406,7 @@ export async function runStagingTestVerification(params: {
           feature,
           projectName,
           reportPath: join(sandbox.sandboxBasePath, 'results.xml'),
+          onLog: defaultProvisionerLog,
         });
       } finally {
         registry?.deregisterProvisioner(stagingProvisioner);
@@ -515,7 +510,7 @@ export async function runIterativeLoop(
     gitProvider,
     gateRetries,
     agentEnv,
-    agentLogFormat,
+    agentProfileId,
     testScript,
     reviewerEnabled,
     codingEnvironment,
@@ -542,6 +537,7 @@ export async function runIterativeLoop(
         }
       : null;
   const patchExclude = buildPatchExcludeRules(saifDir, opts.patchExclude);
+  const agentProfile = resolveAgentProfile(agentProfileId);
 
   const testRunnerOpts = await prepareTestRunnerOpts({
     feature,
@@ -738,7 +734,7 @@ export async function runIterativeLoop(
 
     while (attempts < maxRuns) {
       attempts++;
-      consola.log(`\n[orchestrator] ===== ATTEMPT ${attempts}/${maxRuns} =====`);
+      consola.log(`\n[orchestrator] ===== ATTEMPT ${attempts}/${maxRuns} (run ${runId}) =====`);
 
       const attemptStartedAt = new Date().toISOString();
 
@@ -817,6 +813,15 @@ export async function runIterativeLoop(
         await prepareRoundsStatsFile(sandbox.sandboxBasePath);
         await preparePendingRulesFile(sandbox.sandboxBasePath);
 
+        const logStrategy = agentProfile.stdoutStrategy;
+        const { onAgentStdout, onAgentStdoutEnd } = createAgentStdoutPipe({
+          stdoutStrategy: logStrategy,
+          onAgentLog: createDefaultAgentLog({
+            linePrefix: 'agent',
+            stdoutStrategy: logStrategy,
+          }),
+        });
+
         await codingProvisioner.runAgent({
           codePath: sandbox.codePath,
           sandboxBasePath: sandbox.sandboxBasePath,
@@ -834,8 +839,11 @@ export async function runIterativeLoop(
           agentInstallPath: sandbox.agentInstallPath,
           agentPath: sandbox.agentPath,
           agentEnv,
-          agentLogFormat,
+          onAgentStdout,
+          onAgentStdoutEnd,
+          onLog: defaultProvisionerLog,
           reviewer,
+          runId,
         });
 
         innerRounds = await readInnerRounds(roundsStatsPath(sandbox.sandboxBasePath));
@@ -1330,9 +1338,12 @@ export async function prepareTestRunnerOpts({
 }
 
 /** Settings banner for `feat run` and `run resume` (after merge), using resolved orchestrator opts. */
-export function logIterativeLoopSettings(opts: OrchestratorOpts): void {
+export function logIterativeLoopSettings(opts: OrchestratorOpts, meta?: { runId?: string }): void {
   const agentProfile = resolveAgentProfile(opts.agentProfileId);
   consola.log(`\nStarting iterative loop: ${opts.feature.name}`);
+  if (meta?.runId) {
+    consola.log(`  Run ID: ${meta.runId}`);
+  }
   consola.log(`  Max runs: ${opts.maxRuns}`);
   consola.log(`  Test retries: ${opts.testRetries}`);
   consola.log(`  Spec ambiguity resolution: ${opts.resolveAmbiguity}`);
@@ -1350,7 +1361,6 @@ export function logIterativeLoopSettings(opts: OrchestratorOpts): void {
   consola.log(`  Agent: ${agentProfile.displayName} (profile: ${agentProfile.id})`);
   consola.log(`  Stage script: ${opts.sandboxProfileId} profile default`);
   consola.log('  Test script: built-in (test-default.sh)');
-  consola.log(`  Agent log format: ${opts.agentLogFormat}`);
   consola.log(`  Agent env vars: ${Object.keys(opts.agentEnv).join(', ') || 'none'}`);
   consola.log(`  Gate retries: ${opts.gateRetries}`);
   if (opts.push) {

@@ -98,7 +98,6 @@ See [Environments and Infrastructure](services.md) for a user guide. See [Softwa
 | `cedarPolicyPath`  | string                      | `"/path/to/policy.cedar"` | `--cedar`                                 |
 | `coderImage`       | string                      | `"saifac-coder-node-pnpm-python:latest"` (or GHCR path) | `--coder-image` (overrides profile default) |
 | `gateRetries`      | number                      | `10`                      | `--gate-retries`                          |
-| `agentLogFormat`   | `"openhands" \| "raw"`      | `"openhands"`             | `--agent-log-format`                      |
 | `push`             | string                      | `"origin"`                | `--push`                                  |
 | `pr`               | boolean                     | `true`                    | `--pr`                                    |
 | `gitProvider`      | string                      | `"github"`                | `--git-provider`                          |

@@ -40,10 +40,17 @@ You choose which integration to use via `--agent <id>` or `--agent-script <path/
 - Must be idempotent (skip if already installed).
 - Optional: OpenHands and some others have it; agents baked into the image may have an empty script.
 
-### 3. Log format
+### 3. Agent logging
 
-- **`openhands`**: Factory parses OpenHands JSON event stream for pretty output. Only OpenHands uses this.
-- **`raw`**: Stream lines as-is with `[agent]` prefix. All other integrations use this.
+Some agents emit logs in formats which are not easy to read for human. For example OpenHands prints structured JSON events, whereas Aider emits a line-wise output.
+
+Thus we need to 1) handle logs per-agent, and 2) have ability to transform the agent's logs into human-friendly format. This is defined on every **agent profile** as a required **`stdoutStrategy`** field: either a strategy object or **`null`**.
+
+For example, OpenHands sets a strategy that detects the start and end of its JSON events. JSON events are then turned e.g. into `[think]`, etc, segments, while the rest is logged as-is.
+
+Profiles with **`stdoutStrategy: null`** get line-wise `[agent]`-prefixed output inside the `[SAIFAC:AGENT_*]` window.
+
+This is not configurable via CLI or `saifac.config`.
 
 ## Adding agents integrations
 

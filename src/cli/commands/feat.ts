@@ -27,7 +27,6 @@ import { generateTests } from '../../design-tests/write.js';
 import { DEFAULT_DESIGNER_PROFILE } from '../../designer-profiles/index.js';
 import type { ModelOverrides } from '../../llm-config.js';
 import { consola, setVerboseLogging } from '../../logger.js';
-import { logIterativeLoopSettings } from '../../orchestrator/loop.js';
 import { runFail2Pass, runStart } from '../../orchestrator/modes.js';
 import {
   mergeModelOverridesLayers,
@@ -609,6 +608,8 @@ async function _runDesignFail2pass(opts: {
   const testScript = testR.testScript;
 
   const stagingEnvironment = resolveStagingEnvironment(config);
+  const includeDirty =
+    args['include-dirty'] === true ? true : (config?.defaults?.includeDirty ?? false);
 
   consola.log(`\nFail2Pass verification: ${feature.name}`);
   const result = await runFail2Pass({
@@ -626,6 +627,7 @@ async function _runDesignFail2pass(opts: {
     stageScript,
     testScript,
     startupScript,
+    includeDirty,
   });
 
   consola.log(`\n${result.message}`);
@@ -752,8 +754,6 @@ export const parseRunArgs = async (args: ParsedArgsFromCommand<typeof runCommand
     cliModelDelta,
     artifact: null,
   });
-
-  logIterativeLoopSettings(orchestratorOpts);
 
   return orchestratorOpts;
 };

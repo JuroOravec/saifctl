@@ -430,6 +430,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         agentInstallScript: AGENT_INSTALL_SCRIPT,
         agentScript: AGENT_SCRIPT,
         stageScript: STAGE_SCRIPT,
+        includeDirty: false,
       });
 
       const codePath = paths.codePath;
@@ -557,6 +558,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         agentInstallScript: AGENT_INSTALL_SCRIPT,
         agentScript: AGENT_SCRIPT,
         stageScript: STAGE_SCRIPT,
+        includeDirty: false,
       };
 
       const first = await createSandbox(baseOpts);
@@ -678,6 +680,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         agentInstallScript: AGENT_INSTALL_SCRIPT,
         agentScript: AGENT_SCRIPT,
         stageScript: STAGE_SCRIPT,
+        includeDirty: false,
       });
 
       const codePath = paths.codePath;

@@ -12,10 +12,11 @@
  * Usage:
  *   const provisioner = createProvisioner(config.environments.staging);
  *   await provisioner.setup({ runId, projectName, featureName, projectDir });
- *   const staging = await provisioner.startStaging({ ... });
- *   const result  = await provisioner.runTests({ ..., stagingHandle: staging });
- *   await provisioner.runAgent({ ... });
- *   await provisioner.teardown({ runId });
+ *   await provisioner.startStaging({ ..., onLog: defaultProvisionerLog });
+ *   await provisioner.runTests({ ..., onLog: defaultProvisionerLog });
+ *   await provisioner.runAgent({ ..., onLog, onAgentStdout, onAgentStdoutEnd });
+ *
+ * Logging callbacks live on each method’s options — see {@link Provisioner}.
  */
 
 import type {
@@ -25,6 +26,9 @@ import type {
 } from '../config/schema.js';
 import { DockerProvisioner } from './docker/index.js';
 import type { Provisioner } from './types.js';
+
+export type { ProvisionerLogEvent, ProvisionerLogSource, ProvisionerOnLog } from './logs.js';
+export { defaultProvisionerLog } from './logs.js';
 
 /**
  * Factory: returns the correct Provisioner for the given environment config.

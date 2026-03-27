@@ -14,4 +14,4 @@ openhands --headless --always-approve --override-with-envs --json -t "$(cat "$SA
 
 - **Python required** — Installed via uv (preferred), pipx, or pip. Node-only images will fail.
 - **Env vars** — Uses `LLM_MODEL`, `LLM_API_KEY`, `LLM_BASE_URL` directly. `--override-with-envs` applies them over stored settings.
-- **Log format** — Emits JSONL; the factory parses it for pretty output (unlike other agents, which use raw line streaming).
+- **Stdout** — Emits JSONL; the OpenHands profile’s `stdoutStrategy` splits and formats segments for readable CLI output (e.g. `[think]` snippets, `[agent]` / `[inspect]` summaries, errors, etc.).

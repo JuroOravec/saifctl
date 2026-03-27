@@ -23,9 +23,7 @@ import {
   type OrchestratorCliInput,
   type OrchestratorScriptPick,
   pickAgentInstallScript,
-  pickAgentProfile,
   pickAgentScript,
-  resolveAgentLogFormat as resolveAgentLogFormatLayer,
 } from '../orchestrator/options.js';
 import { createRunStorage, type RunStorage } from '../runs/storage.js';
 import {
@@ -144,6 +142,7 @@ export interface OrchestratorArgs {
   'startup-script'?: string;
   'gate-script'?: string;
   'stage-script'?: string;
+  'include-dirty'?: boolean;
   agent?: string;
   'agent-script'?: string;
   'agent-install-script'?: string;
@@ -168,13 +167,11 @@ export interface FeatRunArgs extends OrchestratorArgs {
   cedar?: string;
   'coder-image'?: string;
   'gate-retries'?: string;
-  'include-dirty'?: boolean;
   'no-reviewer'?: boolean;
   /** Set by citty for `--no-reviewer` (negated boolean). */
   reviewer?: boolean;
   'agent-env'?: string | string[];
   'agent-env-file'?: string;
-  'agent-log-format'?: string;
   push?: string;
   pr?: boolean;
   branch?: string;
@@ -256,12 +253,6 @@ function readAgentEnvPairSegmentsFromCli(args: FeatRunArgs): string[] {
 export function readAgentInstallScriptPathFromCli(args: OrchestratorArgs): string | undefined {
   const v = args['agent-install-script'];
   return typeof v === 'string' ? v : undefined;
-}
-
-/** CLI-only: raw `--agent-log-format` string, or `undefined` if omitted. */
-export function readAgentLogFormatFromCli(args: FeatRunArgs): string | undefined {
-  const raw = args['agent-log-format'];
-  return raw !== undefined && raw !== '' ? String(raw) : undefined;
 }
 
 /** CLI-only: trimmed `--agent` profile id, or `undefined` if omitted / empty. */
@@ -1105,11 +1096,6 @@ export async function buildOrchestratorCliInputFromFeatArgs(
       ? resolveAgentProfile(runArgs.agent.trim()).id
       : undefined;
 
-  const agentProfileForFormat =
-    agentProfileIdCli !== undefined
-      ? resolveAgentProfile(agentProfileIdCli)
-      : pickAgentProfile(readAgentProfileIdFromCli(runArgs), config);
-
   const testProfileCli =
     typeof runArgs['test-profile'] === 'string' && runArgs['test-profile'].trim()
       ? resolveTestProfile(runArgs['test-profile'].trim())
@@ -1231,14 +1217,6 @@ export async function buildOrchestratorCliInputFromFeatArgs(
         })
       : undefined;
 
-  const agentLogFormatRaw = readAgentLogFormatFromCli(runArgs);
-  const agentLogFormat =
-    agentLogFormatRaw === 'raw' || agentLogFormatRaw === 'openhands'
-      ? agentLogFormatRaw
-      : agentLogFormatRaw
-        ? resolveAgentLogFormatLayer(agentLogFormatRaw, agentProfileForFormat, config)
-        : undefined;
-
   const push =
     typeof runArgs.push === 'string' && runArgs.push.trim() ? runArgs.push.trim() : undefined;
 
@@ -1304,7 +1282,6 @@ export async function buildOrchestratorCliInputFromFeatArgs(
     testScriptFile,
     testProfile: testProfileCli,
     agentEnv,
-    agentLogFormat,
     gateRetries,
     reviewerEnabled,
     includeDirty,

@@ -44,6 +44,7 @@ import { consola } from '../../logger.js';
 import {
   buildInitialTask,
   buildPatchExcludeRules,
+  logIterativeLoopSettings,
   prepareTestRunnerOpts,
   runStagingTestVerification,
   runVagueSpecsCheckerForFailure,
@@ -246,7 +247,7 @@ export function createFeatRunIterationWorkflow() {
           coderImage: opts.coderImage,
           gateRetries: opts.gateRetries,
           agentEnv: opts.agentEnv,
-          agentLogFormat: opts.agentLogFormat,
+          agentProfileId: opts.agentProfileId,
           reviewerEnabled: opts.reviewerEnabled,
           codingEnvironment: opts.codingEnvironment,
           saifDir,
@@ -424,6 +425,11 @@ export function createFeatRunWorkflow() {
       const opts = deserializeOrchestratorOpts(input.serializedOpts);
       const { maxRuns, feature, saifDir, resume, testOnly } = opts;
 
+      consola.log(
+        `\n[orchestrator] MODE: ${testOnly ? 'test' : 'start'} — ${feature.name} (run ${sandboxRaw.runId})`,
+      );
+      logIterativeLoopSettings(opts, { runId: sandboxRaw.runId });
+
       const rulesFromWire = (): RunRule[] => structuredClone(input.runContext.rules);
 
       // Summaries not collected during test-only runs (since no agent is run).
@@ -494,7 +500,9 @@ export function createFeatRunWorkflow() {
       const roundSummaries: OuterAttemptSummary[] = [];
 
       for (let attempt = 1; attempt <= maxRuns; attempt++) {
-        consola.log(`\n[hatchet] ===== ATTEMPT ${attempt}/${maxRuns} =====`);
+        consola.log(
+          `\n[hatchet] ===== ATTEMPT ${attempt}/${maxRuns} (run ${sandboxRaw.runId}) =====`,
+        );
         const attemptStartedAt = new Date().toISOString();
 
         // Some rules are marked as "once" and should be consumed after the coding round.
