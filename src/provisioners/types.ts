@@ -13,7 +13,6 @@
  * A HelmProvisioner would implement the same interface using Kubernetes.
  */
 
-import type { LlmConfig } from '../llm-config.js';
 import type { SupportedSandboxProfileId } from '../sandbox-profiles/types.js';
 import type { Feature } from '../specs/discover.js';
 import type { ProvisionerOnLog } from './logs.js';
@@ -126,6 +125,16 @@ export interface StartStagingOpts {
   onLog: ProvisionerOnLog;
 }
 
+/**
+ * Environment variables for the coder container, split by log sensitivity.
+ * Provisioners merge both into the real process/container; logging may show
+ * public `env` key+value and only secret key names for `secretEnv`.
+ */
+export interface ContainerEnv {
+  env: Record<string, string>;
+  secretEnv: Record<string, string>;
+}
+
 export interface RunTestsOpts {
   /** Absolute path to the feature's tests/ directory on the host. */
   testsDir: string;
@@ -156,8 +165,6 @@ export interface RunTestsOpts {
 }
 
 export interface RunAgentOpts {
-  /** Orchestrator run id; injected as `SAIFAC_RUN_ID` for coder-start and logs. */
-  runId: string;
   /** Absolute path to the sandbox code directory (host path). */
   codePath: string;
   /**
@@ -166,12 +173,10 @@ export interface RunAgentOpts {
    */
   sandboxBasePath: string;
   /**
-   * Full task prompt for the agent (orchestrator-built: plan + error feedback).
-   * Injected as `SAIFAC_INITIAL_TASK`.
+   * Pre-built container environment (public + secret). Assembled by the orchestrator.
+   * The provisioner only forwards it into Docker/Leash.
    */
-  taskPrompt: string;
-  /** Resolved LLM config injected as LLM_* env vars into the coder container. */
-  llmConfig: LlmConfig;
+  containerEnv: ContainerEnv;
   /** When true, run the agent on the host instead of inside a Leash container. */
   dangerousDebug: boolean;
   /**
@@ -183,16 +188,10 @@ export interface RunAgentOpts {
   cedarPolicyPath: string;
   /** Docker image for the coder container. Ignored when dangerousDebug=true. */
   coderImage: string;
-  /** Maximum gate iterations per agent run. Forwarded as SAIFAC_GATE_RETRIES. */
-  gateRetries: number;
   /**
    * Absolute host path to the sandbox `saifac/` bundle (mounted read-only at `/saifac` in the container).
    */
   saifacPath: string;
-  /**
-   * User-supplied extra env vars. Must already be filtered by the orchestrator (`filterAgentEnv`).
-   */
-  agentEnv: Record<string, string>;
   /**
    * Raw stdout chunks from the agent container. Separate from onLog because these logs
    * may have agent-specific log formatting applied to them.
@@ -206,13 +205,9 @@ export interface RunAgentOpts {
    */
   onLog: ProvisionerOnLog;
   /**
-   * Settings for the semantic reviewer (argus-ai). null = reviewer disabled.
-   * When set, `SAIFAC_REVIEWER_ENABLED=1` is injected; script is always `/saifac/reviewer.sh`.
+   * When set, mount the argus binary for the semantic reviewer. Reviewer LLM env vars live in `containerEnv`.
    */
-  reviewer: {
-    llmConfig: LlmConfig;
-    argusBinaryPath: string;
-  } | null;
+  reviewer: { argusBinaryPath: string } | null;
   /**
    * Optional abort signal. When fired (e.g. Hatchet step cancellation), the
    * agent child process is killed immediately and teardown() is still called
@@ -223,22 +218,18 @@ export interface RunAgentOpts {
 
 /**
  * Options for {@link Provisioner.startInspect}.
- * Use the same `taskPrompt` as the first coding round in `runIterativeLoop` / `run resume`.
+ * Use the same `containerEnv` as the first coding round in `runIterativeLoop` / `run resume`.
  */
 export interface StartInspectOpts {
   codePath: string;
   sandboxBasePath: string;
-  /** Same orchestrator-built prompt as {@link RunAgentOpts.taskPrompt}. */
-  taskPrompt: string;
+  /** Same pre-built env as {@link RunAgentOpts.containerEnv}. */
+  containerEnv: ContainerEnv;
   coderImage: string;
   dangerousNoLeash: boolean;
   cedarPolicyPath: string;
   saifacPath: string;
-  agentEnv: Record<string, string>;
   reviewer: RunAgentOpts['reviewer'];
-  gateRetries: number;
-  llmConfig: LlmConfig;
-  runId: string;
   signal?: AbortSignal;
   /** Same stdout contract as {@link RunAgentOpts.onAgentStdout}. */
   onAgentStdout: (chunk: string) => void;

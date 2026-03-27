@@ -3,7 +3,14 @@
  * Reserved keys must not shadow factory-injected variables.
  */
 
+import { join, resolve } from 'node:path';
+
+import type { SaifacConfig } from '../config/schema.js';
+import { LLM_API_KEYS, saifacTaskFilePath } from '../constants.js';
+import type { LlmConfig } from '../llm-config.js';
 import { consola } from '../logger.js';
+import type { ContainerEnv } from '../provisioners/types.js';
+import { pathExists, readUtf8 } from '../utils/io.js';
 
 // Since these keys are injected into the coder container, we raise error
 // if they are set by the user, because that likely means that the user
@@ -19,6 +26,7 @@ const RESERVED_ENV_KEYS = new Set([
   'SAIFAC_AGENT_SCRIPT',
   'SAIFAC_TASK_PATH',
   'SAIFAC_WORKSPACE_BASE',
+  'SAIFAC_RUN_ID',
   'LLM_API_KEY',
   'LLM_MODEL',
   'LLM_PROVIDER',
@@ -45,4 +53,277 @@ export function filterAgentEnv(agentEnv: Record<string, string>): Record<string,
     result[key] = val;
   }
   return result;
+}
+
+const ENV_VAR_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * Validates and filters `--agent-secret` / `--agent-secret-file` key names (same reserved rules as
+ * {@link filterAgentEnv}). Invalid names are skipped with a warning.
+ */
+export function filterAgentSecretKeyNames(keys: string[]): string[] {
+  const result: string[] = [];
+  for (const raw of keys) {
+    const key = raw.trim();
+    if (!key) continue;
+    if (!ENV_VAR_NAME_PATTERN.test(key)) {
+      consola.warn(
+        `[agent-runner] WARNING: --agent-secret "${raw}" is not a valid env var name and will be ignored.`,
+      );
+      continue;
+    }
+    if (key.startsWith('SAIFAC_') || RESERVED_ENV_KEYS.has(key)) {
+      consola.warn(
+        `[agent-runner] WARNING: --agent-secret ${key} is a reserved factory variable and will be ignored.`,
+      );
+      continue;
+    }
+    result.push(key);
+  }
+  return result;
+}
+
+function assertValidAgentSecretKeyName(key: string, source: string): void {
+  const k = key.trim();
+  if (!ENV_VAR_NAME_PATTERN.test(k)) {
+    consola.error(`Error: ${source}: invalid env var name "${key}"`);
+    process.exit(1);
+  }
+}
+
+/** Later duplicate names win (same semantics as overlapping --agent-env). */
+function dedupeAgentSecretKeyNamesLastWins(keys: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (let i = keys.length - 1; i >= 0; i--) {
+    const k = keys[i].trim();
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(k);
+  }
+  return out.reverse();
+}
+
+/**
+ * Merges `config.defaults.agentSecretKeys` with extra secret key names (e.g. from `--agent-secret`).
+ * Values are never read here — only key names; {@link resolveAgentSecretEnv} reads from `process.env`.
+ * File-based secrets are loaded inside {@link buildCoderContainerEnv}.
+ */
+export async function mergeAgentSecretKeysFromReads(opts: {
+  config?: SaifacConfig;
+  extraSecretKeys: string[];
+}): Promise<string[]> {
+  const { config, extraSecretKeys } = opts;
+  const merged: string[] = [];
+
+  for (const k of config?.defaults?.agentSecretKeys ?? []) {
+    assertValidAgentSecretKeyName(k, 'config.defaults.agentSecretKeys');
+    merged.push(k.trim());
+  }
+
+  for (const raw of extraSecretKeys) {
+    for (const seg of raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)) {
+      assertValidAgentSecretKeyName(seg, '--agent-secret');
+      merged.push(seg);
+    }
+  }
+
+  return dedupeAgentSecretKeyNamesLastWins(merged);
+}
+
+/**
+ * Filters `KEY=value` pairs from `--agent-secret-file` the same way as {@link filterAgentEnv}
+ * (reserved factory keys are dropped with a warning).
+ */
+export function filterAgentSecretPairs(pairs: Record<string, string>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, val] of Object.entries(pairs)) {
+    if (key.startsWith('SAIFAC_') || RESERVED_ENV_KEYS.has(key)) {
+      consola.warn(
+        `[agent-runner] WARNING: --agent-secret-file ${key} is a reserved factory variable and will be ignored.`,
+      );
+      continue;
+    }
+    result[key] = val;
+  }
+  return result;
+}
+
+/**
+ * Reads `.env`-style `KEY=value` lines from project-relative paths (same rules as `--agent-env-file`).
+ * Returns filtered pairs safe for the coder secret env.
+ */
+export async function loadAgentSecretEnvFromSecretFiles(
+  projectDir: string,
+  relativePaths: string[],
+): Promise<Record<string, string>> {
+  if (relativePaths.length === 0) return {};
+
+  // Absolute paths under projectDir; refuse to run if any listed file is missing (typos, wrong cwd).
+  const resolved = relativePaths.map((p) => resolve(projectDir, p));
+  const missing: string[] = [];
+  for (const p of resolved) {
+    if (!(await pathExists(p))) missing.push(p);
+  }
+  if (missing.length > 0) {
+    consola.error(`Error: --agent-secret-file: file(s) not found: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+
+  // Same merge order as --agent-env-file: later files overwrite duplicate keys.
+  const result: Record<string, string> = {};
+  for (const filePath of resolved) {
+    const lines = (await readUtf8(filePath)).split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq === -1) {
+        consola.warn(
+          `[agent-runner] WARNING: skipping malformed agent-secret-file line (no '='): ${trimmed}`,
+        );
+        continue;
+      }
+      // First '=' separates key from value; values may contain '='.
+      result[trimmed.slice(0, eq).trimEnd()] = trimmed.slice(eq + 1).trimStart();
+    }
+  }
+
+  return filterAgentSecretPairs(result);
+}
+
+/**
+ * Resolves filtered secret key names to values from `process.env`. Missing or empty values log a
+ * warning and are omitted (caller may still inject the same key via automatic LLM forwarding).
+ */
+export function resolveAgentSecretEnv(keys: string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const key of filterAgentSecretKeyNames(keys)) {
+    const val = process.env[key];
+    if (val === undefined || val === '') {
+      consola.warn(
+        `[agent-runner] WARNING: --agent-secret ${key}: not set or empty in host environment; skipping.`,
+      );
+      continue;
+    }
+    out[key] = val;
+  }
+  return out;
+}
+
+/** In-container workspace mount path (Docker / Leash). */
+const CONTAINER_WORKSPACE = '/workspace';
+
+export type CoderContainerEnvMode =
+  | { kind: 'container' }
+  | { kind: 'dangerousDebug'; codePath: string; saifacPath: string };
+
+/**
+ * Builds the full coder container environment for {@link RunAgentOpts.containerEnv} /
+ * {@link StartInspectOpts.containerEnv}. Public vs secret split is for safe debug logging
+ * in provisioners; both maps are merged when spawning the real process.
+ *
+ * The `agentEnv` argument is passed through {@link filterAgentEnv} so callers need not.
+ * `projectDir` is used to resolve `agentSecretFiles` paths (see {@link loadAgentSecretEnvFromSecretFiles}).
+ */
+export async function buildCoderContainerEnv(opts: {
+  mode: CoderContainerEnvMode;
+  llmConfig: LlmConfig;
+  reviewer: { llmConfig: LlmConfig } | null;
+  /** User-supplied public env; reserved factory keys are stripped via {@link filterAgentEnv}. */
+  agentEnv: Record<string, string>;
+  /** Project root; used to resolve {@link agentSecretFiles} paths. */
+  projectDir: string;
+  /**
+   * Host env var names whose values are copied from `process.env` into {@link ContainerEnv.secretEnv}
+   * (e.g. from `--agent-secret` / config). Applied after file-based agent secrets; host values
+   * win on duplicate keys.
+   */
+  agentSecretKeys: string[];
+  /**
+   * Project-relative paths to secret `.env` files (`KEY=value`); read on the host. Not logged as values by
+   * provisioners. Later files override earlier keys; host {@link agentSecretKeys} win on duplicate names.
+   */
+  agentSecretFiles: string[];
+  taskPrompt: string;
+  gateRetries: number;
+  runId: string;
+}): Promise<ContainerEnv> {
+  const {
+    mode,
+    llmConfig,
+    reviewer,
+    agentEnv,
+    projectDir,
+    agentSecretKeys,
+    agentSecretFiles,
+    taskPrompt,
+    gateRetries,
+    runId,
+  } = opts;
+
+  const agentSecretEnvFromFile = await loadAgentSecretEnvFromSecretFiles(
+    projectDir,
+    agentSecretFiles,
+  );
+
+  const safeAgentEnv = filterAgentEnv(agentEnv);
+
+  const env: Record<string, string> = {
+    ...safeAgentEnv,
+    SAIFAC_INITIAL_TASK: taskPrompt,
+    SAIFAC_GATE_RETRIES: String(gateRetries),
+    SAIFAC_RUN_ID: runId,
+    LLM_MODEL: llmConfig.fullModelString,
+    ...(llmConfig.provider ? { LLM_PROVIDER: llmConfig.provider } : {}),
+    ...(llmConfig.baseURL ? { LLM_BASE_URL: llmConfig.baseURL } : {}),
+    ...(reviewer ? { SAIFAC_REVIEWER_ENABLED: '1' } : {}),
+    ...(reviewer ? { REVIEWER_LLM_MODEL: reviewer.llmConfig.modelId } : {}),
+    ...(reviewer?.llmConfig.provider ? { REVIEWER_LLM_PROVIDER: reviewer.llmConfig.provider } : {}),
+    ...(reviewer?.llmConfig.baseURL ? { REVIEWER_LLM_BASE_URL: reviewer.llmConfig.baseURL } : {}),
+  };
+
+  if (mode.kind === 'container') {
+    Object.assign(env, {
+      SAIFAC_WORKSPACE_BASE: CONTAINER_WORKSPACE,
+      SAIFAC_STARTUP_SCRIPT: '/saifac/startup.sh',
+      SAIFAC_AGENT_INSTALL_SCRIPT: '/saifac/agent-install.sh',
+      SAIFAC_AGENT_SCRIPT: '/saifac/agent.sh',
+    });
+  } else {
+    // TODO - Move dangerousDebug to "LocalProvisioner", and map env vars above
+    //        to values below. Then remove the `mode` parameter and all its uses.
+    const { codePath, saifacPath } = mode;
+    Object.assign(env, {
+      SAIFAC_WORKSPACE_BASE: codePath,
+      SAIFAC_STARTUP_SCRIPT: join(saifacPath, 'startup.sh'),
+      SAIFAC_AGENT_INSTALL_SCRIPT: join(saifacPath, 'agent-install.sh'),
+      SAIFAC_GATE_SCRIPT: join(saifacPath, 'gate.sh'),
+      SAIFAC_AGENT_SCRIPT: join(saifacPath, 'agent.sh'),
+      // TODO - Temporary: only host-side dangerousDebug needs an absolute task path; in-container
+      // flows derive `.saifac/task.md` from SAIFAC_WORKSPACE_BASE. Remove when dangerousDebug
+      // becomes a dedicated local provisioner (see DockerProvisioner TODO).
+      SAIFAC_TASK_PATH: saifacTaskFilePath(codePath),
+    });
+  }
+
+  const secretEnv: Record<string, string> = {
+    LLM_API_KEY: llmConfig.apiKey,
+  };
+  for (const key of LLM_API_KEYS) {
+    const val = process.env[key];
+    if (val) secretEnv[key] = val;
+  }
+  if (reviewer) {
+    secretEnv.REVIEWER_LLM_API_KEY = reviewer.llmConfig.apiKey;
+  }
+
+  Object.assign(secretEnv, agentSecretEnvFromFile);
+  const fromAgentSecrets = resolveAgentSecretEnv(agentSecretKeys);
+  Object.assign(secretEnv, fromAgentSecrets);
+
+  return { env, secretEnv };
 }

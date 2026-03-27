@@ -66,6 +66,13 @@ export type SerializedLoopOpts = {
   gitProviderId: string;
   gateRetries: number;
   agentEnv: Record<string, string>;
+  /** Host env var names only; values are re-read from `process.env` on resume. */
+  agentSecretKeys: string[];
+  /**
+   * Project-relative secret file paths (`KEY=value` .env files). Re-read on resume; values are not
+   * stored in the artifact.
+   */
+  agentSecretFiles?: string[];
   testScript: string;
   testProfileId: string;
   testRetries: number;
@@ -125,9 +132,17 @@ export function deserializeArtifactConfig(serialized: SerializedLoopOpts): Omit<
   testProfile: TestProfile;
   patchExclude?: PatchExcludeRule[];
 } {
-  const { gitProviderId, testProfileId, patchExcludeStr, ...rest } = serialized;
+  const {
+    gitProviderId,
+    testProfileId,
+    patchExcludeStr,
+    agentSecretFiles: _agentSecretFilesIn,
+    ...rest
+  } = serialized;
   return {
     ...rest,
+    agentSecretKeys: serialized.agentSecretKeys ?? [],
+    agentSecretFiles: serialized.agentSecretFiles ?? [],
     gitProvider: getGitProvider(gitProviderId),
     testProfile: resolveTestProfile(testProfileId),
     patchExclude: patchExcludeStr?.map((rule) =>

@@ -24,7 +24,7 @@ import { PassThrough } from 'node:stream';
 import Docker from 'dockerode';
 
 import type { DockerEnvironment } from '../../config/schema.js';
-import { getSaifRoot, saifacTaskFilePath } from '../../constants.js';
+import { getSaifRoot } from '../../constants.js';
 import { consola } from '../../logger.js';
 import {
   resolveSandboxCoderDockerfilePath,
@@ -43,6 +43,7 @@ import { type ProvisionerLogSource, type ProvisionerOnLog } from '../logs.js';
 import type {
   AgentResult,
   CoderInspectSessionHandle,
+  ContainerEnv,
   Provisioner,
   ProvisionerSetupOpts,
   ProvisionerTeardownOpts,
@@ -424,18 +425,14 @@ export class DockerProvisioner implements Provisioner {
     const {
       codePath,
       sandboxBasePath,
-      taskPrompt,
-      llmConfig,
+      containerEnv,
       dangerousDebug,
       dangerousNoLeash,
       cedarPolicyPath,
       coderImage,
-      gateRetries,
       saifacPath,
-      agentEnv,
       reviewer,
       signal,
-      runId,
       onAgentStdout,
       onAgentStdoutEnd,
       onLog,
@@ -443,11 +440,6 @@ export class DockerProvisioner implements Provisioner {
 
     /** Set for `--dangerous-no-leash` so abort/error can `docker rm -f` the named container. */
     let dockerDirectRunContainerToRemove: string | null = null;
-
-    const llmModel = llmConfig.fullModelString;
-    const llmApiKey = llmConfig.apiKey;
-    const llmProvider = llmConfig.provider;
-    const llmBaseUrl = llmConfig.baseURL;
 
     let cmd: string;
     let args: string[];
@@ -465,31 +457,8 @@ export class DockerProvisioner implements Provisioner {
         ...Object.fromEntries(
           Object.entries(process.env).filter(([, v]) => v !== undefined) as [string, string][],
         ),
-        ...agentEnv,
-        LLM_MODEL: llmModel,
-        LLM_API_KEY: llmApiKey,
-        ...(llmProvider ? { LLM_PROVIDER: llmProvider } : {}),
-        ...(llmBaseUrl ? { LLM_BASE_URL: llmBaseUrl } : {}),
-        SAIFAC_WORKSPACE_BASE: codePath,
-        SAIFAC_INITIAL_TASK: taskPrompt,
-        SAIFAC_GATE_RETRIES: String(gateRetries),
-        SAIFAC_STARTUP_SCRIPT: join(saifacPath, 'startup.sh'),
-        SAIFAC_AGENT_INSTALL_SCRIPT: join(saifacPath, 'agent-install.sh'),
-        SAIFAC_GATE_SCRIPT: join(saifacPath, 'gate.sh'),
-        SAIFAC_AGENT_SCRIPT: join(saifacPath, 'agent.sh'),
-        SAIFAC_TASK_PATH: saifacTaskFilePath(codePath),
-        SAIFAC_RUN_ID: runId,
-        ...(reviewer
-          ? {
-              SAIFAC_REVIEWER_ENABLED: '1',
-              REVIEWER_LLM_PROVIDER: reviewer.llmConfig.provider,
-              REVIEWER_LLM_MODEL: reviewer.llmConfig.modelId,
-              REVIEWER_LLM_API_KEY: reviewer.llmConfig.apiKey,
-              ...(reviewer.llmConfig.baseURL
-                ? { REVIEWER_LLM_BASE_URL: reviewer.llmConfig.baseURL }
-                : {}),
-            }
-          : {}),
+        ...containerEnv.env,
+        ...containerEnv.secretEnv,
       };
       consola.log('[agent-runner] Mode: dangerous-debug (host execution, filesystem sandbox only)');
     } else if (dangerousNoLeash) {
@@ -498,44 +467,6 @@ export class DockerProvisioner implements Provisioner {
       const codePathHost = await dockerHostBindPath(codePath);
       const saifacDirHost = await dockerHostBindPath(saifacPath);
       const containerName = leashTargetContainerName(sandboxBasePath);
-
-      const envForward: Record<string, string> = {
-        LLM_MODEL: llmModel,
-        LLM_API_KEY: llmApiKey,
-        ...(llmProvider ? { LLM_PROVIDER: llmProvider } : {}),
-        ...(llmBaseUrl ? { LLM_BASE_URL: llmBaseUrl } : {}),
-        OPENHANDS_WORK_DIR: '/tmp/openhands-state',
-        ...agentEnv,
-      };
-
-      for (const key of [
-        'ANTHROPIC_API_KEY',
-        'OPENAI_API_KEY',
-        'OPENROUTER_API_KEY',
-        'GEMINI_API_KEY',
-        'DASHSCOPE_API_KEY',
-      ]) {
-        const val = process.env[key];
-        if (val) envForward[key] = val;
-      }
-
-      if (reviewer) {
-        envForward.SAIFAC_REVIEWER_ENABLED = '1';
-        envForward.REVIEWER_LLM_PROVIDER = reviewer.llmConfig.provider;
-        envForward.REVIEWER_LLM_MODEL = reviewer.llmConfig.modelId;
-        envForward.REVIEWER_LLM_API_KEY = reviewer.llmConfig.apiKey;
-        if (reviewer.llmConfig.baseURL) {
-          envForward.REVIEWER_LLM_BASE_URL = reviewer.llmConfig.baseURL;
-        }
-      }
-
-      envForward.SAIFAC_WORKSPACE_BASE = CONTAINER_WORKSPACE;
-      envForward.SAIFAC_INITIAL_TASK = taskPrompt;
-      envForward.SAIFAC_GATE_RETRIES = String(gateRetries);
-      envForward.SAIFAC_STARTUP_SCRIPT = '/saifac/startup.sh';
-      envForward.SAIFAC_AGENT_INSTALL_SCRIPT = '/saifac/agent-install.sh';
-      envForward.SAIFAC_AGENT_SCRIPT = '/saifac/agent.sh';
-      envForward.SAIFAC_RUN_ID = runId;
 
       const dockerRunArgs: string[] = [
         'run',
@@ -562,30 +493,10 @@ export class DockerProvisioner implements Provisioner {
         dockerRunArgs.push('-v', `${argusBinaryHost}:/usr/local/bin/argus:ro`);
       }
 
-      for (const [key, val] of Object.entries(envForward)) {
-        dockerRunArgs.push(`-e${key}=${val}`);
-      }
-
+      dockerRunArgs.push(...dockerRunCoderEnvArgs(containerEnv));
       dockerRunArgs.push(coderImage, 'bash', '/saifac/coder-start.sh');
 
-      const SENSITIVE_ENV_KEYS = new Set([
-        'LLM_API_KEY',
-        'REVIEWER_LLM_API_KEY',
-        'ANTHROPIC_API_KEY',
-        'OPENAI_API_KEY',
-        'OPENROUTER_API_KEY',
-        'GEMINI_API_KEY',
-        'DASHSCOPE_API_KEY',
-      ]);
-      argsForPrint = dockerRunArgs.map((a) => {
-        if (!a.startsWith('-e')) return a;
-        const eq = a.indexOf('=');
-        if (eq <= 2) return a;
-        const k = a.slice(2, eq);
-        if (SENSITIVE_ENV_KEYS.has(k)) return `-e${k}=****`;
-        if (k === 'SAIFAC_INITIAL_TASK') return `-e${k}=<task (${a.length - eq - 1} chars)>`;
-        return a;
-      });
+      argsForPrint = redactDockerRunArgsForPrint(dockerRunArgs, containerEnv);
 
       cmd = 'docker';
       args = dockerRunArgs;
@@ -609,26 +520,6 @@ export class DockerProvisioner implements Provisioner {
       const codePathHost = await dockerHostBindPath(codePath);
       const saifacDirHost = await dockerHostBindPath(saifacPath);
 
-      const envForward: Record<string, string> = {
-        LLM_MODEL: llmModel,
-        LLM_API_KEY: llmApiKey,
-        ...(llmProvider ? { LLM_PROVIDER: llmProvider } : {}),
-        ...(llmBaseUrl ? { LLM_BASE_URL: llmBaseUrl } : {}),
-        OPENHANDS_WORK_DIR: '/tmp/openhands-state',
-        ...agentEnv,
-      };
-
-      for (const key of [
-        'ANTHROPIC_API_KEY',
-        'OPENAI_API_KEY',
-        'OPENROUTER_API_KEY',
-        'GEMINI_API_KEY',
-        'DASHSCOPE_API_KEY',
-      ]) {
-        const val = process.env[key];
-        if (val) envForward[key] = val;
-      }
-
       const leashArgs: string[] = [
         'leash',
         '--no-interactive',
@@ -644,13 +535,6 @@ export class DockerProvisioner implements Provisioner {
       if (reviewer) {
         const argusBinaryHost = await dockerHostBindPath(reviewer.argusBinaryPath);
         leashArgs.push('--volume', `${argusBinaryHost}:/usr/local/bin/argus:ro`);
-        envForward.SAIFAC_REVIEWER_ENABLED = '1';
-        envForward.REVIEWER_LLM_PROVIDER = reviewer.llmConfig.provider;
-        envForward.REVIEWER_LLM_MODEL = reviewer.llmConfig.modelId;
-        envForward.REVIEWER_LLM_API_KEY = reviewer.llmConfig.apiKey;
-        if (reviewer.llmConfig.baseURL) {
-          envForward.REVIEWER_LLM_BASE_URL = reviewer.llmConfig.baseURL;
-        }
       }
 
       if (await pathExists(cedarPolicyPath)) {
@@ -661,48 +545,12 @@ export class DockerProvisioner implements Provisioner {
         throw new Error(`Cedar policy file not found at ${cedarPolicyPath}`);
       }
 
-      for (const [key, val] of Object.entries(envForward)) {
-        leashArgs.push('--env', `${key}=${val}`);
-      }
+      pushLeashContainerEnv(leashArgs, containerEnv);
+      // Invoke via bash so the script doesn't need +x in the mounted directory.
+      // This mirrors how gate.sh and reviewer.sh are invoked inside coder-start.sh.
+      leashArgs.push('bash', '/saifac/coder-start.sh');
 
-      leashArgs.push(
-        '--env',
-        `SAIFAC_WORKSPACE_BASE=${CONTAINER_WORKSPACE}`,
-        '--env',
-        `SAIFAC_INITIAL_TASK=${taskPrompt}`,
-        '--env',
-        `SAIFAC_GATE_RETRIES=${gateRetries}`,
-        '--env',
-        `SAIFAC_STARTUP_SCRIPT=/saifac/startup.sh`,
-        '--env',
-        `SAIFAC_AGENT_INSTALL_SCRIPT=/saifac/agent-install.sh`,
-        '--env',
-        `SAIFAC_AGENT_SCRIPT=/saifac/agent.sh`,
-        '--env',
-        `SAIFAC_RUN_ID=${runId}`,
-        // Invoke via bash so the script doesn't need +x in the mounted directory.
-        // This mirrors how gate.sh and reviewer.sh are invoked inside coder-start.sh.
-        'bash',
-        '/saifac/coder-start.sh',
-      );
-
-      const SENSITIVE_ENV_KEYS = new Set([
-        'LLM_API_KEY',
-        'REVIEWER_LLM_API_KEY',
-        'ANTHROPIC_API_KEY',
-        'OPENAI_API_KEY',
-        'OPENROUTER_API_KEY',
-        'GEMINI_API_KEY',
-        'DASHSCOPE_API_KEY',
-      ]);
-      argsForPrint = leashArgs.map((a) => {
-        if (!a.includes('=')) return a;
-        const eq = a.indexOf('=');
-        const k = a.slice(0, eq);
-        if (SENSITIVE_ENV_KEYS.has(k)) return `${k}=****`;
-        if (k === 'SAIFAC_INITIAL_TASK') return `${k}=<task (${a.length - eq - 1} chars)>`;
-        return a;
-      });
+      argsForPrint = redactLeashArgsForPrint(leashArgs, containerEnv);
 
       // execPath=`/usr/local/bin/node`
       // leashBin=`/path/to/my-proj/node_modules/@strongdm/leash/bin/leash.js`
@@ -727,9 +575,14 @@ export class DockerProvisioner implements Provisioner {
       consola.log(`[agent-runner] Sandbox mount: ${codePathHost} → ${CONTAINER_WORKSPACE}`);
     }
 
-    consola.log(`[agent-runner] Starting agent (model: ${llmModel})`);
+    consola.debug(`[agent-runner] containerEnv (public): ${JSON.stringify(containerEnv.env)}`);
+    consola.debug(
+      `[agent-runner] containerEnv.secret keys: ${Object.keys(containerEnv.secretEnv).sort().join(', ')}`,
+    );
+
+    consola.log(`[agent-runner] Starting agent (run ID: ${this.runId})`);
     consola.log(
-      `[agent-runner] Command: ${cmd} ${argsForPrint!.map((s) => s.slice(0, 100)).join(' ')}`,
+      `[agent-runner] Command: ${cmd} ${argsForPrint.map((s) => s.slice(0, 100)).join(' ')}`,
     );
 
     if (!dangerousDebug && !dangerousNoLeash) {
@@ -835,17 +688,13 @@ export class DockerProvisioner implements Provisioner {
     const {
       codePath,
       sandboxBasePath,
-      taskPrompt,
+      containerEnv,
       coderImage,
       dangerousNoLeash,
       cedarPolicyPath,
       saifacPath,
-      agentEnv,
       reviewer,
-      gateRetries,
-      llmConfig,
       signal,
-      runId,
       onAgentStdout,
       onAgentStdoutEnd,
       onLog,
@@ -853,10 +702,6 @@ export class DockerProvisioner implements Provisioner {
 
     let dockerDirectRunContainerToRemove: string | null = null;
 
-    const llmModel = llmConfig.fullModelString;
-    const llmApiKey = llmConfig.apiKey;
-    const llmProvider = llmConfig.provider;
-    const llmBaseUrl = llmConfig.baseURL;
     const containerName = leashTargetContainerName(sandboxBasePath);
 
     let cmd: string;
@@ -870,44 +715,6 @@ export class DockerProvisioner implements Provisioner {
 
       const codePathHost = await dockerHostBindPath(codePath);
       const saifacDirHost = await dockerHostBindPath(saifacPath);
-
-      const envForward: Record<string, string> = {
-        LLM_MODEL: llmModel,
-        LLM_API_KEY: llmApiKey,
-        ...(llmProvider ? { LLM_PROVIDER: llmProvider } : {}),
-        ...(llmBaseUrl ? { LLM_BASE_URL: llmBaseUrl } : {}),
-        OPENHANDS_WORK_DIR: '/tmp/openhands-state',
-        ...agentEnv,
-      };
-
-      for (const key of [
-        'ANTHROPIC_API_KEY',
-        'OPENAI_API_KEY',
-        'OPENROUTER_API_KEY',
-        'GEMINI_API_KEY',
-        'DASHSCOPE_API_KEY',
-      ]) {
-        const val = process.env[key];
-        if (val) envForward[key] = val;
-      }
-
-      if (reviewer) {
-        envForward.SAIFAC_REVIEWER_ENABLED = '1';
-        envForward.REVIEWER_LLM_PROVIDER = reviewer.llmConfig.provider;
-        envForward.REVIEWER_LLM_MODEL = reviewer.llmConfig.modelId;
-        envForward.REVIEWER_LLM_API_KEY = reviewer.llmConfig.apiKey;
-        if (reviewer.llmConfig.baseURL) {
-          envForward.REVIEWER_LLM_BASE_URL = reviewer.llmConfig.baseURL;
-        }
-      }
-
-      envForward.SAIFAC_WORKSPACE_BASE = CONTAINER_WORKSPACE;
-      envForward.SAIFAC_INITIAL_TASK = taskPrompt;
-      envForward.SAIFAC_GATE_RETRIES = String(gateRetries);
-      envForward.SAIFAC_STARTUP_SCRIPT = '/saifac/startup.sh';
-      envForward.SAIFAC_AGENT_INSTALL_SCRIPT = '/saifac/agent-install.sh';
-      envForward.SAIFAC_AGENT_SCRIPT = '/saifac/agent.sh';
-      envForward.SAIFAC_RUN_ID = runId;
 
       const dockerRunArgs: string[] = [
         'run',
@@ -934,30 +741,10 @@ export class DockerProvisioner implements Provisioner {
         dockerRunArgs.push('-v', `${argusBinaryHost}:/usr/local/bin/argus:ro`);
       }
 
-      for (const [key, val] of Object.entries(envForward)) {
-        dockerRunArgs.push(`-e${key}=${val}`);
-      }
-
+      dockerRunArgs.push(...dockerRunCoderEnvArgs(containerEnv));
       dockerRunArgs.push(coderImage, 'bash', '-c', 'sleep infinity');
 
-      const SENSITIVE_ENV_KEYS = new Set([
-        'LLM_API_KEY',
-        'REVIEWER_LLM_API_KEY',
-        'ANTHROPIC_API_KEY',
-        'OPENAI_API_KEY',
-        'OPENROUTER_API_KEY',
-        'GEMINI_API_KEY',
-        'DASHSCOPE_API_KEY',
-      ]);
-      argsForPrint = dockerRunArgs.map((a) => {
-        if (!a.startsWith('-e')) return a;
-        const eq = a.indexOf('=');
-        if (eq <= 2) return a;
-        const k = a.slice(2, eq);
-        if (SENSITIVE_ENV_KEYS.has(k)) return `-e${k}=****`;
-        if (k === 'SAIFAC_INITIAL_TASK') return `-e${k}=<task (${a.length - eq - 1} chars)>`;
-        return a;
-      });
+      argsForPrint = redactDockerRunArgsForPrint(dockerRunArgs, containerEnv);
 
       cmd = 'docker';
       args = dockerRunArgs;
@@ -976,26 +763,6 @@ export class DockerProvisioner implements Provisioner {
       const codePathHost = await dockerHostBindPath(codePath);
       const saifacDirHost = await dockerHostBindPath(saifacPath);
 
-      const envForward: Record<string, string> = {
-        LLM_MODEL: llmModel,
-        LLM_API_KEY: llmApiKey,
-        ...(llmProvider ? { LLM_PROVIDER: llmProvider } : {}),
-        ...(llmBaseUrl ? { LLM_BASE_URL: llmBaseUrl } : {}),
-        OPENHANDS_WORK_DIR: '/tmp/openhands-state',
-        ...agentEnv,
-      };
-
-      for (const key of [
-        'ANTHROPIC_API_KEY',
-        'OPENAI_API_KEY',
-        'OPENROUTER_API_KEY',
-        'GEMINI_API_KEY',
-        'DASHSCOPE_API_KEY',
-      ]) {
-        const val = process.env[key];
-        if (val) envForward[key] = val;
-      }
-
       const leashArgs: string[] = [
         'leash',
         '--no-interactive',
@@ -1011,13 +778,6 @@ export class DockerProvisioner implements Provisioner {
       if (reviewer) {
         const argusBinaryHost = await dockerHostBindPath(reviewer.argusBinaryPath);
         leashArgs.push('--volume', `${argusBinaryHost}:/usr/local/bin/argus:ro`);
-        envForward.SAIFAC_REVIEWER_ENABLED = '1';
-        envForward.REVIEWER_LLM_PROVIDER = reviewer.llmConfig.provider;
-        envForward.REVIEWER_LLM_MODEL = reviewer.llmConfig.modelId;
-        envForward.REVIEWER_LLM_API_KEY = reviewer.llmConfig.apiKey;
-        if (reviewer.llmConfig.baseURL) {
-          envForward.REVIEWER_LLM_BASE_URL = reviewer.llmConfig.baseURL;
-        }
       }
 
       if (await pathExists(cedarPolicyPath)) {
@@ -1028,47 +788,10 @@ export class DockerProvisioner implements Provisioner {
         throw new Error(`Cedar policy file not found at ${cedarPolicyPath}`);
       }
 
-      for (const [key, val] of Object.entries(envForward)) {
-        leashArgs.push('--env', `${key}=${val}`);
-      }
+      pushLeashContainerEnv(leashArgs, containerEnv);
+      leashArgs.push('bash', '-c', 'sleep infinity');
 
-      leashArgs.push(
-        '--env',
-        `SAIFAC_WORKSPACE_BASE=${CONTAINER_WORKSPACE}`,
-        '--env',
-        `SAIFAC_INITIAL_TASK=${taskPrompt}`,
-        '--env',
-        `SAIFAC_GATE_RETRIES=${String(gateRetries)}`,
-        '--env',
-        `SAIFAC_STARTUP_SCRIPT=/saifac/startup.sh`,
-        '--env',
-        `SAIFAC_AGENT_INSTALL_SCRIPT=/saifac/agent-install.sh`,
-        '--env',
-        `SAIFAC_AGENT_SCRIPT=/saifac/agent.sh`,
-        '--env',
-        `SAIFAC_RUN_ID=${runId}`,
-        'bash',
-        '-c',
-        'sleep infinity',
-      );
-
-      const SENSITIVE_ENV_KEYS = new Set([
-        'LLM_API_KEY',
-        'REVIEWER_LLM_API_KEY',
-        'ANTHROPIC_API_KEY',
-        'OPENAI_API_KEY',
-        'OPENROUTER_API_KEY',
-        'GEMINI_API_KEY',
-        'DASHSCOPE_API_KEY',
-      ]);
-      argsForPrint = leashArgs.map((a) => {
-        if (!a.includes('=')) return a;
-        const eq = a.indexOf('=');
-        const k = a.slice(0, eq);
-        if (SENSITIVE_ENV_KEYS.has(k)) return `${k}=****`;
-        if (k === 'SAIFAC_INITIAL_TASK') return `${k}=<task (${a.length - eq - 1} chars)>`;
-        return a;
-      });
+      argsForPrint = redactLeashArgsForPrint(leashArgs, containerEnv);
 
       const leashBin = resolveLeashCliPath();
       cmd = process.execPath;
@@ -1085,6 +808,11 @@ export class DockerProvisioner implements Provisioner {
 
       consola.log(`[inspect-session] Mode: leash (idle; container: ${coderImage})`);
     }
+
+    consola.debug(`[inspect-session] containerEnv (public): ${JSON.stringify(containerEnv.env)}`);
+    consola.debug(
+      `[inspect-session] containerEnv.secret keys: ${Object.keys(containerEnv.secretEnv).sort().join(', ')}`,
+    );
 
     consola.log(
       `[inspect-session] Command: ${cmd} ${argsForPrint.map((s) => s.slice(0, 100)).join(' ')}`,
@@ -1380,6 +1108,10 @@ function leashTargetContainerName(sandboxBasePath: string): string {
 // Utility: Docker compose
 // ---------------------------------------------------------------------------
 
+/**
+ * Lists service names for a compose project (`docker compose ps --services`).
+ * Used to discover which containers to attach to the SAIFAC bridge network.
+ */
 async function listComposeServices(opts: {
   composeProjectName: string;
   absoluteFile: string;
@@ -1404,6 +1136,10 @@ async function listComposeServices(opts: {
   }
 }
 
+/**
+ * Connects every compose service container to the given bridge network with a stable alias
+ * (the service name) so other containers on that network can reach Postgres, Redis, etc. by hostname.
+ */
 async function attachComposeSvcToNetwork(opts: {
   composeProjectName: string;
   absoluteFile: string;
@@ -1698,6 +1434,10 @@ function demuxDockerLogs(buffer: Buffer): { stdout: string; stderr: string } {
   return { stdout, stderr };
 }
 
+/**
+ * Builds a one-line summary of `NetworkSettings.Networks` for logs: whether the SAIFAC bridge
+ * is present, DNS aliases, and IP (helps debug “staging not reachable” / wrong network).
+ */
 function formatContainerNetworkEndpoint(
   networks: Record<string, { Aliases?: string[]; IPAddress?: string }> | undefined,
   preferredNetwork: string,
@@ -1718,6 +1458,10 @@ function formatContainerNetworkEndpoint(
   return `expected key "${preferredNetwork}" missing; attached: ${JSON.stringify(summary)}`;
 }
 
+/**
+ * After staging starts, logs how that container is attached to the SAIFAC network (aliases + IP).
+ * Confirms DNS names like `staging` resolve as expected for the test runner.
+ */
 async function logStagingContainerNetworkAliases(opts: {
   container: Docker.Container;
   networkName: string;
@@ -1738,6 +1482,10 @@ async function logStagingContainerNetworkAliases(opts: {
   }
 }
 
+/**
+ * Logs all endpoints on a bridge network (container name + IPv4) before tests or similar steps.
+ * High-signal when debugging ENOTFOUND/ECONNREFUSED between compose services, staging, and runners.
+ */
 async function logBridgeNetworkEndpoints(opts: {
   networkName: string;
   context: string;
@@ -1838,6 +1586,11 @@ interface ContainerHandle {
   container: Docker.Container;
 }
 
+/**
+ * Tracks Docker resources created during a single provisioner lifecycle (containers, ephemeral images).
+ * {@link DockerRegistry.cleanup} removes tracked containers and images; bridge networks are torn down
+ * separately in `teardown()` after compose and ad-hoc containers are gone to avoid “active endpoints” races.
+ */
 class DockerRegistry {
   private containers: ContainerHandle[] = [];
   private networks: string[] = [];
@@ -1863,6 +1616,7 @@ class DockerRegistry {
     this.images = this.images.filter((t) => t !== tag);
   }
 
+  /** Force-removes tracked containers and deletes tracked images; does not remove networks (see class doc). */
   async cleanup(): Promise<void> {
     const containersToStop = [...this.containers];
     const imagesToRemove = [...this.images];
@@ -1884,4 +1638,52 @@ class DockerRegistry {
       await removeDockerImage(tag);
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Utility: Environment variables
+// ---------------------------------------------------------------------------
+
+/** `-eKEY=VALUE` flags for `docker run`. */
+function dockerRunCoderEnvArgs(c: ContainerEnv): string[] {
+  const out: string[] = [];
+  for (const [k, v] of Object.entries(c.env)) out.push(`-e${k}=${v}`);
+  for (const [k, v] of Object.entries(c.secretEnv)) out.push(`-e${k}=${v}`);
+  return out;
+}
+
+function pushLeashContainerEnv(leashArgs: string[], c: ContainerEnv): void {
+  for (const [k, v] of Object.entries(c.env)) {
+    leashArgs.push('--env', `${k}=${v}`);
+  }
+  for (const [k, v] of Object.entries(c.secretEnv)) {
+    leashArgs.push('--env', `${k}=${v}`);
+  }
+}
+
+/** Log / debug copy of `docker run` `-eKEY=VALUE` flags: secrets → `****`, task body → length only. */
+function redactDockerRunArgsForPrint(args: string[], c: ContainerEnv): string[] {
+  const secretKeys = new Set(Object.keys(c.secretEnv));
+  return args.map((a) => {
+    if (!a.startsWith('-e')) return a;
+    const eq = a.indexOf('=');
+    if (eq <= 2) return a;
+    const k = a.slice(2, eq);
+    if (secretKeys.has(k)) return `-e${k}=****`;
+    if (k === 'SAIFAC_INITIAL_TASK') return `-e${k}=<task (${a.length - eq - 1} chars)>`;
+    return a;
+  });
+}
+
+/** Log-safe view of Leash argv env fragments (`KEY=VALUE` tokens): same redaction rules as {@link redactDockerRunArgsForPrint}. */
+function redactLeashArgsForPrint(leashArgs: string[], c: ContainerEnv): string[] {
+  const secretKeys = new Set(Object.keys(c.secretEnv));
+  return leashArgs.map((a) => {
+    if (!a.includes('=')) return a;
+    const eq = a.indexOf('=');
+    const k = a.slice(0, eq);
+    if (secretKeys.has(k)) return `${k}=****`;
+    if (k === 'SAIFAC_INITIAL_TASK') return `${k}=<task (${a.length - eq - 1} chars)>`;
+    return a;
+  });
 }

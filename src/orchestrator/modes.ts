@@ -43,7 +43,7 @@ import { resolveFeature } from '../specs/discover.js';
 import { CleanupRegistry } from '../utils/cleanup.js';
 import { git } from '../utils/git.js';
 import { writeUtf8 } from '../utils/io.js';
-import { filterAgentEnv } from './agent-env.js';
+import { buildCoderContainerEnv } from './agent-env.js';
 import { buildTaskPrompt } from './agent-task.js';
 import { createAgentStdoutPipe, createDefaultAgentLog } from './logs.js';
 import {
@@ -814,6 +814,19 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
       errorFeedback,
     });
 
+    const inspectContainerEnv = await buildCoderContainerEnv({
+      mode: { kind: 'container' },
+      llmConfig: coderLlmConfig,
+      reviewer: reviewer ? { llmConfig: reviewer.llmConfig } : null,
+      agentEnv: mergedOpts.agentEnv,
+      projectDir: mergedOpts.projectDir,
+      agentSecretKeys: mergedOpts.agentSecretKeys,
+      agentSecretFiles: mergedOpts.agentSecretFiles,
+      taskPrompt,
+      gateRetries: mergedOpts.gateRetries,
+      runId,
+    });
+
     let inspectHandle: CoderInspectSessionHandle | null = null;
 
     try {
@@ -838,19 +851,15 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
         inspectHandle = await codingProvisioner.startInspect({
           codePath: sandbox.codePath,
           sandboxBasePath: sandbox.sandboxBasePath,
-          taskPrompt,
+          containerEnv: inspectContainerEnv,
           coderImage: mergedOpts.coderImage,
           dangerousNoLeash: inspectDangerousNoLeash,
           cedarPolicyPath: mergedOpts.cedarPolicyPath,
           saifacPath: sandbox.saifacPath,
-          agentEnv: filterAgentEnv(mergedOpts.agentEnv),
           onAgentStdout,
           onAgentStdoutEnd,
           onLog: defaultProvisionerLog,
-          reviewer,
-          gateRetries: mergedOpts.gateRetries,
-          llmConfig: coderLlmConfig,
-          runId,
+          reviewer: reviewer ? { argusBinaryPath: reviewer.argusBinaryPath } : null,
         });
 
         consola.log(`\n[inspect] Attach your editor with Dev Containers or \`docker exec -it\`:`);

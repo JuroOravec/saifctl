@@ -49,6 +49,8 @@ function makeOrchestratorOpts(): OrchestratorOpts {
     targetBranch: null,
     gateRetries: 10,
     agentEnv: {},
+    agentSecretKeys: [],
+    agentSecretFiles: [],
     testScript: 'test',
     testProfile,
     gitProvider,
@@ -108,6 +110,8 @@ const baseArtifact: RunArtifact = {
     gateRetries: 10,
     reviewerEnabled: true,
     agentEnv: {},
+    agentSecretKeys: [],
+    agentSecretFiles: [],
     testScript: 'test',
     gateScript: '#',
     startupScript: '#',
@@ -259,7 +263,7 @@ vi.mock('./loop.js', async (importOriginal) => {
   };
 });
 
-vi.mock('./task-prompt.js', () => ({
+vi.mock('./agent-task.js', () => ({
   buildTaskPrompt: vi.fn().mockResolvedValue('inspect task prompt'),
 }));
 

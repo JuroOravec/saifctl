@@ -35,6 +35,7 @@ export const LLM_API_KEYS = [
   'GEMINI_API_KEY',
   'ANTHROPIC_API_KEY',
   'OPENROUTER_API_KEY',
+  'DASHSCOPE_API_KEY',
 ] as const;
 
 // ---------------------------------------------------------------------------

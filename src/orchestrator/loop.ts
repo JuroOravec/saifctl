@@ -53,7 +53,7 @@ import type { TestProfile } from '../test-profiles/types.js';
 import type { CleanupRegistry } from '../utils/cleanup.js';
 import { git, gitClean, gitResetHard } from '../utils/git.js';
 import { appendUtf8, pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
-import { filterAgentEnv } from './agent-env.js';
+import { buildCoderContainerEnv } from './agent-env.js';
 import { buildTaskPrompt } from './agent-task.js';
 import { runVagueSpecsChecker } from './agents/vague-specs-check.js';
 import { createAgentStdoutPipe, createDefaultAgentLog } from './logs.js';
@@ -240,10 +240,22 @@ export interface IterativeLoopOpts {
    * or inject into the host process env (--dangerous-debug mode).
    *
    * Parsed from --agent-env KEY=VALUE flags and --agent-env-file <path> by the CLI.
-   * Reserved factory variables (SAIFAC_*, LLM_*, REVIEWER_LLM_*) are silently filtered out
-   * by the runner to prevent accidental override.
+   * Reserved factory variables (SAIFAC_*, LLM_*, REVIEWER_LLM_*) are stripped in
+   * {@link buildCoderContainerEnv} when building the process env (this map may still list them for logging).
    */
   agentEnv: Record<string, string>;
+  /**
+   * Host env var **names** whose values are copied from `process.env` into the coder container's
+   * secret env (not logged as values). From `config.defaults.agentSecretKeys` and `--agent-secret`.
+   * Persisted in run artifacts as names only; values are re-read from the host on resume.
+   */
+  agentSecretKeys: string[];
+  /**
+   * Project-relative paths to `.env`-style files with `KEY=value` secret pairs — same format as
+   * `--agent-env-file`. Persisted in run artifacts; on resume the files are read again (values are
+   * not stored in the artifact).
+   */
+  agentSecretFiles: string[];
   /**
    * Content of the test script to write into the sandbox and bind-mount at
    * /usr/local/bin/test.sh inside the Test Runner container (read-only).
@@ -515,19 +527,25 @@ export async function runIterativeLoop(
     testScript,
     reviewerEnabled,
     codingEnvironment,
+    runStorage,
+    runContext,
+    seedRunCommits,
+    seedRoundSummaries,
+    initialErrorFeedback,
+    testOnly,
+    verbose,
+    agentSecretKeys,
+    agentSecretFiles,
   } = opts;
 
-  const runStorage = opts.runStorage ?? null;
-  const runContext = opts.runContext;
   const runId = sandbox.runId;
 
   /** Accumulated run commits (seeded from resume + each successful coding round). */
-  let runCommitsAccum: RunCommit[] = [...(opts.seedRunCommits ?? [])];
+  let runCommitsAccum: RunCommit[] = [...(seedRunCommits ?? [])];
   let lastErrorFeedback = '';
-  let roundSummaries: OuterAttemptSummary[] = [...(opts.seedRoundSummaries ?? [])];
+  let roundSummaries: OuterAttemptSummary[] = [...(seedRoundSummaries ?? [])];
 
   // Resolve the coder agent's LLM config once per loop.
-  // The resolved config is injected into the Leash container as LLM_* env vars.
   const coderLlmConfig = resolveAgentLlmConfig('coder', overrides);
   const reviewer =
     reviewerEnabled && !dangerousDebug
@@ -654,12 +672,12 @@ export async function runIterativeLoop(
     }
   };
 
-  let errorFeedback = opts.initialErrorFeedback ?? '';
+  let errorFeedback = initialErrorFeedback ?? '';
   let attempts = 0;
   let sandboxDestroyed = false;
 
   return await withCleanup(async () => {
-    if (opts.testOnly) {
+    if (testOnly) {
       consola.log(
         '\n[orchestrator] test-only — skipping coding agent; verifying stored patch with staging tests.',
       );
@@ -689,7 +707,7 @@ export async function runIterativeLoop(
           pr,
           gitProvider,
           overrides,
-          verbose: opts.verbose,
+          verbose,
           targetBranch,
           startCommit: runContext?.baseCommitSha?.trim() || undefined,
         });
@@ -830,23 +848,34 @@ export async function runIterativeLoop(
           errorFeedback,
         });
 
+        const containerEnv = await buildCoderContainerEnv({
+          mode: dangerousDebug
+            ? { kind: 'dangerousDebug', codePath: sandbox.codePath, saifacPath: sandbox.saifacPath }
+            : { kind: 'container' },
+          llmConfig: coderLlmConfig,
+          reviewer: reviewer ? { llmConfig: reviewer.llmConfig } : null,
+          agentEnv,
+          projectDir,
+          agentSecretKeys,
+          agentSecretFiles,
+          taskPrompt,
+          gateRetries,
+          runId,
+        });
+
         await codingProvisioner.runAgent({
           codePath: sandbox.codePath,
           sandboxBasePath: sandbox.sandboxBasePath,
-          taskPrompt,
-          llmConfig: coderLlmConfig,
+          containerEnv,
           dangerousDebug,
           dangerousNoLeash,
           cedarPolicyPath,
           coderImage,
-          gateRetries,
           saifacPath: sandbox.saifacPath,
-          agentEnv: filterAgentEnv(agentEnv),
           onAgentStdout,
           onAgentStdoutEnd,
           onLog: defaultProvisionerLog,
-          reviewer,
-          runId,
+          reviewer: reviewer ? { argusBinaryPath: reviewer.argusBinaryPath } : null,
         });
 
         innerRounds = await readInnerRounds(roundsStatsPath(sandbox.sandboxBasePath));
@@ -977,7 +1006,7 @@ export async function runIterativeLoop(
           pr,
           gitProvider,
           overrides,
-          verbose: opts.verbose,
+          verbose,
           targetBranch,
           startCommit: runContext?.baseCommitSha?.trim() || undefined,
         });
@@ -1365,6 +1394,12 @@ export function logIterativeLoopSettings(opts: OrchestratorOpts, meta?: { runId?
   consola.log(`  Stage script: ${opts.sandboxProfileId} profile default`);
   consola.log('  Test script: built-in (test-default.sh)');
   consola.log(`  Agent env vars: ${Object.keys(opts.agentEnv).join(', ') || 'none'}`);
+  consola.log(
+    `  Agent secret keys (host → container): ${opts.agentSecretKeys.join(', ') || 'none'}`,
+  );
+  consola.log(
+    `  Agent secret file(s): ${opts.agentSecretFiles.join(', ') || 'none'} (KEY=value .env format; re-read on resume)`,
+  );
   consola.log(`  Gate retries: ${opts.gateRetries}`);
   if (opts.push) {
     consola.log(`  Push: ${opts.push}${opts.pr ? ` (+ PR via ${opts.gitProvider.id})` : ''}`);

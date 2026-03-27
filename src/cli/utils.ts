@@ -19,6 +19,7 @@ import { getGitProvider } from '../git/index.js';
 import { DEFAULT_INDEXER_PROFILE, resolveIndexerProfile } from '../indexer-profiles/index.js';
 import type { IndexerProfile } from '../indexer-profiles/types.js';
 import { consola } from '../logger.js';
+import { mergeAgentSecretKeysFromReads } from '../orchestrator/agent-env.js';
 import {
   type OrchestratorCliInput,
   type OrchestratorScriptPick,
@@ -172,6 +173,9 @@ export interface FeatRunArgs extends OrchestratorArgs {
   reviewer?: boolean;
   'agent-env'?: string | string[];
   'agent-env-file'?: string;
+  /** Env var names only; values are read from the host process at runtime. */
+  'agent-secret'?: string | string[];
+  'agent-secret-file'?: string;
   push?: string;
   pr?: boolean;
   branch?: string;
@@ -236,6 +240,39 @@ export function readAgentEnvFileRawFromCli(args: FeatRunArgs): string | undefine
 function readAgentEnvPairSegmentsFromCli(args: FeatRunArgs): string[] {
   const envFlags = args['agent-env'];
   const rawStrings = Array.isArray(envFlags) ? envFlags : envFlags ? [envFlags] : [];
+  const out: string[] = [];
+  for (const raw of rawStrings) {
+    if (typeof raw !== 'string' || !raw.trim()) continue;
+    out.push(
+      ...raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+  }
+  return out;
+}
+
+/**
+ * CLI-only: path segments from `--agent-secret-file` (comma-separated), or `undefined` if omitted.
+ */
+function readAgentSecretFilesFromCli(args: FeatRunArgs): string[] | undefined {
+  const raw = args['agent-secret-file'];
+  if (typeof raw !== 'string' || !raw.trim()) return undefined;
+  const paths = raw
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return paths.length > 0 ? paths : undefined;
+}
+
+/**
+ * CLI-only: env var name segments from `--agent-secret` (comma-separated),
+ * after splitting; does not validate names.
+ */
+function readAgentSecretKeySegmentsFromCli(args: FeatRunArgs): string[] {
+  const flags = args['agent-secret'];
+  const rawStrings = Array.isArray(flags) ? flags : flags ? [flags] : [];
   const out: string[] = [];
   for (const raw of rawStrings) {
     if (typeof raw !== 'string' || !raw.trim()) continue;
@@ -1217,6 +1254,15 @@ export async function buildOrchestratorCliInputFromFeatArgs(
         })
       : undefined;
 
+  const agentSecretKeys = runArgs['agent-secret']
+    ? await mergeAgentSecretKeysFromReads({
+        config,
+        extraSecretKeys: readAgentSecretKeySegmentsFromCli(runArgs),
+      })
+    : undefined;
+
+  const agentSecretFiles = readAgentSecretFilesFromCli(runArgs);
+
   const push =
     typeof runArgs.push === 'string' && runArgs.push.trim() ? runArgs.push.trim() : undefined;
 
@@ -1282,6 +1328,8 @@ export async function buildOrchestratorCliInputFromFeatArgs(
     testScriptFile,
     testProfile: testProfileCli,
     agentEnv,
+    agentSecretKeys,
+    agentSecretFiles,
     gateRetries,
     reviewerEnabled,
     includeDirty,

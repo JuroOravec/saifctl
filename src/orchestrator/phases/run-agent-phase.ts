@@ -19,7 +19,7 @@ import { defaultProvisionerLog } from '../../provisioners/logs.js';
 import type { RunCommit } from '../../runs/types.js';
 import type { CleanupRegistry } from '../../utils/cleanup.js';
 import { git } from '../../utils/git.js';
-import { filterAgentEnv } from '../agent-env.js';
+import { buildCoderContainerEnv } from '../agent-env.js';
 import { buildTaskPrompt } from '../agent-task.js';
 import { createAgentStdoutPipe, createDefaultAgentLog } from '../logs.js';
 import type { IterativeLoopOpts } from '../loop.js';
@@ -54,6 +54,8 @@ export interface RunAgentPhaseInput {
     | 'coderImage'
     | 'gateRetries'
     | 'agentEnv'
+    | 'agentSecretKeys'
+    | 'agentSecretFiles'
     | 'agentProfileId'
     | 'reviewerEnabled'
     | 'codingEnvironment'
@@ -94,6 +96,8 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
     reviewerEnabled,
     codingEnvironment,
     saifDir,
+    agentSecretKeys,
+    agentSecretFiles,
   } = opts;
 
   const agentProfile = resolveAgentProfile(agentProfileId);
@@ -137,23 +141,34 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
       errorFeedback,
     });
 
+    const containerEnv = await buildCoderContainerEnv({
+      mode: dangerousDebug
+        ? { kind: 'dangerousDebug', codePath: sandbox.codePath, saifacPath: sandbox.saifacPath }
+        : { kind: 'container' },
+      llmConfig: coderLlmConfig,
+      reviewer: reviewer ? { llmConfig: reviewer.llmConfig } : null,
+      agentEnv,
+      projectDir,
+      agentSecretKeys,
+      agentSecretFiles,
+      taskPrompt,
+      gateRetries,
+      runId: sandbox.runId,
+    });
+
     await codingProvisioner.runAgent({
       codePath: sandbox.codePath,
       sandboxBasePath: sandbox.sandboxBasePath,
-      taskPrompt,
-      llmConfig: coderLlmConfig,
+      containerEnv,
       dangerousDebug,
       dangerousNoLeash,
       cedarPolicyPath,
       coderImage,
-      gateRetries,
       saifacPath: sandbox.saifacPath,
-      agentEnv: filterAgentEnv(agentEnv),
       onAgentStdout,
       onAgentStdoutEnd,
       onLog: defaultProvisionerLog,
-      reviewer,
-      runId: sandbox.runId,
+      reviewer: reviewer ? { argusBinaryPath: reviewer.argusBinaryPath } : null,
       signal,
     });
   } finally {

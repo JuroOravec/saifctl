@@ -102,6 +102,9 @@ See [Environments and Infrastructure](services.md) for a user guide. See [Softwa
 | `pr`               | boolean                     | `true`                    | `--pr`                                    |
 | `gitProvider`      | string                      | `"github"`                | `--git-provider`                          |
 | `agentEnv`         | object                      | `{"KEY": "value"}`        | `--agent-env` (single or comma-separated) |
+| `agentSecretKeys`  | string array                | `["MY_TOKEN"]`            | Host env var **names** only; values never stored in config (see [`--agent-secret`](commands/feat-run.md)) |
+| `agentSecretFiles` | string array                | `["./secrets/a.env", "./secrets/b.env"]` | Project-relative paths to `.env` files with `KEY=value` secret pairs — same format as `--agent-env-file` |
+
 
 ### LLM config
 

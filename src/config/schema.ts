@@ -124,6 +124,8 @@ export const saifacConfigDefaultsSchema = z.object({
   gitProvider: z.enum(['github', 'gitlab', 'bitbucket', 'azure', 'gitea']).optional(),
   // Agent env vars (object form)
   agentEnv: z.record(z.string(), z.string()).optional(),
+  /** Env var names; values are read from the host process when starting the coder container. */
+  agentSecretKeys: z.array(z.string()).optional(),
 
   // Model overrides (object form)
   globalModel: z.string().optional(),

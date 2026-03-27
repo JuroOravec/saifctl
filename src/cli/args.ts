@@ -218,6 +218,16 @@ const featRunCoreArgs = {
     description:
       'Single path or comma-separated paths to .env file(s). Later overrides earlier for duplicate keys (e.g. ./a.env,./b.env).',
   },
+  'agent-secret': {
+    type: 'string' as const,
+    description:
+      'Env var name(s) to copy from the host into the coder secret env (comma-separated). Values are never passed on the CLI — only names — so secrets never show up in logs.',
+  },
+  'agent-secret-file': {
+    type: 'string' as const,
+    description:
+      'Path(s) to .env file(s) with KEY=value secret pairs (same format as --agent-env-file; # comments allowed). Comma-separated paths; later overrides earlier. Paths are stored in the run artifact and re-read on resume (values are not persisted in the artifact).',
+  },
 };
 
 // Run-specific args (feat run, run resume). Builds on runTestArgs + agent flags + coder-only options.

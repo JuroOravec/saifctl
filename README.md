@@ -117,7 +117,8 @@ Dive into the details of what you can customize in the [Features guide](./docs/f
 - [Codebase indexers](./docs/indexer/README.md)
 - [Source control integrations](docs/source-control.md)
 - [Commands](docs/commands/README.md)
-- [Environment variable](docs/env-vars.md)
+- [Agent environment variables and secrets](./docs/agent-environment.md)
+- [Env vars reference](docs/env-vars.md)
 
 ## Development
 

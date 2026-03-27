@@ -73,6 +73,8 @@ for Claude Code).
 These are the **private** contract between the orchestrator and the
 container — you should never need to set them directly.
 
+For **extra** variables you choose (tools, tokens, non-LLM APIs), use `--agent-env`, `--agent-secret`, config, and secret files. See [Agent environment variables and secrets](agent-environment.md).
+
 ## Logging
 
 These variables tune what saifac prints to the terminal. They are read by the

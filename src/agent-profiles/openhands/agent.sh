@@ -21,6 +21,9 @@
 
 set -euo pipefail
 
+# Set OpenHands state directory to somewhere where we have read-write access
+export OPENHANDS_WORK_DIR="${OPENHANDS_WORK_DIR:-/tmp/openhands-state}"
+
 echo "[agent/openhands] Starting agent openhands in agent.sh..."
 
 _SAIFAC_TASK_SNIP="$(cat "$SAIFAC_TASK_PATH" 2>/dev/null || true)"

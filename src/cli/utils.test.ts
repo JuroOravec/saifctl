@@ -2,12 +2,15 @@
  * Unit tests for CLI utility functions.
  */
 
-import { resolve } from 'node:path';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SaifacConfig } from '../config/schema.js';
 import { consola } from '../logger.js';
+import { loadAgentSecretEnvFromSecretFiles } from '../orchestrator/agent-env.js';
 import {
   buildOrchestratorCliInputFromFeatArgs,
   type FeatRunArgs,
@@ -62,6 +65,20 @@ describe('resolveStorageOverrides', () => {
       runs: 'local',
       tasks: 's3://bucket/tasks',
     });
+  });
+});
+
+describe('loadAgentSecretEnvFromSecretFiles', () => {
+  it('parses KEY=value lines like agent-env-file', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'saifac-secret-'));
+    const f = join(dir, 's.env');
+    writeFileSync(f, '# c\nFOO_TOKEN=bar\nBAZ=qux\n', 'utf8');
+    const out = await loadAgentSecretEnvFromSecretFiles(dir, ['s.env']);
+    expect(out).toEqual({ FOO_TOKEN: 'bar', BAZ: 'qux' });
+  });
+
+  it('returns {} when fileRaw is empty', async () => {
+    expect(await loadAgentSecretEnvFromSecretFiles(process.cwd(), [])).toEqual({});
   });
 });
 

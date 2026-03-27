@@ -44,6 +44,7 @@ import type { Feature } from '../specs/discover.js';
 import { DEFAULT_TEST_PROFILE, resolveTestProfile } from '../test-profiles/index.js';
 import type { TestProfile } from '../test-profiles/types.js';
 import { validateImageTag } from '../utils/docker.js';
+import { mergeAgentSecretKeysFromReads } from './agent-env.js';
 import type { OrchestratorOpts } from './modes.js';
 import { DEFAULT_SANDBOX_BASE_DIR } from './sandbox.js';
 
@@ -199,6 +200,8 @@ const ORCHESTRATOR_MERGE_KEYS = [
   'testScriptFile',
   'testProfile',
   'agentEnv',
+  'agentSecretKeys',
+  'agentSecretFiles',
   'gateRetries',
   'reviewerEnabled',
   'includeDirty',
@@ -314,6 +317,10 @@ async function applyOrchestratorBaseline(
     fileRaw: undefined,
     pairSegments: [],
   });
+  const agentSecretKeys = await mergeAgentSecretKeysFromReads({
+    config,
+    extraSecretKeys: [],
+  });
   const push = config?.defaults?.push ?? null;
   const pr = resolvePr(config, push);
   const targetBranch = null;
@@ -353,6 +360,8 @@ async function applyOrchestratorBaseline(
     testScriptFile: testR.testScriptFile,
     testProfile,
     agentEnv,
+    agentSecretKeys,
+    agentSecretFiles: [],
     gateRetries,
     reviewerEnabled,
     includeDirty,

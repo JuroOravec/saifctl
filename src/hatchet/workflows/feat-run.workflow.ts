@@ -248,6 +248,8 @@ export function createFeatRunIterationWorkflow() {
           coderImage: opts.coderImage,
           gateRetries: opts.gateRetries,
           agentEnv: opts.agentEnv,
+          agentSecretKeys: opts.agentSecretKeys,
+          agentSecretFiles: opts.agentSecretFiles,
           agentProfileId: opts.agentProfileId,
           reviewerEnabled: opts.reviewerEnabled,
           codingEnvironment: opts.codingEnvironment,

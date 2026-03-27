@@ -1,7 +1,17 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { consola } from '../logger.js';
-import { filterAgentEnv } from './agent-env.js';
+import {
+  buildCoderContainerEnv,
+  filterAgentEnv,
+  filterAgentSecretKeyNames,
+  filterAgentSecretPairs,
+  resolveAgentSecretEnv,
+} from './agent-env.js';
 
 describe('filterAgentEnv', () => {
   it('passes through non-reserved keys unchanged', () => {
@@ -25,6 +35,7 @@ describe('filterAgentEnv', () => {
       SAIFAC_AGENT_INSTALL_SCRIPT: '5',
       SAIFAC_AGENT_SCRIPT: '6',
       SAIFAC_TASK_PATH: '7',
+      SAIFAC_RUN_ID: '8',
     };
     const result = filterAgentEnv({ ...reserved, USER_KEY: 'keep' });
     for (const key of Object.keys(reserved)) {
@@ -92,5 +103,129 @@ describe('filterAgentEnv', () => {
 
   it('returns an empty object when input is empty', () => {
     expect(filterAgentEnv({})).toEqual({});
+  });
+});
+
+describe('filterAgentSecretKeyNames', () => {
+  it('passes through valid key names', () => {
+    expect(filterAgentSecretKeyNames(['MY_TOKEN', 'OTHER_KEY'])).toEqual(['MY_TOKEN', 'OTHER_KEY']);
+  });
+
+  it('strips reserved and SAIFAC_ keys', () => {
+    const warn = vi.spyOn(consola, 'warn').mockImplementation(() => {});
+    expect(filterAgentSecretKeyNames(['SAFE', 'LLM_API_KEY', 'SAIFAC_FOO'])).toEqual(['SAFE']);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
+describe('resolveAgentSecretEnv', () => {
+  it('copies values from process.env for allowed keys', () => {
+    const key = 'AGENT_ENV_TEST_RESOLVE_KEY';
+    const prev = process.env[key];
+    process.env[key] = 'secret-value';
+    try {
+      expect(resolveAgentSecretEnv([key])).toEqual({ [key]: 'secret-value' });
+    } finally {
+      if (prev === undefined) delete process.env[key];
+      else process.env[key] = prev;
+    }
+  });
+});
+
+describe('filterAgentSecretPairs', () => {
+  it('drops reserved keys like filterAgentEnv', () => {
+    const warn = vi.spyOn(consola, 'warn').mockImplementation(() => {});
+    const out = filterAgentSecretPairs({ MY_TOKEN: 'a', LLM_API_KEY: 'b', KEEP: 'c' });
+    expect(out).toEqual({ MY_TOKEN: 'a', KEEP: 'c' });
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
+describe('buildCoderContainerEnv + agentSecretKeys', () => {
+  it('applies filterAgentEnv to agentEnv (reserved keys never reach env)', async () => {
+    const warn = vi.spyOn(consola, 'warn').mockImplementation(() => {});
+    const c = await buildCoderContainerEnv({
+      mode: { kind: 'container' },
+      llmConfig: {
+        modelId: 'm',
+        provider: 'anthropic',
+        fullModelString: 'anthropic/m',
+        apiKey: 'k',
+      },
+      reviewer: null,
+      agentEnv: { LLM_MODEL: 'user-override', CUSTOM: 'ok' },
+      projectDir: process.cwd(),
+      agentSecretKeys: [],
+      agentSecretFiles: [],
+      taskPrompt: 't',
+      gateRetries: 1,
+      runId: 'r',
+    });
+    expect(c.env).not.toHaveProperty('LLM_MODEL', 'user-override');
+    expect(c.env.LLM_MODEL).toBe('anthropic/m');
+    expect(c.env.CUSTOM).toBe('ok');
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('merges file-based secrets then host keys (host wins on duplicate)', async () => {
+    const key = 'AGENT_ENV_TEST_FILE_HOST_DUP';
+    const dir = mkdtempSync(join(tmpdir(), 'saifac-coder-env-'));
+    writeFileSync(join(dir, 'secrets.env'), `${key}=from-file\n`, 'utf8');
+    const prev = process.env[key];
+    process.env[key] = 'from-host';
+    try {
+      const c = await buildCoderContainerEnv({
+        mode: { kind: 'container' },
+        llmConfig: {
+          modelId: 'm',
+          provider: 'anthropic',
+          fullModelString: 'anthropic/m',
+          apiKey: 'k',
+        },
+        reviewer: null,
+        agentEnv: {},
+        projectDir: dir,
+        agentSecretKeys: [key],
+        agentSecretFiles: ['secrets.env'],
+        taskPrompt: 't',
+        gateRetries: 1,
+        runId: 'r',
+      });
+      expect(c.secretEnv[key]).toBe('from-host');
+    } finally {
+      if (prev === undefined) delete process.env[key];
+      else process.env[key] = prev;
+    }
+  });
+
+  it('merges resolved agent secrets into secretEnv', async () => {
+    const key = 'AGENT_ENV_TEST_BUILD_CODER_KEY';
+    const prev = process.env[key];
+    process.env[key] = 'from-host';
+    try {
+      const c = await buildCoderContainerEnv({
+        mode: { kind: 'container' },
+        llmConfig: {
+          modelId: 'm',
+          provider: 'anthropic',
+          fullModelString: 'anthropic/m',
+          apiKey: 'k',
+        },
+        reviewer: null,
+        agentEnv: {},
+        projectDir: process.cwd(),
+        agentSecretKeys: [key],
+        taskPrompt: 't',
+        gateRetries: 1,
+        runId: 'r',
+      });
+      expect(c.secretEnv[key]).toBe('from-host');
+    } finally {
+      if (prev === undefined) delete process.env[key];
+      else process.env[key] = prev;
+    }
   });
 });

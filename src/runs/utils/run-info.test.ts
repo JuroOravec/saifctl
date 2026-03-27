@@ -34,6 +34,8 @@ const minimalArtifact: RunArtifact = {
     gateRetries: 1,
     reviewerEnabled: true,
     agentEnv: {},
+    agentSecretKeys: [],
+    agentSecretFiles: [],
     testScript: 'TEST BODY',
     gateScript: 'GATE BODY',
     startupScript: 'START BODY',

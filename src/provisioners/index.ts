@@ -14,7 +14,7 @@
  *   await provisioner.setup({ runId, projectName, featureName, projectDir });
  *   await provisioner.startStaging({ ..., onLog: defaultProvisionerLog });
  *   await provisioner.runTests({ ..., onLog: defaultProvisionerLog });
- *   await provisioner.runAgent({ ..., onLog, onAgentStdout, onAgentStdoutEnd });
+ *   await provisioner.runAgent({ containerEnv, ..., onLog, onAgentStdout, onAgentStdoutEnd });
  *
  * Logging callbacks live on each method’s options — see {@link Provisioner}.
  */

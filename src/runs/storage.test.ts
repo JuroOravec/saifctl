@@ -36,6 +36,8 @@ const dummyArtifact: RunArtifact = {
     gateRetries: 10,
     reviewerEnabled: true,
     agentEnv: {},
+    agentSecretKeys: [],
+    agentSecretFiles: [],
     testScript: 'test',
     gateScript: '#',
     startupScript: '#',
