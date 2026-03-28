@@ -143,14 +143,14 @@ Each profile has its own image. They're all pre-built and pulled automatically.
 
 | Profile             | Language + framework          | URL                                                               |
 | ------------------- | ----------------------------- | ----------------------------------------------------------------- |
-| `node-vitest`       | TypeScript + Vitest (default) | ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-node-vitest       |
-| `node-playwright`   | TypeScript + Playwright       | ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-node-playwright   |
-| `python-pytest`     | Python + pytest               | ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-python-pytest     |
-| `python-playwright` | Python + Playwright           | ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-python-playwright |
-| `go-gotest`         | Go + gotest                   | ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-go-gotest         |
-| `go-playwright`     | Go + Playwright               | ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-go-playwright     |
-| `rust-rusttest`     | Rust + cargo test             | ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-rust-rusttest     |
-| `rust-playwright`   | Rust + Playwright             | ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-rust-playwright   |
+| `node-vitest`       | TypeScript + Vitest (default) | ghcr.io/safe-ai-factory/saifctl/saifctl-test-node-vitest       |
+| `node-playwright`   | TypeScript + Playwright       | ghcr.io/safe-ai-factory/saifctl/saifctl-test-node-playwright   |
+| `python-pytest`     | Python + pytest               | ghcr.io/safe-ai-factory/saifctl/saifctl-test-python-pytest     |
+| `python-playwright` | Python + Playwright           | ghcr.io/safe-ai-factory/saifctl/saifctl-test-python-playwright |
+| `go-gotest`         | Go + gotest                   | ghcr.io/safe-ai-factory/saifctl/saifctl-test-go-gotest         |
+| `go-playwright`     | Go + Playwright               | ghcr.io/safe-ai-factory/saifctl/saifctl-test-go-playwright     |
+| `rust-rusttest`     | Rust + cargo test             | ghcr.io/safe-ai-factory/saifctl/saifctl-test-rust-rusttest     |
+| `rust-playwright`   | Rust + Playwright             | ghcr.io/safe-ai-factory/saifctl/saifctl-test-rust-playwright   |
 
 Use `--test-profile python-pytest` or `--test-image <url>` to switch.
 
@@ -159,7 +159,7 @@ Use `--test-profile python-pytest` or `--test-image <url>` to switch.
 To lock to a specific version instead of `latest`:
 
 ```bash
-saifctl feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-node-vitest:v1.0.0
+saifctl feat run --test-image ghcr.io/safe-ai-factory/saifctl/saifctl-test-node-vitest:v1.0.0
 ```
 
 Images are tagged with each release (e.g. `v1.0.0`). Use `:latest` for the bleeding edge.

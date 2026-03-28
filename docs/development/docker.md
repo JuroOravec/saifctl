@@ -76,17 +76,17 @@ The workflow uses `secrets.GITHUB_TOKEN`; no extra secrets are required for publ
 
 ## Using published images
 
-**Registry:** `ghcr.io/JuroOravec/safe-ai-factory`
+**Registry:** `ghcr.io/safe-ai-factory/saifctl`
 
 When `--test-image` or `--coder-image` is omitted, Docker pulls the default image from GHCR automatically when it is not present locally. To pin a release:
 
 ```bash
 # Test runners (use :latest or :v1.0.0 to pin a release)
-saifctl feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-node-vitest:latest
-saifctl feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-python-pytest:v1.0.0
+saifctl feat run --test-image ghcr.io/safe-ai-factory/saifctl/saifctl-test-node-vitest:latest
+saifctl feat run --test-image ghcr.io/safe-ai-factory/saifctl/saifctl-test-python-pytest:v1.0.0
 
 # Coder image (default sandbox profile is node-pnpm-python)
-saifctl feat run --coder-image ghcr.io/JuroOravec/safe-ai-factory/saifctl-coder-node-pnpm-python:latest
+saifctl feat run --coder-image ghcr.io/safe-ai-factory/saifctl/saifctl-coder-node-pnpm-python:latest
 ```
 
 ## Custom coder images

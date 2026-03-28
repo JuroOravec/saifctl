@@ -72,7 +72,7 @@ export async function activate(context: vscode.ExtensionContext) {
           );
         } else if (selection === 'Open GitHub') {
           await vscode.env.openExternal(
-            vscode.Uri.parse('https://github.com/JuroOravec/safe-ai-factory'),
+            vscode.Uri.parse('https://github.com/safe-ai-factory/saifctl'),
           );
         }
         return;

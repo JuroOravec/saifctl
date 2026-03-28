@@ -8,13 +8,13 @@
   "icon": "resources/saifctl-icon-green.svg",
   "repository": {
     "type": "git",
-    "url": "https://github.com/JuroOravec/safe-ai-factory.git",
+    "url": "https://github.com/safe-ai-factory/saifctl.git",
     "directory": "vscode-ext"
   },
   "bugs": {
-    "url": "https://github.com/JuroOravec/safe-ai-factory/issues"
+    "url": "https://github.com/safe-ai-factory/saifctl/issues"
   },
-  "homepage": "https://github.com/JuroOravec/safe-ai-factory#readme",
+  "homepage": "https://github.com/safe-ai-factory/saifctl#readme",
   "keywords": [
     "ai",
     "agents",
@@ -104,12 +104,12 @@
     "viewsWelcome": [
       {
         "view": "saifctl-features",
-        "contents": "The SaifCTL CLI (`saifctl`) is not installed or not in your PATH.\n\nInstall globally:\n`npm install -g @safe-ai-factory/saifctl`\n\n[npm package](https://www.npmjs.com/package/@safe-ai-factory/saifctl)\n[GitHub](https://github.com/JuroOravec/safe-ai-factory)\n[Refresh Status](command:saifctl.recheckInstall)",
+        "contents": "The SaifCTL CLI (`saifctl`) is not installed or not in your PATH.\n\nInstall globally:\n`npm install -g @safe-ai-factory/saifctl`\n\n[npm package](https://www.npmjs.com/package/@safe-ai-factory/saifctl)\n[GitHub](https://github.com/safe-ai-factory/saifctl)\n[Refresh Status](command:saifctl.recheckInstall)",
         "when": "!saifctl.isCliInstalled"
       },
       {
         "view": "saifctl-runs",
-        "contents": "No CLI detected. Install SaifCTL to view and manage your agent runs.\n\nInstall globally:\n`npm install -g @safe-ai-factory/saifctl`\n\n[npm package](https://www.npmjs.com/package/@safe-ai-factory/saifctl)\n[GitHub](https://github.com/JuroOravec/safe-ai-factory)\n[Refresh Status](command:saifctl.recheckInstall)",
+        "contents": "No CLI detected. Install SaifCTL to view and manage your agent runs.\n\nInstall globally:\n`npm install -g @safe-ai-factory/saifctl`\n\n[npm package](https://www.npmjs.com/package/@safe-ai-factory/saifctl)\n[GitHub](https://github.com/safe-ai-factory/saifctl)\n[Refresh Status](command:saifctl.recheckInstall)",
         "when": "!saifctl.isCliInstalled"
       },
       {

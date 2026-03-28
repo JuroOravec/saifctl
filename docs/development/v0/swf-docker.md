@@ -14,8 +14,8 @@ Both the **Test Runner** and the **Staging Container** use pre-built or per-run 
 
 | What                   | How                                                                                                                                                                         |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Default**            | Pre-built images from `ghcr.io/JuroOravec/safe-ai-factory` (e.g. `saifctl-test-node-vitest:latest`); pulled if not present locally                                          |
-| **Override**           | `saifctl feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-python-pytest:latest`                                                                         |
+| **Default**            | Pre-built images from `ghcr.io/safe-ai-factory/saifctl` (e.g. `saifctl-test-node-vitest:latest`); pulled if not present locally                                          |
+| **Override**           | `saifctl feat run --test-image ghcr.io/safe-ai-factory/saifctl/saifctl-test-python-pytest:latest`                                                                         |
 | **Build manually**     | `pnpm docker build test` or `pnpm docker build test --all` — for development or offline use                                                                                 |
 | **Custom image**       | `saifctl feat run --test-image my-test:v2` — bring any image that implements the Test Runner container contract (reads env vars, writes JUnit XML to `SAIFCTL_OUTPUT_FILE`). |
 | **Custom test script** | `--test-script <path>` — override the default `test-default.sh` with a custom script; always bind-mounted at `/usr/local/bin/test.sh`, never baked into the image.          |
@@ -35,7 +35,7 @@ Both the **Test Runner** and the **Staging Container** use pre-built or per-run 
 | ------------------ | ------------------------------------------------------------------------------------------------------------------ |
 | **Default**        | `saifctl-coder-node-pnpm-python:latest` (or profile-specific) from GHCR; Docker pulls automatically when not local |
 | **Build manually** | `pnpm docker build coder` — build from the sandbox profile's Dockerfile.coder                                      |
-| **Override**       | `saifctl feat run --coder-image ghcr.io/JuroOravec/safe-ai-factory/saifctl-coder-node-pnpm-python:latest` (or the image for your `--profile`) |
+| **Override**       | `saifctl feat run --coder-image ghcr.io/safe-ai-factory/saifctl/saifctl-coder-node-pnpm-python:latest` (or the image for your `--profile`) |
 | **Host coding**    | `saifctl feat run --engine local` — LocalEngine runs OpenHands on the host (no Leash coder container for coding) |
 
 When Leash is enabled (default), the orchestrator runs the **Leash CLI** (`@strongdm/leash`) with `--image saifctl-coder-node-pnpm-python:latest ...` (or profile-specific tag), wrapping OpenHands in this image. The sandbox code dir is mounted at `/workspace`. See [swf-comp-d-leash.md](./swf-comp-d-leash.md) for details.
@@ -175,9 +175,9 @@ The **test runner script** (`test.sh`) is always bind-mounted at `/usr/local/bin
 
 ### Pre-Built Test Runner Images
 
-Pre-built images are published to `ghcr.io/JuroOravec/safe-ai-factory` for all supported profiles (node-vitest, node-playwright, python-pytest, python-playwright, go-gotest, go-playwright, rust-rusttest, rust-playwright). **`test.sh` is not baked into the image** — the Orchestrator always bind-mounts it at `/usr/local/bin/test.sh` from `src/orchestrator/test-default.sh` (or a custom script via `--test-script`).
+Pre-built images are published to `ghcr.io/safe-ai-factory/saifctl` for all supported profiles (node-vitest, node-playwright, python-pytest, python-playwright, go-gotest, go-playwright, rust-rusttest, rust-playwright). **`test.sh` is not baked into the image** — the Orchestrator always bind-mounts it at `/usr/local/bin/test.sh` from `src/orchestrator/test-default.sh` (or a custom script via `--test-script`).
 
-- **Use:** `saifctl feat run --test-profile python-pytest` or `--test-image ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-node-vitest:latest`
+- **Use:** `saifctl feat run --test-profile python-pytest` or `--test-image ghcr.io/safe-ai-factory/saifctl/saifctl-test-node-vitest:latest`
 - **Build locally:** `pnpm docker build test` or `pnpm docker build test --all` — for development or offline (default images are on GHCR).
 
 ### Using a Custom Test Runner Image

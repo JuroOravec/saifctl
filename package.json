@@ -11,10 +11,10 @@
   "homepage": "https://safeaifactory.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JuroOravec/safe-ai-factory.git"
+    "url": "git+https://github.com/safe-ai-factory/saifctl.git"
   },
   "bugs": {
-    "url": "https://github.com/JuroOravec/safe-ai-factory/issues"
+    "url": "https://github.com/safe-ai-factory/saifctl/issues"
   },
   "author": "Juro Oravec (https://github.com/JuroOravec)",
   "funding": {

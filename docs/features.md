@@ -2,7 +2,7 @@
 
 ## Any language, any agent, any model
 
-`safe-ai-factory` was designed to work with your codebase:
+**SaifCTL** was designed to work with your codebase:
 
 1. **Language-agnostic:**
    - Included: NodeJS (default), Python, Go, Rust
@@ -34,7 +34,7 @@
    saifctl feat run --git-provider github
    ```
 
-_Missing an integration? [Open an issue](https://github.com/JuroOravec/safe-ai-factory/issues)_
+_Missing an integration? [Open an issue](https://github.com/safe-ai-factory/saifctl/issues)_
 
 ## Agent CLIs
 
@@ -89,7 +89,7 @@ See [Models](./models.md) for the full reference and available agents.
 
 You can store default options in `saifctl/config.*` so you don't have to pass them via CLI every time.
 
-`safe-ai-factory` uses [Cosmiconfig](https://github.com/cosmiconfig/cosmiconfig), so you can write your config in JSON, YAML, JS, or TS:
+**SaifCTL** uses [Cosmiconfig](https://github.com/cosmiconfig/cosmiconfig), so you can write your config in JSON, YAML, JS, or TS:
 
 - `saifctl/config.json`
 - `saifctl/config.yaml` / `config.yml`
@@ -234,7 +234,7 @@ saifctl feat run --cedar ./my-policy.cedar
 
 The factory uses [Shotgun](https://app.shotgun.sh/) to turn your feature proposal into a full technical spec before any coding agent runs. Write one paragraph - get back `plan.md`, `specification.md`, `research.md`, and `tasks.md`, all grounded in your existing codebase patterns.
 
-Just like other parts of `safe-ai-factory`, this step is swappable.
+Just like other parts of SaifCTL, this step is swappable.
 
 Use `--designer` to switch:
 
@@ -252,7 +252,7 @@ saifctl feat design --designer shotgun
 
 [See available designers and step-by-step usage →](./designers/README.md)
 
-_NOTE: Currently Shotgun is the only supported option. If you want to add your tool, [write an issue](https://github.com/JuroOravec/safe-ai-factory/issues)_
+_NOTE: Currently Shotgun is the only supported option. If you want to add your tool, [write an issue](https://github.com/safe-ai-factory/saifctl/issues)_
 
 ## Codebase indexing
 
@@ -279,4 +279,4 @@ saifctl feat design --indexer none
 
 [See all available indexers and step-by-step usage here](./indexer/README.md).
 
-_NOTE: Currently Shotgun is the only supported option. If you want to add your tool, [write an issue](https://github.com/JuroOravec/safe-ai-factory/issues)_
+_NOTE: Currently Shotgun is the only supported option. If you want to add your tool, [write an issue](https://github.com/safe-ai-factory/saifctl/issues)_

@@ -1,10 +1,10 @@
 # SaifCTL — safety harness for autonomous AI agents
 
 [![Website](https://img.shields.io/badge/Website-safeaifactory.com-blue)](https://safeaifactory.com)
-[![license](https://img.shields.io/npm/l/%40safe-ai-factory%2Fsaifctl)](https://github.com/JuroOravec/safe-ai-factory/blob/main/LICENSE)
+[![license](https://img.shields.io/npm/l/%40safe-ai-factory%2Fsaifctl)](https://github.com/safe-ai-factory/saifctl/blob/main/LICENSE)
 [![npm version](https://img.shields.io/npm/v/%40safe-ai-factory%2Fsaifctl)](https://www.npmjs.com/package/@safe-ai-factory/saifctl)
 [![npm downloads](https://img.shields.io/npm/dm/%40safe-ai-factory%2Fsaifctl)](https://www.npmjs.com/package/@safe-ai-factory/saifctl)
-[![GitHub stars](https://img.shields.io/github/stars/JuroOravec/safe-ai-factory)](https://github.com/JuroOravec/safe-ai-factory)
+[![GitHub stars](https://img.shields.io/github/stars/safe-ai-factory/saifctl)](https://github.com/safe-ai-factory/saifctl)
 
 **Spec-driven AI factory. Use with any agentic CLI. Language-agnostic. Safe by design.**
 
@@ -127,7 +127,7 @@ See our [Development guides](docs/development/)
 Clone with submodules:
 
 ```bash
-git clone --recurse-submodules https://github.com/JuroOravec/safe-ai-factory.git
+git clone --recurse-submodules https://github.com/safe-ai-factory/saifctl.git
 ```
 
 ## License

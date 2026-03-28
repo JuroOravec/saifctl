@@ -141,7 +141,7 @@ Use this when you need to debug or compare behavior **inside the coder container
 
 ### Leash
 
-Leash is an npm **dependency** of safe-ai-factory (`@strongdm/leash`). The orchestrator resolves `bin/leash.js` from that package and runs it with **`node`**, so it works when safe-ai-factory is installed as a dependency and when `cwd` is the sandbox. Optional override: **`SAIFCTL_LEASH_BIN`**. Prebuilt native pieces ship for darwin/linux amd64/arm64.
+Leash is an npm **dependency** of `@safe-ai-factory/saifctl` (`@strongdm/leash`). The orchestrator resolves `bin/leash.js` from that package and runs it with **`node`**, so it works when SaifCTL is installed as a dependency and when `cwd` is the sandbox. Optional override: **`SAIFCTL_LEASH_BIN`**. Prebuilt native pieces ship for darwin/linux amd64/arm64.
 
 ### OpenHands
 
@@ -153,8 +153,8 @@ uv tool install openhands --python 3.12
 
 ### First Run
 
-1. **Test Runner image** — pulled from GHCR when not present locally (e.g. `ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-node-vitest:latest`).
-2. **Coder image** — pulled from GHCR when not present locally (e.g. `ghcr.io/JuroOravec/safe-ai-factory/saifctl-coder-node-pnpm-python:latest` for the default sandbox profile).
+1. **Test Runner image** — pulled from GHCR when not present locally (e.g. `ghcr.io/safe-ai-factory/saifctl/saifctl-test-node-vitest:latest`).
+2. **Coder image** — pulled from GHCR when not present locally (e.g. `ghcr.io/safe-ai-factory/saifctl/saifctl-coder-node-pnpm-python:latest` for the default sandbox profile).
 
 ---
 

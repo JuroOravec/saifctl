@@ -1,5 +1,5 @@
 /**
- * Main package entry for safe-ai-factory.
+ * Main package entry for @safe-ai-factory/saifctl (SaifCTL).
  */
 
 export { cli } from './cli/index.js';

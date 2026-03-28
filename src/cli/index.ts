@@ -13,7 +13,7 @@ const main = defineCommand({
   meta: {
     name: 'saifctl',
     description:
-      'safe-ai-factory: Spec-driven AI factory. Use with any agentic CLI. Language-agnostic. Safe by design.',
+      'SaifCTL: spec-driven AI factory. Use with any agentic CLI. Language-agnostic. Safe by design.',
   },
   subCommands: {
     cache: cacheCommand,

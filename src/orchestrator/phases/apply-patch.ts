@@ -136,7 +136,7 @@ export async function pushHostApplyBranch(opts: PushHostApplyBranchOpts): Promis
 
       // Generate AI title + body; fall back to generic strings on any error.
       let prTitle = `feat(${feature.name}): auto-generated implementation`;
-      let prBody = `Automated implementation produced by the [SaifCTL](https://github.com/JuroOravec/safe-ai-factory) for feature \`${feature.name}\`.\n\nRun ID: \`${runId}\``;
+      let prBody = `Automated implementation produced by the [SaifCTL](https://github.com/safe-ai-factory/saifctl) for feature \`${feature.name}\`.\n\nRun ID: \`${runId}\``;
       try {
         consola.log(`[orchestrator] Generating AI PR summary for ${feature.name}...`);
         const summary = await generatePRSummary({

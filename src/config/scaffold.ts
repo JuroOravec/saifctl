@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 
 import { pathExists, writeUtf8 } from '../utils/io.js';
 
-const CONFIG_TEMPLATE = `import type { SaifctlConfig } from 'safe-ai-factory';
+const CONFIG_TEMPLATE = `import type { SaifctlConfig } from '@safe-ai-factory/saifctl';
 
 /**
  * SaifCTL configuration.

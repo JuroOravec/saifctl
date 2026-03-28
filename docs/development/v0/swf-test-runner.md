@@ -162,24 +162,24 @@ You can run tests in any language as long as your Test Runner image and `test.sh
 
 ### Pre-Built Images (Recommended)
 
-Pre-built test runner images are published to `ghcr.io/JuroOravec/safe-ai-factory`. Supported profiles:
+Pre-built test runner images are published to `ghcr.io/safe-ai-factory/saifctl`. Supported profiles:
 
 | Profile           | Image                                                                      |
 | ----------------- | -------------------------------------------------------------------------- |
-| node-vitest       | `ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-node-vitest:latest`       |
-| node-playwright   | `ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-node-playwright:latest`   |
-| python-pytest     | `ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-python-pytest:latest`     |
-| python-playwright | `ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-python-playwright:latest` |
-| go-gotest         | `ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-go-gotest:latest`         |
-| go-playwright     | `ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-go-playwright:latest`     |
-| rust-rusttest     | `ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-rust-rusttest:latest`     |
-| rust-playwright   | `ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-rust-playwright:latest`   |
+| node-vitest       | `ghcr.io/safe-ai-factory/saifctl/saifctl-test-node-vitest:latest`       |
+| node-playwright   | `ghcr.io/safe-ai-factory/saifctl/saifctl-test-node-playwright:latest`   |
+| python-pytest     | `ghcr.io/safe-ai-factory/saifctl/saifctl-test-python-pytest:latest`     |
+| python-playwright | `ghcr.io/safe-ai-factory/saifctl/saifctl-test-python-playwright:latest` |
+| go-gotest         | `ghcr.io/safe-ai-factory/saifctl/saifctl-test-go-gotest:latest`         |
+| go-playwright     | `ghcr.io/safe-ai-factory/saifctl/saifctl-test-go-playwright:latest`     |
+| rust-rusttest     | `ghcr.io/safe-ai-factory/saifctl/saifctl-test-rust-rusttest:latest`     |
+| rust-playwright   | `ghcr.io/safe-ai-factory/saifctl/saifctl-test-rust-playwright:latest`   |
 
 When `--test-image` is omitted, the orchestrator uses the default profile (`node-vitest`). Docker pulls the image from GHCR automatically when not present locally. To use another profile:
 
 ```bash
 saifctl feat run --test-profile python-pytest   # Uses GHCR python-pytest image
-saifctl feat run --test-image ghcr.io/JuroOravec/safe-ai-factory/saifctl-test-node-playwright:latest
+saifctl feat run --test-image ghcr.io/safe-ai-factory/saifctl/saifctl-test-node-playwright:latest
 ```
 
 Use `:v1.0.0` (or another tag) to pin a release. See [docs/development/docker.md](../../../docs/development/docker.md).

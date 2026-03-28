@@ -5,11 +5,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/JuroOravec/safe-ai-factory.git"
+    "url": "https://github.com/safe-ai-factory/saifctl.git"
   },
   "homepage": "https://www.npmjs.com/package/@safe-ai-factory/saifctl",
   "bugs": {
-    "url": "https://github.com/JuroOravec/safe-ai-factory/issues"
+    "url": "https://github.com/safe-ai-factory/saifctl/issues"
   },
   "main": "index.js",
   "files": [

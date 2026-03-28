@@ -662,7 +662,7 @@ export HATCHET_CLIENT_TOKEN=<token>
 export HATCHET_SERVER_URL=localhost:7077
 
 # 4. Run as normal — now with durability + dashboard
-saifac feat run -n my-feature
+saifctl feat run -n my-feature
 # Open http://localhost:8888 to watch the run
 ```
 

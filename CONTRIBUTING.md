@@ -19,7 +19,7 @@ Open an issue, describe the problem you're solving and how you'd like it to work
 1. Clone the root repo:
 
    ```bash
-   git clone https://github.com/JuroOravec/safe-ai-factory.git
+   git clone https://github.com/safe-ai-factory/saifctl.git
    cd agents
    ```
 

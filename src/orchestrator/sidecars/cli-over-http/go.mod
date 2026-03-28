@@ -1,3 +1,3 @@
-module github.com/JuroOravec/safe-ai-factory/sidecar
+module github.com/safe-ai-factory/saifctl/sidecar
 
 go 1.23
