@@ -1,4 +1,4 @@
-# saifac feat design-tests
+# saifctl feat design-tests
 
 Generate tests from existing specs (second step of design workflow).
 
@@ -9,8 +9,8 @@ Use this when specs are already up to date and you only want to regenerate or up
 ## Usage
 
 ```bash
-saifac feat design-tests [options]
-saifac feature design-tests [options]
+saifctl feat design-tests [options]
+saifctl feature design-tests [options]
 ```
 
 ## Arguments
@@ -22,7 +22,7 @@ saifac feature design-tests [options]
 | `--skip-catalog` | —     | boolean | Skip catalog generation and use the existing `tests.json`. Useful when re-generating only the test files.                                                       |
 | `--model`        | —     | string  | LLM model. Single global or comma-separated `agent=model`. At most one global. See [models.md](../models.md).                                                   |
 | `--base-url`     | —     | string  | LLM base URL. Single global or comma-separated `agent=url` (e.g. `http://localhost:11434/v1` or `pr-summarizer=https://api.openai.com/v1`). At most one global. |
-| `--saifac-dir`   | —     | string  | Path to saifac directory (default: `saifac`)                                                                                                                    |
+| `--saifctl-dir`   | —     | string  | Path to saifctl directory (default: `saifctl`)                                                                                                                    |
 | `--project-dir`  | —     | string  | Project directory (default: current working directory)                                                                                                          |
 | `--test-profile` | —     | string  | Test profile id (default: node-vitest)                                                                                                                          |
 | `--indexer`      | —     | string  | Indexer profile for codebase search (default: shotgun). Pass `none` to disable.                                                                                 |
@@ -33,55 +33,55 @@ saifac feature design-tests [options]
 Interactive (prompts for feature name):
 
 ```bash
-saifac feat design-tests
+saifctl feat design-tests
 ```
 
 With name:
 
 ```bash
-saifac feat design-tests -n add-login
+saifctl feat design-tests -n add-login
 ```
 
 Disable the indexer:
 
 ```bash
-saifac feat design-tests --indexer none
+saifctl feat design-tests --indexer none
 ```
 
 Force overwrite of existing test files (re-generates `tests.json`):
 
 ```bash
-saifac feat design-tests -f
+saifctl feat design-tests -f
 ```
 
 Re-generate only test files (reuses existing `tests.json`):
 
 ```bash
-saifac feat design-tests --skip-catalog
+saifctl feat design-tests --skip-catalog
 ```
 
 Force re-generate only test files (reuses existing `tests.json`):
 
 ```bash
-saifacacac feat design-tests --force --skip-catalog
+saifctl feat design-tests --force --skip-catalog
 ```
 
 Use a custom project directory (e.g. when running from a parent monorepo):
 
 ```bash
-saifac feat design-tests --project-dir ./packages/my-app
+saifctl feat design-tests --project-dir ./packages/my-app
 ```
 
 Use a specific model for the test generation agents:
 
 ```bash
-saifac feat design-tests --model anthropic/claude-3-5-sonnet-latest
+saifctl feat design-tests --model anthropic/claude-3-5-sonnet-latest
 ```
 
 Use per-agent overrides (e.g. stronger planner, cheaper coder):
 
 ```bash
-saifac feat design-tests --model tests-planner=anthropic/claude-opus-4-5,tests-catalog=anthropic/claude-3-5-sonnet-latest,tests-writer=openai/gpt-4o-mini
+saifctl feat design-tests --model tests-planner=anthropic/claude-opus-4-5,tests-catalog=anthropic/claude-3-5-sonnet-latest,tests-writer=openai/gpt-4o-mini
 ```
 
 ## What it does

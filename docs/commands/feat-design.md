@@ -1,4 +1,4 @@
-# saifac feat design
+# saifctl feat design
 
 Generate specs and tests from a feature's proposal (full design workflow):
 
@@ -10,16 +10,16 @@ Generate specs and tests from a feature's proposal (full design workflow):
 Equivalent to running:
 
 ```bash
-saifac feat design-specs
-saifacac feat design-tests
-saifacac feat design-fail2pass
+saifctl feat design-specs
+saifctl feat design-tests
+saifctl feat design-fail2pass
 ```
 
 ## Usage
 
 ```bash
-saifac feat design [options]
-saifac feature design [options]
+saifctl feat design [options]
+saifctl feature design [options]
 ```
 
 ## Requirements
@@ -36,15 +36,15 @@ saifac feature design [options]
 | `--designer`         | —     | string  | Designer profile for spec generation (default: shotgun)                                                                                                         |
 | `--model`            | —     | string  | LLM model. Single global or comma-separated `agent=model`. At most one global. See [models.md](../models.md).                                                   |
 | `--base-url`         | —     | string  | LLM base URL. Single global or comma-separated `agent=url` (e.g. `http://localhost:11434/v1` or `pr-summarizer=https://api.openai.com/v1`). At most one global. |
-| `--saifac-dir`       | —     | string  | Path to saifac directory (default: `saifac`)                                                                                                                    |
+| `--saifctl-dir`       | —     | string  | Path to saifctl directory (default: `saifctl`)                                                                                                                    |
 | `--project-dir`      | —     | string  | Project directory (default: current working directory)                                                                                                          |
 | `--project`          | `-p`  | string  | Project name override for the indexer (default: package.json "name")                                                                                            |
 | `--test-profile`     | —     | string  | Test profile id (default: node-vitest)                                                                                                                          |
 | `--indexer`          | —     | string  | Indexer profile for codebase search (default: shotgun). Pass `none` to disable.                                                                                 |
-| `--sandbox-base-dir` | —     | string  | Base directory for sandbox entries (default: `/tmp/saifac/sandboxes`)                                                                                  |
+| `--sandbox-base-dir` | —     | string  | Base directory for sandbox entries (default: `/tmp/saifctl/sandboxes`)                                                                                  |
 | `--profile`          | —     | string  | Sandbox profile (default: node-pnpm-python). Sets defaults for startup-script and stage-script.                                                                 |
 | `--test-script`      | —     | string  | Path to a shell script that overrides test.sh inside the Test Runner container.                                                                                 |
-| `--test-image`       | —     | string  | Test runner Docker image tag (default: saifac-test-\<profile\>:latest)                                                                                         |
+| `--test-image`       | —     | string  | Test runner Docker image tag (default: saifctl-test-\<profile\>:latest)                                                                                         |
 | `--startup-script`   | —     | string  | Path to a shell script run once to install workspace deps (pnpm install, pip install, etc.)                                                                     |
 | `--stage-script`     | —     | string  | Path to a shell script mounted into the staging container. Must handle app startup.                                                                             |
 
@@ -53,57 +53,57 @@ saifac feature design [options]
 Design a feature (prompts for name if multiple features exist):
 
 ```bash
-saifac feat design
-saifacac feat design -n add-login
+saifctl feat design
+saifctl feat design -n add-login
 ```
 
 Force re-run of the designer (overwrite existing spec files without prompting):
 
 ```bash
-saifacac feat design -f
+saifctl feat design -f
 ```
 
 Use a custom project directory (e.g. when running from a parent monorepo):
 
 ```bash
-saifacac feat design --project-dir ./packages/my-app
+saifctl feat design --project-dir ./packages/my-app
 ```
 
 Use a different designer or indexer:
 
 ```bash
-saifacac feat design --designer shotgun --indexer shotgun
-saifac feat design --indexer none
+saifctl feat design --designer shotgun --indexer shotgun
+saifctl feat design --indexer none
 ```
 
 Use a specific model for the full design pipeline:
 
 ```bash
-saifac feat design --model anthropic/claude-3-5-sonnet-latest
+saifctl feat design --model anthropic/claude-3-5-sonnet-latest
 ```
 
 Override individual agents (e.g. stronger planner, cheaper test coder):
 
 ```bash
-saifac feat design --model tests-planner=anthropic/claude-opus-4-5,tests-writer=openai/gpt-4o-mini
+saifctl feat design --model tests-planner=anthropic/claude-opus-4-5,tests-writer=openai/gpt-4o-mini
 ```
 
 Change language or framework for the sandbox container (e.g. your codebse is in Golang):
 
 ```bash
-saifacac feat design-fail2pass --profile go-node
+saifctl feat design-fail2pass --profile go-node
 ```
 
 Change language or framework for the test runner (e.g. if you wrote tests in Golang):
 
 ```bash
-saifac feat design-fail2pass --test-profile go-gotest
+saifctl feat design-fail2pass --test-profile go-gotest
 ```
 
 ## What it does
 
 1. Optionally runs `feat design-discovery` (When discovery tools / MCPs are configured) to gather context into `discovery.md`.
-2. Runs `feat design-specs`: Runs Shotgun to enrich the specs in `saifac/features/<name>/`.
+2. Runs `feat design-specs`: Runs Shotgun to enrich the specs in `saifctl/features/<name>/`.
 3. Runs `feat design-tests`: reads the specs and generates a test plan (`tests.md`) and catalog (`tests.json`), then implements the tests (e.g. `*.spec.ts`).
 4. Runs `feat design-fail2pass`: verifies at least one feature test fails on the current codebase (Docker required).
 

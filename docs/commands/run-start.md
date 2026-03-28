@@ -1,4 +1,4 @@
-# saifac run start
+# saifctl run start
 
 Start again from a **failed** or **interrupted** Run in storage. Continues with the same flow as [`feat run`](feat-run.md).
 
@@ -7,7 +7,7 @@ The new execution uses the same arguments as the original run (unless you overri
 ## Usage
 
 ```bash
-saifac run start <runId> [options]
+saifctl run start <runId> [options]
 ```
 
 ## Requirements
@@ -23,13 +23,13 @@ At the end of a run, the CLI prints a message like this:
 
 ```bash
 Start again with:
-  saifac run start <runId>
+  saifctl run start <runId>
 ```
 
 Alternatively, you can obtain the run ID by running `run list`.
 
 ```bash
-saifac run list
+saifctl run list
 ```
 
 The run ID is the first column in the output.
@@ -58,30 +58,30 @@ Start-from-artifact behavior:
 Start again from a failed run:
 
 ```bash
-saifac run start biehp82
+saifctl run start biehp82
 ```
 
 Start again with a different model:
 
 ```bash
-saifac run start biehp82 --model anthropic/claude-3-5-sonnet-latest
+saifctl run start biehp82 --model anthropic/claude-3-5-sonnet-latest
 ```
 
 Start again with a different agent:
 
 ```bash
-saifac run start biehp82 --agent aider
+saifctl run start biehp82 --agent aider
 ```
 
 Custom storage location:
 
 ```bash
-saifac run start biehp82 --storage runs=file:///tmp/my-runs
+saifctl run start biehp82 --storage runs=file:///tmp/my-runs
 ```
 
 ## How it works
 
-Each time you run `feat run`, a new [Run](../runs.md) is created and its metadata is stored in run storage. You can start again with `saifac run start <runId>`.
+Each time you run `feat run`, a new [Run](../runs.md) is created and its metadata is stored in run storage. You can start again with `saifctl run start <runId>`.
 
 `run start` re-creates the exact copy of the workspace as it was when the coding agent stopped. It does this by creating a **temporary** git worktree that reconstructs your workspace at the time of the run started. And on top of it, `run start` applies changes made by the agent during the run.
 

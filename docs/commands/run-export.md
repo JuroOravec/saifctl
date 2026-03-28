@@ -1,4 +1,4 @@
-# saifac run export
+# saifctl run export
 
 Export run's changes as a **single multi-patch diff file**.
 
@@ -7,7 +7,7 @@ Use this instead of [`run apply`](run-apply.md) when you ran with **`--include-d
 ## Usage
 
 ```bash
-saifac run export <runId> [options]
+saifctl run export <runId> [options]
 ```
 
 ## Arguments
@@ -15,9 +15,9 @@ saifac run export <runId> [options]
 | Argument        | Alias | Type   | Description                                                                                                                                 |
 | --------------- | ----- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `runId`         | —     | string | Run ID to export (positional, required)                                                                                                     |
-| `--output`      | `-o`  | string | Output patch file path (default: `./saifac-<feature>-<runId>-<diffHash>.patch`) |
+| `--output`      | `-o`  | string | Output patch file path (default: `./saifctl-<feature>-<runId>-<diffHash>.patch`) |
 | `--project-dir` | —     | string | Project directory (default: current working directory). Used to warn if `HEAD` differs from the run's `baseCommitSha`.                    |
-| `--saifac-dir`  | —     | string | Saifac config directory relative to project (default: `saifac`)                                                                             |
+| `--saifctl-dir`  | —     | string | Saifctl config directory relative to project (default: `saifctl`)                                                                             |
 | `--storage`     | —     | string | Run storage: `local` / `none` / `runs=…` (see [Runs](../runs.md)); default is local under project                                          |
 
 ## Examples
@@ -25,27 +25,27 @@ saifac run export <runId> [options]
 Export with the default output path:
 
 ```bash
-saifac run export pwc2l1j
-# Output: ./saifac-my-feature-pwc2l1j-abc123.patch
+saifctl run export pwc2l1j
+# Output: ./saifctl-my-feature-pwc2l1j-abc123.patch
 ```
 
 Write to a chosen path:
 
 ```bash
-saifac run export pwc2l1j -o /tmp/my-feature.patch
+saifctl run export pwc2l1j -o /tmp/my-feature.patch
 ```
 
 Apply in your repo:
 
 ```bash
-git apply --check saifac-my-feature-pwc2l1j-abc123.patch
-git apply saifac-my-feature-pwc2l1j-abc123.patch
+git apply --check saifctl-my-feature-pwc2l1j-abc123.patch
+git apply saifctl-my-feature-pwc2l1j-abc123.patch
 ```
 
 Stage the diff only (e.g. to review in the editor):
 
 ```bash
-git apply --cached saifac-my-feature-pwc2l1j-abc123.patch
+git apply --cached saifctl-my-feature-pwc2l1j-abc123.patch
 # then commit, or: git restore --staged .
 ```
 

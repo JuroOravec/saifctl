@@ -2,7 +2,7 @@
 
 [Forge Code](https://forgecode.dev) is a Rust binary that runs fully headlessly. Installed at runtime via a curl script — no Node or Python required.
 
-**Usage:** `saifac feat run --agent forge`
+**Usage:** `saifctl feat run --agent forge`
 
 ## How we call it
 
@@ -11,7 +11,7 @@ forge config set model "$LLM_MODEL"
 forge \
   --agent forge \
   --verbose \
-  -p "$(cat "$SAIFAC_TASK_PATH")"
+  -p "$(cat "$SAIFCTL_TASK_PATH")"
 ```
 
 Forge has no `--model` flag; we set the model via config before running.

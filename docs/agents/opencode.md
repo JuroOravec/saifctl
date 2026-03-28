@@ -2,7 +2,7 @@
 
 [OpenCode](https://github.com/opencode-ai/opencode) is an open-source coding agent with a TUI. Installed at run time via `npm install -g opencode-ai` when missing (requires npm in the coder image).
 
-**Usage:** `saifac feat run --agent opencode`
+**Usage:** `saifctl feat run --agent opencode`
 
 ## How we call it
 
@@ -11,7 +11,7 @@ OPENCODE_PERMISSION='{"*":"allow"}' \
 opencode run \
   --model "$LLM_MODEL" \
   --format json \
-  "$(cat "$SAIFAC_TASK_PATH")"
+  "$(cat "$SAIFCTL_TASK_PATH")"
 ```
 
 ## Notes

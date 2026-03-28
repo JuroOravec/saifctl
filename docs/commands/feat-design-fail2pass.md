@@ -1,4 +1,4 @@
-# saifac feat design-fail2pass
+# saifctl feat design-fail2pass
 
 Validate generated tests. Runs tests against main; at least one feature test must fail (third step of design workflow).
 
@@ -9,8 +9,8 @@ Use this after `feat design-tests` to verify the tests are valid before starting
 ## Usage
 
 ```bash
-saifac feat design-fail2pass [options]
-saifac feature design-fail2pass [options]
+saifctl feat design-fail2pass [options]
+saifctl feature design-fail2pass [options]
 ```
 
 ## Requirements
@@ -22,14 +22,14 @@ saifac feature design-fail2pass [options]
 | Argument             | Alias | Type   | Description                                                                                     |
 | -------------------- | ----- | ------ | ----------------------------------------------------------------------------------------------- |
 | `--name`             | `-n`  | string | Feature name (kebab-case). Prompts with a list if omitted.                                      |
-| `--saifac-dir`       | —     | string | Path to saifac directory (default: `saifac`)                                                    |
+| `--saifctl-dir`       | —     | string | Path to saifctl directory (default: `saifctl`)                                                    |
 | `--project-dir`      | —     | string | Project directory (default: current working directory)                                          |
 | `--project`          | `-p`  | string | Project name override (default: package.json "name")                                            |
-| `--sandbox-base-dir` | —     | string | Base directory for sandbox entries (default: `/tmp/saifac/sandboxes`)                    |
+| `--sandbox-base-dir` | —     | string | Base directory for sandbox entries (default: `/tmp/saifctl/sandboxes`)                    |
 | `--profile`          | —     | string | Sandbox profile (default: node-pnpm-python). Sets defaults for startup-script and stage-script. |
 | `--test-profile`     | —     | string | Test profile id (default: node-vitest)                                                          |
 | `--test-script`      | —     | string | Path to a shell script that overrides test.sh inside the Test Runner container.                 |
-| `--test-image`       | —     | string | Test runner Docker image tag (default: saifac-test-\<profile\>:latest)                         |
+| `--test-image`       | —     | string | Test runner Docker image tag (default: saifctl-test-\<profile\>:latest)                         |
 | `--startup-script`   | —     | string | Path to a shell script run once to install workspace deps (pnpm install, pip install, etc.)     |
 | `--stage-script`     | —     | string | Path to a shell script mounted into the staging container. Must handle app startup.             |
 
@@ -38,25 +38,25 @@ saifac feature design-fail2pass [options]
 Interactive (prompts for feature name):
 
 ```bash
-saifac feat design-fail2pass
+saifctl feat design-fail2pass
 ```
 
 With name:
 
 ```bash
-saifac feat design-fail2pass -n add-login
+saifctl feat design-fail2pass -n add-login
 ```
 
 Change language or framework for the sandbox container (e.g. your codebse is in Golang):
 
 ```bash
-saifac feat design-fail2pass --profile go-node
+saifctl feat design-fail2pass --profile go-node
 ```
 
 Change language or framework for the test runner (e.g. if you wrote tests in Golang):
 
 ```bash
-saifac feat design-fail2pass --test-profile go-gotest
+saifctl feat design-fail2pass --test-profile go-gotest
 ```
 
 ## What it does

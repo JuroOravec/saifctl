@@ -1,4 +1,4 @@
-# saifac run clear
+# saifctl run clear
 
 Clear (bulk delete) stored runs from run storage.
 
@@ -11,7 +11,7 @@ If run storage is disabled (e.g. `--storage none` or `runs=none`), the command p
 ## Usage
 
 ```bash
-saifac run clear [options]
+saifctl run clear [options]
 ```
 
 ## Arguments
@@ -20,7 +20,7 @@ saifac run clear [options]
 | --------------- | ----- | ------- | ------------------------------------------------------------------------------------------------ |
 | `--failed`      | —     | boolean | Clear only runs with status `failed` (omit to clear **all** stored runs)                       |
 | `--project-dir` | —     | string  | Project directory (default: current working directory)                                         |
-| `--saifac-dir`  | —     | string  | Saifac config directory relative to project (default: `saifac`)                                  |
+| `--saifctl-dir`  | —     | string  | Saifctl config directory relative to project (default: `saifctl`)                                  |
 | `--storage`     | —     | string  | Run storage: `local` / `none` / `runs=…` (see [Runs](../runs.md)); default is local under project |
 
 `--sandbox-base-dir` and other orchestration-only flags are not read by this subcommand; they have no effect here.
@@ -30,19 +30,19 @@ saifac run clear [options]
 Clear all stored runs:
 
 ```bash
-saifac run clear
+saifctl run clear
 ```
 
 Clear only failed runs:
 
 ```bash
-saifac run clear --failed
+saifctl run clear --failed
 ```
 
 Use custom storage location:
 
 ```bash
-saifac run clear --storage runs=file:///tmp/my-runs
+saifctl run clear --storage runs=file:///tmp/my-runs
 ```
 
 ## Output

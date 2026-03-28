@@ -2,14 +2,14 @@
 
 [Aider](https://github.com/Aider-AI/aider) is an AI pair-programming tool that edits code in your terminal. It uses litellm, so it works with OpenAI, Anthropic, OpenRouter, Gemini, and many other providers.
 
-**Usage:** `saifac feat run --agent aider`
+**Usage:** `saifctl feat run --agent aider`
 
 ## How we call it
 
 ```bash
 aider \
   --model "$LLM_MODEL" \
-  --message-file "$SAIFAC_TASK_PATH" \
+  --message-file "$SAIFCTL_TASK_PATH" \
   --yes \
   --no-auto-commits \
   --no-check-update \

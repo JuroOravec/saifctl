@@ -1,4 +1,4 @@
-# saifac feat run
+# saifctl feat run
 
 Start an agent to implement the specs. Runs until it passes your tests.
 
@@ -12,14 +12,14 @@ Workflow:
 ## Usage
 
 ```bash
-saifac feat run [options]
-saifac feature run [options]
+saifctl feat run [options]
+saifctl feature run [options]
 ```
 
 ## Requirements
 
 - **Docker daemon** - Starts the coder container, staging container, and test runner.
-- **Feature with tests** - Must have run `saifac feat design` first.
+- **Feature with tests** - Must have run `saifctl feat design` first.
 - **LLM API key**
 
 ## Arguments
@@ -27,14 +27,14 @@ saifac feature run [options]
 | Argument               | Alias | Type    | Description                                                                                                                                                         |
 | ---------------------- | ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--name`               | `-n`  | string  | Feature name (kebab-case). Prompts with a list if omitted.                                                                                                          |
-| `--saifac-dir`         | —     | string  | Path to saifac directory (default: `saifac`)                                                                                                                       |
+| `--saifctl-dir`         | —     | string  | Path to saifctl directory (default: `saifctl`)                                                                                                                       |
 | `--project-dir`        | —     | string  | Project directory (default: current working directory)                                                                                                              |
 | `--project`            | `-p`  | string  | Project name override (default: package.json "name")                                                                                                                |
 | `--test-profile`       | —     | string  | Test profile id (default: node-vitest)                                                                                                                              |
-| `--sandbox-base-dir`   | —     | string  | Base directory for sandbox entries (default: `/tmp/saifac/sandboxes`)                                                                                        |
+| `--sandbox-base-dir`   | —     | string  | Base directory for sandbox entries (default: `/tmp/saifctl/sandboxes`)                                                                                        |
 | `--profile`            | —     | string  | Sandbox profile (default: node-pnpm-python). Sets defaults for startup-script and stage-script.                                                                     |
 | `--test-script`        | —     | string  | Path to a shell script that overrides test.sh inside the Test Runner container.                                                                                     |
-| `--test-image`         | —     | string  | Test runner Docker image tag (default: saifac-test-\<profile\>:latest)                                                                                             |
+| `--test-image`         | —     | string  | Test runner Docker image tag (default: saifctl-test-\<profile\>:latest)                                                                                             |
 | `--startup-script`     | —     | string  | Path to a shell script run once to install workspace deps (pnpm install, pip install, etc.)                                                                         |
 | `--stage-script`       | —     | string  | Path to a shell script mounted into the staging container. Must handle app startup.                                                                                 |
 | `--gate-script`        | —     | string  | Path to a shell script run inside Leash after each round. Defaults to profile gate.                                                                                 |
@@ -54,7 +54,7 @@ saifac feature run [options]
 | `--storage`            | —     | string  | Where run state is stored. Bare global (`local`, `none`, `file:///path`, `s3`, `s3://bucket/prefix`) or per-key `runs=…` / `tasks=…` with the same value forms; comma-separated mixes. Feat run uses the `runs` key (default: local). `none` disables persistence. |
 | `--push`               | —     | string  | Push feature branch after success. Accepts Git URL, slug (owner/repo), or remote name.                                                                              |
 | `--pr`                 | —     | boolean | Open a Pull Request after pushing. Requires `--push` and provider token env var.                                                                                    |
-| `--branch`             | —     | string  | Override the git branch name used when applying the patch to the host (default: `saifac/<feature>-<runId>-<diffHash>`). |
+| `--branch`             | —     | string  | Override the git branch name used when applying the patch to the host (default: `saifctl/<feature>-<runId>-<diffHash>`). |
 | `--include-dirty`      | —     | boolean | Include uncommitted and untracked files in the sandbox (default: **off** — only `HEAD` is copied). |
 | `--git-provider`       | —     | string  | Git hosting provider for push/PR. `github` \| `gitlab` \| `bitbucket` \| `azure` \| `gitea` (default: `github`)                                                     |
 | `--model`              | —     | string  | LLM model. Single global or comma-separated `agent=model` (e.g. `anthropic/claude-opus-4-5` or `pr-summarizer=openai/gpt-4o-mini`). At most one global.             |
@@ -67,58 +67,58 @@ saifac feature run [options]
 Interactive (prompts for feature name):
 
 ```bash
-saifac feat run
+saifctl feat run
 ```
 
 With name:
 
 ```bash
-saifac feat run -n add-login
+saifctl feat run -n add-login
 ```
 
 Use a specific model:
 
 ```bash
-saifac feat run -n add-login --model anthropic/claude-3-5-sonnet-latest
+saifctl feat run -n add-login --model anthropic/claude-3-5-sonnet-latest
 ```
 
 Resolve spec ambiguity with human confirmation:
 
 ```bash
-saifac feat run -n add-login --resolve-ambiguity prompt
+saifctl feat run -n add-login --resolve-ambiguity prompt
 ```
 
 Run the agent on the host (for development/debugging):
 
 ```bash
-saifac feat run -n add-login --engine local
+saifctl feat run -n add-login --engine local
 ```
 
 Use a custom coder image or agent:
 
 ```bash
-saifac feat run -n add-login --coder-image my-saifac-coder:latest
-saifac feat run -n add-login --agent aider
+saifctl feat run -n add-login --coder-image my-saifctl-coder:latest
+saifctl feat run -n add-login --agent aider
 ```
 
 Use custom run storage (S3, custom path):
 
 ```bash
 # Disable persistence (no resume)
-saifac feat run -n add-login --storage none
+saifctl feat run -n add-login --storage none
 # Equivalent: --storage runs=none
 
 # Custom local directory
-saifac feat run -n add-login --storage runs=file:///tmp/my-runs
+saifctl feat run -n add-login --storage runs=file:///tmp/my-runs
 
 # S3 (requires SAIF_DEFAULT_S3_BUCKET) or full URI
-saifac feat run -n add-login --storage runs=s3://my-bucket/runs?profile=dev&region=us-east-1
+saifctl feat run -n add-login --storage runs=s3://my-bucket/runs?profile=dev&region=us-east-1
 ```
 
 Push and open a PR after success:
 
 ```bash
-saifac feat run -n add-login --push origin --pr
+saifctl feat run -n add-login --push origin --pr
 ```
 
 ## What it does
@@ -127,12 +127,12 @@ saifac feat run -n add-login --push origin --pr
 2. Starts the coder via the configured coding engine (Leash + container by default, or run on your machine with `--engine local`).
 3. In a loop: runs the agent → runs the gate script → assesses with the test runner. Repeats until tests pass or max runs are exceeded.
 4. On failure due to spec ambiguity (when `--resolve-ambiguity` is `ai` or `prompt`), the Vague Specs Checker may update the spec and regenerate tests, then retry.
-5. On success, applies the winning patch to a new local branch, then optionally pushes and opens a PR. The branch name is `saifac/<feature>-<runId>-<diffHash>` by default, or `--branch`.
-6. On failure, saves run state to `.saifac/runs/` and prints the `saifac run start` command to resume.
+5. On success, applies the winning patch to a new local branch, then optionally pushes and opens a PR. The branch name is `saifctl/<feature>-<runId>-<diffHash>` by default, or `--branch`.
+6. On failure, saves run state to `.saifctl/runs/` and prints the `saifctl run start` command to resume.
 
 ## Resuming previous runs
 
-- On failure, run state is saved to `.saifac/runs/`. Resume later with `saifac run start <runId>`.
+- On failure, run state is saved to `.saifctl/runs/`. Resume later with `saifctl run start <runId>`.
 
 ## Ambiguity in specs
 

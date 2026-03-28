@@ -2,7 +2,7 @@
 
 [Kilo Code](https://github.com/Kilo-Org/kilocode) is an OpenCode fork. Installed via npm — requires Node.js 20.18.1+.
 
-**Usage:** `saifac feat run --agent kilocode`
+**Usage:** `saifctl feat run --agent kilocode`
 
 ## How we call it
 
@@ -10,7 +10,7 @@
 export OPENCODE_CONFIG_CONTENT='{"model":"$LLM_MODEL","permission":"allow","autoupdate":false,...}'
 kilo run \
   --auto \
-  "$(cat "$SAIFAC_TASK_PATH")"
+  "$(cat "$SAIFCTL_TASK_PATH")"
 ```
 
 Provider config (apiKey, baseURL) is injected via `OPENCODE_CONFIG_CONTENT` as JSON.

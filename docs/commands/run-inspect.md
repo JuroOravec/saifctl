@@ -1,13 +1,13 @@
-# saifac run inspect
+# saifctl run inspect
 
 Open an **idle** coding environment for a **saved run** — the same kind of isolated workspace and container setup as when you [`run start`](run-start.md), but **without** starting the automated agent. The container stays running so you can attach your editor or a shell, edit the code yourself, then finish when you are done.
 
-When you stop the command (**Ctrl+C**, or the process is stopped with **SIGTERM**), saifac shuts the session down, picks up any edits you made in that workspace, and **updates the saved run** if something actually changed. If nothing changed, the saved run is left as-is.
+When you stop the command (**Ctrl+C**, or the process is stopped with **SIGTERM**), saifctl shuts the session down, picks up any edits you made in that workspace, and **updates the saved run** if something actually changed. If nothing changed, the saved run is left as-is.
 
 ## Usage
 
 ```bash
-saifac run inspect <runId> [options]
+saifctl run inspect <runId> [options]
 ```
 
 ## Requirements
@@ -17,10 +17,10 @@ saifac run inspect <runId> [options]
 
 ## How to obtain the run ID
 
-Same as [`run start`](run-start.md): use the id from the end of a run, or from `saifac run list` / `saifac run ls` (first column).
+Same as [`run start`](run-start.md): use the id from the end of a run, or from `saifctl run list` / `saifctl run ls` (first column).
 
 ```bash
-saifac run list
+saifctl run list
 ```
 
 ## Arguments
@@ -44,19 +44,19 @@ Options that only apply to automated tests or push/PR steps have **no effect** h
 With the Run ID `eed5lz6`:
 
 ```bash
-saifac run inspect eed5lz6
+saifctl run inspect eed5lz6
 ```
 
 Override the model (same rules as `feat run`):
 
 ```bash
-saifac run inspect eed5lz6 --model anthropic/claude-4-6-sonnet-latest
+saifctl run inspect eed5lz6 --model anthropic/claude-4-6-sonnet-latest
 ```
 
 Match the coding agent’s Leash/Cedar environment:
 
 ```bash
-saifac run inspect eed5lz6 --leash
+saifctl run inspect eed5lz6 --leash
 ```
 
 ## What it does
@@ -65,7 +65,7 @@ saifac run inspect eed5lz6 --leash
 2. Rebuilds a **temporary copy** of your project in the same way as [`run start`](run-start.md).
 3. Copies that into the sandbox and starts the **coding container** in an idle mode (waiting for you to attach).
 4. Logs the **container name** and workspace path. Attach with **Dev Containers**, **`docker exec`**, or your usual workflow.
-5. When you stop the command, saifac saves the changes you made into the saved run, and tears the session down.
+5. When you stop the command, saifctl saves the changes you made into the saved run, and tears the session down.
 
 ## Notes
 
@@ -73,7 +73,7 @@ saifac run inspect eed5lz6 --leash
 
 - If run storage is disabled (`--storage none` / `runs=none`), the command exits with an error (`Run storage is disabled … Cannot inspect a stored run.`).
 
-- Concurrency: When saving changes you made in the container, `saifac` has protection from race conditions. If `saifac` detects that the Run was modified in the meantime, it will write your steps to a fallback file **`.saifac-inspect-stale-<runId>.json`** next to the project root instead of overwriting — check the CLI message for what to do next.
+- Concurrency: When saving changes you made in the container, `saifctl` has protection from race conditions. If `saifctl` detects that the Run was modified in the meantime, it will write your steps to a fallback file **`.saifctl-inspect-stale-<runId>.json`** next to the project root instead of overwriting — check the CLI message for what to do next.
 
 
 ## See also

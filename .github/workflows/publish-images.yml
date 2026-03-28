@@ -71,7 +71,7 @@ jobs:
 
       - name: Tag and Push images
         run: |
-          docker images --format "{{.Repository}}" | grep "^saifac-" | while read -r repo; do
+          docker images --format "{{.Repository}}" | grep "^saifctl-" | while read -r repo; do
             echo "Publishing $repo"
             # Push latest tag
             docker tag "$repo:latest" "${{ env.IMAGE_PREFIX }}/$repo:latest"

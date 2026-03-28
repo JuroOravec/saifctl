@@ -2,12 +2,12 @@
 
 [OpenHands](https://github.com/OpenHands/OpenHands) is the default coding agent. Uses the same env var names as the factory — no mapping needed.
 
-**Usage:** `saifac feat run` (default) or `--agent openhands`
+**Usage:** `saifctl feat run` (default) or `--agent openhands`
 
 ## How we call it
 
 ```bash
-openhands --headless --always-approve --override-with-envs --json -t "$(cat "$SAIFAC_TASK_PATH")"
+openhands --headless --always-approve --override-with-envs --json -t "$(cat "$SAIFCTL_TASK_PATH")"
 ```
 
 ## Notes

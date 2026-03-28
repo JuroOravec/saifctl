@@ -1,4 +1,4 @@
-# saifac run fork
+# saifctl run fork
 
 Copy an existing stored [Run](../runs.md) to a **new run ID**. The new artifact keeps the same git snapshot as the source run.
 
@@ -11,7 +11,7 @@ The original run is unchanged.
 ## Usage
 
 ```bash
-saifac run fork <sourceRunId> [options]
+saifctl run fork <sourceRunId> [options]
 ```
 
 ## How to obtain the source run ID
@@ -37,20 +37,20 @@ Fork-specific behavior:
 Fork a run:
 
 ```bash
-saifac run fork biehp82
+saifctl run fork biehp82
 ```
 
 Fork and set the default model:
 
 ```bash
-saifac run fork biehp82 --model anthropic/claude-3-5-sonnet-latest
+saifctl run fork biehp82 --model anthropic/claude-3-5-sonnet-latest
 ```
 
 The CLI prints the new run ID and:
 
 ```text
 Start the agent with:
-  saifac run start <newRunId>
+  saifctl run start <newRunId>
 ```
 
 ## Notes

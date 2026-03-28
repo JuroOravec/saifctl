@@ -1,15 +1,15 @@
-# saifac doctor
+# saifctl doctor
 
 Run environment health checks before you implement or debug a feature.
 
 Verifies that **Docker** is running and optionally that **Hatchet** is configured and reachable.
-Use this after setting up a local Hatchet server or when `saifac feat run` fails with
+Use this after setting up a local Hatchet server or when `saifctl feat run` fails with
 infrastructure errors.
 
 ## Usage
 
 ```bash
-saifac doctor
+saifctl doctor
 ```
 
 This command takes no arguments.
@@ -18,7 +18,7 @@ This command takes no arguments.
 
 1. **Docker** — runs `docker info`. The factory’s sandboxes and containers require a running daemon.
 2. **Hatchet (optional)** —
-   - If `HATCHET_CLIENT_TOKEN` is unset, prints a warning that saifac is running in **local (in-process) mode**. This is not a failure.
+   - If `HATCHET_CLIENT_TOKEN` is unset, prints a warning that saifctl is running in **local (in-process) mode**. This is not a failure.
    - If the token is set, initializes the Hatchet SDK (`getHatchetClient()`). Success means the client was created for `HATCHET_SERVER_URL` (default `localhost:7077`). Connection failures surface as SDK errors in the output.
 
 The process exits with code **1** only when a **hard** check fails (Docker down, or Hatchet token set but client initialization throws). Missing Hatchet token alone exits **0**.
@@ -28,16 +28,16 @@ The process exits with code **1** only when a **hard** check fails (Docker down,
 Basic check from your project root:
 
 ```bash
-saifac doctor
+saifctl doctor
 ```
 
 Typical success output when Hatchet is not configured:
 
 ```text
-saifac doctor
+saifctl doctor
 
   ✔  Docker is running
-  ⚠  HATCHET_CLIENT_TOKEN is not set — saifac will run in local (in-process) mode.
+  ⚠  HATCHET_CLIENT_TOKEN is not set — saifctl will run in local (in-process) mode.
          To enable Hatchet durability + dashboard, see: docs/hatchet.md
 
 All checks passed.
@@ -46,7 +46,7 @@ All checks passed.
 Typical success output with Hatchet env vars set:
 
 ```text
-saifac doctor
+saifctl doctor
 
   ✔  Docker is running
   ✔  HATCHET_CLIENT_TOKEN is set

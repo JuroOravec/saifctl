@@ -2,13 +2,13 @@
 
 [Claude Code](https://code.claude.com) is Anthropic's CLI for AI-assisted coding. Runs headlessly with `-p` (print mode).
 
-**Usage:** `saifac feat run --agent claude`
+**Usage:** `saifctl feat run --agent claude`
 
 ## How we call it
 
 ```bash
 claude \
-  -p "$(cat "$SAIFAC_TASK_PATH")" \
+  -p "$(cat "$SAIFCTL_TASK_PATH")" \
   --model "$LLM_MODEL" \
   --dangerously-skip-permissions \
   --output-format stream-json \

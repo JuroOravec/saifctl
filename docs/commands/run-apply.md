@@ -1,4 +1,4 @@
-# saifac run apply
+# saifctl run apply
 
 Apply Run's commits to your real git repository as a local branch, with optional **push** and **PR**.
 
@@ -7,7 +7,7 @@ Use this when tests already passed (or you accept the stored patch as-is) but **
 ## Usage
 
 ```bash
-saifac run apply <runId> [options]
+saifctl run apply <runId> [options]
 ```
 
 ## Requirements
@@ -20,13 +20,13 @@ saifac run apply <runId> [options]
 
 | Argument         | Alias | Type   | Description                                                                 |
 | ---------------- | ----- | ------ | --------------------------------------------------------------------------- |
-| `runId`          | —     | string | Saved run id (required). Use `saifac run list`.                             |
-| `--branch`       | —     | string | Override the local branch name for host apply (default: `saifac/<feature>-<runId>-<diffHash>` as in [How it works](#how-it-works)). |
+| `runId`          | —     | string | Saved run id (required). Use `saifctl run list`.                             |
+| `--branch`       | —     | string | Override the local branch name for host apply (default: `saifctl/<feature>-<runId>-<diffHash>` as in [How it works](#how-it-works)). |
 | `--push`         | —     | string | Push target after apply (remote name, URL, or `owner/repo`).                |
 | `--pr`           | —     | bool   | Open a PR after push (requires `--push` and provider token).                |
 | `--git-provider` | —     | string | `github`, `gitlab`, `bitbucket`, `azure`, or `gitea` (default: `github`).   |
 | `--project-dir`  | —     | string | Project root (default: current directory).                                  |
-| `--saifac-dir`   | —     | string | Saifac config folder (default: `saifac`).                                   |
+| `--saifctl-dir`   | —     | string | Saifctl config folder (default: `saifctl`).                                   |
 | `--storage`      | —     | string | Run storage URI (must match where the run lives).                           |
 | `--model`        | —     | string | LLM overrides (e.g. for PR summarizer when `--pr` is set).                 |
 | `--base-url`     | —     | string | API base URL overrides (same rules as `--model`).                           |
@@ -37,26 +37,26 @@ saifac run apply <runId> [options]
 Create the branch locally (no push):
 
 ```bash
-saifac run apply pwc2l1j
+saifctl run apply pwc2l1j
 ```
 
 Push upstream (GitHub, GitLab, etc.) and open a PR:
 
 ```bash
-saifac run apply pwc2l1j --push origin --pr
+saifctl run apply pwc2l1j --push origin --pr
 ```
 
 Force a specific branch name (e.g. after a collision):
 
 ```bash
-saifac run apply pwc2l1j --branch saifac/my-feature-retry-2
+saifctl run apply pwc2l1j --branch saifctl/my-feature-retry-2
 ```
 
 ## How it works
 
 1. Loads the saved run for the ID you gave.
 2. Rebuilds a **temporary copy** of your project exactly as that run left it (same approach as [`run start`](run-start.md), but no agent loop).
-3. **Applies the patch to your real repo** on branch `saifac/<feature>-<runId>-<diffHash>` (default, or `--branch`),
+3. **Applies the patch to your real repo** on branch `saifctl/<feature>-<runId>-<diffHash>` (default, or `--branch`),
 4. Optionally **pushes** and opens a **PR** (same flags as `feat run` / `run test`).
 
 ## Notes

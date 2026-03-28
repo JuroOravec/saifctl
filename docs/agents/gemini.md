@@ -2,7 +2,7 @@
 
 [Gemini CLI](https://github.com/google-gemini/gemini-cli) is Google's terminal agent. Installed at run time via `npm install -g @google/gemini-cli` when missing (requires npm in the coder image).
 
-**Usage:** `saifac feat run --agent gemini`
+**Usage:** `saifctl feat run --agent gemini`
 
 ## How we call it
 
@@ -11,7 +11,7 @@ gemini \
   --model "$LLM_MODEL" \
   --yolo \
   --output-format stream-json \
-  "$(cat "$SAIFAC_TASK_PATH")"
+  "$(cat "$SAIFCTL_TASK_PATH")"
 ```
 
 The prompt is passed as a positional argument (not `-p`, which is `--profile`).

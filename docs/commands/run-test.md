@@ -1,4 +1,4 @@
-# saifac run test
+# saifctl run test
 
 Run **tests only** for a **saved run** — the same code the agent had produced for that run — **without** running the coding agent again.
 
@@ -7,7 +7,7 @@ Use this when you want to check the saved work again after tweaking tests, or sw
 ## Usage
 
 ```bash
-saifac run test <runId> [options]
+saifctl run test <runId> [options]
 ```
 
 ## Requirements
@@ -23,11 +23,11 @@ To customize the run, you can use a subset of the same flags as [`feat run`](fea
 
 | Argument              | Alias | Type    | Description                                                                                    |
 | --------------------- | ----- | ------- | ---------------------------------------------------------------------------------------------- |
-| `runId`               | —     | string  | Saved run id (required). Get ids with `saifac run list` or `saifac run ls`.                    |
+| `runId`               | —     | string  | Saved run id (required). Get ids with `saifctl run list` or `saifctl run ls`.                    |
 | `--project-dir`       | —     | string  | Project root (default: current directory).                                                     |
-| `--saifac-dir`        | —     | string  | Saifac config folder (default: `saifac`).                                                      |
+| `--saifctl-dir`        | —     | string  | Saifctl config folder (default: `saifctl`).                                                      |
 | `--project`           | `-p`  | string  | Project name override (default: `name` in package.json).                                       |
-| `--sandbox-base-dir`  | —     | string  | Where disposable sandboxes are created (default under `/tmp/saifac/`; see [`feat run`](feat-run.md)). |
+| `--sandbox-base-dir`  | —     | string  | Where disposable sandboxes are created (default under `/tmp/saifctl/`; see [`feat run`](feat-run.md)). |
 | `--profile`           | —     | string  | Sandbox profile (install/stage defaults).                                                      |
 | `--test-profile`      | —     | string  | Which test profile to use (defaults follow the saved run unless you override).                 |
 | `--test-script`       | —     | string  | Custom script path for running tests in the test container.                                    |
@@ -42,7 +42,7 @@ To customize the run, you can use a subset of the same flags as [`feat run`](fea
 | `--storage`           | —     | string  | Where saved runs live (`local`, `file://…`, `s3`, etc.). See [Runs](../runs.md).               |
 | `--push`              | —     | string  | After tests pass: where to push (remote name, URL, or `owner/repo`).                            |
 | `--pr`                | —     | boolean | Open a PR after a push (needs `--push` and provider setup).                                    |
-| `--branch`            | —     | string  | Override the git branch name used when applying the patch to the host (default: `saifac/<feature>-<runId>-<diffHash>`). |
+| `--branch`            | —     | string  | Override the git branch name used when applying the patch to the host (default: `saifctl/<feature>-<runId>-<diffHash>`). |
 | `--git-provider`      | —     | string  | `github`, `gitlab`, `bitbucket`, `azure`, or `gitea` (default: `github`).                      |
 | `--verbose`           | `-v`  | boolean | More detailed logs.                                                                            |
 
@@ -51,31 +51,31 @@ To customize the run, you can use a subset of the same flags as [`feat run`](fea
 Re-run tests with the same settings as when the run was saved:
 
 ```bash
-saifac run test add-login-r1
+saifctl run test add-login-r1
 ```
 
 If tests pass, push and open a PR:
 
 ```bash
-saifac run test add-login-r1 --push origin --pr
+saifctl run test add-login-r1 --push origin --pr
 ```
 
 Use a different test runner image:
 
 ```bash
-saifac run test add-login-r1 --test-image factory-test-node-vitest:v2
+saifctl run test add-login-r1 --test-image factory-test-node-vitest:v2
 ```
 
 Skip the “ambiguous spec” handling on failures:
 
 ```bash
-saifac run test add-login-r1 --resolve-ambiguity off
+saifctl run test add-login-r1 --resolve-ambiguity off
 ```
 
 Read the saved run from S3-backed storage:
 
 ```bash
-saifac run test add-login-r1 --storage runs=s3://my-bucket/runs
+saifctl run test add-login-r1 --storage runs=s3://my-bucket/runs
 ```
 
 ## What it does
@@ -83,7 +83,7 @@ saifac run test add-login-r1 --storage runs=s3://my-bucket/runs
 1. Loads the saved run for the id you gave.
 2. Rebuilds a **temporary copy** of your project exactly as that run left it (same approach as [`run start`](run-start.md), but no agent loop).
 3. Spins up the usual **sandbox** (isolated copy, staging, test runner) and runs the **test suite**.
-5. On success, **applies the patch to your real repo** on branch `saifac/<feature>-<runId>-<diffHash>` (default, or `--branch`), and optionally **push** or **open a PR**.
+5. On success, **applies the patch to your real repo** on branch `saifctl/<feature>-<runId>-<diffHash>` (default, or `--branch`), and optionally **push** or **open a PR**.
 
 ## Notes
 

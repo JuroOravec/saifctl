@@ -1,16 +1,16 @@
-# saifac run list
+# saifctl run list
 
 List stored runs from run storage.
 
-**Alias:** `saifac run ls` (same command).
+**Alias:** `saifctl run ls` (same command).
 
-Shows persisted run artifacts (e.g. in `.saifac/runs/`). Use `--status` and `--task` to narrow results.
+Shows persisted run artifacts (e.g. in `.saifctl/runs/`). Use `--status` and `--task` to narrow results.
 
 ## Usage
 
 ```bash
-saifac run list [options]
-# or: saifac run ls [options]
+saifctl run list [options]
+# or: saifctl run ls [options]
 ```
 
 ## Arguments
@@ -20,7 +20,7 @@ saifac run list [options]
 | `--status`      | —     | string | Filter by status (`failed`, `completed`, etc.)                                                   |
 | `--task`        | —     | string | Filter by task ID                                                                                |
 | `--project-dir` | —     | string | Project directory (default: current working directory)                                         |
-| `--saifac-dir`  | —     | string | Saifac config directory relative to project (default: `saifac`)                                  |
+| `--saifctl-dir`  | —     | string | Saifctl config directory relative to project (default: `saifctl`)                                  |
 | `--storage`     | —     | string | Run storage: `local` / `none` / `runs=…` (see [Runs](../runs.md)); default is local under project |
 
 `--sandbox-base-dir` and other orchestration-only flags are not read by this subcommand; they have no effect here.
@@ -32,25 +32,25 @@ If run storage is disabled (e.g. `--storage none` or `runs=none`), the command p
 List all stored runs:
 
 ```bash
-saifac run list
+saifctl run list
 ```
 
 List only failed runs:
 
 ```bash
-saifac run ls --status failed
+saifctl run ls --status failed
 ```
 
 List runs for a specific task:
 
 ```bash
-saifac run list --task abc-123
+saifctl run list --task abc-123
 ```
 
 Use custom storage location:
 
 ```bash
-saifac run list --storage runs=file:///tmp/my-runs
+saifctl run list --storage runs=file:///tmp/my-runs
 ```
 
 ## Output

@@ -1,4 +1,4 @@
-# saifac run rules
+# saifctl run rules
 
 Manage **user feedback rules** stored on a run artifact. Rules are injected into the agent **task prompt** (see [Runs — Run rules](../runs.md#run-rules-user-feedback)).
 
@@ -9,18 +9,18 @@ Manage **user feedback rules** stored on a run artifact. Rules are injected into
 ## Usage
 
 ```bash
-saifac run rules create <runId> --content "…" [options]
-saifac run rules create <runId> --content-file <path> [options]
+saifctl run rules create <runId> --content "…" [options]
+saifctl run rules create <runId> --content-file <path> [options]
 
-saifac run rules list <runId> [options]
-# or: saifac run rules ls <runId>
+saifctl run rules list <runId> [options]
+# or: saifctl run rules ls <runId>
 
-saifac run rules get <runId> <ruleId> [options]
+saifctl run rules get <runId> <ruleId> [options]
 
-saifac run rules update <runId> <ruleId> [options]
+saifctl run rules update <runId> <ruleId> [options]
 
-saifac run rules remove <runId> <ruleId> [options]
-# or: saifac run rules rm <runId> <ruleId>
+saifctl run rules remove <runId> <ruleId> [options]
+# or: saifctl run rules rm <runId> <ruleId>
 ```
 
 ## Shared options
@@ -30,7 +30,7 @@ These apply to **every** subcommand:
 | Argument        | Type   | Description                                                                                      |
 | --------------- | ------ | ------------------------------------------------------------------------------------------------ |
 | `--project-dir` | string | Project directory (default: current working directory)                                           |
-| `--saifac-dir`  | string | Saifac config directory relative to project (default: `saifac`)                                |
+| `--saifctl-dir`  | string | Saifctl config directory relative to project (default: `saifctl`)                                |
 | `--storage`     | string | Run storage: `local` / `none` / `runs=…` (see [Runs](../runs.md)); default is local under project |
 
 ---
@@ -40,8 +40,8 @@ These apply to **every** subcommand:
 Append a new rule to a Run.
 
 ```bash
-saifac run rules create abc12x --content "Prefer functional style in new code."
-saifac run rules create abc12x --content-file ./feedback.md --scope always
+saifctl run rules create abc12x --content "Prefer functional style in new code."
+saifctl run rules create abc12x --content-file ./feedback.md --scope always
 ```
 
 | Argument / flag   | Required | Description                                                                 |
@@ -62,8 +62,8 @@ On success, the new rule’s **id** is printed. Use it with `get`, `update`, or 
 Print a **table** of all rules on the Run.
 
 ```bash
-saifac run rules list abc12x
-saifac run rules ls abc12x
+saifctl run rules list abc12x
+saifctl run rules ls abc12x
 ```
 
 | Argument | Required | Description        |
@@ -83,8 +83,8 @@ Sorted by `createdAt`.
 Print **single** rule as JSON.
 
 ```bash
-saifac run rules get <runId> <ruleId>
-saifac run rules get <runId> <ruleId> --no-pretty | jq .scope
+saifctl run rules get <runId> <ruleId>
+saifctl run rules get <runId> <ruleId> --no-pretty | jq .scope
 ```
 
 | Argument | Required | Description       |
@@ -103,8 +103,8 @@ saifac run rules get <runId> <ruleId> --no-pretty | jq .scope
 Change a rule’s **content** and/or **scope**.
 
 ```bash
-saifac run rules update abc12x a1b2c3 --scope always
-saifac run rules update abc12x a1b2c3 --content-file ./revised.md
+saifctl run rules update abc12x a1b2c3 --scope always
+saifctl run rules update abc12x a1b2c3 --content-file ./revised.md
 ```
 
 | Argument / flag  | Required | Description                                                |
@@ -126,8 +126,8 @@ At least one of `--content`, `--content-file`, or `--scope` must be provided.
 Delete a rule by ID from the Run.
 
 ```bash
-saifac run rules remove abc12x a1b2c3
-saifac run rules rm abc12x a1b2c3
+saifctl run rules remove abc12x a1b2c3
+saifctl run rules rm abc12x a1b2c3
 ```
 
 | Argument | Required | Description       |
@@ -154,7 +154,7 @@ saifac run rules rm abc12x a1b2c3
 
 - If you set `--storage none` / `runs=none`, the CLI errors and exits non-zero (`Run storage is disabled (--storage none). Cannot start from a stored run.`).
 
-- Concurrency - `saifac` uses revision versions to handle concurrent writes. Mutating commands (`create`, `update`, `remove`) change the revision version. If another writer saved in between, you get a **stale revision** message — reload the run and retry.
+- Concurrency - `saifctl` uses revision versions to handle concurrent writes. Mutating commands (`create`, `update`, `remove`) change the revision version. If another writer saved in between, you get a **stale revision** message — reload the run and retry.
 
 ---
 

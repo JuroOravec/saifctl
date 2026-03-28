@@ -2,13 +2,13 @@
 
 [Terminus](https://pypi.org/project/terminus-ai/) is Harbor's reference agent. Uses a single tmux session as its only tool — sends keystrokes and reads the screen. Installed via pipx.
 
-**Usage:** `saifac feat run --agent terminus`
+**Usage:** `saifctl feat run --agent terminus`
 
 ## How we call it
 
 ```bash
 terminus \
-  "$(cat "$SAIFAC_TASK_PATH")" \
+  "$(cat "$SAIFCTL_TASK_PATH")" \
   --model "$LLM_MODEL" \
   --parser json \
   --temperature 0.7

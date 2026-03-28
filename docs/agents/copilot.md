@@ -2,13 +2,13 @@
 
 [GitHub Copilot CLI](https://github.com/github/copilot-cli) routes AI requests through GitHub's API. Requires an active Copilot subscription.
 
-**Usage:** `saifac feat run --agent copilot`
+**Usage:** `saifctl feat run --agent copilot`
 
 ## How we call it
 
 ```bash
 copilot \
-  --prompt "$(cat "$SAIFAC_TASK_PATH")" \
+  --prompt "$(cat "$SAIFCTL_TASK_PATH")" \
   --allow-all \
   --no-ask-user \
   --no-auto-update \

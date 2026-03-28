@@ -2,7 +2,7 @@
 
 [Codex](https://github.com/openai/codex) is OpenAI's CLI coding agent. Uses the `exec` subcommand for headless, non-interactive runs.
 
-**Usage:** `saifac feat run --agent codex`
+**Usage:** `saifctl feat run --agent codex`
 
 ## How we call it
 
@@ -12,7 +12,7 @@ codex exec \
   --dangerously-bypass-approvals-and-sandbox \
   --json \
   --ephemeral \
-  - < "$SAIFAC_TASK_PATH"
+  - < "$SAIFCTL_TASK_PATH"
 ```
 
 ## Notes

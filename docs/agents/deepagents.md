@@ -2,14 +2,14 @@
 
 [Deep Agents CLI](https://github.com/langchain-ai/deepagents) is LangChain's terminal agent. Installed at runtime via uv, pipx, or pip with provider extras (anthropic, groq, openrouter).
 
-**Usage:** `saifac feat run --agent deepagents`
+**Usage:** `saifctl feat run --agent deepagents`
 
 ## How we call it
 
 ```bash
 deepagents \
   --agent factory \
-  -n "$(cat "$SAIFAC_TASK_PATH")" \
+  -n "$(cat "$SAIFCTL_TASK_PATH")" \
   --auto-approve \
   --shell-allow-list recommended
 ```

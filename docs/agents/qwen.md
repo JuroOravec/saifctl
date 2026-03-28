@@ -2,13 +2,13 @@
 
 [Qwen Code](https://github.com/QwenLM/qwen-code) is Alibaba's terminal agent. Installed at run time via `npm install -g @qwen-code/qwen-code` when missing (requires npm in the coder image).
 
-**Usage:** `saifac feat run --agent qwen`
+**Usage:** `saifctl feat run --agent qwen`
 
 ## How we call it
 
 ```bash
 qwen \
-  --prompt "$(cat "$SAIFAC_TASK_PATH")" \
+  --prompt "$(cat "$SAIFCTL_TASK_PATH")" \
   --model "$LLM_MODEL" \
   --yolo \
   --output-format stream-json

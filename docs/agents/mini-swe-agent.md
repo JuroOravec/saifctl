@@ -2,13 +2,13 @@
 
 [mini-SWE-agent](https://github.com/SWE-agent/mini-swe-agent) is a lightweight agent from Princeton & Stanford. Uses litellm. Installed via pipx — Python required.
 
-**Usage:** `saifac feat run --agent mini-swe-agent`
+**Usage:** `saifctl feat run --agent mini-swe-agent`
 
 ## How we call it
 
 ```bash
 mini \
-  -t "$(cat "$SAIFAC_TASK_PATH")" \
+  -t "$(cat "$SAIFCTL_TASK_PATH")" \
   --yolo \
   --exit-immediately
 ```

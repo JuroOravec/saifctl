@@ -1,8 +1,8 @@
-# saifac feat design-specs
+# saifctl feat design-specs
 
 Generate specs from a feature's proposal — the first step of `feat design` only.
 
-When `discovery.md` exists in the feature directory (from a prior `saifac feat design-discovery` run), the designer receives both `proposal.md` and `discovery.md`.
+When `discovery.md` exists in the feature directory (from a prior `saifctl feat design-discovery` run), the designer receives both `proposal.md` and `discovery.md`.
 
 Runs the designer (e.g. Shotgun) to produce spec files from `proposal.md`. Use this when you want spec generation only, without proceeding to tests generation. The full `feat design` command runs this step first, then continues automatically.
 
@@ -11,8 +11,8 @@ When `--name`/`-n` is omitted, prompts interactively with a list of existing fea
 ## Usage
 
 ```bash
-saifac feat design-specs [options]
-saifac feature design-specs [options]
+saifctl feat design-specs [options]
+saifctl feature design-specs [options]
 ```
 
 ## Arguments
@@ -25,7 +25,7 @@ saifac feature design-specs [options]
 | `--designer`    | —     | string  | Designer profile for spec generation (default: shotgun)                                                                                                         |
 | `--model`       | —     | string  | LLM model. Single global or comma-separated `agent=model`. At most one global. See [models.md](../models.md).                                                   |
 | `--base-url`    | —     | string  | LLM base URL. Single global or comma-separated `agent=url` (e.g. `http://localhost:11434/v1` or `pr-summarizer=https://api.openai.com/v1`). At most one global. |
-| `--saifac-dir`  | —     | string  | Path to saifac directory (default: `saifac`)                                                                                                                    |
+| `--saifctl-dir`  | —     | string  | Path to saifctl directory (default: `saifctl`)                                                                                                                    |
 | `--project-dir` | —     | string  | Project directory (default: current working directory)                                                                                                          |
 
 ## Examples
@@ -33,44 +33,44 @@ saifac feature design-specs [options]
 Interactive (prompts for feature name):
 
 ```bash
-saifac feat design-specs
+saifctl feat design-specs
 ```
 
 With name:
 
 ```bash
-saifac feat design-specs -n add-login
+saifctl feat design-specs -n add-login
 ```
 
 With a specific designer and model:
 
 ```bash
-saifac feat design-specs --designer shotgun --model anthropic/claude-opus-4-5
+saifctl feat design-specs --designer shotgun --model anthropic/claude-opus-4-5
 ```
 
 With per-agent model overrides:
 
 ```bash
-saifac feat design-specs --model tests-planner=anthropic/claude-3-5-sonnet-latest,vague-specs-check=openai/gpt-4o
+saifctl feat design-specs --model tests-planner=anthropic/claude-3-5-sonnet-latest,vague-specs-check=openai/gpt-4o
 ```
 
 Non-interactive:
 
 ```bash
-saifacac feat design-specs -y
+saifctl feat design-specs -y
 ```
 
 Force re-run (overwrite existing spec files without prompting):
 
 ```bash
-saifac feat design-specs -f
-saifac feat design-specs -n add-login --force
+saifctl feat design-specs -f
+saifctl feat design-specs -n add-login --force
 ```
 
 Custom project directory (e.g. when running from a parent monorepo):
 
 ```bash
-saifac feat design-specs --project-dir ./packages/my-app
+saifctl feat design-specs --project-dir ./packages/my-app
 ```
 
 ## Environment variables
@@ -78,18 +78,18 @@ saifac feat design-specs --project-dir ./packages/my-app
 | Variable           | Required | Description                                                                                                      |
 | ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------- |
 | `SHOTGUN_PYTHON`   | no       | Path to the Python binary that has `shotgun-sh` installed (default: `python`). Example: `$(uv run which python)` |
-| `CONTEXT7_API_KEY` | no       | API key for Context7 documentation lookup inside Shotgun. Configured once via `saifac init`.                     |
+| `CONTEXT7_API_KEY` | no       | API key for Context7 documentation lookup inside Shotgun. Configured once via `saifctl init`.                     |
 
 \*At least one LLM API key is required. The key to set depends on which provider you want to use. See [Models](../models.md) for auto-discovery rules.
 
 ## What it does
 
 1. Checks if the designer has already run for this feature; prompts to redo if so (skipped with `--yes`).
-2. Runs the designer (e.g. Shotgun) to research your codebase and produce enriched spec files in `saifac/features/<name>/`.
+2. Runs the designer (e.g. Shotgun) to research your codebase and produce enriched spec files in `saifctl/features/<name>/`.
 
 ## Next steps
 
-To continue to test planning and scaffolding, run `saifac feat design` (which includes this step), or run `saifac feat design-tests` to generate tests from existing specs without re-running spec generation.
+To continue to test planning and scaffolding, run `saifctl feat design` (which includes this step), or run `saifctl feat design-tests` to generate tests from existing specs without re-running spec generation.
 
 ## See also
 

@@ -1,11 +1,11 @@
-# saifac run info
+# saifctl run info
 
 Print a stored run artifact as JSON for debugging or piping to tools.
 
 ## Usage
 
 ```bash
-saifac run info <runId> [options]
+saifctl run info <runId> [options]
 ```
 
 ## Arguments
@@ -15,7 +15,7 @@ saifac run info <runId> [options]
 | `runId`         | —     | string  | Run ID to show (positional, required)                                                         |
 | `--pretty`      | —     | boolean | Pretty-print JSON (default: true). Citty maps `--no-pretty` to `pretty: false` (single line). |
 | `--project-dir` | —     | string  | Project directory (default: current working directory)                                      |
-| `--saifac-dir`  | —     | string  | Saifac config directory relative to project (default: `saifac`)                             |
+| `--saifctl-dir`  | —     | string  | Saifctl config directory relative to project (default: `saifctl`)                             |
 | `--storage`     | —     | string  | Run storage: `local` / `none` / `runs=…` (see [Runs](../runs.md)); default is local under project |
 
 `--sandbox-base-dir` and other orchestration-only flags are not read by this subcommand; they have no effect here.
@@ -27,13 +27,13 @@ If run storage is disabled (e.g. `--storage none` or `runs=none`), or the run ID
 Pretty-printed JSON (default):
 
 ```bash
-saifac run info abc12x
+saifctl run info abc12x
 ```
 
 Compact JSON for piping:
 
 ```bash
-saifac run info abc12x --no-pretty | jq .config.featureName
+saifctl run info abc12x --no-pretty | jq .config.featureName
 ```
 
 Example of the default **pretty-printed** output:
@@ -46,7 +46,7 @@ Example of the default **pretty-printed** output:
     { "message": "feat: add login form", "author": "openhands <agent@local>" },
     { "message": "fix: validation" }
   ],
-  "specRef": "saifac/features/add-login",
+  "specRef": "saifctl/features/add-login",
   "lastFeedback": "Test failure: expected 200, got 404",
   "config": {
     "featureName": "add-login",
@@ -56,7 +56,7 @@ Example of the default **pretty-printed** output:
     "projectDir": "/path/to/repo",
     "maxRuns": 5,
     "overrides": {},
-    "saifDir": "saifac",
+    "saifDir": "saifctl",
     "projectName": "my-app",
     "testImage": "safe-ai-factory-test:latest",
     "resolveAmbiguity": "ai",

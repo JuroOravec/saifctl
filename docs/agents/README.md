@@ -13,8 +13,8 @@ The CLI tools receive the task and they edit files in the workspace.
 Use `--agent <id>`:
 
 ```bash
-saifac feat run --agent aider
-saifac feat run --agent claude
+saifctl feat run --agent aider
+saifctl feat run --agent claude
 ```
 
 | ID                                      | Name                | Project URL                                         |
@@ -41,11 +41,11 @@ saifac feat run --agent claude
 For any CLI not in the list:
 
 ```bash
-saifac feat run \
+saifctl feat run \
   --agent-script ./my-agent-runner.sh
 ```
 
-Your script must read from `$SAIFAC_TASK_PATH` and invoke the agent.
+Your script must read from `$SAIFCTL_TASK_PATH` and invoke the agent.
 
 ---
 
@@ -59,8 +59,8 @@ The factory forwards these into the agent container:
 | `LLM_API_KEY`            | API key.<br/>Agents may map this to provider-specific vars (e.g. `OPENAI_API_KEY`).                |
 | `LLM_PROVIDER`           | Provider ID (e.g. `anthropic`, `openrouter`).<br/>Some agents that need it for base URL / routing. |
 | `LLM_BASE_URL`           | Base URL (e.g. `https://openrouter.ai/api/v1`).<br/>Overridable via `--base-url`.                  |
-| `SAIFAC_TASK_PATH`      | Path to the task markdown file. Agent script must read from here.                                  |
-| `SAIFAC_WORKSPACE_BASE` | Path to the workspace (`/workspace` or host path).                                                 |
+| `SAIFCTL_TASK_PATH`      | Path to the task markdown file. Agent script must read from here.                                  |
+| `SAIFCTL_WORKSPACE_BASE` | Path to the workspace (`/workspace` or host path).                                                 |
 
 Additional vars from `--agent-env` and `--agent-env-file` are forwarded to the container.
 
