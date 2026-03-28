@@ -240,7 +240,7 @@ The SAIFAC orchestrator loop becomes a **Hatchet workflow** where each phase is 
 
 It's important to understand the layering before modelling this as steps:
 
-- The **gate** (`gate.sh`) and **reviewer** (Argus) run **inside** `codingProvisioner.runAgent()` —
+- The **gate** (`gate.sh`) and **reviewer** (Argus) run **inside** `codingEngine.runAgent()` —
   they are sub-steps of the inner shell loop within the Leash/coder container itself. From the
   orchestrator's point of view, `runAgent()` is a single atomic call. The gate/reviewer are not
   separate Hatchet steps; they live entirely inside the coding container and their results are
@@ -332,7 +332,7 @@ iterationWorkflow.task(
   },
   async (ctx) => {
     const { sandboxPath, config } = ctx.workflowInput();
-    // Calls codingProvisioner.setup() + runAgent() + teardown().
+    // Calls codingEngine.setup() + runAgent() + teardown().
     // runAgent() internally: spawns Leash CLI (`node …/leash.js …`), which itself
     //   runs the coder-start.sh loop (agent → gate.sh → reviewer → repeat).
     // Returns patch diff when the inner loop exits (pass or exhausted gate retries).
@@ -611,7 +611,7 @@ iterationWorkflow.task({ name: 'run-agent', timeout: '60m' }, ...);
 ```
 
 Cancellation: Hatchet sends a cancellation signal to the step function's `ctx`. The step
-must call `codingProvisioner.teardown()` in a `finally` block — this is already done in
+must call `codingEngine.teardown()` in a `finally` block — this is already done in
 `loop.ts`, so no new logic is needed; just ensure it runs inside the step function.
 
 ---

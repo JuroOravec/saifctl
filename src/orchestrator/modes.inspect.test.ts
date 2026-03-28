@@ -1,5 +1,5 @@
 /**
- * Unit tests for {@link runInspect} — mocked provisioner, sandbox, resume, and I/O.
+ * Unit tests for {@link runInspect} — mocked engine, sandbox, resume, and I/O.
  */
 
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -56,11 +56,11 @@ function makeOrchestratorOpts(): OrchestratorOpts {
     reviewerEnabled: false,
     includeDirty: false,
     stagingEnvironment: {
-      provisioner: 'docker',
+      engine: 'docker',
       app: { sidecarPort: 8080, sidecarPath: '/exec' },
       appEnvironment: {},
     },
-    codingEnvironment: { provisioner: 'docker' },
+    codingEnvironment: { engine: 'docker' },
     gateScript: '#',
     startupScript: '#',
     agentInstallScript: '#',
@@ -124,12 +124,12 @@ const baseArtifact: RunArtifact = {
     agentScriptFile: 's/agent.sh',
     testRetries: 1,
     stagingEnvironment: {
-      provisioner: 'docker',
+      engine: 'docker',
       app: { sidecarPort: 8080, sidecarPath: '/exec' },
       appEnvironment: {},
     },
     codingEnvironment: {
-      provisioner: 'docker',
+      engine: 'docker',
     },
   },
   status: 'failed',
@@ -151,11 +151,11 @@ const {
   createSandboxMock,
   destroySandboxMock,
   extractIncrementalRoundPatchMock,
-  createProvisionerMock,
+  createEngineMock,
   resolveFeatureMock,
   resolveOrchestratorOptsMock,
   writeUtf8Mock,
-  mockProvisioner,
+  mockEngine,
 } = vi.hoisted(() => {
   const setup = vi.fn().mockResolvedValue(undefined);
   const teardown = vi.fn().mockResolvedValue(undefined);
@@ -165,18 +165,18 @@ const {
     workspacePath: '/workspace',
     stop,
   });
-  const mockProvisioner = { setup, teardown, startInspect };
+  const mockEngine = { setup, teardown, startInspect };
   return {
     createResumeWorktreeMock: vi.fn(),
     cleanupResumeWorkspaceMock: vi.fn().mockResolvedValue(undefined),
     createSandboxMock: vi.fn(),
     destroySandboxMock: vi.fn().mockResolvedValue(undefined),
     extractIncrementalRoundPatchMock: vi.fn(),
-    createProvisionerMock: vi.fn(() => mockProvisioner),
+    createEngineMock: vi.fn(() => mockEngine),
     resolveFeatureMock: vi.fn(),
     resolveOrchestratorOptsMock: vi.fn(),
     writeUtf8Mock: vi.fn().mockResolvedValue(undefined),
-    mockProvisioner,
+    mockEngine,
   };
 });
 
@@ -199,8 +199,8 @@ vi.mock('./sandbox.js', async (importOriginal) => {
   };
 });
 
-vi.mock('../provisioners/index.js', () => ({
-  createProvisioner: createProvisionerMock,
+vi.mock('../engines/index.js', () => ({
+  createEngine: createEngineMock,
 }));
 
 vi.mock('../specs/discover.js', async (importOriginal) => {
@@ -335,7 +335,7 @@ describe('runInspect', () => {
         runStorage: null as unknown as RunStorage,
         cli: {} as unknown as OrchestratorCliInput,
         cliModelDelta: undefined,
-        infraCli: undefined,
+        engineCli: undefined,
       }),
     ).rejects.toThrow(/run storage/i);
   });
@@ -352,12 +352,12 @@ describe('runInspect', () => {
       cli: {} as unknown as OrchestratorCliInput,
       cliModelDelta: undefined,
       inspectLeash: true,
-      infraCli: undefined,
+      engineCli: undefined,
     });
     await finishWithSigint();
     await p;
 
-    expect(mockProvisioner.startInspect).toHaveBeenCalledWith(
+    expect(mockEngine.startInspect).toHaveBeenCalledWith(
       expect.objectContaining({ dangerousNoLeash: false }),
     );
   });
@@ -374,7 +374,7 @@ describe('runInspect', () => {
         runStorage: storage,
         cli: {} as unknown as OrchestratorCliInput,
         cliModelDelta: undefined,
-        infraCli: undefined,
+        engineCli: undefined,
       }),
     ).rejects.toThrow(/Run not found/);
   });
@@ -393,7 +393,7 @@ describe('runInspect', () => {
         runStorage: storage,
         cli: {} as unknown as OrchestratorCliInput,
         cliModelDelta: undefined,
-        infraCli: undefined,
+        engineCli: undefined,
       }),
     ).rejects.toThrow(/already running/);
   });
@@ -409,15 +409,15 @@ describe('runInspect', () => {
       runStorage: storage,
       cli: {} as unknown as OrchestratorCliInput,
       cliModelDelta: undefined,
-      infraCli: undefined,
+      engineCli: undefined,
     });
     await finishWithSigint();
     await p;
 
     expect(createResumeWorktreeMock).toHaveBeenCalled();
     expect(createSandboxMock).toHaveBeenCalled();
-    expect(mockProvisioner.setup).toHaveBeenCalled();
-    expect(mockProvisioner.startInspect).toHaveBeenCalledWith(
+    expect(mockEngine.setup).toHaveBeenCalled();
+    expect(mockEngine.startInspect).toHaveBeenCalledWith(
       expect.objectContaining({ dangerousNoLeash: true }),
     );
     expect(storage.saveRun).not.toHaveBeenCalled();
@@ -454,7 +454,7 @@ describe('runInspect', () => {
       runStorage: storage,
       cli: {} as unknown as OrchestratorCliInput,
       cliModelDelta: undefined,
-      infraCli: undefined,
+      engineCli: undefined,
     });
     await finishWithSigint();
     await p;
@@ -505,7 +505,7 @@ describe('runInspect', () => {
       runStorage: storage,
       cli: {} as unknown as OrchestratorCliInput,
       cliModelDelta: undefined,
-      infraCli: undefined,
+      engineCli: undefined,
     });
     await finishWithSigint();
     await p;
@@ -541,7 +541,7 @@ describe('runInspect', () => {
       runStorage: storage,
       cli: {} as unknown as OrchestratorCliInput,
       cliModelDelta: undefined,
-      infraCli: undefined,
+      engineCli: undefined,
     });
     await finishWithSigint();
     await expect(p).rejects.toThrow('disk full');

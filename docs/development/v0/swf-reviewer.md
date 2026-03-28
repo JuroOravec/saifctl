@@ -75,7 +75,7 @@ If the gate script fails, the reviewer is never run. If the reviewer fails, the 
 
 ### Prerequisites
 
-- **Leash mode** (default). The reviewer runs inside the coder container. It is **not** used when coding is **local** (LocalProvisioner / `--infra local`).
+- **Leash mode** (default). The reviewer runs inside the coder container. It is **not** used when coding is **local** (LocalEngine / `--engine local`).
 - **Argus binary.** Downloaded automatically from [JuroOravec/argus](https://github.com/JuroOravec/argus) releases on first use and cached under `/tmp/saifac/bin/` as versioned files, e.g. `argus-linux-arm64-v0.5.5` (`SAIF_REVIEWER_BIN_DIR` overrides the directory). The pinned version is set via `ARGUS_VERSION` in `argus.ts` (see `vendor/README.md`).
 
 ### Enable the Reviewer
@@ -159,7 +159,7 @@ The reviewer is **skipped** in these cases:
 | ----------------------------------- | -------------------------------------- |
 | `saifac feat run` (default)         | Yes                                    |
 | `saifac feat run --no-reviewer`     | No                                     |
-| `saifac feat run --infra local`     | No                                     |
+| `saifac feat run --engine local`     | No                                     |
 | `saifac feat design-fail2pass`      | No (no coder agent)                    |
 | `saifac run resume`                 | Same as initial run (from stored opts) |
 | `saifac run test <runId>`           | No (no coder agent)                    |

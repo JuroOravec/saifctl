@@ -1,5 +1,5 @@
 /**
- * DockerProvisioner — the single Docker-aware implementation of the Provisioner interface.
+ * DockerEngine — the single Docker-aware implementation of the Engine interface.
  *
  * Encapsulates Docker Engine usage, selected CLI usage, log demuxing, sidecar injection,
  * and the Leash network attachment workaround.
@@ -46,14 +46,14 @@ import {
   spawnWait,
   writeUtf8,
 } from '../../utils/io.js';
-import { type ProvisionerLogSource, type ProvisionerOnLog } from '../logs.js';
+import { type EngineLogSource, type EngineOnLog } from '../logs.js';
 import type {
   AgentResult,
   CoderInspectSessionHandle,
   ContainerEnv,
-  Provisioner,
-  ProvisionerSetupOpts,
-  ProvisionerTeardownOpts,
+  Engine,
+  EngineSetupOpts,
+  EngineTeardownOpts,
   RunAgentOpts,
   RunTestsOpts,
   StagingHandle,
@@ -107,10 +107,10 @@ async function runDocker(
 }
 
 // ---------------------------------------------------------------------------
-// DockerProvisioner
+// DockerEngine
 // ---------------------------------------------------------------------------
 
-export class DockerProvisioner implements Provisioner {
+export class DockerEngine implements Engine {
   private readonly composeFile?: string;
 
   // State set during setup(), read by later methods
@@ -127,7 +127,7 @@ export class DockerProvisioner implements Provisioner {
 
   // ── 1. setup ──────────────────────────────────────────────────────────────
 
-  async setup(opts: ProvisionerSetupOpts): Promise<void> {
+  async setup(opts: EngineSetupOpts): Promise<void> {
     const { runId, projectName, featureName, projectDir } = opts;
     this.runId = runId;
     this.projectDir = projectDir;
@@ -928,7 +928,7 @@ export class DockerProvisioner implements Provisioner {
 
   // ── 5. teardown ───────────────────────────────────────────────────────────
 
-  async teardown(_opts: ProvisionerTeardownOpts): Promise<void> {
+  async teardown(_opts: EngineTeardownOpts): Promise<void> {
     // 1. Stop/remove Docker containers + images tracked in the registry
     await this.registry.cleanup();
 
@@ -1528,9 +1528,9 @@ async function logBridgeNetworkEndpoints(opts: {
 
 function streamContainerLogs(opts: {
   container: Docker.Container;
-  source: ProvisionerLogSource;
+  source: EngineLogSource;
   containerLabel: string;
-  forwardLog: ProvisionerOnLog;
+  forwardLog: EngineOnLog;
 }): void {
   const { container, source, containerLabel, forwardLog } = opts;
   void container
@@ -1592,7 +1592,7 @@ interface ContainerHandle {
 }
 
 /**
- * Tracks Docker resources created during a single provisioner lifecycle (containers, ephemeral images).
+ * Tracks Docker resources created during a single engine lifecycle (containers, ephemeral images).
  * {@link DockerRegistry.cleanup} removes tracked containers and images; bridge networks are torn down
  * separately in `teardown()` after compose and ad-hoc containers are gone to avoid “active endpoints” races.
  */

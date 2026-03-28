@@ -325,7 +325,7 @@ async function applyOrchestratorBaseline(
   const gitProvider = resolveGitProvider(config);
   const runStorage = resolveRunStorage(noCli, projectDir, config);
   const stagingEnvironment = resolveStagingEnvironment(config);
-  const codingEnvironment = config?.environments?.coding ?? { provisioner: 'docker' as const };
+  const codingEnvironment = config?.environments?.coding ?? { engine: 'docker' as const };
 
   return {
     sandboxProfileId: sandboxProfile.id,
@@ -389,11 +389,11 @@ export interface ResolveOrchestratorOptsParams {
   cliModelDelta: ModelOverrides | undefined;
   artifact: RunArtifact | null;
   /**
-   * Optional `--infra` string: global `docker` | `helm` | `local`, or `coding=…,staging=…`.
+   * Optional `--engine` string: global `docker` | `helm` | `local`, or `coding=…,staging=…`.
    * Overrides `codingEnvironment` / `stagingEnvironment` after config/artifact/CLI merge;
-   * reuses file config for a phase when its provisioner matches the target.
+   * reuses file config for a phase when its engine matches the target.
    */
-  infraCli: string | undefined;
+  engineCli: string | undefined;
 }
 
 /**
@@ -403,7 +403,7 @@ export interface ResolveOrchestratorOptsParams {
 export async function resolveOrchestratorOpts(
   params: ResolveOrchestratorOptsParams,
 ): Promise<OrchestratorOpts> {
-  const { projectDir, saifDir, config, feature, cli, cliModelDelta, artifact, infraCli } = params;
+  const { projectDir, saifDir, config, feature, cli, cliModelDelta, artifact, engineCli } = params;
 
   const defaults = await applyOrchestratorBaseline({
     feature,
@@ -435,12 +435,12 @@ export async function resolveOrchestratorOpts(
     merged.runStorage = cli.runStorage;
   }
 
-  const infraTrimmed = infraCli?.trim();
-  if (infraTrimmed) {
-    applyInfraCliToOrchestratorOpts(merged, config, infraTrimmed);
+  const engineTrimmed = engineCli?.trim();
+  if (engineTrimmed) {
+    applyEngineCliToOrchestratorOpts(merged, config, engineTrimmed);
   }
 
-  if (merged.codingEnvironment.provisioner === 'local') {
+  if (merged.codingEnvironment.engine === 'local') {
     merged.dangerousNoLeash = false;
   }
 
@@ -625,49 +625,49 @@ export function pickAgentScript(cliPath: string | undefined): OrchestratorScript
 export function resolveStagingEnvironment(
   config: SaifacConfig | undefined,
 ): NormalizedStagingEnvironment {
-  const raw = config?.environments?.staging ?? { provisioner: 'docker' as const };
+  const raw = config?.environments?.staging ?? { engine: 'docker' as const };
   return normalizeStagingEnvironmentRaw(raw);
 }
 
 // ---------------------------------------------------------------------------
-// Provisioner resolution
+// Engine resolution
 // ---------------------------------------------------------------------------
 
-/** Coding phases allowed in --infra coding=.. */
-export type InfraCodingKind = 'docker' | 'helm' | 'local';
+/** Coding phases allowed in --engine coding=.. */
+export type EngineCliCodingKind = 'docker' | 'helm' | 'local';
 
-/** Staging phases allowed in --infra staging=.. */
-export type InfraStagingKind = 'docker' | 'helm';
+/** Staging phases allowed in --engine staging=.. */
+export type EngineCliStagingKind = 'docker' | 'helm';
 
-export interface InfraCliSpec {
-  coding?: InfraCodingKind;
-  staging?: InfraStagingKind;
+export interface EngineCliSpec {
+  coding?: EngineCliCodingKind;
+  staging?: EngineCliStagingKind;
 }
 
-const INFRA_CODING_SET = new Set<string>(['docker', 'helm', 'local']);
-const INFRA_STAGING_SET = new Set<string>(['docker', 'helm']);
+const ENGINE_CLI_CODING_SET = new Set<string>(['docker', 'helm', 'local']);
+const ENGINE_CLI_STAGING_SET = new Set<string>(['docker', 'helm']);
 
-/** Applies parsed --infra to merged opts using file config for reuse vs minimal provisioner objects. */
-/* eslint-disable-next-line max-params -- (merged, config, infra string) */
-export function applyInfraCliToOrchestratorOpts(
+/** Applies parsed `--engine` spec to merged opts using file config for reuse vs minimal environment objects. */
+/* eslint-disable-next-line max-params -- (merged, config, engine string) */
+export function applyEngineCliToOrchestratorOpts(
   merged: OrchestratorOpts,
   config: SaifacConfig,
-  infraRaw: string,
+  engineRaw: string,
 ): void {
-  const spec = parseInfraCliSpec(infraRaw);
+  const spec = parseEngineCliSpec(engineRaw);
   if (spec.coding !== undefined) {
-    merged.codingEnvironment = pickCodingEnvironmentForInfra(spec.coding, config);
+    merged.codingEnvironment = pickCodingEnvironmentForEngineCli(spec.coding, config);
   }
   if (spec.staging !== undefined) {
-    merged.stagingEnvironment = pickStagingEnvironmentForInfra(spec.staging, config);
+    merged.stagingEnvironment = pickStagingEnvironmentForEngineCli(spec.staging, config);
   }
 }
 
 /**
- * Parses `--infra docker` or `--infra coding=docker,staging=helm`.
+ * Parses `--engine docker` or `--engine coding=docker,staging=helm`.
  * Global `local` sets coding=local and staging=docker (staging cannot be local).
  */
-export function parseInfraCliSpec(raw: string, errorPrefix = '--infra'): InfraCliSpec {
+export function parseEngineCliSpec(raw: string, errorPrefix = '--engine'): EngineCliSpec {
   const trimmed = raw.trim();
   if (!trimmed) return {};
 
@@ -689,13 +689,13 @@ export function parseInfraCliSpec(raw: string, errorPrefix = '--infra'): InfraCl
     if (g === 'local') {
       return { coding: 'local', staging: 'docker' };
     }
-    if (!INFRA_CODING_SET.has(g) || !INFRA_STAGING_SET.has(g)) {
+    if (!ENGINE_CLI_CODING_SET.has(g) || !ENGINE_CLI_STAGING_SET.has(g)) {
       consola.error(
-        `${errorPrefix} unknown provisioner "${g}". Use 'docker', 'helm', or 'local' (use coding=staging form for mixed).`,
+        `${errorPrefix} unknown engine "${g}". Use 'docker', 'helm', or 'local' (use coding=staging form for mixed).`,
       );
       process.exit(1);
     }
-    return { coding: g as InfraCodingKind, staging: g as InfraStagingKind };
+    return { coding: g as EngineCliCodingKind, staging: g as EngineCliStagingKind };
   }
 
   // Key-value pairs (coding=docker,staging=helm)
@@ -712,60 +712,60 @@ export function parseInfraCliSpec(raw: string, errorPrefix = '--infra'): InfraCl
       if (key === 'staging' && v === 'local') {
         exit('staging cannot use "local"; use docker or helm.');
       }
-      if (key === 'coding' && !INFRA_CODING_SET.has(v)) {
-        exit(`unknown provisioner "${v}". Use docker, helm, or local.`);
+      if (key === 'coding' && !ENGINE_CLI_CODING_SET.has(v)) {
+        exit(`unknown engine "${v}". Use docker, helm, or local.`);
       }
-      if (key === 'staging' && !INFRA_STAGING_SET.has(v)) {
-        exit(`unknown provisioner "${v}". Use docker or helm.`);
+      if (key === 'staging' && !ENGINE_CLI_STAGING_SET.has(v)) {
+        exit(`unknown engine "${v}". Use docker or helm.`);
       }
     },
     errorPrefix,
   });
 
-  const out: InfraCliSpec = {
-    coding: parsed.keys?.coding as InfraCodingKind,
-    staging: parsed.keys?.staging as InfraStagingKind,
+  const out: EngineCliSpec = {
+    coding: parsed.keys?.coding as EngineCliCodingKind,
+    staging: parsed.keys?.staging as EngineCliStagingKind,
   };
   return out;
 }
 
 /**
  * Picks coding environment from config using file config.
- * If provider came from CLI, use minimal provisioner object.
+ * If provider came from CLI, use minimal environment object.
  */
-export function pickCodingEnvironmentForInfra(
-  target: InfraCodingKind,
+export function pickCodingEnvironmentForEngineCli(
+  target: EngineCliCodingKind,
   config: SaifacConfig,
 ): NormalizedCodingEnvironment {
   const fromFile = config.environments?.coding;
-  if (fromFile && fromFile.provisioner === target) {
+  if (fromFile && fromFile.engine === target) {
     return { ...fromFile };
   }
-  if (target === 'docker') return { provisioner: 'docker' };
-  if (target === 'local') return { provisioner: 'local' };
+  if (target === 'docker') return { engine: 'docker' };
+  if (target === 'local') return { engine: 'local' };
   consola.error(
-    'Error: --infra coding=helm requires environments.coding with provisioner "helm" and chart in saifac config.',
+    'Error: --engine coding=helm requires environments.coding with engine "helm" and chart in saifac config.',
   );
   process.exit(1);
 }
 
 /**
  * Picks staging environment from config using file config.
- * If provider came from CLI, use minimal provisioner object.
+ * If provider came from CLI, use minimal environment object.
  */
-export function pickStagingEnvironmentForInfra(
-  target: InfraStagingKind,
+export function pickStagingEnvironmentForEngineCli(
+  target: EngineCliStagingKind,
   config: SaifacConfig,
 ): NormalizedStagingEnvironment {
   const fromFile = config.environments?.staging;
-  if (fromFile && fromFile.provisioner === target) {
+  if (fromFile && fromFile.engine === target) {
     return normalizeStagingEnvironmentRaw(fromFile);
   }
   if (target === 'docker') {
-    return normalizeStagingEnvironmentRaw({ provisioner: 'docker' });
+    return normalizeStagingEnvironmentRaw({ engine: 'docker' });
   }
   consola.error(
-    'Error: --infra staging=helm requires environments.staging with provisioner "helm" and chart in saifac config.',
+    'Error: --engine staging=helm requires environments.staging with engine "helm" and chart in saifac config.',
   );
   process.exit(1);
 }
@@ -773,7 +773,7 @@ export function pickStagingEnvironmentForInfra(
 type StagingConfigRaw =
   | NonNullable<NonNullable<SaifacConfig['environments']>['staging']>
   | {
-      provisioner: 'docker';
+      engine: 'docker';
     };
 
 /** Normalize staging env (defaults for `app` / `appEnvironment`) from a raw config object. */

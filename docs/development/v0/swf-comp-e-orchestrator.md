@@ -58,7 +58,7 @@ Once the constraints are approved, the autonomous loop begins. To prevent pollut
    - Partial overlap is OK: some tests (e.g. negative-path) may pass on `main` before implementation. Fail2pass only requires that some tests fail.
 7. **Start OpenHands (Headless) in Leash Sandbox:**
    - When Leash is enabled (default), the Orchestrator runs the Leash CLI (`@strongdm/leash`) with `--no-interactive --image saifac-coder-node-pnpm-python:latest --volume <sandbox>:/workspace --policy policies/default.cedar ... /saifac/coder-start.sh`. Leash wraps OpenHands in our custom coder image (built from the sandbox profile's `Dockerfile.coder`) and enforces Cedar policies. The image is pulled from GHCR when not present locally.
-   - Use `--infra local` (LocalProvisioner) or `environments.coding.provisioner: 'local'` to run OpenHands directly on the host during coding.
+   - Use `--engine local` (LocalEngine) or `environments.coding.engine: 'local'` to run OpenHands directly on the host during coding.
    - OpenHands runs autonomously. The Orchestrator waits for the process to exit.
 8. **Extract Artifact:**
    - Once OpenHands completes, the Orchestrator uses `git diff HEAD` inside the sandbox to capture all changes since the base commit.
@@ -117,7 +117,7 @@ Here is a more robust pseudocode sketch of the core loop. It addresses the pract
                  |- src/
                  |- ...
    ```
-   When Leash is enabled, we mount the `code/` directory into the Leash coder container; with local coding (LocalProvisioner), the agent runs on the host with `code/` as its cwd. In both cases, the agent never sees hidden tests, eliminating test-hacking.
+   When Leash is enabled, we mount the `code/` directory into the Leash coder container; with local coding (LocalEngine), the agent runs on the host with `code/` as its cwd. In both cases, the agent never sees hidden tests, eliminating test-hacking.
 
 ```typescript
 import { exec } from 'node:child_process/promises';
@@ -213,14 +213,14 @@ async function runFactoryFloor(featureName: string) {
   let success = false;
   let attempts = 0;
   let errorFeedback = '';
-  // Illustrative: saifac uses `environments.coding.provisioner: 'local'` or `--infra local` (LocalProvisioner).
+  // Illustrative: saifac uses `environments.coding.engine: 'local'` or `--engine local` (LocalEngine).
   const runAgentOnHost = process.argv.includes('--coding-on-host');
 
   // 3. The Convergence Loop
   while (!success && attempts < 10) {
     attempts++;
 
-    // Start OpenHands in the secure Leash Sandbox (or directly on host for local coding / LocalProvisioner)
+    // Start OpenHands in the secure Leash Sandbox (or directly on host for local coding / LocalEngine)
     // When Leash is enabled, we run: node "$LEASH_BIN" --no-interactive ... /saifac/coder-start.sh
     //   where $LEASH_BIN is require.resolve('@strongdm/leash/bin/leash.js') from the harness package.
     console.log(`Unleashing Coder Agent (Attempt ${attempts})...`);

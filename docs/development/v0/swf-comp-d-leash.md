@@ -112,7 +112,7 @@ Override with `--cedar <path>` when running `saifac feat run` or `saifac run res
 
 | Option                    | Purpose                                                                                                                                 |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `--infra local`           | Coding provisioner **local** (LocalProvisioner): run OpenHands **on the host** (filesystem sandbox only).                             |
+| `--engine local`           | Coding engine **local** (LocalEngine): run OpenHands **on the host** (filesystem sandbox only).                             |
 | `--dangerous-no-leash`    | Skip Leash and Cedar; run the **same coder image** with **`docker run`** (bind mounts, env, working dir, and container name match Leash). No policy proxy or Control UI. |
 | `--cedar <path>`          | Custom Cedar policy file (default: `src/orchestrator/policies/default.cedar`). Ignored when Leash is not used (`--dangerous-no-leash` or local coding). |
 | `--coder-image <tag>`     | Custom target container image (default: from `--profile`, e.g. `saifac-coder-node-pnpm-python:latest`).                                 |
@@ -145,7 +145,7 @@ Leash is an npm **dependency** of safe-ai-factory (`@strongdm/leash`). The orche
 
 ### OpenHands
 
-OpenHands must be on PATH for the target container. It is pre-installed in `saifac-coder`. For `--dangerous-no-leash`, behavior matches a normal container run (image + `agent-install.sh` as usual). For **local coding** (LocalProvisioner / `--infra local`), install on the host:
+OpenHands must be on PATH for the target container. It is pre-installed in `saifac-coder`. For `--dangerous-no-leash`, behavior matches a normal container run (image + `agent-install.sh` as usual). For **local coding** (LocalEngine / `--engine local`), install on the host:
 
 ```bash
 uv tool install openhands --python 3.12

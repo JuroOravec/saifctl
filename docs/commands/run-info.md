@@ -76,11 +76,11 @@ Example of the default **pretty-printed** output:
     "agentScriptFile": "agent-profiles/aider/agent.sh",
     "testRetries": 1,
     "stagingEnvironment": {
-      "provisioner": "docker",
+      "engine": "docker",
       "app": { "sidecarPort": 8080, "sidecarPath": "/exec" },
       "appEnvironment": {}
     },
-    "codingEnvironment": { "provisioner": "docker" }
+    "codingEnvironment": { "engine": "docker" }
   },
   "status": "failed",
   "startedAt": "2026-03-21T10:00:00.000Z",

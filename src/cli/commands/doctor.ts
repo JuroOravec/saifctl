@@ -14,8 +14,8 @@
 import { defineCommand, runMain } from 'citty';
 import { colors } from 'consola/utils';
 
+import { resolveLeashCliPath } from '../../engines/docker/resolve-leash-cli.js';
 import { consola } from '../../logger.js';
-import { resolveLeashCliPath } from '../../provisioners/docker/resolve-leash-cli.js';
 import { pathExists, spawnCapture } from '../../utils/io.js';
 
 function ok(msg: string) {

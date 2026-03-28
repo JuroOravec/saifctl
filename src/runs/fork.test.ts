@@ -61,11 +61,11 @@ function makeSourceArtifact(runId: string): RunArtifact {
       agentScriptFile: 's/agent.sh',
       testRetries: 1,
       stagingEnvironment: {
-        provisioner: 'docker',
+        engine: 'docker',
         app: { sidecarPort: 8080, sidecarPath: '/exec' },
         appEnvironment: {},
       },
-      codingEnvironment: { provisioner: 'docker' },
+      codingEnvironment: { engine: 'docker' },
     },
     status: 'failed',
     startedAt: '2026-01-01T00:00:00.000Z',
@@ -99,7 +99,7 @@ describe('forkStoredRun', () => {
         runStorage: storage,
         cli,
         cliModelDelta: undefined,
-        infraCli: undefined,
+        engineCli: undefined,
       });
 
       expect(newRunId).not.toBe('srcrun9');

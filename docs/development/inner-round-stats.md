@@ -16,7 +16,7 @@ For the inner gate loop itself, see [v0/swf-inner-loop.md](./v0/swf-inner-loop.m
 sequenceDiagram
   participant Host as Host orchestrator
   participant Stats as stats.ts
-  participant Prov as Coding provisioner
+  participant Eng as Coding engine
   participant Coder as coder-start.sh
   participant FS as Sandbox code/.saifac/
 
@@ -41,7 +41,7 @@ sequenceDiagram
 | Host (orchestrator) | `{sandboxBasePath}/code/.saifac/stats.jsonl` — see `roundsStatsPath()` in `src/orchestrator/stats.ts` |
 | Container | `/workspace/.saifac/stats.jsonl` (workspace is bind-mounted from `code/`) |
 
-`coder-start.sh` defaults `SAIFAC_ROUNDS_STATS_PATH` to `$(dirname "$SAIFAC_TASK_PATH")/stats.jsonl`. The provisioner sets `SAIFAC_TASK_PATH` to `{codePath}/.saifac/task.md`, so the default stats path aligns with the host helper **as long as** `SAIFAC_ROUNDS_STATS_PATH` is not overridden to something inconsistent.
+`coder-start.sh` defaults `SAIFAC_ROUNDS_STATS_PATH` to `$(dirname "$SAIFAC_TASK_PATH")/stats.jsonl`. The engine sets `SAIFAC_TASK_PATH` to `{codePath}/.saifac/task.md`, so the default stats path aligns with the host helper **as long as** `SAIFAC_ROUNDS_STATS_PATH` is not overridden to something inconsistent.
 
 If you override `SAIFAC_ROUNDS_STATS_PATH` in `agent-env`, you must keep the file on a path the host still reads (under the mounted workspace) or you will lose stats on the host side.
 

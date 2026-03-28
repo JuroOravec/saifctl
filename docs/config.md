@@ -45,14 +45,14 @@ Config has a top-level `defaults` object and an optional `environments` object. 
   },
   "environments": {
     "coding": {
-      "provisioner": "docker",
+      "engine": "docker",
       "file": "./docker/docker-compose.dev.yml",
       "agentEnvironment": {
         "DATABASE_URL": "postgres://user:pass@postgres-db:5432/db"
       }
     },
     "staging": {
-      "provisioner": "docker",
+      "engine": "docker",
       "file": "./docker/docker-compose.staging.yml",
       "app": {
         "sidecarPort": 8080,
@@ -66,9 +66,9 @@ Config has a top-level `defaults` object and an optional `environments` object. 
 }
 ```
 
-### The `environments` Block (Provisioners)
+### The `environments` Block (Infra engines)
 
-The `environments` block defines external service infrastructure (databases, queues, etc.) needed during the Coding phase and the Staging phase. SAIFAC delegates the orchestration of these services to "Provisioners" (currently supporting `docker`).
+The `environments` block defines external service infrastructure (databases, queues, etc.) needed during the Coding phase and the Staging phase. SAIFAC delegates the orchestration of these services to infra engines (currently supporting `docker`).
 
 - **`environments.coding`**: Services running while the agent writes code.
   - `agentEnvironment`: Environment variables injected directly into the agent container. These provide connection strings (like `DATABASE_URL`) to reach the services.
@@ -76,7 +76,7 @@ The `environments` block defines external service infrastructure (databases, que
   - `app`: Configuration for the main application under test (`sidecarPort`, `sidecarPath`, `baseUrl`, and an optional `build.dockerfile`).
   - `appEnvironment`: Environment variables injected into the staging application container to reach its services.
 
-See [Environments and Infrastructure](services.md) for a user guide. See [Infrastructure engines](infra.md) for engine types, fields, and `--infra`.
+See [Environments and Infrastructure](services.md) for a user guide. See [Infrastructure engines](infra.md) for engine types, fields, and `--engine`.
 
 ## Supported fields
 

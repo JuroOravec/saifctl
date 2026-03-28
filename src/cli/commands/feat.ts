@@ -78,9 +78,9 @@ import {
   readAgentScriptPathFromCli,
   readDesignerProfileIdFromCli,
   readDiscoveryCliReads,
+  readEngineCliFromCli,
   readGateScriptPathFromCli,
   readIndexerProfileIdFromCli,
-  readInfraCliFromCli,
   readProjectDirFromCli,
   readSaifDirFromCli,
   readSandboxBaseDirFromCli,
@@ -746,7 +746,7 @@ export const parseRunArgs = async (args: ParsedArgsFromCommand<typeof runCommand
   const cli = await buildOrchestratorCliInputFromFeatArgs(runArgs, { projectDir, saifDir, config });
   const cliModelDelta = parseModelOverridesCliDelta(runArgs);
 
-  const infraCli = readInfraCliFromCli(runArgs);
+  const engineCli = readEngineCliFromCli(runArgs);
 
   const orchestratorOpts = await resolveOrchestratorOpts({
     projectDir,
@@ -756,7 +756,7 @@ export const parseRunArgs = async (args: ParsedArgsFromCommand<typeof runCommand
     cli,
     cliModelDelta,
     artifact: null,
-    infraCli,
+    engineCli,
   });
 
   return orchestratorOpts;

@@ -17,17 +17,17 @@ import type {
 import { runDesignTests } from '../design-tests/design.js';
 import { TestCatalogSchema } from '../design-tests/schema.js';
 import { generateTests } from '../design-tests/write.js';
-import type { GitProvider } from '../git/types.js';
-import { type ModelOverrides, resolveAgentLlmConfig } from '../llm-config.js';
-import { consola } from '../logger.js';
-import { createProvisioner } from '../provisioners/index.js';
-import { defaultProvisionerLog } from '../provisioners/logs.js';
+import { createEngine } from '../engines/index.js';
+import { defaultEngineLog } from '../engines/logs.js';
 import {
   type AssertionSuiteResult,
   type RunTestsOpts,
   type TestsResult,
-} from '../provisioners/types.js';
-import { parseJUnitXmlString } from '../provisioners/utils/test-parser.js';
+} from '../engines/types.js';
+import { parseJUnitXmlString } from '../engines/utils/test-parser.js';
+import type { GitProvider } from '../git/types.js';
+import { type ModelOverrides, resolveAgentLlmConfig } from '../llm-config.js';
+import { consola } from '../logger.js';
 import {
   activeOnceRuleIds,
   appendMissingRunRules,
@@ -186,13 +186,13 @@ export interface IterativeLoopOpts {
    * Absolute path to a Cedar policy file for Leash.
    *
    * Defaults to default.cedar in src/orchestrator/policies/.
-   * Ignored when dangerousNoLeash=true or with `--infra local`.
+   * Ignored when dangerousNoLeash=true or with `--engine local`.
    */
   cedarPolicyPath: string;
   /**
    * Docker image for the coder container.
    * Resolved from the sandbox profile (default: node-pnpm-python). Override via --coder-image.
-   * Ignored when the coding provisioner is local (no container).
+   * Ignored when the coding engine is local (no container).
    */
   coderImage: string;
   /**
@@ -286,14 +286,14 @@ export interface IterativeLoopOpts {
    */
   includeDirty: boolean;
   /**
-   * Normalized staging environment — always present (defaults to `{ provisioner: 'docker' }` when
+   * Normalized staging environment — always present (defaults to `{ engine: 'docker' }` when
    * `environments.staging` is absent in config). Contains `app` (with DEFAULT_STAGING_APP
    * defaults) and `appEnvironment` (defaults to `{}`). Used to configure the staging container
-   * and to instantiate the provisioner.
+   * and to instantiate the engine.
    */
   stagingEnvironment: NormalizedStagingEnvironment;
   /**
-   * Normalized coding environment — always present (defaults to `{ provisioner: 'docker' }` when
+   * Normalized coding environment — always present (defaults to `{ engine: 'docker' }` when
    * `environments.coding` is absent in config).
    *
    * When a docker-compose `file` is provided, the orchestrator starts the declared Compose stack
@@ -381,9 +381,9 @@ export async function runStagingTestVerification(params: {
       `\n[orchestrator] Test attempt ${testAttempts}/${testRetries} (outer attempt ${outerAttempt})`,
     );
 
-    const stagingProvisioner = createProvisioner(stagingEnvironment);
-    registry?.registerProvisioner(stagingProvisioner, lastRunId);
-    await stagingProvisioner.setup({
+    const stagingEngine = createEngine(stagingEnvironment);
+    registry?.registerEngine(stagingEngine, lastRunId);
+    await stagingEngine.setup({
       runId: lastRunId,
       projectName,
       featureName: feature.name,
@@ -392,7 +392,7 @@ export async function runStagingTestVerification(params: {
 
     const result: TestsResult = await (async (): Promise<TestsResult> => {
       try {
-        const stagingHandle = await stagingProvisioner.startStaging({
+        const stagingHandle = await stagingEngine.startStaging({
           sandboxProfileId,
           codePath: sandbox.codePath,
           projectDir,
@@ -400,21 +400,21 @@ export async function runStagingTestVerification(params: {
           feature,
           projectName,
           saifacPath: sandbox.saifacPath,
-          onLog: defaultProvisionerLog,
+          onLog: defaultEngineLog,
         });
 
-        return await stagingProvisioner.runTests({
+        return await stagingEngine.runTests({
           ...testRunnerOpts,
           stagingHandle,
           testImage,
           runId: lastRunId,
           feature,
           projectName,
-          onLog: defaultProvisionerLog,
+          onLog: defaultEngineLog,
         });
       } finally {
-        registry?.deregisterProvisioner(stagingProvisioner);
-        await stagingProvisioner.teardown({ runId: lastRunId });
+        registry?.deregisterEngine(stagingEngine);
+        await stagingEngine.teardown({ runId: lastRunId });
       }
     })();
 
@@ -538,7 +538,7 @@ export async function runIterativeLoop(
 
   // Resolve the coder agent's LLM config once per loop.
   const coderLlmConfig = resolveAgentLlmConfig('coder', overrides);
-  const codingIsLocal = codingEnvironment.provisioner === 'local';
+  const codingIsLocal = codingEnvironment.engine === 'local';
   const reviewer =
     reviewerEnabled && !codingIsLocal
       ? {
@@ -779,11 +779,11 @@ export async function runIterativeLoop(
       });
 
       // 1. Run agent (fresh context every iteration — Ralph Wiggum)
-      //    The coding provisioner sets up its network + compose services, runs the agent,
+      //    The coding engine sets up its network + compose services, runs the agent,
       //    then tears itself down, regardless of outcome.
       const codingRunId = `${sandbox.runId}-coding-${attempts}`;
-      const codingProvisioner = createProvisioner(codingEnvironment);
-      registry?.registerProvisioner(codingProvisioner, codingRunId);
+      const codingEngine = createEngine(codingEnvironment);
+      registry?.registerEngine(codingEngine, codingRunId);
 
       let innerRounds: InnerRoundSummary[] = [];
 
@@ -813,7 +813,7 @@ export async function runIterativeLoop(
       })();
 
       try {
-        await codingProvisioner.setup({
+        await codingEngine.setup({
           runId: codingRunId,
           projectName,
           featureName: feature.name,
@@ -855,7 +855,7 @@ export async function runIterativeLoop(
           runId,
         });
 
-        await codingProvisioner.runAgent({
+        await codingEngine.runAgent({
           codePath: sandbox.codePath,
           sandboxBasePath: sandbox.sandboxBasePath,
           containerEnv,
@@ -865,15 +865,15 @@ export async function runIterativeLoop(
           saifacPath: sandbox.saifacPath,
           onAgentStdout,
           onAgentStdoutEnd,
-          onLog: defaultProvisionerLog,
+          onLog: defaultEngineLog,
           reviewer: reviewer ? { argusBinaryPath: reviewer.argusBinaryPath } : null,
         });
 
         innerRounds = await readInnerRounds(roundsStatsPath(sandbox.sandboxBasePath));
       } finally {
         rulesWatcher?.stop();
-        registry?.deregisterProvisioner(codingProvisioner);
-        await codingProvisioner.teardown({ runId: codingRunId });
+        registry?.deregisterEngine(codingEngine);
+        await codingEngine.teardown({ runId: codingRunId });
       }
 
       // Mark once rules as consumed if they were used this round, then persist so storage
@@ -1371,7 +1371,7 @@ export function logIterativeLoopSettings(opts: OrchestratorOpts, meta?: { runId?
   consola.log(`  Test retries: ${opts.testRetries}`);
   consola.log(`  Spec ambiguity resolution: ${opts.resolveAmbiguity}`);
   consola.log(`  Test image: ${opts.testImage}`);
-  if (opts.codingEnvironment.provisioner === 'local') {
+  if (opts.codingEnvironment.engine === 'local') {
     consola.log('  Leash: disabled (host execution)');
   } else if (opts.dangerousNoLeash) {
     consola.log(`  Leash: disabled (direct docker run; image: ${opts.coderImage})`);

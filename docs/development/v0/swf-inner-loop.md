@@ -1,6 +1,6 @@
 # Software Factory Inner Gate Loop
 
-This document describes the **inner gate loop** — a rapid validation loop that runs _inside_ the Leash container (or on the host when coding uses LocalProvisioner / `--infra local`) after each OpenHands run. Its purpose is to shorten the feedback cycle and reduce the cost of iterations by catching deterministic failures (e.g. lint, typecheck, public tests) before the expensive outer tests step.
+This document describes the **inner gate loop** — a rapid validation loop that runs _inside_ the Leash container (or on the host when coding uses LocalEngine / `--engine local`) after each OpenHands run. Its purpose is to shorten the feedback cycle and reduce the cost of iterations by catching deterministic failures (e.g. lint, typecheck, public tests) before the expensive outer tests step.
 
 ## Overview
 
@@ -89,7 +89,7 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 - **Loaded at runtime:** The CLI's `parseGateScript(ctx, profile)` calls `readSandboxGateScript(profile.id)` when `--gate-script` is not set.
 - **Profiles:** Every profile must have a `gate.sh`. Node has a no-op placeholder (warns to use `--gate-script`); Go and Rust have language-specific defaults (e.g. `go vet`+`go test`, `cargo check`+`clippy`+`test`).
 
-**Note:** In Leash (container) mode, `/workspace` is the mounted sandbox. With local coding (LocalProvisioner), `/workspace` does not exist on the host; use a custom gate that uses the current directory or `$SAIFAC_WORKSPACE_BASE`.
+**Note:** In Leash (container) mode, `/workspace` is the mounted sandbox. With local coding (LocalEngine), `/workspace` does not exist on the host; use a custom gate that uses the current directory or `$SAIFAC_WORKSPACE_BASE`.
 
 ### 4. Sandbox (`sandbox.ts`)
 
@@ -268,10 +268,10 @@ saifac feat run --agent-env-file ./agent.env
 ### Dangerous-debug mode (host execution)
 
 ```bash
-saifac feat run --infra local
+saifac feat run --engine local
 ```
 
-The inner loop runs on the host. The default gate assumes `/workspace`; for `--infra local`, use a custom gate that runs from the current directory (the spawn cwd is `codePath`).
+The inner loop runs on the host. The default gate assumes `/workspace`; for `--engine local`, use a custom gate that runs from the current directory (the spawn cwd is `codePath`).
 
 ---
 

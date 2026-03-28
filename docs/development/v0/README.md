@@ -89,7 +89,7 @@ The pipeline bridges human intent (Markdown PRDs) with deterministic software ge
    - At least one feature test must fail on current main (partial overlap OK)
 6. **Orchestrator** starts **OpenHands** headlessly
    - When Leash is enabled (default), runs the Leash CLI with `--image saifac-coder-node-pnpm-python:latest ... /saifac/coder-start.sh`; Leash manages sandboxing and Cedar policy internally
-   - Use `--infra local` (LocalProvisioner) to run OpenHands directly on the host during coding
+   - Use `--engine local` (LocalEngine) to run OpenHands directly on the host during coding
 7. **OpenHands** runs autonomously
    - Implements the feature until completion
 8. **Orchestrator** extracts and evaluates
@@ -137,8 +137,8 @@ Agents need boundaries so they don't perform destructive actions during their lo
 
 The **Orchestrator** is the custom glue that puts all components together. It is not a single installable tool; it is a script or workflow we build.
 
-- **Responsibilities:** Triggers OpenSpec `new` and `archive`; invokes Shotgun; runs the Black Box Testing Agent; starts the Coder Agent (e.g., OpenHands headless inside the Leash coder container by default, or on host with LocalProvisioner / `--infra local`); mounts tests; extracts the `patch.diff` when the agent finishes; runs hidden holdout tests for Mutual Verification; applies the patch and opens a PR when all tests pass.
-- **Why Custom:** While the sandbox (Docker) and the commands to run tests are fundamentally language-agnostic, open-source benchmarking runtimes like SWE-bench and OpenHands' default evaluation harness are historically built with hard-coded assumptions for Python (e.g. specifically expecting `pytest` outputs, Python-centric environment setup logic). To build a truly agnostic Software Factory that works for our TypeScript monorepo, we use OpenHands for the _sandbox execution_ (runs in Leash coder container by default, or on host with LocalProvisioner; language-agnostic), but we must build a **custom evaluation orchestrator** that orchestrates the three-container Black-Box flow (Playwright, Newman, or HTTP requests to the Sidecar) and evaluates standard exit codes (`0` vs `1`) instead of relying on Python-specific test parsers.
+- **Responsibilities:** Triggers OpenSpec `new` and `archive`; invokes Shotgun; runs the Black Box Testing Agent; starts the Coder Agent (e.g., OpenHands headless inside the Leash coder container by default, or on host with LocalEngine / `--engine local`); mounts tests; extracts the `patch.diff` when the agent finishes; runs hidden holdout tests for Mutual Verification; applies the patch and opens a PR when all tests pass.
+- **Why Custom:** While the sandbox (Docker) and the commands to run tests are fundamentally language-agnostic, open-source benchmarking runtimes like SWE-bench and OpenHands' default evaluation harness are historically built with hard-coded assumptions for Python (e.g. specifically expecting `pytest` outputs, Python-centric environment setup logic). To build a truly agnostic Software Factory that works for our TypeScript monorepo, we use OpenHands for the _sandbox execution_ (runs in Leash coder container by default, or on host with LocalEngine; language-agnostic), but we must build a **custom evaluation orchestrator** that orchestrates the three-container Black-Box flow (Playwright, Newman, or HTTP requests to the Sidecar) and evaluates standard exit codes (`0` vs `1`) instead of relying on Python-specific test parsers.
 
 ---
 

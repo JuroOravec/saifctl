@@ -36,7 +36,7 @@ export async function forkStoredRun(opts: ForkStoredRunOpts): Promise<{ newRunId
     cli,
     cliModelDelta,
     config,
-    infraCli,
+    engineCli,
   } = opts;
 
   const source = await runStorage.getRun(sourceRunId);
@@ -59,7 +59,7 @@ export async function forkStoredRun(opts: ForkStoredRunOpts): Promise<{ newRunId
     cli,
     cliModelDelta,
     artifact: source,
-    infraCli,
+    engineCli,
   });
 
   const { runStorage: _rs, resume: _resume, ...artifactLoopOpts } = mergedOpts;

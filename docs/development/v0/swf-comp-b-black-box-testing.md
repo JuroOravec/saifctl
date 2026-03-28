@@ -222,7 +222,7 @@ For a web API with a database, you would configure the infrastructure in `saifac
 export default {
   environments: {
     staging: {
-      provisioner: 'docker',
+      engine: 'docker',
       // This compose file would define your postgres container
       file: './docker-compose.test.yml',
       app: {

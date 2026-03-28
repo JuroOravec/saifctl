@@ -50,7 +50,7 @@ import {
   type FeatRunArgs,
   getFeatNameFromArgs,
   parseRunId,
-  readInfraCliFromCli,
+  readEngineCliFromCli,
   readProjectDirFromCli,
   readSaifDirFromCli,
   readStorageStringFromCli,
@@ -67,7 +67,7 @@ async function parseResumeOrchestratorCli(args: FeatRunArgs): Promise<{
   config: SaifacConfig;
   cli: OrchestratorCliInput;
   cliModelDelta: ModelOverrides | undefined;
-  infraCli: string | undefined;
+  engineCli: string | undefined;
 }> {
   const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
   const saifDir = resolveSaifDirRelative(readSaifDirFromCli(args));
@@ -75,8 +75,8 @@ async function parseResumeOrchestratorCli(args: FeatRunArgs): Promise<{
   setVerboseLogging(args.verbose === true);
   const cli = await buildOrchestratorCliInputFromFeatArgs(args, { projectDir, saifDir, config });
   const cliModelDelta = parseModelOverridesCliDelta(args);
-  const infraCli = readInfraCliFromCli(args);
-  return { projectDir, saifDir, config, cli, cliModelDelta, infraCli };
+  const engineCli = readEngineCliFromCli(args);
+  return { projectDir, saifDir, config, cli, cliModelDelta, engineCli };
 }
 
 const commonRunArgs = {
@@ -434,7 +434,7 @@ const testCommand = defineCommand({
       config,
     });
     const cliModelDelta = parseModelOverridesCliDelta(runArgs);
-    const infraCli = readInfraCliFromCli(runArgs);
+    const engineCli = readEngineCliFromCli(runArgs);
 
     consola.log(`\nRe-testing stored run: ${runId}`);
 
@@ -446,7 +446,7 @@ const testCommand = defineCommand({
       config,
       cli,
       cliModelDelta,
-      infraCli,
+      engineCli,
     });
 
     consola.log(`\n${result.message}`);
@@ -489,7 +489,7 @@ const applyCommand = defineCommand({
       config,
     });
     const cliModelDelta = parseModelOverridesCliDelta(runArgs);
-    const infraCli = readInfraCliFromCli(runArgs);
+    const engineCli = readEngineCliFromCli(runArgs);
 
     consola.log(`\nApplying stored run to host: ${runId}`);
 
@@ -501,7 +501,7 @@ const applyCommand = defineCommand({
       config,
       cli,
       cliModelDelta,
-      infraCli,
+      engineCli,
     });
 
     consola.log(`\n${result.message}`);

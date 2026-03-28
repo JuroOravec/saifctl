@@ -1,5 +1,5 @@
 /**
- * Shared test result parsing — used by any provisioner (Docker, Helm, etc.).
+ * Shared test result parsing — used by any engine (Docker, Helm, etc.).
  *
  * Parses JUnit XML reports and detects test runner errors from stdout/stderr.
  */

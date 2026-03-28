@@ -71,11 +71,11 @@ async function writeRunJson(projectDir: string, runId: string): Promise<void> {
       agentScriptFile: 'sandbox/agent.sh',
       testRetries: 1,
       stagingEnvironment: {
-        provisioner: 'docker',
+        engine: 'docker',
         app: { sidecarPort: 8080, sidecarPath: '/exec' },
         appEnvironment: {},
       },
-      codingEnvironment: { provisioner: 'docker' },
+      codingEnvironment: { engine: 'docker' },
     },
     status: 'failed',
     startedAt: '2026-01-01T00:00:00.000Z',

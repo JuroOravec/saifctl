@@ -25,7 +25,7 @@ The topology of the entire factory is defined strictly in the global SAIFAC conf
 
 We use a TypeScript/JavaScript configuration file to allow dynamic execution based on environment variables (e.g., `SAIF_ENV=kubernetes`). The configuration explicitly separates the `coding` environment (where the agent lives) from the `staging` environment (where the black box tests run against the built app).
 
-The `provisioner` field at the root of the environment block acts as a discriminated union, dictating whether SAIFAC should use Docker (with optional Compose integration) or Helm mechanics.
+The `engine` field at the root of the environment block acts as a discriminated union, dictating whether SAIFAC should use Docker (with optional Compose integration) or Helm mechanics.
 
 ```typescript
 // config.ts
@@ -42,7 +42,7 @@ export default defineConfig({
     // ---------------------------------------------------------
     coding: isK8s
       ? {
-          provisioner: 'helm',
+          engine: 'helm',
           chart: './k8s/charts/saifac-mocks',
           // SAIFAC dynamically creates a Kubernetes Namespace for the run
           namespacePrefix: 'saifac-run',
@@ -52,7 +52,7 @@ export default defineConfig({
           },
         }
       : {
-          provisioner: 'docker',
+          engine: 'docker',
           file: './docker/docker-compose.dev.yml',
           agentEnvironment: {
             // SAIFAC injects this into the Agent container. Docker internal DNS resolves 'postgres-db'.
@@ -65,7 +65,7 @@ export default defineConfig({
     // ---------------------------------------------------------
     staging: isK8s
       ? {
-          provisioner: 'helm',
+          engine: 'helm',
           chart: './k8s/charts/saifac-staging',
           namespacePrefix: 'saifac-run',
           appEnvironment: {
@@ -73,7 +73,7 @@ export default defineConfig({
           },
         }
       : {
-          provisioner: 'docker',
+          engine: 'docker',
           file: './docker/docker-compose.staging.yml',
           appEnvironment: {
             DATABASE_URL: 'postgres://user:pass@postgres-db:5432/db',
@@ -131,7 +131,7 @@ To solve this without building a proprietary templating engine in SAIFAC:
 
 ### 4. Future Extensibility
 
-By elevating the `provisioner` field to the top of the environment block, we use Discriminated Unions in TypeScript. This explicitly declares the orchestration intent. If an enterprise wants to use `podman-compose`, `terraform`, or `pulumi` in the future, we simply add a new string to the union and write a new macro-adapter in the SAIFAC core, without breaking the configuration schema.
+By elevating the `engine` field to the top of the environment block, we use Discriminated Unions in TypeScript. This explicitly declares the orchestration intent. If an enterprise wants to use `podman-compose`, `terraform`, or `pulumi` in the future, we simply add a new string to the union and write a new macro-adapter in the SAIFAC core, without breaking the configuration schema.
 
 ### 5. Edge Cases & Implementation "Gotchas"
 
@@ -158,4 +158,4 @@ If a user writes a `docker-compose.yml` but explicitly defines custom networks (
 
 #### Kubernetes Readiness
 
-SAIFAC is architecturally ready for Kubernetes. The config schema supports `provisioner: 'helm'`, the discriminated-union design separates Docker vs Helm intent, and the `Provisioner` interface allows a drop-in `HelmProvisioner` without schema changes. Only the runtime adapter (the code that executes `helm install` and manages K8s namespaces) remains to be implemented.
+SAIFAC is architecturally ready for Kubernetes. The config schema supports `engine: 'helm'`, the discriminated-union design separates Docker vs Helm intent, and the `Engine` interface allows a drop-in `HelmEngine` without schema changes. Only the runtime adapter (the code that executes `helm install` and manages K8s namespaces) remains to be implemented.

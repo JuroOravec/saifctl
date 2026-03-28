@@ -1,12 +1,12 @@
 /**
- * Infrastructure-wide log lines from a {@link Provisioner} (containers + child stderr).
+ * Infrastructure-wide log lines from a {@link Engine} (containers + child stderr).
  * Distinct from {@link AgentLogEvent} (structured agent stdout between sentinels).
  */
 
-export type ProvisionerLogSource = 'staging' | 'test-runner' | 'coder' | 'inspect';
+export type EngineLogSource = 'staging' | 'test-runner' | 'coder' | 'inspect';
 
-export interface ProvisionerLogEvent {
-  source: ProvisionerLogSource;
+export interface EngineLogEvent {
+  source: EngineLogSource;
   stream: 'stdout' | 'stderr';
   /**
    * Docker container name for `[name] line` formatting (staging / test-runner).
@@ -17,7 +17,7 @@ export interface ProvisionerLogEvent {
   raw: string;
 }
 
-export type ProvisionerOnLog = (event: ProvisionerLogEvent) => void;
+export type EngineOnLog = (event: EngineLogEvent) => void;
 
 /**
  * Default: container lines → stdout with `[label]`; bare coder/inspect stderr → process.stderr.
@@ -25,7 +25,7 @@ export type ProvisionerOnLog = (event: ProvisionerLogEvent) => void;
  * NOTE: This does NOT go through our logging system (consola), because
  * we're streaming 3rd party logs directly.
  */
-export function defaultProvisionerLog(e: ProvisionerLogEvent): void {
+export function defaultEngineLog(e: EngineLogEvent): void {
   if (e.containerLabel !== undefined) {
     process.stdout.write(`[${e.containerLabel}] ${e.raw}\n`);
     return;

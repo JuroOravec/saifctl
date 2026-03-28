@@ -13,6 +13,14 @@ import { join, resolve } from 'node:path';
 
 import { resolveAgentProfile } from '../agent-profiles/index.js';
 import type { SaifacConfig } from '../config/schema.js';
+import { createEngine } from '../engines/index.js';
+import { defaultEngineLog } from '../engines/logs.js';
+import {
+  type AssertionSuiteResult,
+  type CoderInspectSessionHandle,
+  type TestsResult,
+} from '../engines/types.js';
+import { parseJUnitXmlString } from '../engines/utils/test-parser.js';
 import { getHatchetClient } from '../hatchet/client.js';
 import { serializeOrchestratorOpts } from '../hatchet/utils/serialize-opts.js';
 import {
@@ -21,14 +29,6 @@ import {
 } from '../hatchet/workflows/feat-run.workflow.js';
 import { type ModelOverrides, resolveAgentLlmConfig } from '../llm-config.js';
 import { consola } from '../logger.js';
-import { createProvisioner } from '../provisioners/index.js';
-import { defaultProvisionerLog } from '../provisioners/logs.js';
-import {
-  type AssertionSuiteResult,
-  type CoderInspectSessionHandle,
-  type TestsResult,
-} from '../provisioners/types.js';
-import { parseJUnitXmlString } from '../provisioners/utils/test-parser.js';
 import { cloneRunRules, rulesForPrompt } from '../runs/rules.js';
 import { type RunStorage } from '../runs/storage.js';
 import {
@@ -85,7 +85,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
   /**
    * Content of the gate script to run after each OpenHands round. In leash mode the script is
    * written to sandboxBasePath/gate.sh and mounted read-only at /saifac/gate.sh inside the
-   * container. In `--infra local` it runs on the host via bash.
+   * container. In `--engine local` it runs on the host via bash.
    *
    * It must exit 0 to pass; non-zero causes the inner loop to retry with the output as feedback.
    *
@@ -95,7 +95,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
   /**
    * Content of the startup script to run once before the agent loop begins.
    * Written to sandboxBasePath/startup.sh and mounted read-only at /saifac/startup.sh
-   * inside the coder container (or on the host with `--infra local`).
+   * inside the coder container (or on the host with `--engine local`).
    *
    * Use for workspace setup that requires the workspace to be mounted first:
    * pnpm install, pip install -r requirements.txt, cargo fetch, etc.
@@ -320,18 +320,18 @@ async function runFail2PassCore(
     testScript,
   });
 
-  const provisioner = createProvisioner(stagingEnvironment);
-  registry.registerProvisioner(provisioner, sandbox.runId);
+  const stagingEngine = createEngine(stagingEnvironment);
+  registry.registerEngine(stagingEngine, sandbox.runId);
 
   try {
-    await provisioner.setup({
+    await stagingEngine.setup({
       runId: sandbox.runId,
       projectName,
       featureName: feature.name,
       projectDir,
     });
 
-    const stagingHandle = await provisioner.startStaging({
+    const stagingHandle = await stagingEngine.startStaging({
       sandboxProfileId,
       codePath: sandbox.codePath,
       projectDir,
@@ -339,17 +339,17 @@ async function runFail2PassCore(
       feature,
       projectName,
       saifacPath: sandbox.saifacPath,
-      onLog: defaultProvisionerLog,
+      onLog: defaultEngineLog,
     });
 
-    const result = await provisioner.runTests({
+    const result = await stagingEngine.runTests({
       ...testRunnerOpts,
       stagingHandle,
       testImage,
       runId: sandbox.runId,
       feature,
       projectName,
-      onLog: defaultProvisionerLog,
+      onLog: defaultEngineLog,
     });
 
     if (result.runnerError) {
@@ -382,8 +382,8 @@ async function runFail2PassCore(
       };
     }
   } finally {
-    registry.deregisterProvisioner(provisioner);
-    await provisioner.teardown({ runId: sandbox.runId });
+    registry.deregisterEngine(stagingEngine);
+    await stagingEngine.teardown({ runId: sandbox.runId });
     await destroySandbox(sandbox.sandboxBasePath);
     registry.clearEmergencySandboxPath();
   }
@@ -578,7 +578,7 @@ export interface ResumeOpts {
   runStorage: RunStorage;
   cli: OrchestratorCliInput;
   cliModelDelta: ModelOverrides | undefined;
-  infraCli: string | undefined;
+  engineCli: string | undefined;
 }
 
 /**
@@ -592,8 +592,17 @@ async function runResumeCore(
   opts: ResumeOpts & { testOnly?: boolean },
   registry: CleanupRegistry,
 ): Promise<OrchestratorResult> {
-  const { runId, projectDir, runStorage, cli, cliModelDelta, config, saifDir, testOnly, infraCli } =
-    opts;
+  const {
+    runId,
+    projectDir,
+    runStorage,
+    cli,
+    cliModelDelta,
+    config,
+    saifDir,
+    testOnly,
+    engineCli,
+  } = opts;
 
   const artifact = await runStorage.getRun(runId);
   if (!artifact) {
@@ -634,7 +643,7 @@ async function runResumeCore(
     cli,
     cliModelDelta,
     artifact,
-    infraCli,
+    engineCli,
   });
 
   mergedOpts.resume = {
@@ -694,7 +703,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
     config,
     saifDir,
     inspectLeash,
-    infraCli,
+    engineCli,
   } = opts;
   const inspectDangerousNoLeash = inspectLeash !== true;
 
@@ -743,13 +752,13 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
       cli,
       cliModelDelta,
       artifact,
-      infraCli,
+      engineCli,
     });
 
-    if (mergedOpts.codingEnvironment.provisioner === 'local') {
+    if (mergedOpts.codingEnvironment.engine === 'local') {
       throw new Error(
-        'Run inspect does not support coding provisioner "local" (host-based agent). ' +
-          'Use environments.coding with docker (or omit --infra local) for inspect.',
+        'Run inspect does not support coding engine "local" (host-based agent). ' +
+          'Use environments.coding with docker (or omit --engine local) for inspect.',
       );
     }
 
@@ -793,7 +802,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
 
     const runContext = mergedOpts.resume.runContext;
     const inspectRunId = `${sandbox.runId}-inspect`;
-    const codingProvisioner = createProvisioner(mergedOpts.codingEnvironment);
+    const codingEngine = createEngine(mergedOpts.codingEnvironment);
 
     const task = await buildInitialTask({
       feature,
@@ -835,7 +844,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
 
     try {
       try {
-        await codingProvisioner.setup({
+        await codingEngine.setup({
           runId: inspectRunId,
           projectName: mergedOpts.projectName,
           featureName: feature.name,
@@ -852,7 +861,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
           }),
         });
 
-        inspectHandle = await codingProvisioner.startInspect({
+        inspectHandle = await codingEngine.startInspect({
           codePath: sandbox.codePath,
           sandboxBasePath: sandbox.sandboxBasePath,
           containerEnv: inspectContainerEnv,
@@ -862,7 +871,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
           saifacPath: sandbox.saifacPath,
           onAgentStdout,
           onAgentStdoutEnd,
-          onLog: defaultProvisionerLog,
+          onLog: defaultEngineLog,
           reviewer: reviewer ? { argusBinaryPath: reviewer.argusBinaryPath } : null,
         });
 
@@ -891,8 +900,8 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
               consola.warn('[inspect] inspect session stop:', err);
             });
           }
-          await codingProvisioner.teardown({ runId: inspectRunId }).catch((err: unknown) => {
-            consola.warn('[inspect] provisioner teardown:', err);
+          await codingEngine.teardown({ runId: inspectRunId }).catch((err: unknown) => {
+            consola.warn('[inspect] engine teardown:', err);
           });
 
           // Extract any changes made in the container
@@ -970,7 +979,7 @@ async function runApplyCore(
   opts: ResumeOpts,
   _registry: CleanupRegistry,
 ): Promise<OrchestratorResult> {
-  const { runId, projectDir, runStorage, cli, cliModelDelta, config, saifDir, infraCli } = opts;
+  const { runId, projectDir, runStorage, cli, cliModelDelta, config, saifDir, engineCli } = opts;
   if (!runStorage) {
     throw new Error('Run storage is disabled (--storage none). Cannot apply a stored run.');
   }
@@ -1009,7 +1018,7 @@ async function runApplyCore(
     cli,
     cliModelDelta,
     artifact,
-    infraCli,
+    engineCli,
   });
 
   const branchName = resolveHostApplyBranchName({

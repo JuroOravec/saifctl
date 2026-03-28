@@ -2,20 +2,20 @@
  * Phase: run-agent-phase
  *
  * Runs the coder agent inside the coding container (Leash)
- * or with '--infra local' on the host). Returns the raw patch content produced by the agent.
+ * or with '--engine local' on the host). Returns the raw patch content produced by the agent.
  *
  * This is the inner atom for a single attempt:
- *   setup provisioner → runAgent → teardown provisioner → extractIncrementalRoundPatch
+ *   setup engine → runAgent → teardown engine → extractIncrementalRoundPatch
  *
  * The entire operation runs inside a `try/finally` so teardown() always fires,
  * even when Hatchet cancels the step (ctx.abortController.signal fires).
  */
 
 import { resolveAgentProfile } from '../../agent-profiles/index.js';
+import { createEngine } from '../../engines/index.js';
+import { defaultEngineLog } from '../../engines/logs.js';
 import { resolveAgentLlmConfig } from '../../llm-config.js';
 import { consola } from '../../logger.js';
-import { createProvisioner } from '../../provisioners/index.js';
-import { defaultProvisionerLog } from '../../provisioners/logs.js';
 import type { RunCommit } from '../../runs/types.js';
 import type { CleanupRegistry } from '../../utils/cleanup.js';
 import { git } from '../../utils/git.js';
@@ -100,7 +100,7 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
 
   const agentProfile = resolveAgentProfile(agentProfileId);
   const coderLlmConfig = resolveAgentLlmConfig('coder', overrides);
-  const codingIsLocal = codingEnvironment.provisioner === 'local';
+  const codingIsLocal = codingEnvironment.engine === 'local';
   const reviewer =
     reviewerEnabled && !codingIsLocal
       ? {
@@ -110,11 +110,11 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
       : null;
 
   const codingRunId = `${sandbox.runId}-coding-${attempt}`;
-  const codingProvisioner = createProvisioner(codingEnvironment);
-  registry?.registerProvisioner(codingProvisioner, codingRunId);
+  const codingEngine = createEngine(codingEnvironment);
+  registry?.registerEngine(codingEngine, codingRunId);
 
   try {
-    await codingProvisioner.setup({
+    await codingEngine.setup({
       runId: codingRunId,
       projectName,
       featureName: feature.name,
@@ -155,7 +155,7 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
       runId: sandbox.runId,
     });
 
-    await codingProvisioner.runAgent({
+    await codingEngine.runAgent({
       codePath: sandbox.codePath,
       sandboxBasePath: sandbox.sandboxBasePath,
       containerEnv,
@@ -165,13 +165,13 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
       saifacPath: sandbox.saifacPath,
       onAgentStdout,
       onAgentStdoutEnd,
-      onLog: defaultProvisionerLog,
+      onLog: defaultEngineLog,
       reviewer: reviewer ? { argusBinaryPath: reviewer.argusBinaryPath } : null,
       signal,
     });
   } finally {
-    registry?.deregisterProvisioner(codingProvisioner);
-    await codingProvisioner.teardown({ runId: codingRunId });
+    registry?.deregisterEngine(codingEngine);
+    await codingEngine.teardown({ runId: codingRunId });
   }
 
   const {

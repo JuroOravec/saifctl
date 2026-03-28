@@ -91,7 +91,7 @@ const config: SaifacConfig = {
 export default config;
 ```
 
-Set `provisioner: 'docker'` and add a `file` when you need ephemeral services (databases, queues, etc.). See [Environments and Infrastructure](../services.md) for details.
+Set `engine: 'docker'` and add a `file` when you need ephemeral services (databases, queues, etc.). See [Environments and Infrastructure](../services.md) for details.
 
 ## Notes
 

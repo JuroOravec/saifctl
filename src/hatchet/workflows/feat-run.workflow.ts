@@ -12,7 +12,7 @@
  *          Each iteration spawns a child workflow:
  *          feat-run-iteration (child workflow)
  *            └─ run-agent   — 60-min timeout; coder + gate + reviewer + extractPatch
- *            └─ run-tests   — staging provisioner + test suite (raw result + testSuites)
+ *            └─ run-tests   — staging engine + test suite (raw result + testSuites)
  *            └─ vague-specs-check — optional LLM ambiguity pass; produces sanitizedHint
  *     └─ apply-patch        — commits + pushes + PR (success path only)
  *     └─ on-failure         — persists RunArtifact so `saifac run resume` works
@@ -40,6 +40,7 @@ import { join } from 'node:path';
 import type { JsonValue } from '@hatchet-dev/typescript-sdk/v1/types.js';
 import { z } from 'zod';
 
+import { parseJUnitXmlString } from '../../engines/utils/test-parser.js';
 import { consola } from '../../logger.js';
 import {
   buildInitialTask,
@@ -60,7 +61,6 @@ import {
   readInnerRounds,
   roundsStatsPath,
 } from '../../orchestrator/stats.js';
-import { parseJUnitXmlString } from '../../provisioners/utils/test-parser.js';
 import { activeOnceRuleIds, markOnceRulesConsumed, rulesForPrompt } from '../../runs/rules.js';
 import {
   type OuterAttemptSummary,
@@ -93,7 +93,7 @@ export const agentPhaseOutputSchema = z.object({
 });
 export type AgentPhaseOutput = z.infer<typeof agentPhaseOutputSchema>;
 
-/** Serialized assertion / suite shapes (match `provisioners/types` for Hatchet JSON boundaries). */
+/** Serialized assertion / suite shapes (match `engines/types` for Hatchet JSON boundaries). */
 export const assertionResultSchema = z.object({
   title: z.string(),
   fullName: z.string(),

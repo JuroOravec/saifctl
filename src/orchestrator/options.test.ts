@@ -8,9 +8,9 @@ import type { SaifacConfig } from '../config/schema.js';
 import { consola } from '../logger.js';
 import type { OrchestratorOpts } from './modes.js';
 import {
-  applyInfraCliToOrchestratorOpts,
+  applyEngineCliToOrchestratorOpts,
   normalizeStagingEnvironmentRaw,
-  parseInfraCliSpec,
+  parseEngineCliSpec,
   parseModelOverridesCliDelta,
 } from './options.js';
 
@@ -59,7 +59,7 @@ describe('parseModelOverridesCliDelta', () => {
   });
 });
 
-describe('parseInfraCliSpec', () => {
+describe('parseEngineCliSpec', () => {
   let exitSpy: ReturnType<typeof vi.spyOn>;
   let consolaErrorSpy: ReturnType<typeof vi.spyOn>;
 
@@ -75,48 +75,48 @@ describe('parseInfraCliSpec', () => {
   });
 
   it('parses global docker for both phases', () => {
-    expect(parseInfraCliSpec('docker')).toEqual({ coding: 'docker', staging: 'docker' });
+    expect(parseEngineCliSpec('docker')).toEqual({ coding: 'docker', staging: 'docker' });
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
   it('parses global local as coding=local and staging=docker', () => {
-    expect(parseInfraCliSpec('local')).toEqual({ coding: 'local', staging: 'docker' });
+    expect(parseEngineCliSpec('local')).toEqual({ coding: 'local', staging: 'docker' });
   });
 
   it('parses coding=staging pair', () => {
-    expect(parseInfraCliSpec('coding=docker,staging=helm')).toEqual({
+    expect(parseEngineCliSpec('coding=docker,staging=helm')).toEqual({
       coding: 'docker',
       staging: 'helm',
     });
   });
 
   it('rejects staging=local', () => {
-    parseInfraCliSpec('staging=local');
+    parseEngineCliSpec('staging=local');
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 });
 
-describe('applyInfraCliToOrchestratorOpts', () => {
-  it('reuses staging from file when provisioner matches docker', () => {
+describe('applyEngineCliToOrchestratorOpts', () => {
+  it('reuses staging from file when engine matches docker', () => {
     const config = {
       environments: {
-        staging: { provisioner: 'docker' as const, file: 'ops/compose.yml' },
+        staging: { engine: 'docker' as const, file: 'ops/compose.yml' },
       },
     } as SaifacConfig;
 
     const merged = {
-      codingEnvironment: { provisioner: 'docker' as const },
+      codingEnvironment: { engine: 'docker' as const },
       stagingEnvironment: normalizeStagingEnvironmentRaw({
-        provisioner: 'helm',
+        engine: 'helm',
         chart: 'other',
       }),
     } as unknown as OrchestratorOpts;
 
-    applyInfraCliToOrchestratorOpts(merged, config, 'staging=docker');
+    applyEngineCliToOrchestratorOpts(merged, config, 'staging=docker');
 
     expect(merged.stagingEnvironment).toEqual(
       normalizeStagingEnvironmentRaw({
-        provisioner: 'docker',
+        engine: 'docker',
         file: 'ops/compose.yml',
       }),
     );
@@ -125,17 +125,17 @@ describe('applyInfraCliToOrchestratorOpts', () => {
   it('drops incompatible staging fields when switching to docker from helm-only file', () => {
     const config = {
       environments: {
-        staging: { provisioner: 'helm' as const, chart: './chart' },
+        staging: { engine: 'helm' as const, chart: './chart' },
       },
     } as SaifacConfig;
 
     const merged = {
-      codingEnvironment: { provisioner: 'docker' as const },
-      stagingEnvironment: normalizeStagingEnvironmentRaw({ provisioner: 'helm', chart: './chart' }),
+      codingEnvironment: { engine: 'docker' as const },
+      stagingEnvironment: normalizeStagingEnvironmentRaw({ engine: 'helm', chart: './chart' }),
     } as unknown as OrchestratorOpts;
 
-    applyInfraCliToOrchestratorOpts(merged, config, 'staging=docker');
+    applyEngineCliToOrchestratorOpts(merged, config, 'staging=docker');
 
-    expect(merged.stagingEnvironment).toEqual(normalizeStagingEnvironmentRaw({ provisioner: 'docker' }));
+    expect(merged.stagingEnvironment).toEqual(normalizeStagingEnvironmentRaw({ engine: 'docker' }));
   });
 });

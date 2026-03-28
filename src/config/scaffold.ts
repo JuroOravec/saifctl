@@ -23,15 +23,15 @@ const config: SaifacConfig = {
     coding: {
       // Docker is always the runtime. Optionally add a Compose file for ephemeral services:
       // file: './docker/docker-compose.dev.yml',
-      // Or use Helm: provisioner: 'helm', chart: './k8s/charts/saifac-mocks'
-      provisioner: 'docker',
+      // Or use Helm: engine: 'helm', chart: './k8s/charts/saifac-mocks'
+      engine: 'docker',
       agentEnvironment: {},
     },
     staging: {
       // Docker is always the runtime. Optionally add a Compose file for ephemeral services:
       // file: './docker/docker-compose.staging.yml',
-      // Or use Helm: provisioner: 'helm', chart: './k8s/charts/saifac-mocks'
-      provisioner: 'docker',
+      // Or use Helm: engine: 'helm', chart: './k8s/charts/saifac-mocks'
+      engine: 'docker',
       // Configure how to expose the code as application for testing:
       app: {
         sidecarPort: 8080,

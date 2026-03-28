@@ -1,14 +1,14 @@
 /**
  * Phase: run-test-phase
  *
- * Spins up the staging provisioner, runs the test suite, tears down, and returns
+ * Spins up the staging engine, runs the test suite, tears down, and returns
  * the result. Handles inner test-retry logic (flaky test environments).
  */
 
+import { createEngine } from '../../engines/index.js';
+import { defaultEngineLog } from '../../engines/logs.js';
+import type { TestsResult } from '../../engines/types.js';
 import { consola } from '../../logger.js';
-import { createProvisioner } from '../../provisioners/index.js';
-import { defaultProvisionerLog } from '../../provisioners/logs.js';
-import type { TestsResult } from '../../provisioners/types.js';
 import type { CleanupRegistry } from '../../utils/cleanup.js';
 import { type IterativeLoopOpts, prepareTestRunnerOpts } from '../loop.js';
 import type { Sandbox } from '../sandbox.js';
@@ -67,12 +67,12 @@ export async function runTestPhase(input: RunTestPhaseInput): Promise<RunTestPha
       `\n[orchestrator] Test attempt ${testAttempt}/${testRetries} (outer attempt ${attempt})`,
     );
 
-    const stagingProvisioner = createProvisioner(stagingEnvironment);
-    registry?.registerProvisioner(stagingProvisioner, testRunId);
+    const stagingEngine = createEngine(stagingEnvironment);
+    registry?.registerEngine(stagingEngine, testRunId);
 
     lastResult = await (async (): Promise<TestsResult> => {
       try {
-        const stagingHandle = await stagingProvisioner.startStaging({
+        const stagingHandle = await stagingEngine.startStaging({
           sandboxProfileId,
           codePath: sandbox.codePath,
           projectDir,
@@ -80,10 +80,10 @@ export async function runTestPhase(input: RunTestPhaseInput): Promise<RunTestPha
           feature,
           projectName,
           saifacPath: sandbox.saifacPath,
-          onLog: defaultProvisionerLog,
+          onLog: defaultEngineLog,
         });
 
-        return await stagingProvisioner.runTests({
+        return await stagingEngine.runTests({
           ...testRunnerOpts,
           stagingHandle,
           testImage,
@@ -91,11 +91,11 @@ export async function runTestPhase(input: RunTestPhaseInput): Promise<RunTestPha
           feature,
           projectName,
           signal,
-          onLog: defaultProvisionerLog,
+          onLog: defaultEngineLog,
         });
       } finally {
-        registry?.deregisterProvisioner(stagingProvisioner);
-        await stagingProvisioner.teardown({ runId: testRunId });
+        registry?.deregisterEngine(stagingEngine);
+        await stagingEngine.teardown({ runId: testRunId });
       }
     })();
 

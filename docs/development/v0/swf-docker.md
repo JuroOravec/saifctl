@@ -36,13 +36,13 @@ Both the **Test Runner** and the **Staging Container** use pre-built or per-run 
 | **Default**        | `saifac-coder-node-pnpm-python:latest` (or profile-specific) from GHCR; Docker pulls automatically when not local |
 | **Build manually** | `pnpm docker build coder` — build from the sandbox profile's Dockerfile.coder                                      |
 | **Override**       | `saifac feat run --coder-image ghcr.io/JuroOravec/safe-ai-factory/saifac-coder-node-pnpm-python:latest` (or the image for your `--profile`) |
-| **Host coding**    | `saifac feat run --infra local` — LocalProvisioner runs OpenHands on the host (no Leash coder container for coding) |
+| **Host coding**    | `saifac feat run --engine local` — LocalEngine runs OpenHands on the host (no Leash coder container for coding) |
 
 When Leash is enabled (default), the orchestrator runs the **Leash CLI** (`@strongdm/leash`) with `--image saifac-coder-node-pnpm-python:latest ...` (or profile-specific tag), wrapping OpenHands in this image. The sandbox code dir is mounted at `/workspace`. See [swf-comp-d-leash.md](./swf-comp-d-leash.md) for details.
 
 ### Other Containers
 
-- **Additional ephemeral** (postgres, redis, etc.): Supplied via provisioners (e.g. `DockerComposeProvisioner`) configured in `saifac/config.ts`.
+- **Additional ephemeral** (postgres, redis, etc.): Supplied via engines (e.g. `DockerEngine`) configured in `saifac/config.ts`.
 
 ---
 
@@ -53,7 +53,7 @@ When Leash is enabled (default), the orchestrator runs the **Leash CLI** (`@stro
 | **Coder** (Leash)         | Coder agent            | `saifac-coder-node-pnpm-python:latest` from sandbox profile's `Dockerfile.coder` | Runs OpenHands; agent writes code in sandbox; Cedar policy enforced                   |
 | **Staging**               | Application under test | Ephemeral image built per-iteration                                               | Runs the codebase: web server or CLI wrapped in an HTTP Sidecar                       |
 | **Test Runner**           | Test runner            | GHCR `saifac-test-<profile>:latest` (or custom via `--test-image`)               | Runs tests against Staging container over HTTP; writes JUnit XML; graded by exit code |
-| **Additional** (optional) | Ephemeral services     | Provisioners (e.g. `DockerComposeProvisioner`)                                    | Postgres, Redis, etc. for digital-twin validation                                     |
+| **Additional** (optional) | Ephemeral services     | Engines (e.g. `DockerEngine`)                                    | Postgres, Redis, etc. for digital-twin validation                                     |
 
 All containers join a **dedicated bridge network** per run (e.g. `saifac-net-{runId}`). Containers resolve each other by hostname. The Test Runner never mounts the Docker socket.
 
@@ -94,7 +94,7 @@ The orchestrator runs `docker build` to create a **runtime-only** image (node, p
 ```typescript
 environments: {
   staging: {
-    provisioner: 'docker',
+    engine: 'docker',
     file: './docker/docker-compose.staging.yml',
     app: {
       sidecarPort: 8080,
@@ -213,16 +213,16 @@ No `npm install` step. The container starts and runs tests in seconds.
 
 ---
 
-## Additional Containers (Provisioners)
+## Additional Containers (infra engines)
 
-Provisioners (e.g. `DockerComposeProvisioner`) supply ephemeral external services (postgres, redis, etc.) configured in `saifac/config.ts` under `environments.staging`.
+Engines (e.g. `DockerEngine`) supply ephemeral external services (postgres, redis, etc.) configured in `saifac/config.ts` under `environments.staging`.
 
 ```typescript
 // saifac/config.ts
 export default {
   environments: {
     staging: {
-      provisioner: 'docker',
+      engine: 'docker',
       // Specifies ephemeral services
       file: './docker-compose.staging.yml',
       app: {
@@ -238,10 +238,10 @@ export default {
 ```
 
 - **Execution:** Managed by the tool specified in the config (e.g., `docker compose -p saifac-<runId> up -d --wait`).
-- **Network:** The provisioner attaches the created containers to the SAIFAC bridge network (`saifac-net-{runId}`).
-- **Naming & Hostname:** Docker compose handles container naming natively. The provisioner connects them to the SAIFAC network using their compose service name as the network alias, so other containers can reach them via standard hostnames (e.g. `postgres:5432`).
-- **Startup:** Services are brought up by the provisioner before the Staging and Test Runner containers are created.
-- **Teardown:** Services are torn down by the provisioner in the `finally` block or by the `CleanupRegistry` on SIGINT/SIGTERM (e.g., `docker compose down -v --remove-orphans`).
+- **Network:** The engine attaches the created containers to the SAIFAC bridge network (`saifac-net-{runId}`).
+- **Naming & Hostname:** Docker compose handles container naming natively. The engine connects them to the SAIFAC network using their compose service name as the network alias, so other containers can reach them via standard hostnames (e.g. `postgres:5432`).
+- **Startup:** Services are brought up by the engine before the Staging and Test Runner containers are created.
+- **Teardown:** Services are torn down by the engine in the `finally` block or by the `CleanupRegistry` on SIGINT/SIGTERM (e.g., `docker compose down -v --remove-orphans`).
 
 ---
 
@@ -264,7 +264,7 @@ export default {
 | `pnpm docker build test [--all]`            | Build test runner image(s) locally (for development or offline use)                          |
 | `pnpm docker build coder`                   | Build (or rebuild) the coder image from the sandbox profile's `Dockerfile.coder`             |
 | `saifac feat run --test-image my-test:v2`   | Use a custom test runner image                                                               |
-| `saifac feat run --infra local`             | LocalProvisioner: run OpenHands on host (coding phase)                                       |
+| `saifac feat run --engine local`             | LocalEngine: run OpenHands on host (coding phase)                                       |
 | `saifac feat run --coder-image my-coder:v2` | Use a custom coder image (also used for the staging container)                               |
 
 ---

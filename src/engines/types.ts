@@ -1,7 +1,7 @@
 /**
- * Provisioner interface — lifecycle contract for infrastructure adaptors.
+ * Engine interface — lifecycle contract for infrastructure adaptors.
  *
- * A Provisioner manages the full lifecycle of an isolated SAIFAC run environment:
+ * An Engine manages the full lifecycle of an isolated SAIFAC run environment:
  *   1. setup()        — create an isolated network + start background services (databases, etc.)
  *   2. startStaging() — build & boot the application under test (Container A) with sidecar
  *   3. runTests()     — run test runner (black-box tests) (Container B) and return results
@@ -9,15 +9,15 @@
  *   4b. startInspect() — idle coder container for `run inspect` (same mounts/network as runAgent)
  *   5. teardown()     — stop and remove all resources created during this run
  *
- * DockerProvisioner is the concrete implementation for Docker (with optional Compose services).
- * A HelmProvisioner would implement the same interface using Kubernetes.
+ * DockerEngine is the concrete implementation for Docker (with optional Compose services).
+ * A HelmEngine would implement the same interface using Kubernetes.
  */
 
 import type { SupportedSandboxProfileId } from '../sandbox-profiles/types.js';
 import type { Feature } from '../specs/discover.js';
-import type { ProvisionerOnLog } from './logs.js';
+import type { EngineOnLog } from './logs.js';
 
-export type { ProvisionerLogEvent, ProvisionerLogSource, ProvisionerOnLog } from './logs.js';
+export type { EngineLogEvent, EngineLogSource, EngineOnLog } from './logs.js';
 
 // ---------------------------------------------------------------------------
 // Shared value objects (implementation-agnostic)
@@ -38,7 +38,7 @@ export interface StagingHandle {
 /** Outcome of a test run (mutually exclusive). */
 export type TestRunStatus = 'passed' | 'failed' | 'aborted';
 
-/** Raw test result from a provisioner. */
+/** Raw test result from an engine. */
 export interface TestsResult {
   status: TestRunStatus;
   stderr: string;
@@ -83,7 +83,7 @@ export interface AgentResult {
 // Method option types
 // ---------------------------------------------------------------------------
 
-export interface ProvisionerSetupOpts {
+export interface EngineSetupOpts {
   runId: string;
   projectName: string;
   featureName: string;
@@ -100,7 +100,7 @@ export interface StagingAppConfig {
 }
 
 export interface NormalizedStagingEnvironmentRef {
-  provisioner: string;
+  engine: string;
   app: StagingAppConfig;
   appEnvironment: Record<string, string>;
   /** Present when a Docker Compose file is configured for ephemeral services. */
@@ -122,12 +122,12 @@ export interface StartStagingOpts {
    */
   saifacPath: string;
   /** Infra log lines from the staging container "follow" (-f) stream (stdout/stderr). */
-  onLog: ProvisionerOnLog;
+  onLog: EngineOnLog;
 }
 
 /**
  * Environment variables for the coder container, split by log sensitivity.
- * Provisioners merge both into the real process/container; logging may show
+ * Engines merge both into the real process/container; logging may show
  * public `env` key+value and only secret key names for `secretEnv`.
  */
 export interface ContainerEnv {
@@ -161,7 +161,7 @@ export interface RunTestsOpts {
    */
   signal?: AbortSignal;
   /** Infra log lines from the test-runner container "follow" (-f) stream (stdout/stderr). */
-  onLog: ProvisionerOnLog;
+  onLog: EngineOnLog;
 }
 
 export interface RunAgentOpts {
@@ -174,7 +174,7 @@ export interface RunAgentOpts {
   sandboxBasePath: string;
   /**
    * Pre-built container environment (public + secret). Assembled by the orchestrator.
-   * The provisioner only forwards it into Docker/Leash.
+   * The engine only forwards it into Docker/Leash.
    */
   containerEnv: ContainerEnv;
   /**
@@ -200,7 +200,7 @@ export interface RunAgentOpts {
    * Raw stderr chunks from the agent container + other non-agent logs.
    * These logs are not agent-specific.
    */
-  onLog: ProvisionerOnLog;
+  onLog: EngineOnLog;
   /**
    * When set, mount the argus binary for the semantic reviewer. Reviewer LLM env vars live in `containerEnv`.
    */
@@ -214,7 +214,7 @@ export interface RunAgentOpts {
 }
 
 /**
- * Options for {@link Provisioner.startInspect}.
+ * Options for {@link Engine.startInspect}.
  * Use the same `containerEnv` as the first coding round in `runIterativeLoop` / `run resume`.
  */
 export interface StartInspectOpts {
@@ -233,10 +233,10 @@ export interface StartInspectOpts {
   /** Same as {@link RunAgentOpts.onAgentStdoutEnd}. */
   onAgentStdoutEnd?: () => void;
   /** Same as {@link RunAgentOpts.onLog}. */
-  onLog: ProvisionerOnLog;
+  onLog: EngineOnLog;
 }
 
-/** Handle for an idle coding container started by {@link Provisioner.startInspect}. */
+/** Handle for an idle coding container started by {@link Engine.startInspect}. */
 export interface CoderInspectSessionHandle {
   /** Container name (Leash target / dangerous-no-leash docker run --name). */
   containerName: string;
@@ -246,7 +246,7 @@ export interface CoderInspectSessionHandle {
   stop(): Promise<void>;
 }
 
-export interface ProvisionerTeardownOpts {
+export interface EngineTeardownOpts {
   runId: string;
 }
 
@@ -255,7 +255,7 @@ export interface ProvisionerTeardownOpts {
 // ---------------------------------------------------------------------------
 
 /** Infrastructure adaptor contract (Docker today, Kubernetes later). */
-export interface Provisioner {
+export interface Engine {
   /**
    * 1. Initialize the isolated environment and start background services.
    *
@@ -265,7 +265,7 @@ export interface Provisioner {
    *
    * Must be called once before any other method.
    */
-  setup(opts: ProvisionerSetupOpts): Promise<void>;
+  setup(opts: EngineSetupOpts): Promise<void>;
 
   /**
    * 2. Build and start the staging application (Container A).
@@ -312,5 +312,5 @@ export interface Provisioner {
    * runs `docker compose down -v`, and removes the bridge network.
    * Safe to call even when setup() was never called or partially failed.
    */
-  teardown(opts: ProvisionerTeardownOpts): Promise<void>;
+  teardown(opts: EngineTeardownOpts): Promise<void>;
 }

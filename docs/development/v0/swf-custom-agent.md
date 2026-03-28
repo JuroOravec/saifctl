@@ -55,7 +55,7 @@ python ./scripts/my-agent.py --task-file "$SAIFAC_TASK_PATH"
 | Requirement                         | Description                                                                                                                                                                    |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Read task from `$SAIFAC_TASK_PATH` | The factory writes the full task (plan + optional error feedback) to this file before each invocation. Do **not** pass the task via `-t "..."` or similar — use the file path. |
-| Work in the workspace               | In Leash mode the workspace is `/workspace`. With local coding (LocalProvisioner / `--infra local`) it is the current working directory (sandbox `code/`). Your agent must edit files in that directory.  |
+| Work in the workspace               | In Leash mode the workspace is `/workspace`. With local coding (LocalEngine / `--engine local`) it is the current working directory (sandbox `code/`). Your agent must edit files in that directory.  |
 | Exit on completion                  | Exit code 0 when done, non-zero on failure. The factory uses the exit code to decide whether to run the gate.                                                                  |
 | Use env vars for config             | Your agent can read `LLM_MODEL`, `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`, and any extra vars you pass via `--agent-env` or `--agent-env-file`.                           |
 
@@ -127,7 +127,7 @@ saifac feat run \
 
 ### Automatically forwarded
 
-The factory **always** forwards these variables into the agent container (Leash / `docker run` without Leash) or host process (LocalProvisioner):
+The factory **always** forwards these variables into the agent container (Leash / `docker run` without Leash) or host process (LocalEngine):
 
 | Variable             | Source                                                                | Purpose                                                                                                                          |
 | -------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -140,7 +140,7 @@ The factory **always** forwards these variables into the agent container (Leash 
 | `OPENROUTER_API_KEY` | Host `process.env`                                                    | Forwarded if set (for OpenRouter)                                                                                                |
 | `GEMINI_API_KEY`     | Host `process.env`                                                    | Forwarded if set (for Google models)                                                                                             |
 
-With **local coding** (LocalProvisioner), the agent inherits the full host environment (including all of the above), so no extra setup is needed for standard API keys.
+With **local coding** (LocalEngine), the agent inherits the full host environment (including all of the above), so no extra setup is needed for standard API keys.
 
 ### Single variables (custom)
 
@@ -232,12 +232,12 @@ For `saifac run resume`, the same flags apply — you can change the agent scrip
 
 ## Local coding (host execution)
 
-If you use `--infra local` (or `environments.coding.provisioner: 'local'`), the agent runs directly on the host via **LocalProvisioner** (no Docker/Leash for the coding phase). Useful for troubleshooting:
+If you use `--engine local` (or `environments.coding.engine: 'local'`), the agent runs directly on the host via **LocalEngine** (no Docker/Leash for the coding phase). Useful for troubleshooting:
 
 ```bash
 saifac feat run \
   --agent-script ./aider-runner.sh \
-  --infra local
+  --engine local
 ```
 
 In this mode:

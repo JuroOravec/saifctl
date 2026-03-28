@@ -96,7 +96,7 @@ Borrowing from machine learning training principles, we use "Mutual Verification
 To achieve this isolation, the Sandbox relies on ephemeral containerization and a **three-container architecture**:
 
 1. **Three-Container Architecture:**
-   - **Coder container** (Leash; `Dockerfile.coder`): Runs OpenHands, secured by Leash. The agent writes code in a sandbox mounted at `/workspace`. Cedar policy forbids writes to `openspec/`. Use `--infra local` (LocalProvisioner) to run OpenHands on the host instead.
+   - **Coder container** (Leash; `Dockerfile.coder`): Runs OpenHands, secured by Leash. The agent writes code in a sandbox mounted at `/workspace`. Cedar policy forbids writes to `openspec/`. Use `--engine local` (LocalEngine) to run OpenHands on the host instead.
    - **Staging container:** (`Dockerfile.staging`) Git changes from the coder are copied into a plain Node.js container. Runs the application the Coder Agent built — a web server (port 3000) or a CLI wrapped in a Sidecar. Test files and the test runner do _not_ exist here.
    - **Test Runner container:** (`Dockerfile.test`) Runs vitest against the staging container. Communicates strictly via **HTTP/browser** (for web apps) or via an **HTTP Wrapper / Sidecar** (for CLI tools), and evaluates the serialized response.
      - _Security Note:_ We do **not** use `docker exec` from the Test Runner to run CLI commands, as that would require mounting the highly privileged `/var/run/docker.sock` into the Test Runner. The Sidecar pattern preserves the air gap securely.
@@ -120,13 +120,13 @@ leash --no-interactive --image saifac-coder-node-pnpm-python:latest \
   openhands --headless --always-approve -t "Implement plan.md"
 ```
 
-Leash manages its own containers; we never pull StrongDM images. Use `--infra local` (LocalProvisioner) to skip Leash and run OpenHands directly on the host (no container during the agent phase). See [swf-comp-d-leash.md](./swf-comp-d-leash.md) for full details.
+Leash manages its own containers; we never pull StrongDM images. Use `--engine local` (LocalEngine) to skip Leash and run OpenHands directly on the host (no container during the agent phase). See [swf-comp-d-leash.md](./swf-comp-d-leash.md) for full details.
 
 **Alternative (Remote Sandbox):** OpenHands also supports `RUNTIME=remote` with `SANDBOX_REMOTE_RUNTIME_API_URL` for pluggable runtimes. That model would require a Leash-compatible Sandbox API; our current implementation runs the resolved Leash CLI with `--image saifac-coder-node-pnpm-python:latest ... /saifac/coder-start.sh`. See [Runtime Overview](https://docs.all-hands.dev/usage/runtimes/overview) for reference.
 
 ### Host-to-Docker Code Flow (Local vs Remote)
 
-**Our Factory:** We use a **pure file copy** approach. The Orchestrator uses `rsync` (honoring `.gitignore`) to copy the repo to a disposable `/tmp/saifac/sandboxes/{feature}-{runId}/code` directory. After rsync, _all_ `hidden/` directories under `saifac/features/` are recursively removed from the code copy so the agent cannot see holdout tests from any feature. This guarantees the agent cannot corrupt the host's `.git` or files, and cannot read hidden tests. OpenHands uses this directory as its workspace. By default (Leash enabled), OpenHands runs inside the Leash coder container; with local coding (LocalProvisioner) it runs on the host.
+**Our Factory:** We use a **pure file copy** approach. The Orchestrator uses `rsync` (honoring `.gitignore`) to copy the repo to a disposable `/tmp/saifac/sandboxes/{feature}-{runId}/code` directory. After rsync, _all_ `hidden/` directories under `saifac/features/` are recursively removed from the code copy so the agent cannot see holdout tests from any feature. This guarantees the agent cannot corrupt the host's `.git` or files, and cannot read hidden tests. OpenHands uses this directory as its workspace. By default (Leash enabled), OpenHands runs inside the Leash coder container; with local coding (LocalEngine) it runs on the host.
 
 **OpenHands' traditional flow (for reference):**
 

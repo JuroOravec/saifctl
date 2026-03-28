@@ -49,7 +49,7 @@ _(Alternatively, you can use the standalone installer: `curl -fsSL https://insta
 
 ### Option B: Headless Setup for Orchestration (Software Factory)
 
-When integrating OpenHands into the Software Factory loop, we run it headlessly via the CLI. By default (Leash enabled), OpenHands runs inside the Leash coder container; use `--infra local` (LocalProvisioner) to run it on the host (Python on host). Docker-based deployment is also available for alternative setups.
+When integrating OpenHands into the Software Factory loop, we run it headlessly via the CLI. By default (Leash enabled), OpenHands runs inside the Leash coder container; use `--engine local` (LocalEngine) to run it on the host (Python on host). Docker-based deployment is also available for alternative setups.
 
 **Via Docker:**
 
@@ -76,7 +76,7 @@ docker run -it --pull=always \
   python -m openhands.core.main -t "Implement plan.md"
 ```
 
-_(Note: In the actual Factory loop, when Leash is enabled we run the Leash CLI with `--image saifac-coder-node-pnpm-python:latest --volume <sandbox>:/workspace --policy policies/default.cedar ... /saifac/coder-start.sh`. Leash wraps OpenHands in a sandboxed Docker container with Cedar policy enforcement. Use `--infra local` / LocalProvisioner to run OpenHands directly on the host.)_
+_(Note: In the actual Factory loop, when Leash is enabled we run the Leash CLI with `--image saifac-coder-node-pnpm-python:latest --volume <sandbox>:/workspace --policy policies/default.cedar ... /saifac/coder-start.sh`. Leash wraps OpenHands in a sandboxed Docker container with Cedar policy enforcement. Use `--engine local` / LocalEngine to run OpenHands directly on the host.)_
 
 ---
 

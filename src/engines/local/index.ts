@@ -1,8 +1,8 @@
 /**
- * LocalProvisioner — runs the coding agent on the host (no container / Leash).
+ * LocalEngine — runs the coding agent on the host (no container / Leash).
  *
- * Used when `environments.coding.provisioner` is `local` (e.g. via `--infra local`).
- * Staging and tests still use {@link DockerProvisioner} or a future Helm provisioner.
+ * Used when `environments.coding.engine` is `local` (e.g. via `--engine local`).
+ * Staging and tests still use {@link DockerEngine} or a future HelmEngine.
  */
 
 import { spawn } from 'node:child_process';
@@ -12,9 +12,9 @@ import { consola } from '../../logger.js';
 import type {
   AgentResult,
   CoderInspectSessionHandle,
-  Provisioner,
-  ProvisionerSetupOpts,
-  ProvisionerTeardownOpts,
+  Engine,
+  EngineSetupOpts,
+  EngineTeardownOpts,
   RunAgentOpts,
   RunTestsOpts,
   StagingHandle,
@@ -23,27 +23,27 @@ import type {
   TestsResult,
 } from '../types.js';
 
-export class LocalProvisioner implements Provisioner {
-  /** Set in {@link setup}; used for logs matching {@link DockerProvisioner.runAgent}. */
+export class LocalEngine implements Engine {
+  /** Set in {@link setup}; used for logs matching {@link DockerEngine.runAgent}. */
   private runId = '';
 
-  async setup(opts: ProvisionerSetupOpts): Promise<void> {
+  async setup(opts: EngineSetupOpts): Promise<void> {
     this.runId = opts.runId;
   }
 
-  async teardown(_opts: ProvisionerTeardownOpts): Promise<void> {
+  async teardown(_opts: EngineTeardownOpts): Promise<void> {
     // Nothing to tear down.
   }
 
   async startStaging(_opts: StartStagingOpts): Promise<StagingHandle> {
     throw new Error(
-      '[provisioner] Local provisioner does not support staging. Use docker or helm for environments.staging.',
+      '[engine] LocalEngine does not support staging. Use docker or helm for environments.staging.',
     );
   }
 
   async runTests(_opts: RunTestsOpts): Promise<TestsResult> {
     throw new Error(
-      '[provisioner] Local provisioner does not support tests. Use docker or helm for environments.staging.',
+      '[engine] LocalEngine does not support tests. Use docker or helm for environments.staging.',
     );
   }
 
@@ -56,7 +56,7 @@ export class LocalProvisioner implements Provisioner {
     const args = [coderStartHost];
     const argsForPrint = [coderStartHost];
 
-    consola.log('[agent-runner] Mode: local provisioner (host execution, filesystem sandbox only)');
+    consola.log('[agent-runner] Mode: local engine (host execution, filesystem sandbox only)');
 
     consola.debug(`[agent-runner] containerEnv (public): ${JSON.stringify(containerEnv.env)}`);
     consola.debug(
@@ -146,7 +146,7 @@ export class LocalProvisioner implements Provisioner {
 
   async startInspect(_opts: StartInspectOpts): Promise<CoderInspectSessionHandle> {
     throw new Error(
-      '[provisioner] run inspect needs a container coding provisioner. Use --infra coding=docker (or omit --infra local) for inspect.',
+      '[engine] run inspect needs a container coding engine. Use --engine coding=docker (or omit --engine local) for inspect.',
     );
   }
 }

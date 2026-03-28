@@ -180,7 +180,7 @@ export interface FeatRunArgs extends OrchestratorArgs {
   branch?: string;
   'git-provider'?: string;
   verbose?: boolean;
-  infra?: string;
+  engine?: string;
 }
 
 /** Path segment: kebab-case or (group) */
@@ -318,9 +318,9 @@ export function readCoderImageTagFromCli(args: FeatRunArgs): string | undefined 
   return undefined;
 }
 
-/** CLI-only: trimmed non-empty `--infra`, or `undefined` if omitted / empty. */
-export function readInfraCliFromCli(args: Pick<FeatRunArgs, 'infra'>): string | undefined {
-  const raw = typeof args.infra === 'string' ? args.infra.trim() : '';
+/** CLI-only: trimmed non-empty `--engine`, or `undefined` if omitted / empty. */
+export function readEngineCliFromCli(args: Pick<FeatRunArgs, 'engine'>): string | undefined {
+  const raw = typeof args.engine === 'string' ? args.engine.trim() : '';
   return raw !== '' ? raw : undefined;
 }
 

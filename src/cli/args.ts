@@ -94,10 +94,10 @@ export const modelOverrideArgs = {
 // Tests-only args — used by design-fail2pass, test (staging + test runner, no coder agent)
 export const featTestsArgs = {
   'sandbox-base-dir': sandboxBaseDirArg,
-  infra: {
+  engine: {
     type: 'string' as const,
     description:
-      'Provisioners: `docker`, `local`, or `coding=docker,staging=helm`. Overrides environments.*.provisioner.',
+      'Override infra engines: `docker`, `local`, or `coding=docker,staging=helm`. Sets environments.*.engine for this run.',
   },
   profile: profileArg,
   'test-script': testScriptArg,
@@ -193,7 +193,7 @@ const featRunCoreArgs = {
   'dangerous-no-leash': {
     type: 'boolean' as const,
     description:
-      'Skip Leash; run the coder container with plain docker run (same image, mounts, env, and container name as Leash — no Cedar / Leash proxy). For no container, use `--infra local`',
+      'Skip Leash; run the coder container with plain docker run (same image, mounts, env, and container name as Leash — no Cedar / Leash proxy). For no container, use `--engine local`',
   },
   cedar: {
     type: 'string' as const,

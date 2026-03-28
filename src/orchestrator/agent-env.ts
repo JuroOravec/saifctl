@@ -1,5 +1,5 @@
 /**
- * Filters user-supplied agent env variables before passing to a provisioner.
+ * Filters user-supplied agent env variables before passing to an engine.
  * Reserved keys must not shadow factory-injected variables.
  */
 
@@ -7,9 +7,9 @@ import { join, resolve } from 'node:path';
 
 import type { SaifacConfig } from '../config/schema.js';
 import { LLM_API_KEYS, saifacTaskFilePath } from '../constants.js';
+import type { ContainerEnv } from '../engines/types.js';
 import type { LlmConfig } from '../llm-config.js';
 import { consola } from '../logger.js';
-import type { ContainerEnv } from '../provisioners/types.js';
 import { pathExists, readUtf8 } from '../utils/io.js';
 
 // Since these keys are injected into the coder container, we raise error
@@ -219,13 +219,13 @@ const CONTAINER_WORKSPACE = '/workspace';
 
 export type CoderContainerEnvMode =
   | { kind: 'container' }
-  /** Host-side agent spawn (`--infra local`): workspace paths are host directories, not `/workspace`. */
+  /** Host-side agent spawn (`--engine local`): workspace paths are host directories, not `/workspace`. */
   | { kind: 'host'; codePath: string; saifacPath: string };
 
 /**
  * Builds the full coder container environment for {@link RunAgentOpts.containerEnv} /
  * {@link StartInspectOpts.containerEnv}. Public vs secret split is for safe debug logging
- * in provisioners; both maps are merged when spawning the real process.
+ * in engines; both maps are merged when spawning the real process.
  *
  * The `agentEnv` argument is passed through {@link filterAgentEnv} so callers need not.
  * `projectDir` is used to resolve `agentSecretFiles` paths (see {@link loadAgentSecretEnvFromSecretFiles}).
@@ -246,7 +246,7 @@ export async function buildCoderContainerEnv(opts: {
   agentSecretKeys: string[];
   /**
    * Project-relative paths to secret `.env` files (`KEY=value`); read on the host. Not logged as values by
-   * provisioners. Later files override earlier keys; host {@link agentSecretKeys} win on duplicate names.
+   * engines. Later files override earlier keys; host {@link agentSecretKeys} win on duplicate names.
    */
   agentSecretFiles: string[];
   taskPrompt: string;

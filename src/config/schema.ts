@@ -34,30 +34,30 @@ export const stagingAppSchema = z.object({
 });
 
 /**
- * Docker provisioner — always the default runtime.
+ * Docker engine — always the default runtime.
  * Optionally points at a Docker Compose file for ephemeral services (databases, queues, etc.).
  * When `file` is omitted, only the isolated bridge network and the core containers
  * (staging, test-runner, coder) are created — no Compose stack is started.
  */
 export const dockerEnvironmentSchema = z.object({
-  provisioner: z.literal('docker'),
+  engine: z.literal('docker'),
   /** Path to a Docker Compose file (relative to the project root). Optional. */
   file: z.string().optional(),
   agentEnvironment: z.record(z.string(), z.string()).optional(),
 });
 
-/** Helm provisioner — points at a chart. */
+/** Helm engine — points at a chart. */
 export const helmEnvironmentSchema = z.object({
-  provisioner: z.literal('helm'),
+  engine: z.literal('helm'),
   /** Helm chart path or reference; required at runtime when using Helm. */
   chart: z.string().optional(),
   namespacePrefix: z.string().optional(),
   agentEnvironment: z.record(z.string(), z.string()).optional(),
 });
 
-/** Local provisioner — agent runs on the host (coding only; staging must use docker or helm). */
+/** Local engine — agent runs on the host (coding only; staging must use docker or helm). */
 export const localEnvironmentSchema = z.object({
-  provisioner: z.literal('local'),
+  engine: z.literal('local'),
   agentEnvironment: z.record(z.string(), z.string()).optional(),
 });
 
@@ -71,14 +71,14 @@ const stagingExtension = {
   appEnvironment: z.record(z.string(), z.string()).optional(),
 };
 
-/** Environment block — discriminated by provisioner. */
-const codingEnvironmentSchema = z.discriminatedUnion('provisioner', [
+/** Environment block — discriminated by `engine`. */
+const codingEnvironmentSchema = z.discriminatedUnion('engine', [
   dockerEnvironmentSchema,
   helmEnvironmentSchema,
   localEnvironmentSchema,
 ]);
 
-const stagingEnvironmentSchema = z.discriminatedUnion('provisioner', [
+const stagingEnvironmentSchema = z.discriminatedUnion('engine', [
   dockerEnvironmentSchema.extend(stagingExtension),
   helmEnvironmentSchema.extend(stagingExtension),
 ]);
@@ -98,7 +98,7 @@ type RawStagingEnvironment = NonNullable<EnvironmentsConfig['staging']>;
 
 /**
  * Normalized staging environment.
- * - Always present (defaults to `{ provisioner: 'docker' }` when omitted in config).
+ * - Always present (defaults to `{ engine: 'docker' }` when omitted in config).
  * - `app` is always present (defaults to DEFAULT_STAGING_APP).
  * - `appEnvironment` is always present (defaults to `{}`).
  */
@@ -107,7 +107,7 @@ export type NormalizedStagingEnvironment = Omit<RawStagingEnvironment, 'app' | '
   appEnvironment: Record<string, string>;
 };
 
-/** Normalized coding environment — always present (defaults to `{ provisioner: 'docker' }` when omitted). */
+/** Normalized coding environment — always present (defaults to `{ engine: 'docker' }` when omitted). */
 export type NormalizedCodingEnvironment = NonNullable<EnvironmentsConfig['coding']>;
 
 export const saifacConfigDefaultsSchema = z.object({

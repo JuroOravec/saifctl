@@ -81,13 +81,13 @@ export type SerializedLoopOpts = {
   /**
    * Normalized staging environment — always present.
    * Contains `app` (with DEFAULT_STAGING_APP defaults), `appEnvironment`,
-   * and the provisioner config (type, file/chart). Used to configure the staging
-   * container and to instantiate the provisioner JIT when resuming a run.
+   * and the engine config (type, file/chart). Used to configure the staging
+   * container and to instantiate the engine JIT when resuming a run.
    */
   stagingEnvironment: NormalizedStagingEnvironment;
   /**
-   * Normalized coding environment — always present (defaults to `{ provisioner: 'docker' }`).
-   * Persisted so that the coding provisioner stack can be re-used correctly on resume.
+   * Normalized coding environment — always present (defaults to `{ engine: 'docker' }`).
+   * Persisted so that the coding engine stack can be re-used correctly on resume.
    */
   codingEnvironment: NormalizedCodingEnvironment;
   /** When true, verbose logs are enabled. */

@@ -1,17 +1,17 @@
 // ---------------------------------------------------------------------------
-// Cleanup registry — tracks live provisioners for graceful shutdown
+// Cleanup registry — tracks live infra engines for graceful shutdown
 // ---------------------------------------------------------------------------
 
 import { consola } from '../logger.js';
 import { destroySandbox } from '../orchestrator/sandbox.js';
 
-/** Minimal provisioner interface used by CleanupRegistry (avoids circular deps). */
-export interface ProvisionerRef {
+/** Minimal engine interface used by CleanupRegistry (avoids circular deps). */
+export interface EngineRef {
   teardown(opts: { runId: string }): Promise<void>;
 }
 
 /**
- * Tracks all provisioners created during a run so that
+ * Tracks all engines created during a run so that
  * SIGINT/SIGTERM handlers can tear them down even if the mode function is
  * mid-await when the signal fires.
  *
@@ -19,7 +19,7 @@ export interface ProvisionerRef {
  * The signal handler calls `cleanup()` which tears down everything in reverse order.
  */
 export class CleanupRegistry {
-  private provisioners: Array<{ provisioner: ProvisionerRef; runId: string }> = [];
+  private engines: Array<{ engine: EngineRef; runId: string }> = [];
   private beforeCleanupHook?: () => Promise<void>;
   /**
    * Sandbox dir to remove on SIGINT/SIGTERM. The iterative loop normally destroys the sandbox in
@@ -43,14 +43,14 @@ export class CleanupRegistry {
     this.emergencySandboxPath = undefined;
   }
 
-  /** Register a provisioner so it is torn down on SIGINT/SIGTERM. */
-  registerProvisioner(provisioner: ProvisionerRef, runId: string): void {
-    this.provisioners.push({ provisioner, runId });
+  /** Register an engine so it is torn down on SIGINT/SIGTERM. */
+  registerEngine(engine: EngineRef, runId: string): void {
+    this.engines.push({ engine, runId });
   }
 
-  /** Deregister a provisioner after it has been explicitly torn down. */
-  deregisterProvisioner(provisioner: ProvisionerRef): void {
-    this.provisioners = this.provisioners.filter((p) => p.provisioner !== provisioner);
+  /** Deregister an engine after it has been explicitly torn down. */
+  deregisterEngine(engine: EngineRef): void {
+    this.engines = this.engines.filter((e) => e.engine !== engine);
   }
 
   async cleanup(): Promise<void> {
@@ -61,11 +61,11 @@ export class CleanupRegistry {
         consola.warn('[orchestrator] Before-cleanup hook error:', err);
       }
     }
-    const provisionersToDown = [...this.provisioners];
-    this.provisioners = [];
+    const enginesToDown = [...this.engines];
+    this.engines = [];
 
-    for (const { provisioner, runId } of provisionersToDown) {
-      await provisioner.teardown({ runId });
+    for (const { engine, runId } of enginesToDown) {
+      await engine.teardown({ runId });
     }
 
     if (this.emergencySandboxPath) {
