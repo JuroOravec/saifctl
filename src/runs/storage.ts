@@ -112,7 +112,7 @@ export class RunStorage {
    * Sets {@link RunArtifact#controlSignal} to `pause` so a live orchestrator (polling storage) can pause
    * without tearing down the sandbox or Docker network/compose stack. Last-write-wins with {@link requestStop}.
    *
-   * @throws {@link RunCannotPauseError} when the stored run is not {@link RunStatus} `"running"`.
+   * @throws {@link RunCannotPauseError} when the Run is not {@link RunStatus} `"running"`.
    */
   async requestPause(runId: string): Promise<void> {
     const existing = await this.storage.get(runId);
@@ -138,7 +138,7 @@ export class RunStorage {
    * failed exit, or (when already {@link RunStatus} `"paused"`) the caller runs synchronous cleanup.
    * Last-write-wins with {@link requestPause}.
    *
-   * @throws {@link RunCannotStopError} when the stored run is not `"running"` or `"paused"`.
+   * @throws {@link RunCannotStopError} when the Run is not `"running"` or `"paused"`.
    */
   async requestStop(runId: string): Promise<void> {
     const existing = await this.storage.get(runId);

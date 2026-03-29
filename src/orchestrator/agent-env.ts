@@ -223,8 +223,9 @@ export type CoderContainerEnvMode =
   | { kind: 'host'; codePath: string; saifctlPath: string };
 
 /**
- * Builds the full coder container environment for {@link RunAgentOpts.containerEnv} /
- * {@link StartInspectOpts.containerEnv}. Public vs secret split is for safe debug logging
+ * Builds env vars for the coder container.
+ *
+ * Public vs secret split is for safe debug logging
  * in engines; both maps are merged when spawning the real process.
  *
  * The `agentEnv` argument is passed through {@link filterAgentEnv} so callers need not.

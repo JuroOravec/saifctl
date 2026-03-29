@@ -56,7 +56,7 @@ Start the agent with:
 ## Notes
 
 - Use fork when you want **two independent run IDs** pointing at the same stored workspace state—for example, one branch of experiments vs. another, or avoiding a sandbox name clash (see the hint in sandbox errors).
-- If run storage is disabled, the CLI exits with an error (`Run storage is disabled (--storage none). Cannot fork a stored run.`).
+- If run storage is disabled, the CLI exits with an error (`Run storage is disabled (--storage none). Cannot fork a Run.`).
 
 ## See also
 

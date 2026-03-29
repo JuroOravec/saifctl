@@ -123,7 +123,7 @@ describe('saifctl run ls', () => {
   it('prints no runs when .saifctl/runs is missing', async () => {
     await withTempProject(async (projectDir) => {
       const lines = await runRunSubcommand(['ls', '--project-dir', projectDir]);
-      expect(lines.some((l) => l.includes('No stored runs found.'))).toBe(true);
+      expect(lines.some((l) => l.includes('No Runs found.'))).toBe(true);
     });
   });
 

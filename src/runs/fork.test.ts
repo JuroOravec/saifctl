@@ -1,5 +1,5 @@
 /**
- * {@link forkStoredRun} — clone stored run artifact with merged CLI defaults.
+ * {@link forkStoredRun} — clone Run artifact with merged CLI defaults.
  */
 
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';

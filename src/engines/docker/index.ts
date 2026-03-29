@@ -17,13 +17,13 @@
  *   setup()        → create bridge network + `docker compose up`
  *   startStaging() → docker build + createContainer + putArchive + start + health-wait
  *   runTests()     → createContainer + start + wait + demux logs + read JUnit XML bytes
- *   runAgent()     → spawn Leash CLI + network-attach workaround
- *   startInspect() → idle coder container for `run inspect` (`sleep infinity`)
- *   teardown()     → containers + images + compose down + network
+ *   runAgent()     → spawn Leash CLI + network-attach workaround; idle container when inspectMode set
+ *   teardown()       → containers + images + compose down + network (from {@link LiveInfra})
  */
 
 import { spawn } from 'node:child_process';
 import { realpath } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { arch } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -33,6 +33,7 @@ import Docker from 'dockerode';
 import type { DockerEnvironment } from '../../config/schema.js';
 import { getSaifctlRoot } from '../../constants.js';
 import { consola } from '../../logger.js';
+import { SAIFCTL_PAUSE_ABORT_REASON } from '../../runs/types.js';
 import {
   resolveSandboxCoderDockerfilePath,
   type SupportedSandboxProfileId,
@@ -48,21 +49,25 @@ import {
 } from '../../utils/io.js';
 import { type EngineLogSource, type EngineOnLog } from '../logs.js';
 import type {
-  AgentResult,
   CoderInspectSessionHandle,
   ContainerEnv,
   Engine,
+  EnginePauseInfraOpts,
+  EngineResumeInfraOpts,
   EngineSetupOpts,
+  EngineSetupResult,
   EngineTeardownOpts,
+  EngineVerifyResumeInfraOpts,
+  LiveInfra,
+  RunAgentEngineResult,
   RunAgentOpts,
+  RunTestsEngineResult,
   RunTestsOpts,
-  StagingHandle,
-  StartInspectOpts,
   StartStagingOpts,
-  TestsResult,
+  StartStagingResult,
 } from '../types.js';
 import { detectRunnerError } from '../utils/test-parser.js';
-import { resolveLeashCliPath } from './resolve-leash-cli.js';
+import type { DockerLiveInfra } from './types.js';
 
 /** In-container workspace path that Leash bind-mounts the sandbox into. */
 const CONTAINER_WORKSPACE = '/workspace';
@@ -111,15 +116,9 @@ async function runDocker(
 // ---------------------------------------------------------------------------
 
 export class DockerEngine implements Engine {
+  readonly name = 'docker' as const;
+
   private readonly composeFile?: string;
-
-  // State set during setup(), read by later methods
-  private networkName = '';
-  private runId = '';
-  private projectDir = '';
-  private composeProjectName = '';
-
-  private readonly registry = new DockerRegistry();
 
   constructor(private readonly config: DockerEnvironment) {
     this.composeFile = config.file;
@@ -127,20 +126,28 @@ export class DockerEngine implements Engine {
 
   // ── 1. setup ──────────────────────────────────────────────────────────────
 
-  async setup(opts: EngineSetupOpts): Promise<void> {
-    const { runId, projectName, featureName, projectDir } = opts;
-    this.runId = runId;
-    this.projectDir = projectDir;
+  async setup(opts: EngineSetupOpts): Promise<EngineSetupResult> {
+    const { projectDir, projectName, featureName, runId } = opts;
 
-    // Create an isolated bridge network for this run
-    this.networkName = `saifctl-net-${projectName}-${featureName}-${runId}`;
-    await ensureCreateNetwork(this.networkName);
-    this.registry.registerNetwork(this.networkName);
-    consola.log(`[docker] Bridge network ready: ${this.networkName}`);
+    // Target state after setup() is done
+    const infra: DockerLiveInfra = {
+      engine: 'docker',
+      networkName: `saifctl-net-${projectName}-${featureName}-${runId}`,
+      composeProjectName: this.composeFile
+        ? `saifctl-${runId.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`
+        : '',
+      stagingImages: [],
+      containers: [],
+      projectDir,
+      composeFile: this.composeFile,
+    };
+
+    // Create an isolated bridge network for this run (used by the coder container and test runner)
+    await ensureCreateNetwork(infra.networkName);
+    consola.log(`[docker] Bridge network ready: ${infra.networkName}`);
 
     // Bring up compose services (if configured)
     if (this.composeFile) {
-      this.composeProjectName = `saifctl-${runId.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
       const absoluteFile = resolve(projectDir, this.composeFile);
 
       if (!(await pathExists(absoluteFile))) {
@@ -151,34 +158,55 @@ export class DockerEngine implements Engine {
       }
 
       consola.log(
-        `[docker] Starting compose project "${this.composeProjectName}" (file: ${absoluteFile})`,
+        `[docker] Starting compose project "${infra.composeProjectName}" (file: ${absoluteFile})`,
       );
       await runDocker(
-        ['compose', '-p', this.composeProjectName, '-f', absoluteFile, 'up', '-d', '--wait'],
+        [
+          'compose',
+          '-p',
+          infra.composeProjectName,
+          '-f',
+          absoluteFile,
+          'up',
+          '-d',
+          '--wait',
+          '--no-recreate',
+        ],
         { stdio: 'inherit' },
       );
 
       // Attach every compose service to the SaifCTL bridge network
       await attachComposeSvcToNetwork({
-        composeProjectName: this.composeProjectName,
+        composeProjectName: infra.composeProjectName,
         absoluteFile,
-        networkName: this.networkName,
+        networkName: infra.networkName,
       });
 
       const serviceNames = await listComposeServices({
-        composeProjectName: this.composeProjectName,
+        composeProjectName: infra.composeProjectName,
         absoluteFile,
       });
       consola.log(
-        `[docker] Compose project "${this.composeProjectName}" up — services: ${serviceNames.join(', ')}`,
+        `[docker] Compose project "${infra.composeProjectName}" up — services: ${serviceNames.join(', ')}`,
       );
     }
+
+    // See {@link EngineSetupOpts.sandboxBasePath}: register the leash / no-leash coder container
+    // name on live infra as soon as setup finishes so signal handlers and teardown see it even if
+    // runAgent() never returns (spawn failure, SIGINT after container create, etc.).
+    let outInfra: DockerLiveInfra = infra;
+    if (opts.sandboxBasePath) {
+      outInfra = dockerInfraWithContainer(outInfra, leashTargetContainerName(opts.sandboxBasePath));
+    }
+
+    return { infra: outInfra };
   }
 
   // ── 2. startStaging ───────────────────────────────────────────────────────
 
-  async startStaging(opts: StartStagingOpts): Promise<StagingHandle> {
+  async startStaging(opts: StartStagingOpts): Promise<StartStagingResult> {
     const {
+      runId,
       sandboxProfileId,
       codePath,
       projectDir,
@@ -187,11 +215,15 @@ export class DockerEngine implements Engine {
       projectName,
       saifctlPath,
       onLog,
+      infra: infraIn,
     } = opts;
 
+    const infra = assertDockerInfra(infraIn);
+    const networkName = infra.networkName;
+
     const containerConfig = stagingEnvironment.app;
-    const containerName = `saifctl-stage-${projectName}-${feature.name}-${this.runId}`;
-    const imageTag = `saifctl-stage-${projectName}-${feature.name}-img-${this.runId}`;
+    const containerName = `saifctl-stage-${projectName}-${feature.name}-${runId}`;
+    const imageTag = `saifctl-stage-${projectName}-${feature.name}-img-${runId}`;
 
     // Build ephemeral staging image
     await buildStagingImage({
@@ -201,7 +233,8 @@ export class DockerEngine implements Engine {
       dockerfile: containerConfig.build?.dockerfile,
       imageTag,
     });
-    this.registry.registerImage(imageTag);
+    // New infra state after building the staging image
+    let nextInfra = dockerInfraWithStagingImage(infra, imageTag);
 
     consola.log(`[docker] Starting staging container: ${containerName}`);
 
@@ -214,7 +247,7 @@ export class DockerEngine implements Engine {
       name: containerName,
       Cmd: ['/bin/sh', '/saifctl/staging-start.sh'],
       HostConfig: {
-        NetworkMode: this.networkName,
+        NetworkMode: networkName,
         // Writable: putArchive injects sidecar into /saifctl before start.
         Binds: [`${codePath}:/workspace`, `${saifctlPath}:/saifctl`],
         SecurityOpt: ['no-new-privileges'],
@@ -222,7 +255,7 @@ export class DockerEngine implements Engine {
       },
       NetworkingConfig: {
         EndpointsConfig: {
-          [this.networkName]: { Aliases: ['staging'] },
+          [networkName]: { Aliases: ['staging'] },
         },
       },
       Env: [
@@ -248,12 +281,12 @@ export class DockerEngine implements Engine {
 
     await logStagingContainerNetworkAliases({
       container,
-      networkName: this.networkName,
+      networkName,
       containerName,
     });
 
-    const handle: ContainerHandle = { id: container.id, name: containerName, container };
-    this.registry.registerContainers([handle]);
+    // New infra state after starting the staging container
+    nextInfra = dockerInfraWithContainer(nextInfra, containerName);
 
     streamContainerLogs({
       container,
@@ -268,12 +301,15 @@ export class DockerEngine implements Engine {
     const sidecarUrl = `http://staging:${containerConfig.sidecarPort}${containerConfig.sidecarPath}`;
     const targetUrl = containerConfig.baseUrl ?? sidecarUrl;
 
-    return { targetUrl, sidecarUrl };
+    return {
+      stagingHandle: { targetUrl, sidecarUrl },
+      infra: nextInfra,
+    };
   }
 
   // ── 3. runTests ───────────────────────────────────────────────────────────
 
-  async runTests(opts: RunTestsOpts): Promise<TestsResult> {
+  async runTests(opts: RunTestsOpts): Promise<RunTestsEngineResult> {
     const {
       testsDir,
       reportDir,
@@ -285,7 +321,11 @@ export class DockerEngine implements Engine {
       runId,
       signal,
       onLog,
+      infra: infraIn,
     } = opts;
+
+    const infra = assertDockerInfra(infraIn);
+    const networkName = infra.networkName;
 
     assertSafeImageTag(testImage);
 
@@ -319,15 +359,18 @@ export class DockerEngine implements Engine {
     consola.log(`[docker] Sidecar URL: ${stagingHandle.sidecarUrl}`);
 
     await logBridgeNetworkEndpoints({
-      networkName: this.networkName,
+      networkName,
       context: `before test runner ${containerName}`,
     });
+
+    // New infra state after creating the test runner container
+    let nextInfra = dockerInfraWithContainer(infra, containerName);
 
     const container = await docker.createContainer({
       Image: testImage,
       name: containerName,
       HostConfig: {
-        NetworkMode: this.networkName,
+        NetworkMode: networkName,
         Binds: [...binds, `${reportDir}:/test-runner-output:rw`],
         SecurityOpt: ['no-new-privileges'],
         CapDrop: ['ALL'],
@@ -344,15 +387,16 @@ export class DockerEngine implements Engine {
 
     // Bail out before starting if already cancelled — avoids a start + immediate stop cycle.
     if (signal?.aborted) {
+      // New infra state after stopping the test runner container
       await container.remove({ force: true }).catch(() => {});
-      return { status: 'aborted', stdout: '', stderr: '', rawJunitXml: null };
+      return {
+        tests: { status: 'aborted', stdout: '', stderr: '', rawJunitXml: null },
+        infra: dockerInfraWithoutContainer(nextInfra, containerName),
+      };
     }
 
     await container.start();
     consola.log(`[docker] ${containerName} started`);
-
-    const handle: ContainerHandle = { id: container.id, name: containerName, container };
-    this.registry.registerContainers([handle]);
 
     streamContainerLogs({
       container,
@@ -393,15 +437,20 @@ export class DockerEngine implements Engine {
     if (stdout) consola.log(`[docker] Test runner stdout:\n${stdout}`);
     if (stderr) consola.error(`[docker] Test runner stderr:\n${stderr}`);
 
-    this.registry.deregisterContainers([handle]);
     try {
       await container.remove({ force: true });
     } catch (err) {
       consola.warn(`[docker] Warning: could not remove ${containerName}: ${String(err)}`);
     }
 
+    // New infra state after stopping the test runner container
+    nextInfra = dockerInfraWithoutContainer(nextInfra, containerName);
+
     if (aborted) {
-      return { status: 'aborted', stdout, stderr, rawJunitXml: null };
+      return {
+        tests: { status: 'aborted', stdout, stderr, rawJunitXml: null },
+        infra: nextInfra,
+      };
     }
 
     const runnerError = detectRunnerError({ exitCode: StatusCode, stdout, stderr });
@@ -420,17 +469,20 @@ export class DockerEngine implements Engine {
     }
 
     return {
-      status: StatusCode === 0 ? 'passed' : 'failed',
-      stdout,
-      stderr,
-      runnerError,
-      rawJunitXml,
+      tests: {
+        status: StatusCode === 0 ? 'passed' : 'failed',
+        stdout,
+        stderr,
+        runnerError,
+        rawJunitXml,
+      },
+      infra: nextInfra,
     };
   }
 
   // ── 4. runAgent ───────────────────────────────────────────────────────────
 
-  async runAgent(opts: RunAgentOpts): Promise<AgentResult> {
+  async runAgent(opts: RunAgentOpts): Promise<RunAgentEngineResult> {
     const {
       codePath,
       sandboxBasePath,
@@ -444,7 +496,48 @@ export class DockerEngine implements Engine {
       onAgentStdout,
       onAgentStdoutEnd,
       onLog,
+      runId,
+      infra: infraIn,
+      inspectMode,
     } = opts;
+
+    const infra = assertDockerInfra(infraIn);
+    const networkName = infra.networkName;
+    // Same name as {@link DockerEngine.setup} when sandboxBasePath was passed; idempotent append.
+    const outInfra = dockerInfraWithContainer(infra, leashTargetContainerName(sandboxBasePath));
+
+    const containerName = leashTargetContainerName(sandboxBasePath);
+
+    // If a stopped coder container already exists (e.g. `run pause` / resume),
+    // restart it instead of creating a new one.
+    try {
+      const inf = await docker.getContainer(containerName).inspect();
+      const st = inf.State?.Status;
+      if (st === 'exited' || st === 'created') {
+        consola.log(
+          `[agent-runner] Resuming existing coder container ${containerName} (state: ${st})`,
+        );
+        const { exitCode, output } = await runDockerStartAttachCoderContainer({
+          containerName,
+          signal,
+          onAgentStdout,
+          onAgentStdoutEnd,
+          onLog,
+          timeoutMs: AGENT_TIMEOUT_MS,
+        }).catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          consola.error(`[agent-runner] Process error: ${msg}`);
+          return { exitCode: 1, output: msg };
+        });
+        consola.log(`[agent-runner] Finished with exit code ${exitCode}`);
+        return {
+          agent: { success: exitCode === 0, exitCode, output },
+          infra: outInfra,
+        };
+      }
+    } catch {
+      /* no container or inspect failed — fall through to fresh run */
+    }
 
     /** Set for `--dangerous-no-leash` so abort/error can `docker rm -f` the named container. */
     let dockerDirectRunContainerToRemove: string | null = null;
@@ -455,16 +548,17 @@ export class DockerEngine implements Engine {
     let spawnCwd: string;
     let spawnEnv: Record<string, string>;
 
+    // ── dangerous-no-leash mode: docker run ──────────────────────────────────────
     if (dangerousNoLeash) {
       assertSafeImageTag(coderImage);
 
       const codePathHost = await dockerHostBindPath(codePath);
       const saifctlDirHost = await dockerHostBindPath(saifctlPath);
-      const containerName = leashTargetContainerName(sandboxBasePath);
 
       const dockerRunArgs: string[] = [
         'run',
-        '--rm',
+        // inspect: --rm because the container is driven by stop(), not by pause/resume.
+        ...(inspectMode ? ['--rm'] : []),
         '-i',
         '--name',
         containerName,
@@ -478,8 +572,8 @@ export class DockerEngine implements Engine {
         `${saifctlDirHost}:/saifctl:ro`,
       ];
 
-      if (this.networkName) {
-        dockerRunArgs.push('--network', this.networkName);
+      if (networkName) {
+        dockerRunArgs.push('--network', networkName);
       }
 
       if (reviewer) {
@@ -488,7 +582,11 @@ export class DockerEngine implements Engine {
       }
 
       dockerRunArgs.push(...dockerRunCoderEnvArgs(containerEnv));
-      dockerRunArgs.push(coderImage, 'bash', '/saifctl/coder-start.sh');
+      if (inspectMode) {
+        dockerRunArgs.push(coderImage, 'bash', '-c', 'sleep infinity');
+      } else {
+        dockerRunArgs.push(coderImage, 'bash', '/saifctl/coder-start.sh');
+      }
 
       argsForPrint = redactDockerRunArgsForPrint(dockerRunArgs, containerEnv);
 
@@ -508,7 +606,7 @@ export class DockerEngine implements Engine {
       await removeDockerContainerForce(containerName);
       dockerDirectRunContainerToRemove = containerName;
     } else {
-      // Leash mode
+      // ── leash mode: spawn Leash CLI + network-attach workaround ──────────────────
       const codePathHost = await dockerHostBindPath(codePath);
       const saifctlDirHost = await dockerHostBindPath(saifctlPath);
 
@@ -538,9 +636,13 @@ export class DockerEngine implements Engine {
       }
 
       pushLeashContainerEnv(leashArgs, containerEnv);
-      // Invoke via bash so the script doesn't need +x in the mounted directory.
-      // This mirrors how gate.sh and reviewer.sh are invoked inside coder-start.sh.
-      leashArgs.push('bash', '/saifctl/coder-start.sh');
+      if (inspectMode) {
+        leashArgs.push('bash', '-c', 'sleep infinity');
+      } else {
+        // Invoke via bash so the script doesn't need +x in the mounted directory.
+        // This mirrors how gate.sh and reviewer.sh are invoked inside coder-start.sh.
+        leashArgs.push('bash', '/saifctl/coder-start.sh');
+      }
 
       argsForPrint = redactLeashArgsForPrint(leashArgs, containerEnv);
 
@@ -560,7 +662,7 @@ export class DockerEngine implements Engine {
         // WORKAROUND(leash-network): inject a predictable name via Leash's TARGET_CONTAINER,
         // so we know which container to attach to the SaifCTL network after Leash starts it.
         // See other `WORKAROUND(leash-network)` comments in this file.
-        ...(this.networkName ? { TARGET_CONTAINER: `leash-target-${workspaceId}` } : {}),
+        ...(networkName ? { TARGET_CONTAINER: `leash-target-${workspaceId}` } : {}),
       };
 
       consola.log(`[agent-runner] Mode: leash (container: ${coderImage})`);
@@ -572,23 +674,21 @@ export class DockerEngine implements Engine {
       `[agent-runner] containerEnv.secret keys: ${Object.keys(containerEnv.secretEnv).sort().join(', ')}`,
     );
 
-    consola.log(`[agent-runner] Starting agent (run ID: ${this.runId})`);
+    consola.log(`[agent-runner] Starting agent (run ID: ${runId})`);
     consola.log(
       `[agent-runner] Command: ${cmd} ${argsForPrint.map((s) => s.slice(0, 100)).join(' ')}`,
     );
 
     if (!dangerousNoLeash) {
-      await removeDockerContainerForce(leashTargetContainerName(sandboxBasePath));
+      await removeDockerContainerForce(containerName);
     }
-
-    const timeoutMs = 20 * 60 * 1000;
 
     // WORKAROUND(leash-network): See full explanation in the original agent-runner.ts.
     // Leash doesn't support a --network flag, so we poll `docker inspect` until the target
     // container appears and then call `docker network connect` to put it on our network.
     const networkAttach =
-      !dangerousNoLeash && this.networkName
-        ? startLeashNetworkAttach(this.networkName, leashWorkspaceId(sandboxBasePath))
+      !dangerousNoLeash && networkName
+        ? startLeashNetworkAttach(networkName, leashWorkspaceId(sandboxBasePath))
         : null;
 
     const removeDirectDockerContainer = (): void => {
@@ -596,6 +696,115 @@ export class DockerEngine implements Engine {
       const n = dockerDirectRunContainerToRemove;
       void removeDockerContainerForce(n);
     };
+
+    // ── inspect mode: idle container, return a session handle to the caller ──
+    // The caller's onReady() blocks (e.g. waiting for SIGINT) then calls session.stop().
+    if (inspectMode) {
+      if (signal?.aborted) {
+        throw new Error('Agent step cancelled via abort signal');
+      }
+
+      const child = spawn(cmd, args, {
+        cwd: spawnCwd,
+        env: spawnEnv,
+        stdio: ['inherit', 'pipe', 'pipe'],
+      });
+
+      const endAgentStdout = (): void => onAgentStdoutEnd?.();
+      child.stdout?.on('data', (chunk: Buffer) => {
+        onAgentStdout(chunk.toString());
+      });
+      child.once('close', () => {
+        endAgentStdout();
+      });
+      child.stderr?.on('data', (chunk: Buffer) => {
+        onLog({ source: 'coder', stream: 'stderr', raw: chunk.toString() });
+      });
+
+      let detachAbortListener: (() => void) | null = null;
+      let abortPromise: Promise<never> | null = null;
+      if (signal) {
+        let rejectAbort: ((reason: unknown) => void) | undefined;
+        const onAbort = () => {
+          networkAttach?.cancel();
+          removeDirectDockerContainer();
+          child.kill('SIGTERM');
+          rejectAbort?.(new Error('Agent step cancelled via abort signal'));
+        };
+        abortPromise = new Promise<never>((_, reject) => {
+          rejectAbort = reject;
+          signal.addEventListener('abort', onAbort, { once: true });
+        });
+        detachAbortListener = () => signal.removeEventListener('abort', onAbort);
+      }
+
+      const waitReady = (async () => {
+        await waitForContainerRunning(containerName, 180_000);
+        if (!dangerousNoLeash && networkName) {
+          await waitForContainerOnNetwork({ networkName, containerName, timeoutMs: 90_000 });
+        }
+      })();
+
+      try {
+        await (abortPromise ? Promise.race([waitReady, abortPromise]) : waitReady);
+      } catch (err) {
+        networkAttach?.cancel();
+        if (detachAbortListener !== null) detachAbortListener();
+        if (!child.killed) child.kill('SIGTERM');
+        removeDirectDockerContainer();
+        throw err;
+      }
+
+      if (detachAbortListener !== null) detachAbortListener();
+      consola.log(
+        `[agent-runner] Ready — container ${containerName}, workspace ${CONTAINER_WORKSPACE}`,
+      );
+
+      let stopped = false;
+      const stop = async (): Promise<void> => {
+        if (stopped) return;
+        stopped = true;
+        networkAttach?.cancel();
+        const directName = dockerDirectRunContainerToRemove;
+        if (directName) {
+          await removeDockerContainerForce(directName);
+          dockerDirectRunContainerToRemove = null;
+        }
+        if (child.exitCode === null && !child.killed) {
+          child.kill('SIGTERM');
+          await new Promise<void>((resolve) => {
+            const t = setTimeout(() => {
+              child.kill('SIGKILL');
+              resolve();
+            }, 3_000);
+            child.once('close', () => {
+              clearTimeout(t);
+              resolve();
+            });
+          });
+        }
+        // Leash path does not set dockerDirectRunContainerToRemove; ensure the target is gone
+        // so teardown can remove the bridge (same name as no-leash for Dev Container parity).
+        await removeDockerContainerForce(containerName);
+      };
+
+      const inspectInfra = dockerInfraWithContainer(infra, containerName);
+      const session: CoderInspectSessionHandle = {
+        containerName,
+        workspacePath: CONTAINER_WORKSPACE,
+        stop,
+      };
+
+      try {
+        await inspectMode.onReady(session, { codePath });
+      } finally {
+        await session.stop();
+      }
+      return { agent: { success: true, exitCode: 0, output: '' }, infra: inspectInfra };
+    }
+
+    // ── normal agent run ─────────────────────────────────────────────────────
+    const timeoutMs = AGENT_TIMEOUT_MS;
 
     const { exitCode, output } = await new Promise<{ exitCode: number; output: string }>(
       (resolve, reject) => {
@@ -630,7 +839,10 @@ export class DockerEngine implements Engine {
           child.kill();
           clearTimeout(timer);
           networkAttach?.cancel();
-          removeDirectDockerContainer();
+          const pause = signal?.reason === SAIFCTL_PAUSE_ABORT_REASON;
+          if (!pause) {
+            removeDirectDockerContainer();
+          }
           reject(new Error('Agent step cancelled via abort signal'));
         };
 
@@ -655,7 +867,11 @@ export class DockerEngine implements Engine {
           clearTimeout(timer);
           signal?.removeEventListener('abort', onAbort);
           networkAttach?.cancel();
-          if ((code ?? 1) !== 0) removeDirectDockerContainer();
+          const pauseKeep =
+            signal?.aborted === true && signal.reason === SAIFCTL_PAUSE_ABORT_REASON;
+          if (dockerDirectRunContainerToRemove && !pauseKeep) {
+            void removeDockerContainerForce(dockerDirectRunContainerToRemove);
+          }
           endAgentStdout();
           resolve({ exitCode: code ?? 1, output: collected });
         });
@@ -667,302 +883,236 @@ export class DockerEngine implements Engine {
     });
 
     consola.log(`[agent-runner] Finished with exit code ${exitCode}`);
-    return { success: exitCode === 0, exitCode, output };
+    return {
+      agent: { success: exitCode === 0, exitCode, output },
+      infra: outInfra,
+    };
   }
 
-  // ── 4b. startInspect ───────────────────────────────────────────────
+  async pauseInfra(opts: EnginePauseInfraOpts): Promise<void> {
+    const { sandboxBasePath, infra: infraIn } = opts;
+    const infra = assertDockerInfra(infraIn);
 
-  async startInspect(opts: StartInspectOpts): Promise<CoderInspectSessionHandle> {
-    const {
-      codePath,
-      sandboxBasePath,
-      containerEnv,
-      coderImage,
-      dangerousNoLeash,
-      cedarPolicyPath,
-      saifctlPath,
-      reviewer,
-      signal,
-      onAgentStdout,
-      onAgentStdoutEnd,
-      onLog,
-    } = opts;
-
-    let dockerDirectRunContainerToRemove: string | null = null;
-
-    const containerName = leashTargetContainerName(sandboxBasePath);
-
-    let cmd: string;
-    let args: string[];
-    let argsForPrint: string[];
-    let spawnCwd: string;
-    let spawnEnv: Record<string, string>;
-
-    if (dangerousNoLeash) {
-      assertSafeImageTag(coderImage);
-
-      const codePathHost = await dockerHostBindPath(codePath);
-      const saifctlDirHost = await dockerHostBindPath(saifctlPath);
-
-      const dockerRunArgs: string[] = [
-        'run',
-        '--rm',
-        '-i',
-        '--name',
-        containerName,
-        '-w',
-        CONTAINER_WORKSPACE,
-        '--cap-drop=ALL',
-        '--security-opt=no-new-privileges',
-        '-v',
-        `${codePathHost}:${CONTAINER_WORKSPACE}`,
-        '-v',
-        `${saifctlDirHost}:/saifctl:ro`,
-      ];
-
-      if (this.networkName) {
-        dockerRunArgs.push('--network', this.networkName);
-      }
-
-      if (reviewer) {
-        const argusBinaryHost = await dockerHostBindPath(reviewer.argusBinaryPath);
-        dockerRunArgs.push('-v', `${argusBinaryHost}:/usr/local/bin/argus:ro`);
-      }
-
-      dockerRunArgs.push(...dockerRunCoderEnvArgs(containerEnv));
-      dockerRunArgs.push(coderImage, 'bash', '-c', 'sleep infinity');
-
-      argsForPrint = redactDockerRunArgsForPrint(dockerRunArgs, containerEnv);
-
-      cmd = 'docker';
-      args = dockerRunArgs;
-      spawnCwd = codePathHost;
-      spawnEnv = {
-        ...Object.fromEntries(
-          Object.entries(process.env).filter(([, v]) => v !== undefined) as [string, string][],
-        ),
-      };
-
-      consola.log('[inspect-session] Mode: dangerous-no-leash (docker run; idle)');
-      consola.log(`[inspect-session] Container name: ${containerName}`);
-
-      dockerDirectRunContainerToRemove = containerName;
-    } else {
-      const codePathHost = await dockerHostBindPath(codePath);
-      const saifctlDirHost = await dockerHostBindPath(saifctlPath);
-
-      const leashArgs: string[] = [
-        'leash',
-        '--no-interactive',
-        '--verbose',
-        '--image',
-        coderImage,
-        '--volume',
-        `${codePathHost}:${CONTAINER_WORKSPACE}`,
-        '--volume',
-        `${saifctlDirHost}:/saifctl:ro`,
-      ];
-
-      if (reviewer) {
-        const argusBinaryHost = await dockerHostBindPath(reviewer.argusBinaryPath);
-        leashArgs.push('--volume', `${argusBinaryHost}:/usr/local/bin/argus:ro`);
-      }
-
-      if (await pathExists(cedarPolicyPath)) {
-        const cedarPolicyHost = await dockerHostBindPath(cedarPolicyPath);
-        leashArgs.push('--policy', cedarPolicyHost);
-        consola.log(`[inspect-session] Cedar policy: ${cedarPolicyHost}`);
-      } else {
-        throw new Error(`Cedar policy file not found at ${cedarPolicyPath}`);
-      }
-
-      pushLeashContainerEnv(leashArgs, containerEnv);
-      leashArgs.push('bash', '-c', 'sleep infinity');
-
-      argsForPrint = redactLeashArgsForPrint(leashArgs, containerEnv);
-
-      const leashBin = resolveLeashCliPath();
-      cmd = process.execPath;
-      args = [leashBin, ...leashArgs.slice(1)];
-      spawnCwd = codePathHost;
-
-      const workspaceId = leashWorkspaceId(sandboxBasePath);
-      spawnEnv = {
-        ...Object.fromEntries(
-          Object.entries(process.env).filter(([, v]) => v !== undefined) as [string, string][],
-        ),
-        ...(this.networkName ? { TARGET_CONTAINER: `leash-target-${workspaceId}` } : {}),
-      };
-
-      consola.log(`[inspect-session] Mode: leash (idle; container: ${coderImage})`);
-    }
-
-    consola.debug(`[inspect-session] containerEnv (public): ${JSON.stringify(containerEnv.env)}`);
-    consola.debug(
-      `[inspect-session] containerEnv.secret keys: ${Object.keys(containerEnv.secretEnv).sort().join(', ')}`,
-    );
-
-    consola.log(
-      `[inspect-session] Command: ${cmd} ${argsForPrint.map((s) => s.slice(0, 100)).join(' ')}`,
-    );
-
-    await removeDockerContainerForce(containerName);
-
-    if (signal?.aborted) {
-      throw new Error('inspect-session: aborted before start');
-    }
-
-    let networkAttach: NetworkAttachHandle | null = null;
-    if (!dangerousNoLeash && this.networkName) {
-      networkAttach = startLeashNetworkAttach(this.networkName, leashWorkspaceId(sandboxBasePath));
-    }
-
-    const removeDirectDocker = (): void => {
-      if (!dockerDirectRunContainerToRemove) return;
-      const n = dockerDirectRunContainerToRemove;
-      void removeDockerContainerForce(n);
-    };
-
-    const child = spawn(cmd, args, {
-      cwd: spawnCwd,
-      env: spawnEnv,
-      stdio: ['inherit', 'pipe', 'pipe'],
-    });
-
-    const endInspectStdout = (): void => onAgentStdoutEnd?.();
-    child.stdout?.on('data', (chunk: Buffer) => {
-      onAgentStdout(chunk.toString());
-    });
-    child.once('close', () => {
-      endInspectStdout();
-    });
-    child.stderr?.on('data', (chunk: Buffer) => {
-      onLog({
-        source: 'inspect',
-        stream: 'stderr',
-        raw: chunk.toString(),
-      });
-    });
-
-    let detachAbortListener: (() => void) | null = null;
-    let abortPromise: Promise<never> | null = null;
-    if (signal) {
-      let rejectAbort: ((reason: unknown) => void) | undefined;
-      const onAbort = () => {
-        networkAttach?.cancel();
-        removeDirectDocker();
-        child.kill('SIGTERM');
-        rejectAbort?.(new Error('inspect-session: cancelled'));
-      };
-      abortPromise = new Promise<never>((_, reject) => {
-        rejectAbort = reject;
-        signal.addEventListener('abort', onAbort, { once: true });
-      });
-      detachAbortListener = () => signal.removeEventListener('abort', onAbort);
-    }
-
-    const waitReady = (async () => {
-      await waitForContainerRunning(containerName, 180_000);
-      if (!dangerousNoLeash && this.networkName) {
-        await waitForContainerOnNetwork({
-          networkName: this.networkName,
-          containerName,
-          timeoutMs: 90_000,
+    // Pause docker-compose file
+    if (infra.composeProjectName && infra.composeFile) {
+      const absoluteFile = resolve(infra.projectDir, infra.composeFile);
+      try {
+        await runDocker(['compose', '-p', infra.composeProjectName, '-f', absoluteFile, 'pause'], {
+          stdio: 'inherit',
         });
+      } catch (err) {
+        consola.warn(`[docker] compose pause failed (non-fatal): ${String(err)}`);
       }
-    })();
+    }
 
+    // Stop the coder target container
+    const coderContainerName = leashTargetContainerName(sandboxBasePath);
+    await dockerStopContainerBestEffort(coderContainerName);
+
+    consola.log('[docker] Paused coding infra (coder stopped; compose paused if configured).');
+  }
+
+  async resumeInfra(opts: EngineResumeInfraOpts): Promise<void> {
+    const { runId, projectDir } = opts;
+
+    if (!this.composeFile) {
+      consola.log('[docker] No compose file configured — skipping resume.');
+      return;
+    }
+
+    // Resume docker-compose file
+    const composeProjectName = `saifctl-${runId.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
+    const absoluteFile = resolve(projectDir, this.composeFile);
     try {
-      if (abortPromise) {
-        await Promise.race([waitReady, abortPromise]);
-      } else {
-        await waitReady;
-      }
+      await runDocker(['compose', '-p', composeProjectName, '-f', absoluteFile, 'unpause'], {
+        stdio: 'inherit',
+      });
+      consola.log(
+        `[docker] Compose project "${composeProjectName}" unpaused (file: ${absoluteFile})`,
+      );
     } catch (err) {
-      networkAttach?.cancel();
-      if (detachAbortListener !== null) detachAbortListener();
-      if (!child.killed) child.kill('SIGTERM');
-      removeDirectDocker();
-      throw err;
+      consola.warn(`[docker] Warning: compose unpause failed (non-fatal): ${String(err)}`);
+    }
+  }
+
+  async verifyInfraToResume(opts: EngineVerifyResumeInfraOpts): Promise<boolean> {
+    const infra = assertDockerInfra(opts.infra);
+
+    // Verify the bridge network is still present.
+    const listed = await docker.listNetworks({ filters: { name: [infra.networkName] } });
+    if (!listed.some((n) => n.Name === infra.networkName)) {
+      return false;
     }
 
-    if (detachAbortListener !== null) detachAbortListener();
-    consola.log(
-      `[inspect-session] Ready — container ${containerName}, workspace ${CONTAINER_WORKSPACE}`,
-    );
-
-    let stopped = false;
-    const stop = async (): Promise<void> => {
-      if (stopped) return;
-      stopped = true;
-      networkAttach?.cancel();
-      const directName = dockerDirectRunContainerToRemove;
-      if (directName) {
-        await removeDockerContainerForce(directName);
-        dockerDirectRunContainerToRemove = null;
+    // Verify every container recorded on the infra exists (stopped or running).
+    for (const cname of infra.containers) {
+      try {
+        await docker.getContainer(cname).inspect();
+      } catch {
+        return false;
       }
-      if (child.exitCode === null && !child.killed) {
-        child.kill('SIGTERM');
-        await new Promise<void>((resolve) => {
-          const t = setTimeout(() => {
-            child.kill('SIGKILL');
-            resolve();
-          }, 3_000);
-          child.once('close', () => {
-            clearTimeout(t);
-            resolve();
-          });
-        });
-      }
-      // Leash path does not set dockerDirectRunContainerToRemove; ensure the target is gone
-      // so teardown can remove the bridge (same name as no-leash for Dev Container parity).
-      await removeDockerContainerForce(containerName);
-    };
+    }
 
-    return {
-      containerName,
-      workspacePath: CONTAINER_WORKSPACE,
-      stop,
-    };
+    // NOTE: No need to check for `DockerLiveInfra.stagingImages`,
+    // we create them on the spot and track them only for cleanup.
+    return true;
   }
 
   // ── 5. teardown ───────────────────────────────────────────────────────────
 
-  async teardown(_opts: EngineTeardownOpts): Promise<void> {
-    // 1. Stop/remove Docker containers + images tracked in the registry
-    await this.registry.cleanup();
+  async teardown(opts: EngineTeardownOpts): Promise<void> {
+    const { infra: infraIn, projectDir, runId } = opts;
+    if (infraIn === null) {
+      consola.warn(
+        `[docker] teardown skipped for runId "${runId}" — no live infra snapshot ` +
+          `(setup may not have completed). Resources may be left behind.`,
+      );
+      return;
+    }
+    const infra = assertDockerInfra(infraIn);
 
-    // 2. Tear down compose stack (if one was started)
-    if (this.composeFile && this.composeProjectName) {
-      consola.log(`[docker] Tearing down compose project "${this.composeProjectName}"`);
-      try {
-        await runDocker(
-          [
-            'compose',
-            '-p',
-            this.composeProjectName,
-            '-f',
-            this.composeFile,
-            'down',
-            '-v',
-            '--remove-orphans',
-          ],
-          { stdio: 'inherit' },
-        );
-        consola.log(`[docker] Compose project "${this.composeProjectName}" down`);
-      } catch (err) {
-        consola.warn(
-          `[docker] Warning: failed to tear down compose project "${this.composeProjectName}": ${String(err)}`,
-        );
+    // Remove containers and staging images
+    for (const name of infra.containers) {
+      await removeDockerContainerForce(name);
+    }
+
+    for (const tag of infra.stagingImages) {
+      await removeDockerImage(tag);
+    }
+
+    // Tear down compose stack
+    const pd = infra.projectDir || projectDir;
+    if (infra.composeProjectName && infra.composeFile) {
+      const absoluteFile = resolve(pd, infra.composeFile);
+      if (await pathExists(absoluteFile)) {
+        // First we need to try to unpause the stack
+        // Docker Compose has a quirk: 'compose down' silently skips containers
+        // that are in a paused state — it cannot stop or remove them while
+        // they're paused because pausing freezes the container's process
+        // at the kernel level (via cgroups freezer). The 'down' command only stops
+        // running containers, not frozen ones.
+        try {
+          await runDocker(
+            ['compose', '-p', infra.composeProjectName, '-f', absoluteFile, 'unpause'],
+            {
+              stdio: 'pipe',
+            },
+          );
+        } catch {
+          // ignore — stack may not exist or nothing paused
+        }
+
+        // Now the actual 'compose down'
+        consola.log(`[docker] Tearing down compose project "${infra.composeProjectName}"`);
+        try {
+          await runDocker(
+            [
+              'compose',
+              '-p',
+              infra.composeProjectName,
+              '-f',
+              absoluteFile,
+              'down',
+              '-v',
+              '--remove-orphans',
+            ],
+            { stdio: 'inherit' },
+          );
+          consola.log(`[docker] Compose project "${infra.composeProjectName}" down`);
+        } catch (err) {
+          consola.warn(
+            `[docker] Warning: failed to tear down compose project "${infra.composeProjectName}": ${String(err)}`,
+          );
+        }
       }
     }
 
-    // 3. Remove the bridge network (after containers are gone)
-    if (this.networkName) {
-      await removeDockerNetwork(this.networkName);
-      this.networkName = '';
+    // Delete network as last, after everything else has been removed
+    if (infra.networkName) {
+      await removeDockerNetwork(infra.networkName);
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Coding container/image
+// ---------------------------------------------------------------------------
+
+const AGENT_TIMEOUT_MS = 20 * 60 * 1000;
+
+/**
+ * Re-attach to a stopped coder container after `run pause` (`docker start -a -i`).
+ */
+async function runDockerStartAttachCoderContainer(opts: {
+  containerName: string;
+  signal: AbortSignal | null;
+  onAgentStdout: (chunk: string) => void;
+  onAgentStdoutEnd?: () => void;
+  onLog: EngineOnLog;
+  timeoutMs: number;
+}): Promise<{ exitCode: number; output: string }> {
+  const { containerName, signal, onAgentStdout, onAgentStdoutEnd, onLog, timeoutMs } = opts;
+  return await new Promise<{ exitCode: number; output: string }>((resolve, reject) => {
+    const child = spawn('docker', ['start', '-a', '-i', containerName], {
+      cwd: process.cwd(),
+      stdio: ['inherit', 'pipe', 'pipe'],
+    });
+
+    let collected = '';
+    const endAgentStdout = (): void => onAgentStdoutEnd?.();
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      const text = chunk.toString();
+      collected += text;
+      onAgentStdout(text);
+    });
+
+    child.stderr.on('data', (chunk: Buffer) => {
+      const text = chunk.toString();
+      onLog({ source: 'coder', stream: 'stderr', raw: text });
+      collected += text;
+    });
+
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`Agent timed out after ${timeoutMs / 1000}s`));
+    }, timeoutMs);
+
+    const onAbort = () => {
+      child.kill();
+      clearTimeout(timer);
+      if (signal?.reason !== SAIFCTL_PAUSE_ABORT_REASON) {
+        void removeDockerContainerForce(containerName);
+      }
+      reject(new Error('Agent step cancelled via abort signal'));
+    };
+
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+      } else {
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
+    }
+
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      endAgentStdout();
+      reject(err);
+    });
+
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      endAgentStdout();
+      const pauseKeep = signal?.aborted === true && signal.reason === SAIFCTL_PAUSE_ABORT_REASON;
+      if (!pauseKeep) {
+        void removeDockerContainerForce(containerName);
+      }
+      resolve({ exitCode: code ?? 1, output: collected });
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1031,6 +1181,57 @@ function leashTargetContainerName(sandboxBasePath: string): string {
   return `leash-target-${leashWorkspaceId(sandboxBasePath)}`;
 }
 
+/**
+ * Resolves from the package tree that contains this module (where `@safe-ai-factory/saifctl` is installed).
+ * Sandbox cwd is not the project dir, so we do not rely on `process.cwd()` for Leash.
+ */
+const requireLeash = createRequire(import.meta.url);
+
+/**
+ * Leash is invoked via its NPM binary. `@safe-ai-factory/saifctl` pulls in `@strongdm/leash`;
+ * callers run from the sandbox dir, so we resolve the binary from this package's `node_modules`.
+ *
+ * Override with `SAIFCTL_LEASH_BIN` (absolute path to `leash.js`).
+ */
+export function resolveLeashCliPath(): string {
+  const override = process.env.SAIFCTL_LEASH_BIN?.trim();
+  if (override) {
+    return override;
+  }
+  try {
+    return requireLeash.resolve('@strongdm/leash/bin/leash.js');
+  } catch {
+    throw new Error(
+      'Cannot find @strongdm/leash. Run install in the project that depends on @safe-ai-factory/saifctl, ' +
+        `or set SAIFCTL_LEASH_BIN to the absolute path of leash.js.`,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Utility: LiveInfra object
+// ---------------------------------------------------------------------------
+
+function assertDockerInfra(infra: LiveInfra): DockerLiveInfra {
+  if (infra.engine !== 'docker') {
+    throw new Error('[docker] Expected Docker live infra for this operation');
+  }
+  return infra as DockerLiveInfra;
+}
+
+function dockerInfraWithContainer(infra: DockerLiveInfra, name: string): DockerLiveInfra {
+  if (infra.containers.includes(name)) return infra;
+  return { ...infra, containers: [...infra.containers, name] };
+}
+
+function dockerInfraWithStagingImage(infra: DockerLiveInfra, tag: string): DockerLiveInfra {
+  return { ...infra, stagingImages: [...infra.stagingImages, tag] };
+}
+
+function dockerInfraWithoutContainer(infra: DockerLiveInfra, name: string): DockerLiveInfra {
+  return { ...infra, containers: infra.containers.filter((c) => c !== name) };
+}
+
 // ---------------------------------------------------------------------------
 // Utility: Networks
 // ---------------------------------------------------------------------------
@@ -1081,6 +1282,15 @@ async function removeDockerContainerForce(nameOrId: string): Promise<void> {
     await docker.getContainer(nameOrId).remove({ force: true });
   } catch {
     /* absent, --rm race, etc. */
+  }
+}
+
+/** Best-effort `docker stop` (ignores not running / missing). */
+async function dockerStopContainerBestEffort(nameOrId: string): Promise<void> {
+  try {
+    await docker.getContainer(nameOrId).stop({ t: 15 });
+  } catch {
+    /* not running, absent */
   }
 }
 
@@ -1579,70 +1789,6 @@ function streamContainerLogs(opts: {
       err.on('end', stderrH.onEnd);
     })
     .catch(() => {});
-}
-
-// ---------------------------------------------------------------------------
-// Internal container/network tracking
-// ---------------------------------------------------------------------------
-
-interface ContainerHandle {
-  id: string;
-  name: string;
-  container: Docker.Container;
-}
-
-/**
- * Tracks Docker resources created during a single engine lifecycle (containers, ephemeral images).
- * {@link DockerRegistry.cleanup} removes tracked containers and images; bridge networks are torn down
- * separately in `teardown()` after compose and ad-hoc containers are gone to avoid “active endpoints” races.
- */
-class DockerRegistry {
-  private containers: ContainerHandle[] = [];
-  private networks: string[] = [];
-  private images: string[] = [];
-
-  registerContainers(handles: ContainerHandle[]): void {
-    this.containers.push(...handles);
-  }
-  registerNetwork(name: string): void {
-    if (name) this.networks.push(name);
-  }
-  registerImage(tag: string): void {
-    if (tag) this.images.push(tag);
-  }
-  deregisterContainers(handles: ContainerHandle[]): void {
-    const ids = new Set(handles.map((h) => h.id));
-    this.containers = this.containers.filter((h) => !ids.has(h.id));
-  }
-  deregisterNetwork(name: string): void {
-    this.networks = this.networks.filter((n) => n !== name);
-  }
-  deregisterImage(tag: string): void {
-    this.images = this.images.filter((t) => t !== tag);
-  }
-
-  /** Force-removes tracked containers and deletes tracked images; does not remove networks (see class doc). */
-  async cleanup(): Promise<void> {
-    const containersToStop = [...this.containers];
-    const imagesToRemove = [...this.images];
-    this.containers = [];
-    this.networks = [];
-    this.images = [];
-
-    for (const handle of containersToStop) {
-      try {
-        await handle.container.remove({ force: true });
-      } catch (err) {
-        consola.warn(`[docker] Warning: could not remove ${handle.name}: ${String(err)}`);
-      }
-    }
-    // Bridge networks are removed only from teardown() after `compose down` and after
-    // ad-hoc containers (e.g. inspect `docker run`) are gone. Removing networks
-    // here would race them and yield "active endpoints" errors.
-    for (const tag of imagesToRemove) {
-      await removeDockerImage(tag);
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------

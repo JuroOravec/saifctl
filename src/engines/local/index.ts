@@ -20,8 +20,6 @@ import type {
   RunAgentOpts,
   RunTestsEngineResult,
   RunTestsOpts,
-  StartInspectOpts,
-  StartInspectResult,
   StartStagingOpts,
   StartStagingResult,
 } from '../types.js';
@@ -181,11 +179,5 @@ export class LocalEngine implements Engine {
       agent: { success: exitCode === 0, exitCode, output },
       infra: opts.infra,
     };
-  }
-
-  async startInspect(_opts: StartInspectOpts): Promise<StartInspectResult> {
-    throw new Error(
-      '[engine] run inspect needs a container coding engine. Use --engine coding=docker (or omit --engine local) for inspect.',
-    );
   }
 }

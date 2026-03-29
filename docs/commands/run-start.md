@@ -51,7 +51,7 @@ Start-from-artifact behavior:
 | Item | Behavior |
 | ---- | -------- |
 | **Positional `runId`** | Required. Identifies the artifact in run storage. Feature and task context come from that artifact. |
-| **`--name` / `-n`** | Not used, feature name comes from the stored run only. |
+| **`--name` / `-n`** | Not used, feature name comes from the Run only. |
 
 ## Examples
 
@@ -97,16 +97,18 @@ Once the workspace is reconstructed, `run start` follows the same flow as `feat 
 
 - The implementation does **not** reject when you start again from a Run that has a `completed` status, but re-running a completed run is usually unnecessary. Consider [`run test`](run-test.md) to re-test the patch only.
 
-- If you set `--storage none` / `runs=none`, the CLI errors and exits non-zero (`Run storage is disabled (--storage none). Cannot start from a stored run.`).
+- If you set `--storage none` / `runs=none`, the CLI errors and exits non-zero (`Run storage is disabled (--storage none). Cannot start from a Run.`).
 
 ## See also
 
+- [Guide: Run lifecycle](../guides/run-lifecycle.md) — `feat run`, `run start`, `run pause`, `run resume`, `run test`, `run apply`
 - [Guide: Fix agent mistakes: inspect, then run start](../guides/inspect-and-start.md) — Step-by-step (VS Code / Cursor)
 - [Guide: Provide user feedback to the agent](../guides/providing-user-feedback.md) — `run rules` then `run start`
 - [Runs](../runs.md) — Storage backends, portability, resumption overview
 - [`feat run`](feat-run.md) — Full flag list and new-run behavior
-- [`run list`](run-list.md) — List stored run IDs
+- [`run pause`](run-pause.md) — Pause a run in progress
+- [`run list`](run-list.md) — List Run IDs
 - [`run info`](run-info.md) — View a saved run (summary JSON)
 - [`run test`](run-test.md) — Re-test a stored patch without the coding agent
 - [`run apply`](run-apply.md) — Apply run commits to the host repo as a branch
-- [`run remove`](run-remove.md) — Delete a stored run
+- [`run remove`](run-remove.md) — Delete a Run

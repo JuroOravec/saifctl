@@ -1,6 +1,6 @@
 # saifctl run info
 
-Print a stored run artifact as JSON for debugging or piping to tools.
+Print a Run artifact as JSON for debugging or piping to tools.
 
 ## Usage
 
@@ -92,6 +92,6 @@ Example of the default **pretty-printed** output:
 
 - [Runs](../runs.md) — Run storage overview
 - [`run list`](run-list.md) — List run IDs
-- [`run remove`](run-remove.md) — Delete a stored run
+- [`run remove`](run-remove.md) — Delete a Run
 - [`run clear`](run-clear.md) — Bulk delete runs
 - [`run start`](run-start.md) — Resume a failed run

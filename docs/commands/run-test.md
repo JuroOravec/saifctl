@@ -93,10 +93,11 @@ saifctl run test add-login-r1 --storage runs=s3://my-bucket/runs
    
    We rely on git commits to faithfully reconstruct the workspace, while keeping the Run metadata light.
 
-- If you set `--storage none` / `runs=none`, the CLI errors and exits non-zero (`Run storage is disabled (--storage none). Cannot test a stored run.`).
+- If you set `--storage none` / `runs=none`, the CLI errors and exits non-zero (`Run storage is disabled (--storage none). Cannot test a Run.`).
 
 ## See also
 
+- [Guide: Run lifecycle](../guides/run-lifecycle.md) — How `run test` fits with feat run, pause, resume, apply
 - [Runs](../runs.md) — How saved runs and storage work
 - [`feat run`](feat-run.md) — Start a new implementation run
 - [`run list`](run-list.md) — List saved run ids

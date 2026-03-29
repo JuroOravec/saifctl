@@ -1,5 +1,5 @@
 /**
- * Clone a stored run to a new artifact ID (no orchestration — no worktree, sandbox, or agent loop).
+ * Clone a Run to a new artifact ID (no orchestration — no worktree, sandbox, or agent loop).
  */
 
 import type { FromArtifactOpts } from '../orchestrator/modes.js';
@@ -22,7 +22,7 @@ async function allocateUnusedRunId(runStorage: RunStorage): Promise<string> {
 }
 
 /**
- * Clones a stored run to a new run ID: same base commit, base patch, and run commits as the source;
+ * Clones a Run to a new run ID: same base commit, base patch, and run commits as the source;
  * config is merged from the source artifact and CLI the same way as `run start` (defaults → artifact → CLI).
  *
  * Does not create a worktree, sandbox, or agent loop — use `saifctl run start <newId>` next.

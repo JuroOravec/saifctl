@@ -132,14 +132,14 @@ The default gate script used when no custom `--gate-script` is provided. Each sa
 
 **`runStart`:** Passes `gateScript`, `agentScript`, and `gateRetries` to `createSandbox` and `runAgent`.
 
-**`fromArtifact`:** Reconstructs workspace from storage, then delegates to `runStartCore` (which uses `createSandbox` and `runAgent`). Effective options are merged from defaults, the stored run artifact, and explicit CLI overrides (see below).
+**`fromArtifact`:** Reconstructs workspace from storage, then delegates to `runStartCore` (which uses `createSandbox` and `runAgent`). Effective options are merged from defaults, the Run artifact, and explicit CLI overrides (see below).
 
 #### Orchestrator option resolution (feat run, resume, test-from-run)
 
 For modes that need a full `OrchestratorOpts`, resolution is centralized in `src/orchestrator/options.ts` (`resolveOrchestratorOpts`):
 
 1. **Defaults** — `applyOrchestratorBaseline` in `src/orchestrator/options.ts` builds a complete baseline from `config.defaults`, package constants (`src/constants.ts`), and profile defaults via `read*` + `resolve*` (`src/orchestrator/options.ts`, `src/cli/utils.ts`) when no feat-run CLI flags apply.
-2. **Artifact** — When a stored run exists (resume / test-from-run), deserialized loop config from the artifact is merged on top (`mergeArtifactOntoDefaults` in the same module).
+2. **Artifact** — When a Run exists (resume / test-from-run), deserialized loop config from the artifact is merged on top (`mergeArtifactOntoDefaults` in the same module).
 3. **CLI** — `buildOrchestratorCliInputFromFeatArgs` in `src/cli/utils.ts` produces an `OrchestratorCliInput`: only flags the user actually set are non-`undefined`. `mergeDefinedOrchestratorOpts` in `src/orchestrator/options.ts` copies those keys onto the merged object; **`undefined` means “do not override”** the layer below (so resume keeps artifact values unless the user passes an override).
 
 **Model / base URL overrides** (`--model`, `--base-url`) use a separate merge: **config.defaults → artifact → CLI delta** via `mergeModelOverridesLayers` in `src/orchestrator/options.ts`, where the CLI delta comes from `parseModelOverridesCliDelta` (flags only, no config merge inside the delta).

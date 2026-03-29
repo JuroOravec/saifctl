@@ -172,17 +172,34 @@ const {
   const setup = vi.fn().mockResolvedValue({ infra: mockInspectInfra });
   const teardown = vi.fn().mockResolvedValue(undefined);
   const stop = vi.fn().mockResolvedValue(undefined);
-  const startInspect = vi
-    .fn()
-    .mockImplementation(async (opts: { infra: typeof mockInspectInfra }) => ({
-      session: {
-        containerName: 'leash-target-test',
-        workspacePath: '/workspace',
-        stop,
-      },
-      infra: opts.infra,
-    }));
-  const mockEngine = { setup, teardown, startInspect };
+  const runAgent = vi.fn().mockImplementation(
+    async (opts: {
+      codePath: string;
+      infra?: typeof mockInspectInfra;
+      inspectMode?: {
+        onReady: (
+          session: { containerName: string; workspacePath: string; stop: typeof stop },
+          ctx: { codePath: string },
+        ) => Promise<void>;
+      };
+    }) => {
+      if (opts.inspectMode) {
+        await opts.inspectMode.onReady(
+          {
+            containerName: 'leash-target-test',
+            workspacePath: '/workspace',
+            stop,
+          },
+          { codePath: opts.codePath },
+        );
+      }
+      return {
+        agent: { success: true, exitCode: 0, output: '' },
+        infra: opts.infra ?? mockInspectInfra,
+      };
+    },
+  );
+  const mockEngine = { setup, teardown, runAgent };
   return {
     createArtifactRunWorktreeMock: vi.fn(),
     cleanupArtifactRunWorktreeMock: vi.fn().mockResolvedValue(undefined),
@@ -307,7 +324,15 @@ describe('runInspect', () => {
     await rm(projectDir, { recursive: true, force: true });
   });
 
+  /** Wait until the inspect path has registered its SIGINT handler, then emit SIGINT. */
   async function finishWithSigint() {
+    const deadline = Date.now() + 10_000;
+    while (mockEngine.runAgent.mock.calls.length === 0) {
+      if (Date.now() > deadline) {
+        throw new Error('runAgent was not called (inspect onReady never reached)');
+      }
+      await new Promise<void>((r) => setImmediate(r));
+    }
     await new Promise<void>((resolve) => {
       setImmediate(() => {
         process.emit('SIGINT');
@@ -351,7 +376,7 @@ describe('runInspect', () => {
     ).rejects.toThrow(/run storage/i);
   });
 
-  it('passes dangerousNoLeash false to startInspect when inspectLeash is true', async () => {
+  it('passes dangerousNoLeash false to runAgent when inspectLeash is true', async () => {
     const storage = makeStorage();
     const p = runInspect({
       runId: baseArtifact.runId,
@@ -367,8 +392,8 @@ describe('runInspect', () => {
     await finishWithSigint();
     await p;
 
-    expect(mockEngine.startInspect).toHaveBeenCalledWith(
-      expect.objectContaining({ dangerousNoLeash: false }),
+    expect(mockEngine.runAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ dangerousNoLeash: false, inspectMode: expect.any(Object) }),
     );
   });
 
@@ -388,7 +413,7 @@ describe('runInspect', () => {
     ).rejects.toThrow(/Run not found/);
   });
 
-  it('throws when stored run status is running', async () => {
+  it('throws when Run status is running', async () => {
     const storage = makeStorage({
       getRun: vi.fn().mockResolvedValue({ ...baseArtifact, status: 'running' }),
     });
@@ -424,8 +449,8 @@ describe('runInspect', () => {
     expect(createArtifactRunWorktreeMock).toHaveBeenCalled();
     expect(createSandboxMock).toHaveBeenCalled();
     expect(mockEngine.setup).toHaveBeenCalled();
-    expect(mockEngine.startInspect).toHaveBeenCalledWith(
-      expect.objectContaining({ dangerousNoLeash: true }),
+    expect(mockEngine.runAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ dangerousNoLeash: true, inspectMode: expect.any(Object) }),
     );
     expect(storage.saveRun).not.toHaveBeenCalled();
     expect(destroySandboxMock).toHaveBeenCalledWith(sandbox.sandboxBasePath);

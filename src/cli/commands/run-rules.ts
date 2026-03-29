@@ -164,7 +164,7 @@ async function withRunArtifact(
 const rulesCreateCommand = defineCommand({
   meta: {
     name: 'create',
-    description: 'Append a user rule to a stored run',
+    description: 'Append a user rule to a Run',
   },
   args: {
     ...commonRunArgs,
@@ -202,7 +202,7 @@ const rulesCreateCommand = defineCommand({
 const rulesRemoveCommand = defineCommand({
   meta: {
     name: 'remove',
-    description: 'Remove a rule from a stored run',
+    description: 'Remove a rule from a Run',
   },
   args: {
     ...commonRunArgs,
@@ -376,7 +376,7 @@ const rulesUpdateCommand = defineCommand({
 export const runRulesCommand = defineCommand({
   meta: {
     name: 'rules',
-    description: 'Create, list, get, update, or remove user feedback rules on a stored run',
+    description: 'Create, list, get, update, or remove user feedback rules on a Run',
   },
   subCommands: {
     create: rulesCreateCommand,

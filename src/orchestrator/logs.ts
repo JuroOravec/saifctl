@@ -323,7 +323,7 @@ export function createAgentRunnerStdoutMux(opts: CreateAgentRunnerStdoutMuxOpts)
 }
 
 /**
- * Builds {@link Engine.runAgent} / {@link Engine.startInspect} stdout callbacks.
+ * Builds {@link Engine.runAgent} stdout callbacks.
  * The engine only forwards opaque chunks; here we pair {@link createAgentRunnerStdoutMux}
  * with a sink (e.g. {@link createDefaultAgentLog}) so bytes become tagged events before they hit the terminal.
  */

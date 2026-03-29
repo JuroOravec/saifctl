@@ -68,7 +68,7 @@ saifctl run apply pwc2l1j --branch saifctl/my-feature-retry-2
 
 - Patches that touch `.git/hooks/` are rejected (same guard as host apply in the main loop).
 
-- If you set `--storage none` / `runs=none`, the CLI errors and exits non-zero (`Run storage is disabled (--storage none). Cannot start from a stored run.`).
+- If you set `--storage none` / `runs=none`, the CLI errors and exits non-zero (`Run storage is disabled (--storage none). Cannot start from a Run.`).
 
 - `run start` MUST be run in the same git context as the original run. Otherwise resume fails with a clear error.
 
@@ -80,5 +80,5 @@ saifctl run apply pwc2l1j --branch saifctl/my-feature-retry-2
 
 - [Guide: Run lifecycle](../guides/run-lifecycle.md) — When to use `run apply` vs `run test`
 - [Runs](../runs.md) — Artifact fields (`runCommits`, `baseCommitSha`, `basePatchDiff`)
-- [`run test`](run-test.md) — Re-test a stored run, then apply on success
+- [`run test`](run-test.md) — Re-test a Run, then apply on success
 - [`run start`](run-start.md) — Continue the agent loop from a failed run

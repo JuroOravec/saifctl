@@ -260,7 +260,7 @@ export default {
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `saifctl feat run`                           | Uses GHCR images for test runner and coder; pulls if not present locally                                |
 | `saifctl feat design-fail2pass`              | Same behaviour                                                                                          |
-| `saifctl run test <runId>`                 | Re-test a stored run’s patch (staging + test runner); no coding agent                                  |
+| `saifctl run test <runId>`                 | Re-test a Run’s patch (staging + test runner); no coding agent                                  |
 | `pnpm docker build test [--all]`            | Build test runner image(s) locally (for development or offline use)                          |
 | `pnpm docker build coder`                   | Build (or rebuild) the coder image from the sandbox profile's `Dockerfile.coder`             |
 | `saifctl feat run --test-image my-test:v2`   | Use a custom test runner image                                                               |

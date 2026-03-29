@@ -65,10 +65,10 @@ export type SerializedLoopOpts = {
   gitProviderId: string;
   gateRetries: number;
   agentEnv: Record<string, string>;
-  /** Host env var names only; values are re-read from `process.env` when starting from a stored run. */
+  /** Host env var names only; values are re-read from `process.env` when starting from a Run. */
   agentSecretKeys: string[];
   /**
-   * Project-relative secret file paths (`KEY=value` .env files). Re-read when starting from a stored run; values are not
+   * Project-relative secret file paths (`KEY=value` .env files). Re-read when starting from a Run; values are not
    * stored in the artifact.
    */
   agentSecretFiles?: string[];
@@ -87,7 +87,7 @@ export type SerializedLoopOpts = {
   stagingEnvironment: NormalizedStagingEnvironment;
   /**
    * Normalized coding environment — always present (defaults to `{ engine: 'docker' }`).
-   * Persisted so that the coding engine stack can be re-used correctly when starting from a stored run.
+   * Persisted so that the coding engine stack can be re-used correctly when starting from a Run.
    */
   codingEnvironment: NormalizedCodingEnvironment;
   /** When true, verbose logs are enabled. */

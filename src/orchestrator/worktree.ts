@@ -2,7 +2,7 @@
  * Git worktrees and base-state capture for the Software Factory.
  *
  * Handles git state capture for run storage, ephemeral worktrees materialized
- * from stored run artifacts, and save-on-Ctrl+C artifact persistence.
+ * from Run artifacts, and save-on-Ctrl+C artifact persistence.
  */
 
 import { createHash } from 'node:crypto';
@@ -36,7 +36,7 @@ const SAIFCTL_ARTIFACT_WORKTREES_ROOT = join('/tmp', 'worktrees');
 // ---------------------------------------------------------------------------
 
 /**
- * Captures the current git state so we can reconstruct it when starting again from a stored run.
+ * Captures the current git state so we can reconstruct it when starting again from a Run.
  * Returns baseCommitSha and basePatchDiff: tracked changes (`git diff --binary HEAD`) plus untracked
  * files (`git diff --no-index --binary …`) so binary files round-trip through `git apply` later.
  */
@@ -45,7 +45,7 @@ export async function captureBaseGitState(projectDir: string): Promise<RunStorag
   let basePatchDiff: string | undefined;
 
   try {
-    // Stored runs replay from a known commit; anything not in that commit must be captured as a patch.
+    // Runs replay from a known commit; anything not in that commit must be captured as a patch.
     baseCommitSha = (await git({ cwd: projectDir, args: ['rev-parse', 'HEAD'] })).trim();
     const status = (await git({ cwd: projectDir, args: ['status', '--porcelain'] })).trim();
     if (status) {
@@ -79,7 +79,7 @@ export async function captureBaseGitState(projectDir: string): Promise<RunStorag
 }
 
 // ---------------------------------------------------------------------------
-// Artifact worktree (from stored run)
+// Artifact worktree (from Run)
 // ---------------------------------------------------------------------------
 
 export interface CreateArtifactRunWorktreeParams {
@@ -111,7 +111,7 @@ async function gitWorktreeListForDebug(cwd: string): Promise<string> {
 }
 
 /**
- * Materializes a **fresh** git worktree from the stored run artifact (always from scratch).
+ * Materializes a **fresh** git worktree from the Run artifact (always from scratch).
  * The worktree lives under `/tmp/worktrees/` so it is ephemeral like sandboxes — not under
  * `.saifctl/worktrees/` inside the repo (linked worktrees there often break or confuse git).
  * `runStartCore` then builds a new rsync sandbox from this path.
@@ -229,7 +229,7 @@ export async function createArtifactRunWorktree(
       stdio: 'inherit',
     });
 
-    // Stored run commits from the artifact, replayed on the worktree the user will inspect / link from.
+    // Run commits from the artifact, replayed on the worktree the user will inspect / link from.
     for (const commit of runCommits) {
       await applyRunCommitInRepo({ cwd: worktreePath, commit, gitEnv });
     }

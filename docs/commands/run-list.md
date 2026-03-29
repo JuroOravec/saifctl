@@ -1,6 +1,6 @@
 # saifctl run list
 
-List stored runs from run storage.
+List Runs from run storage.
 
 **Alias:** `saifctl run ls` (same command).
 
@@ -29,7 +29,7 @@ If run storage is disabled (e.g. `--storage none` or `runs=none`), the command p
 
 ## Examples
 
-List all stored runs:
+List all Runs:
 
 ```bash
 saifctl run list
@@ -71,7 +71,7 @@ Rows are sorted by **UPDATED** (newest first); ties break on `RUN_ID`. Column wi
 ### Example: no runs (or empty storage)
 
 ```text
-No stored runs found.
+No Runs found.
 ```
 
 ### Example: storage disabled
@@ -85,6 +85,6 @@ Run storage is disabled (--storage none).
 ## See also
 
 - [Runs](../runs.md) — Run storage, resumption, and overview
-- [`run start`](run-start.md) — Resume a stored run
-- [`run remove`](run-remove.md) — Delete a stored run
+- [`run start`](run-start.md) — Resume a Run
+- [`run remove`](run-remove.md) — Delete a Run
 - [`run clear`](run-clear.md) — Bulk delete runs

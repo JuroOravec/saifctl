@@ -124,7 +124,7 @@ export class SaifctlCliService {
   // ============================================================================
 
   /**
-   * Lists stored runs by reading .saifctl/runs/*.json directly.
+   * Lists Runs by reading .saifctl/runs/*.json directly.
    * Avoids relying on CLI --json output.
    *
    * When SAIF_MOCK_RUNS=1, returns hardcoded mock data for UI testing without

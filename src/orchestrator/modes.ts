@@ -3,9 +3,9 @@
  *
  *  1. fail2pass      — Verify at least one feature test fails on current codebase (sanity check; partial overlap OK)
  *  2. start          — Create a fresh sandbox and run the iterative agent loop
- *  3. fromArtifact   — Start again from a stored run (artifact) then runs the same loop as `start`
- *  4. test           — Re-test a stored run's patch without running the coding agent loop
- *  5. inspect        — Idle coding container for a stored run (changes made in the container are saved)
+ *  3. fromArtifact   — Start again from a Run (artifact) then runs the same loop as `start`
+ *  4. test           — Re-test a Run's patch without running the coding agent loop
+ *  5. inspect        — Idle coding container for a Run (changes made in the container are saved)
  */
 
 import { mkdir, unlink } from 'node:fs/promises';
@@ -168,7 +168,7 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
      * If the revision is not the same as the one in storage, the save will fail.
      */
     artifactRevisionWhenFromArtifact?: number;
-    /** Prior {@link RunArtifact#roundSummaries} when continuing from a stored run */
+    /** Prior {@link RunArtifact#roundSummaries} when continuing from a Run */
     seedRoundSummaries?: OuterAttemptSummary[];
     /**
      * `run resume` when paused sandbox still exists: reuse sandbox dir + Docker bridge from `run pause` (skips createSandbox).
@@ -688,7 +688,7 @@ export interface FromArtifactOpts {
 }
 
 /**
- * Starts again from a stored run. Fetches the artifact, prepares workspace from
+ * Starts again from a Run. Fetches the artifact, prepares workspace from
  * baseCommitSha + diffs, creates a fresh sandbox, and runs the loop.
  * Delegates to runStartCore with {@link OrchestratorOpts#fromArtifact} set.
  *
@@ -1056,7 +1056,7 @@ export async function runStop(opts: {
 }
 
 // ---------------------------------------------------------------------------
-// Mode 3b: inspect (stored run → artifact worktree + sandbox + idle coder container)
+// Mode 3b: inspect (Run → artifact worktree + sandbox + idle coder container)
 // ---------------------------------------------------------------------------
 
 export type InspectOpts = FromArtifactOpts & {
@@ -1068,7 +1068,7 @@ export type InspectOpts = FromArtifactOpts & {
 };
 
 /**
- * Opens an idle coding container for a stored run.
+ * Opens an idle coding container for a Run.
  *
  * Reuses the full {@link fromArtifactCore} → {@link runStartCore} → `runIterativeLoop` path
  * with `maxRuns: 1` and `runStorage: null`. The coding agent is replaced by an idle
@@ -1299,7 +1299,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Mode 3c: apply (stored run → host branch + optional push/PR, no sandbox/tests)
+// Mode 3c: apply (Run → host branch + optional push/PR, no sandbox/tests)
 // ---------------------------------------------------------------------------
 
 /**
@@ -1312,7 +1312,7 @@ async function runApplyCore(
 ): Promise<OrchestratorResult> {
   const { runId, projectDir, runStorage, cli, cliModelDelta, config, saifctlDir, engineCli } = opts;
   if (!runStorage) {
-    throw new Error('Run storage is disabled (--storage none). Cannot apply a stored run.');
+    throw new Error('Run storage is disabled (--storage none). Cannot apply a Run.');
   }
 
   const artifact = await runStorage.getRun(runId);
@@ -1508,7 +1508,7 @@ export async function runExport(opts: RunExportOpts): Promise<OrchestratorResult
 export type TestFromRunOpts = FromArtifactOpts;
 
 /**
- * Re-tests the patch from a stored run without running the coding agent loop.
+ * Re-tests the patch from a Run without running the coding agent loop.
  *
  * Useful after a run completes/fails/pauses to re-run just the test phase with
  * updated tests, a different test profile, or to promote a passing patch to a PR.

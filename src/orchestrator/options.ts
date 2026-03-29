@@ -93,7 +93,7 @@ export function modelOverridesFromSaifctlConfig(config?: SaifctlConfig): ModelOv
  *
  * Unlike {@link mergeModelOverridesLayers} with a config baseline, this does **not** merge `config.defaults` model fields.
  * That matters for **from-artifact** and **test-from-run**: final LLM overrides are built in
- * {@link mergeModelOverridesLayers} as **config baseline → stored run artifact → CLI delta**.
+ * {@link mergeModelOverridesLayers} as **config baseline → Run artifact → CLI delta**.
  * If the user omits both flags here, returning `undefined` means the delta layer adds nothing.
  */
 export function parseModelOverridesCliDelta(args: {

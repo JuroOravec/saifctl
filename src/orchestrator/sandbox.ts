@@ -325,7 +325,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
       `[sandbox] Sandbox directory already exists: ${sandboxBasePath}\n` +
         `Another \`feat run\` / \`run start\` may still be using it, or a previous run exited without cleanup. ` +
         `Stop the other process, remove this directory, or wait until it finishes. ` +
-        `Use \`saifctl run fork <runId>\` to clone the stored run to a new ID, then \`saifctl run start <newId>\`.`,
+        `Use \`saifctl run fork <runId>\` to clone the Run to a new ID, then \`saifctl run start <newId>\`.`,
     );
   }
 

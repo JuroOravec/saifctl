@@ -229,12 +229,12 @@ export interface IterativeLoopOpts {
   /**
    * Host env var **names** whose values are copied from `process.env` into the coder container's
    * secret env (not logged as values). From `config.defaults.agentSecretKeys` and `--agent-secret`.
-   * Persisted in run artifacts as names only; values are re-read from the host when starting from a stored run.
+   * Persisted in run artifacts as names only; values are re-read from the host when starting from a Run.
    */
   agentSecretKeys: string[];
   /**
    * Project-relative paths to `.env`-style files with `KEY=value` secret pairs — same format as
-   * `--agent-env-file`. Persisted in run artifacts; when starting from a stored run the files are read again (values are
+   * `--agent-env-file`. Persisted in run artifacts; when starting from a Run the files are read again (values are
    * not stored in the artifact).
    */
   agentSecretFiles: string[];
@@ -297,16 +297,16 @@ export interface IterativeLoopOpts {
    */
   verbose?: boolean;
   /**
-   * When starting from a stored run, seed {@link RunArtifact#runCommits} (replayed in sandbox before the loop).
+   * When starting from a Run, seed {@link RunArtifact#runCommits} (replayed in sandbox before the loop).
    */
   seedRunCommits?: RunCommit[];
   /**
-   * When starting from a stored run, seed {@link RunArtifact#roundSummaries} so new outer attempts append after prior history.
+   * When starting from a Run, seed {@link RunArtifact#roundSummaries} so new outer attempts append after prior history.
    */
   seedRoundSummaries?: OuterAttemptSummary[];
   /**
    * When true, skip the coding agent and run only staging + tests (+ optional apply to host on pass).
-   * Used by `saifctl run test` (stored run re-verification).
+   * Used by `saifctl run test` (Run re-verification).
    */
   testOnly?: boolean;
   /**
@@ -545,7 +545,7 @@ export async function runIterativeLoop(
   sandbox: Sandbox,
   opts: OrchestratorOpts & {
     runContext: RunStorageContext | null;
-    /** When starting from a stored run: seed the first agent round with this feedback */
+    /** When starting from a Run: seed the first agent round with this feedback */
     initialErrorFeedback: string | null;
     registry: CleanupRegistry;
   },
@@ -604,7 +604,7 @@ export async function runIterativeLoop(
    */
   let resumedCodingInfra: LiveInfra | null = fromArtifact?.resumedCodingInfra ?? null;
 
-  /** Accumulated run commits (seeded from stored run + each successful coding round). */
+  /** Accumulated run commits (seeded from Run + each successful coding round). */
   let runCommitsAccum: RunCommit[] = [...(seedRunCommits ?? [])];
   let lastErrorFeedback = '';
   let roundSummaries: OuterAttemptSummary[] = [...(seedRoundSummaries ?? [])];
@@ -847,7 +847,7 @@ export async function runIterativeLoop(
           status: 'success',
           attempts: 1,
           runId,
-          message: 'Stored run verified; patch applied to host repository.',
+          message: 'Run verified; patch applied to host repository.',
         };
       }
 
@@ -955,6 +955,8 @@ export async function runIterativeLoop(
         resumedCodingInfra,
         storage: runStorage && runContext ? { runStorage, runContext } : null,
         registry: registry ?? null,
+        preRoundHeadSha: preRoundHead,
+        patchExclude,
         onInfraReady: async (infra) => {
           await saveRunningArtifact('coding infra provisioned', { coding: infra, staging: null });
         },
@@ -982,11 +984,22 @@ export async function runIterativeLoop(
       resumedCodingInfra = null;
 
       // Act on control signals (pause / stop) received during the coding round.
-      if (codingResult.outcome === 'stopped')
-        return controlResult('stopped', 'Run stopped by request.');
-      if (codingResult.outcome === 'paused') {
-        pauseSnapshotLiveInfra = { coding: codingResult.liveInfra, staging: null };
-        return controlResult('paused', 'Run paused by request.');
+      // For 'stop' and 'pause' we preserve the changes made by the agent
+      // by saving the commits to the run artifact.
+      switch (codingResult.outcome) {
+        case 'stopped': {
+          const { commits } = codingResult;
+          runCommitsAccum = [...runCommitsAccum, ...commits];
+          return controlResult('stopped', 'Run stopped by request.');
+        }
+        case 'paused': {
+          const { commits, liveInfra } = codingResult;
+          runCommitsAccum = [...runCommitsAccum, ...commits];
+          pauseSnapshotLiveInfra = { coding: liveInfra, staging: null };
+          return controlResult('paused', 'Run paused by request.');
+        }
+        default:
+          break;
       }
       // Inspect session ended — skip tests, git branch creation, and further iterations.
       if (codingResult.outcome === 'inspected')
@@ -1530,7 +1543,7 @@ export function logIterativeLoopSettings(opts: OrchestratorOpts, meta?: { runId?
     `  Agent secret keys (host → container): ${opts.agentSecretKeys.join(', ') || 'none'}`,
   );
   consola.log(
-    `  Agent secret file(s): ${opts.agentSecretFiles.join(', ') || 'none'} (KEY=value .env format; re-read when starting from a stored run)`,
+    `  Agent secret file(s): ${opts.agentSecretFiles.join(', ') || 'none'} (KEY=value .env format; re-read when starting from a Run)`,
   );
   consola.log(`  Gate retries: ${opts.gateRetries}`);
   if (opts.push) {

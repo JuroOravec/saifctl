@@ -85,7 +85,7 @@ export interface PushHostApplyBranchOpts {
   projectDir: string;
   branchName: string;
   feature: Feature;
-  /** Stored run id (for PR footer). */
+  /** Run id (for PR footer). */
   runId: string;
   /** File path passed to the PR summarizer (unified diff). */
   patchFile: string;

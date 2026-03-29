@@ -132,7 +132,7 @@ export const featAgentArgs = {
   },
 };
 
-// Args for `run test` — re-test a stored run's patch (no agent/coding flags).
+// Args for `run test` — re-test a Run's patch (no agent/coding flags).
 export const runTestArgs = {
   'saifctl-dir': saifctlDirArg,
   'project-dir': projectDirArg,
@@ -181,7 +181,7 @@ export const runTestArgs = {
   },
 };
 
-// Shared body for feat run and `run start` (feature name is feat-run only; start-from-artifact uses the stored run).
+// Shared body for feat run and `run start` (feature name is feat-run only; start-from-artifact uses the Run).
 const featRunCoreArgs = {
   ...runTestArgs,
   ...featAgentArgs,
@@ -226,7 +226,7 @@ const featRunCoreArgs = {
   'agent-secret-file': {
     type: 'string' as const,
     description:
-      'Path(s) to .env file(s) with KEY=value secret pairs (same format as --agent-env-file; # comments allowed). Comma-separated paths; later overrides earlier. Paths are stored in the run artifact and re-read when starting from a stored run (values are not persisted in the artifact).',
+      'Path(s) to .env file(s) with KEY=value secret pairs (same format as --agent-env-file; # comments allowed). Comma-separated paths; later overrides earlier. Paths are stored in the run artifact and re-read when starting from a Run (values are not persisted in the artifact).',
   },
 };
 
@@ -236,7 +236,7 @@ export const featRunArgs = {
   ...featRunCoreArgs,
 };
 
-/** Same options as `feat run` except `--name` / `-n` (feature comes from the stored run only). */
+/** Same options as `feat run` except `--name` / `-n` (feature comes from the Run only). */
 export const featFromArtifactArgs = {
   ...featRunCoreArgs,
 };

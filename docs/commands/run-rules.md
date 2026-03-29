@@ -152,7 +152,7 @@ saifctl run rules rm abc12x a1b2c3
 
 ## Notes
 
-- If you set `--storage none` / `runs=none`, the CLI errors and exits non-zero (`Run storage is disabled (--storage none). Cannot start from a stored run.`).
+- If you set `--storage none` / `runs=none`, the CLI errors and exits non-zero (`Run storage is disabled (--storage none). Cannot start from a Run.`).
 
 - Concurrency - `saifctl` uses revision versions to handle concurrent writes. Mutating commands (`create`, `update`, `remove`) change the revision version. If another writer saved in between, you get a **stale revision** message — reload the run and retry.
 

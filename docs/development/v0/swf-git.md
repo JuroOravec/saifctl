@@ -241,7 +241,7 @@ The sandbox and the worktree are populated from different sources. This asymmetr
 
 - **Sandbox:** By default `createSandbox()` runs `git archive HEAD` (via `sh` + `tar`) so the agent sees only committed files; `host-base.patch` is empty. With **`--include-dirty`**, it **rsync**s the working tree (`-a --filter=:- .gitignore --exclude=.git`) so uncommitted and untracked paths are visible; `host-base.patch` captures the delta for host apply. To land those runs without merging a branch that bakes in untracked files, use **`saifctl run export`** and `git apply`. See [run-export.md](../../commands/run-export.md).
 
-- **Worktree:** For host apply, `git worktree add` creates the branch at **`baseCommitSha`** when set (stored run start), so the tree matches the sandbox’s git baseline even if the user has moved `HEAD` since. Untracked and uncommitted files from the main working tree are not present until **`host-base.patch`** is applied.
+- **Worktree:** For host apply, `git worktree add` creates the branch at **`baseCommitSha`** when set (Run start), so the tree matches the sandbox’s git baseline even if the user has moved `HEAD` since. Untracked and uncommitted files from the main working tree are not present until **`host-base.patch`** is applied.
 
 ### CLI options
 

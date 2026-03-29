@@ -2,10 +2,11 @@
 
 Step-by-step walkthroughs for using SaifCTL day to day. These complement the [command reference](../commands/README.md) and the pipeline overview in [Usage](../usage.md).
 
-<!-- 
-## Happy path (coming later)
+## Runs and shipping
 
-More guides can slot in here—for example: first feature end-to-end, reading run output, or opening a PR after a green run. Link them in order so new users can follow a path from init → design → run → ship. -->
+| Guide | Use it when… |
+| ----- | ------------ |
+| [Run lifecycle: feat run → pause → resume → test → apply](run-lifecycle.md) | You want a single cheatsheet of **Run** commands: start work, pause/resume, verify, apply. |
 
 ## When things go wrong
 

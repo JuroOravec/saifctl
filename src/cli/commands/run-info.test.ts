@@ -24,7 +24,7 @@ async function withTempProject(fn: (projectDir: string) => Promise<void>): Promi
   }
 }
 
-/** Minimal stored run JSON (matches LocalStorage layout). */
+/** Minimal Run JSON (matches LocalStorage layout). */
 async function writeRunJson(projectDir: string, runId: string): Promise<void> {
   const dir = join(projectDir, '.saifctl', 'runs');
   await mkdir(dir, { recursive: true });

@@ -89,7 +89,7 @@ index 0000000..cfad022
 
 - Patches that touch `.git/hooks/` are rejected (same guard as [`run apply`](run-apply.md) and host apply in the main loop).
 
-- If run storage is disabled (`--storage none` / `runs=none`), the CLI errors and exits non-zero (`Run storage is disabled (--storage none). Cannot export a stored run.`).
+- If run storage is disabled (`--storage none` / `runs=none`), the CLI errors and exits non-zero (`Run storage is disabled (--storage none). Cannot export a Run.`).
 
 - If the Run is missing `featureName`, the CLI uses `unknown` in the default filename.
 

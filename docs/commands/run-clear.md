@@ -1,10 +1,10 @@
 # saifctl run clear
 
-Clear (bulk delete) stored runs from run storage.
+Clear (bulk delete) Runs from run storage.
 
 Removes run artifacts for every run that matches the filter.
 
-**Without `--failed`**, all stored runs are deleted (any status). **With `--failed`**, only runs whose stored `status` is `failed` are removed; completed runs are kept.
+**Without `--failed`**, all Runs are deleted (any status). **With `--failed`**, only runs whose stored `status` is `failed` are removed; completed runs are kept.
 
 If run storage is disabled (e.g. `--storage none` or `runs=none`), the command prints `Run storage is disabled (--storage none).` and **returns with exit code 0** — it does not treat that as an error (same behavior as [`run list`](run-list.md)).
 
@@ -18,7 +18,7 @@ saifctl run clear [options]
 
 | Argument        | Alias | Type    | Description                                                                                      |
 | --------------- | ----- | ------- | ------------------------------------------------------------------------------------------------ |
-| `--failed`      | —     | boolean | Clear only runs with status `failed` (omit to clear **all** stored runs)                       |
+| `--failed`      | —     | boolean | Clear only runs with status `failed` (omit to clear **all** Runs)                       |
 | `--project-dir` | —     | string  | Project directory (default: current working directory)                                         |
 | `--saifctl-dir`  | —     | string  | Saifctl config directory relative to project (default: `saifctl`)                                  |
 | `--storage`     | —     | string  | Run storage: `local` / `none` / `runs=…` (see [Runs](../runs.md)); default is local under project |
@@ -27,7 +27,7 @@ saifctl run clear [options]
 
 ## Examples
 
-Clear all stored runs:
+Clear all Runs:
 
 ```bash
 saifctl run clear
@@ -65,5 +65,5 @@ If **N = 0**, there are no `removed` lines — only the summary.
 ## See also
 
 - [Runs](../runs.md) — Run storage, resumption, and overview
-- [`run list`](run-list.md) — List stored runs
+- [`run list`](run-list.md) — List Runs
 - [`run remove`](run-remove.md) — Delete a single run

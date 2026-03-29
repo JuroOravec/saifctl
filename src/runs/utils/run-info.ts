@@ -35,7 +35,7 @@ export type RunArtifactInfo = Omit<RunArtifact, 'basePatchDiff' | 'runCommits'> 
 };
 
 /**
- * Clone of the stored run suitable for terminal JSON: omits patch diffs and script bodies;
+ * Clone of the Run suitable for terminal JSON: omits patch diffs and script bodies;
  * keeps `*ScriptFile` / `testScriptFile` paths only.
  *
  * **`runCommits`** is replaced with **message + optional author** per entry (diffs omitted).

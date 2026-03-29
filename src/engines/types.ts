@@ -6,7 +6,6 @@
  *   2. startStaging() — build & boot the application under test (Container A) with sidecar
  *   3. runTests()     — run test runner (black-box tests) (Container B) and return results
  *   4. runAgent()     — spawn the AI coding agent container and return when it exits
- *   4b. startInspect() — idle coder container for `run inspect` (same mounts/network as runAgent)
  *   5. teardown()     — stop and remove all resources listed in {@link LiveInfra}
  *
  * DockerEngine is the concrete implementation for Docker (with optional Compose services).
@@ -288,28 +287,7 @@ export interface RunAgentOpts {
   };
 }
 
-/**
- * Options for {@link Engine.startInspect}.
- * Use the same `containerEnv` as the first coding round in `runIterativeLoop` / `run start`.
- */
-export interface StartInspectOpts {
-  codePath: string;
-  sandboxBasePath: string;
-  containerEnv: ContainerEnv;
-  coderImage: string;
-  dangerousNoLeash: boolean;
-  cedarPolicyPath: string;
-  saifctlPath: string;
-  reviewer: RunAgentOpts['reviewer'];
-  signal?: AbortSignal;
-  onAgentStdout: (chunk: string) => void;
-  onAgentStdoutEnd?: () => void;
-  onLog: EngineOnLog;
-  /** From {@link Engine.setup}; inspect container appended when the session starts. */
-  infra: LiveInfra;
-}
-
-/** Handle for an idle coding container started by {@link Engine.startInspect}. */
+/** Handle for an idle coding container started by {@link RunAgentOpts.inspectMode}. */
 export interface CoderInspectSessionHandle {
   /** Container name (Leash target / dangerous-no-leash docker run --name). */
   containerName: string;
@@ -399,14 +377,6 @@ export interface Engine {
    * and resolves when the process exits.
    */
   runAgent(opts: RunAgentOpts): Promise<RunAgentEngineResult>;
-
-  /**
-   * Idle coding container for `run inspect`: same image, mounts, network, and compose stack as
-   * {@link runAgent}, but the container runs `sleep infinity` (no agent loop).
-   *
-   * Requires {@link setup} first. Call {@link CoderInspectSessionHandle.stop}, then {@link teardown}.
-   */
-  startInspect(opts: StartInspectOpts): Promise<StartInspectResult>;
 
   /**
    * 5. Tear down all resources created during this run.

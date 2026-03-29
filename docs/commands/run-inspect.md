@@ -32,7 +32,7 @@ Inspect-specific notes:
 | Item | Behavior |
 | ---- | -------- |
 | **Positional `runId`** | Required. Identifies the saved run. Feature and task context come from that run. |
-| **`--name` / `-n`** | Not used; the feature comes from the stored run only. |
+| **`--name` / `-n`** | Not used; the feature comes from the Run only. |
 | **`--leash`** | Run the idle container **under Leash/Cedar** (same as the coding agent). Default is **off** so you can run `git commit` inside the container. |
 
 Other flags from `feat run` (models, agent profile, sandbox paths, images, `--verbose`, etc.) are accepted when they affect the coding environment.
@@ -71,7 +71,7 @@ saifctl run inspect eed5lz6 --leash
 
 - Run `inspect` from the **same git repository (and branch history)** as the original run, like [`run start`](run-start.md) and [`run test`](run-test.md). If the base commit is gone, you will get a clear error.
 
-- If run storage is disabled (`--storage none` / `runs=none`), the command exits with an error (`Run storage is disabled … Cannot inspect a stored run.`).
+- If run storage is disabled (`--storage none` / `runs=none`), the command exits with an error (`Run storage is disabled … Cannot inspect a Run.`).
 
 - Concurrency: When saving changes you made in the container, `saifctl` has protection from race conditions. If `saifctl` detects that the Run was modified in the meantime, it will write your steps to a fallback file **`.saifctl-inspect-stale-<runId>.json`** next to the project root instead of overwriting — check the CLI message for what to do next.
 

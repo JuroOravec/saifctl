@@ -149,7 +149,7 @@ export class StaleArtifactError extends Error {
   }
 }
 
-/** Thrown by {@link RunStorage.setStatusRunning} when the stored run already has status {@link RunStatus} `"running"`. */
+/** Thrown by {@link RunStorage.setStatusRunning} when the Run already has status {@link RunStatus} `"running"`. */
 export class RunAlreadyRunningError extends Error {
   override readonly name = 'RunAlreadyRunningError';
 

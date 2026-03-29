@@ -1,19 +1,19 @@
 #!/usr/bin/env tsx
 /**
- * Run CLI — manage stored runs and start again from artifacts.
+ * Run CLI — manage Runs and start again from artifacts.
  *
  * Usage: saifctl run <subcommand> [options]
- *   ls, list      List stored runs
+ *   ls, list      List Runs
  *   rm, remove    Delete a run
- *   info          Print stored run as JSON
- *   clear         Clear stored runs (optionally filtered)
- *   fork          Clone a stored run to a new ID
- *   start         Start again from a stored run (artifact)
- *   test          Re-test a stored run's patch (no coding agent)
+ *   info          Print Run as JSON
+ *   clear         Clear Runs (optionally filtered)
+ *   fork          Clone a Run to a new ID
+ *   start         Start again from a Run (artifact)
+ *   test          Re-test a Run's patch (no coding agent)
  *   apply         Create git branch with run's changes and optional push/PR
  *   export        Export run's changes as a single diff
- *   inspect       Open an idle coding container for a stored run
- *   rules         Manage user feedback rules on a stored run (create, list, get, update, remove)
+ *   inspect       Open an idle coding container for a Run
+ *   rules         Manage user feedback rules on a Run (create, list, get, update, remove)
  *   pause         Pause a run. Resumable. Stops containers but does not delete them. Waits until paused or --timeout
  *   resume        Resume a paused run: reuse cached state if still present; otherwise continue like run start
  *   stop          Stop a running or paused run (full teardown). Waits up to --timeout for orchestrator to finish.
@@ -111,7 +111,7 @@ function parseRunPauseStopTimeoutSec(args: { timeout?: string }): number {
 const lsCommand = defineCommand({
   meta: {
     name: 'ls',
-    description: 'List stored runs',
+    description: 'List Runs',
   },
   args: {
     ...commonRunArgs,
@@ -146,7 +146,7 @@ const lsCommand = defineCommand({
       return a.runId.localeCompare(b.runId);
     });
     if (runs.length === 0) {
-      outputCliData('No stored runs found.');
+      outputCliData('No Runs found.');
       return;
     }
 
@@ -179,7 +179,7 @@ const lsCommand = defineCommand({
 const rmCommand = defineCommand({
   meta: {
     name: 'rm',
-    description: 'Delete a stored run',
+    description: 'Delete a Run',
   },
   args: {
     ...commonRunArgs,
@@ -222,7 +222,7 @@ const rmCommand = defineCommand({
 const infoCommand = defineCommand({
   meta: {
     name: 'info',
-    description: 'Print a stored run as JSON (omits diffs; script paths only)',
+    description: 'Print a Run as JSON (omits diffs; script paths only)',
   },
   args: {
     ...commonRunArgs,
@@ -263,7 +263,7 @@ const infoCommand = defineCommand({
 const clearCommand = defineCommand({
   meta: {
     name: 'clear',
-    description: 'Clear stored runs',
+    description: 'Clear Runs',
   },
   args: {
     ...commonRunArgs,
@@ -295,7 +295,7 @@ const inspectCommand = defineCommand({
   meta: {
     name: 'inspect',
     description:
-      'Open an idle coding container for a stored run. Changes made in the container are saved.',
+      'Open an idle coding container for a Run. Changes made in the container are saved.',
   },
   args: {
     ...commonRunArgs,
@@ -321,7 +321,7 @@ const inspectCommand = defineCommand({
       ctx.config,
     );
     if (!runStorage) {
-      consola.error('Run storage is disabled (--storage none). Cannot inspect a stored run.');
+      consola.error('Run storage is disabled (--storage none). Cannot inspect a Run.');
       process.exit(1);
     }
     const runId = parseRunId(args);
@@ -338,7 +338,7 @@ const inspectCommand = defineCommand({
 const forkCommand = defineCommand({
   meta: {
     name: 'fork',
-    description: 'Clone a stored run to a new run ID.',
+    description: 'Clone a Run to a new run ID.',
   },
   args: {
     ...commonRunArgs,
@@ -358,7 +358,7 @@ const forkCommand = defineCommand({
       ctx.config,
     );
     if (!runStorage) {
-      consola.error('Run storage is disabled (--storage none). Cannot fork a stored run.');
+      consola.error('Run storage is disabled (--storage none). Cannot fork a Run.');
       process.exit(1);
     }
     const sourceRunId = parseRunId(args);
@@ -413,7 +413,7 @@ const stopCommand = defineCommand({
     const config = await loadSaifctlConfig(saifctlDir, projectDir);
     const runStorage = resolveRunStorage(readStorageStringFromCli(args), projectDir, config);
     if (!runStorage) {
-      consola.error('Run storage is disabled (--storage none). Cannot stop a stored run.');
+      consola.error('Run storage is disabled (--storage none). Cannot stop a Run.');
       process.exit(1);
     }
     const runId = parseRunId(args);
@@ -454,7 +454,7 @@ const pauseCommand = defineCommand({
     const config = await loadSaifctlConfig(saifctlDir, projectDir);
     const runStorage = resolveRunStorage(readStorageStringFromCli(args), projectDir, config);
     if (!runStorage) {
-      consola.error('Run storage is disabled (--storage none). Cannot pause a stored run.');
+      consola.error('Run storage is disabled (--storage none). Cannot pause a Run.');
       process.exit(1);
     }
     const runId = parseRunId(args);
@@ -495,7 +495,7 @@ const resumeCommand = defineCommand({
       ctx.config,
     );
     if (!runStorage) {
-      consola.error('Run storage is disabled (--storage none). Cannot resume a stored run.');
+      consola.error('Run storage is disabled (--storage none). Cannot resume a Run.');
       process.exit(1);
     }
     const runId = parseRunId(args);
@@ -518,7 +518,7 @@ const resumeCommand = defineCommand({
 const startCommand = defineCommand({
   meta: {
     name: 'start',
-    description: 'Start again from a stored run (failed or interrupted)',
+    description: 'Start again from a Run (failed or interrupted)',
   },
   args: {
     ...commonRunArgs,
@@ -538,7 +538,7 @@ const startCommand = defineCommand({
       ctx.config,
     );
     if (!runStorage) {
-      consola.error('Run storage is disabled (--storage none). Cannot start from a stored run.');
+      consola.error('Run storage is disabled (--storage none). Cannot start from a Run.');
       process.exit(1);
     }
     const runId = parseRunId(args);
@@ -561,7 +561,7 @@ const startCommand = defineCommand({
 const testCommand = defineCommand({
   meta: {
     name: 'test',
-    description: "Re-test a stored run's patch (no coding agent). Optionally push/PR on success.",
+    description: "Re-test a Run's patch (no coding agent). Optionally push/PR on success.",
   },
   args: {
     ...runTestArgs,
@@ -581,7 +581,7 @@ const testCommand = defineCommand({
 
     const runStorage = resolveRunStorage(readStorageStringFromCli(runArgs), projectDir, config);
     if (!runStorage) {
-      consola.error('Run storage is disabled (--storage none). Cannot test a stored run.');
+      consola.error('Run storage is disabled (--storage none). Cannot test a Run.');
       process.exit(1);
     }
 
@@ -594,7 +594,7 @@ const testCommand = defineCommand({
     const cliModelDelta = parseModelOverridesCliDelta(runArgs);
     const engineCli = readEngineCliFromCli(runArgs);
 
-    consola.log(`\nRe-testing stored run: ${runId}`);
+    consola.log(`\nRe-testing Run: ${runId}`);
 
     const result = await runTestsFromRun({
       runId,
@@ -636,7 +636,7 @@ const applyCommand = defineCommand({
 
     const runStorage = resolveRunStorage(readStorageStringFromCli(runArgs), projectDir, config);
     if (!runStorage) {
-      consola.error('Run storage is disabled (--storage none). Cannot apply a stored run.');
+      consola.error('Run storage is disabled (--storage none). Cannot apply a Run.');
       process.exit(1);
     }
 
@@ -649,7 +649,7 @@ const applyCommand = defineCommand({
     const cliModelDelta = parseModelOverridesCliDelta(runArgs);
     const engineCli = readEngineCliFromCli(runArgs);
 
-    consola.log(`\nApplying stored run to host: ${runId}`);
+    consola.log(`\nApplying Run to host: ${runId}`);
 
     const result = await runApply({
       runId,
@@ -692,7 +692,7 @@ const exportCommand = defineCommand({
 
     const runStorage = resolveRunStorage(readStorageStringFromCli(args), projectDir, config);
     if (!runStorage) {
-      consola.error('Run storage is disabled (--storage none). Cannot export a stored run.');
+      consola.error('Run storage is disabled (--storage none). Cannot export a Run.');
       process.exit(1);
     }
 
@@ -717,7 +717,7 @@ const exportCommand = defineCommand({
 const runCommand = defineCommand({
   meta: {
     name: 'run',
-    description: 'Manage stored runs and start again from artifacts',
+    description: 'Manage Runs and start again from artifacts',
   },
   subCommands: {
     ls: lsCommand,

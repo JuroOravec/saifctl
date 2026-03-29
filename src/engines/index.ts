@@ -6,7 +6,6 @@
  *   startStaging() → build & boot the application under test
  *   runTests()     → run the black-box test suite and return results
  *   runAgent()     → spawn the AI coding agent
- *   startInspect() → idle coder container for `run inspect`
  *   teardown()     → stop and remove all resources
  *
  * Infra tracking:
@@ -18,7 +17,6 @@
  *   startStaging() → { stagingHandle, infra } (app container + images)
  *   runTests()     → { tests, infra } (test runner container removed before return)
  *   runAgent()     → { agent, infra }
- *   startInspect() → { session, infra }
  *   teardown({ runId, infra, projectDir }) → tear down exactly what `infra` lists
  *
  * Logging:

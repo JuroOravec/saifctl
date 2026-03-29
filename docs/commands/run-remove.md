@@ -1,6 +1,6 @@
 # saifctl run rm
 
-Delete a single stored run from run storage.
+Delete a single Run from run storage.
 
 **Alias:** `saifctl run remove` (same command).
 
@@ -48,9 +48,13 @@ Use custom storage location:
 saifctl run rm add-login-r1 --storage runs=file:///tmp/my-runs
 ```
 
+## Notes
+
+- Can't remove **`running` or `paused` Runs**. Stop them first with [`run stop`](run-stop.md).
+
 ## See also
 
 - [Runs](../runs.md) — Run storage, resumption, and overview
-- [`run list`](run-list.md) — List stored runs (get run IDs)
+- [`run list`](run-list.md) — List Runs (get run IDs)
 - [`run info`](run-info.md) — View a saved run (summary JSON)
 - [`run clear`](run-clear.md) — Bulk delete runs

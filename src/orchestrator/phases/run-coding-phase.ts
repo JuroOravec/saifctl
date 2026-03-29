@@ -13,6 +13,10 @@
  *   - **stop**  → `teardown()`, emit `CodingPhaseResult { outcome: 'stopped' }`
  *   - **normal exit** → `teardown()`, emit `CodingPhaseResult { outcome: 'completed' }`
  *
+ * On pause/stop after a mid-round abort, uncommitted/untracked work in `sandbox.codePath`
+ * is committed and returned as `commits` for the caller to merge into the run artifact
+ * (same semantics as a completed round).
+ *
  * The caller is responsible for persisting the paused `liveInfra` snapshot when
  * `outcome === 'paused'` and for routing the stopped/paused result upstream.
  */
@@ -30,29 +34,22 @@ import {
 } from '../../runs/rules.js';
 import type { RunStorage } from '../../runs/storage.js';
 import {
-  type InnerRoundSummary,
+  type RunCommit,
   SAIFCTL_PAUSE_ABORT_REASON,
   SAIFCTL_STOP_ABORT_REASON,
 } from '../../runs/types.js';
 import type { CleanupRegistry } from '../../utils/cleanup.js';
 import { appendUtf8 } from '../../utils/io.js';
 import type { IterativeLoopOpts, RunStorageContext } from '../loop.js';
-import type { Sandbox } from '../sandbox.js';
+import { extractIncrementalRoundPatch, type PatchExcludeRule, type Sandbox } from '../sandbox.js';
 import { runEngineAttempt } from './run-engine-attempt.js';
+import type { CodingPhaseResult } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
-export type CodingPhaseResult =
-  /** Agent ran to completion (success or failure — caller checks the patch). */
-  | { outcome: 'completed'; infra: LiveInfra; innerRounds: InnerRoundSummary[] }
-  /** User issued `saifctl run pause`; infra is frozen and must be persisted. */
-  | { outcome: 'paused'; liveInfra: LiveInfra | null }
-  /** User issued `saifctl run stop`; infra has been torn down. */
-  | { outcome: 'stopped' }
-  /** Inspect session completed; skip tests, git branch, and further loop iterations. */
-  | { outcome: 'inspected' };
+export type { CodingPhaseResult };
 
 export interface RunCodingPhaseOpts {
   sandbox: Sandbox;
@@ -98,6 +95,10 @@ export interface RunCodingPhaseOpts {
   onInfraReady?: (infra: LiveInfra) => Promise<void>;
   /** When set, abort the agent on Hatchet step cancellation. */
   signal?: AbortSignal;
+  /** `git rev-parse HEAD` at the start of this outer attempt — diff base for patch extraction. */
+  preRoundHeadSha: string;
+  /** Paths stripped from extracted patches (reward-hacking guardrails, etc.). */
+  patchExclude: PatchExcludeRule[];
 }
 
 // ---------------------------------------------------------------------------
@@ -115,6 +116,8 @@ export async function runCodingPhase(input: RunCodingPhaseOpts): Promise<CodingP
     registry,
     opts,
     onInfraReady,
+    preRoundHeadSha,
+    patchExclude,
   } = input;
 
   const runId = sandbox.runId;
@@ -179,14 +182,28 @@ export async function runCodingPhase(input: RunCodingPhaseOpts): Promise<CodingP
 
   const abortReason = controlAbort.signal.aborted ? (controlAbort.signal.reason as string) : null;
 
+  // Extract the commits that were made after the control signal was issued.
+  const commitsAfterControlAbort = async (): Promise<RunCommit[]> => {
+    const { commits } = await extractIncrementalRoundPatch(sandbox.codePath, {
+      preRoundHeadSha,
+      attempt,
+      exclude: patchExclude,
+    });
+    return commits;
+  };
+
   // User issued `saifctl run pause`; infra is frozen and must be persisted.
   if (abortReason === SAIFCTL_PAUSE_ABORT_REASON) {
-    return { outcome: 'paused', liveInfra: result.infra };
+    return {
+      outcome: 'paused',
+      liveInfra: result.infra,
+      commits: await commitsAfterControlAbort(),
+    };
   }
 
   // User issued `saifctl run stop`; infra has been torn down.
   if (abortReason === SAIFCTL_STOP_ABORT_REASON) {
-    return { outcome: 'stopped' };
+    return { outcome: 'stopped', commits: await commitsAfterControlAbort() };
   }
 
   // Inspect session completed — skip tests, git branch, and further iterations.
