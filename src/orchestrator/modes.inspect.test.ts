@@ -14,7 +14,7 @@ import { type RunStorage } from '../runs/storage.js';
 import { type RunArtifact, StaleArtifactError } from '../runs/types.js';
 import type { Feature } from '../specs/discover.js';
 import { resolveTestProfile } from '../test-profiles/index.js';
-import type { OrchestratorOpts } from './modes.js';
+import { type OrchestratorOpts, runInspect } from './modes.js';
 import type { OrchestratorCliInput } from './options.js';
 import type { Sandbox } from './sandbox.js';
 
@@ -307,11 +307,6 @@ describe('runInspect', () => {
     await rm(projectDir, { recursive: true, force: true });
   });
 
-  async function importRunInspect() {
-    const { runInspect } = await import('./modes.js');
-    return runInspect;
-  }
-
   async function finishWithSigint() {
     await new Promise<void>((resolve) => {
       setImmediate(() => {
@@ -342,7 +337,6 @@ describe('runInspect', () => {
   }
 
   it('throws when run storage is null', async () => {
-    const runInspect = await importRunInspect();
     await expect(
       runInspect({
         runId: 'x',
@@ -358,7 +352,6 @@ describe('runInspect', () => {
   });
 
   it('passes dangerousNoLeash false to startInspect when inspectLeash is true', async () => {
-    const runInspect = await importRunInspect();
     const storage = makeStorage();
     const p = runInspect({
       runId: baseArtifact.runId,
@@ -380,7 +373,6 @@ describe('runInspect', () => {
   });
 
   it('throws when run is not found', async () => {
-    const runInspect = await importRunInspect();
     const storage = makeStorage({ getRun: vi.fn().mockResolvedValue(null) });
     await expect(
       runInspect({
@@ -397,7 +389,6 @@ describe('runInspect', () => {
   });
 
   it('throws when stored run status is running', async () => {
-    const runInspect = await importRunInspect();
     const storage = makeStorage({
       getRun: vi.fn().mockResolvedValue({ ...baseArtifact, status: 'running' }),
     });
@@ -416,7 +407,6 @@ describe('runInspect', () => {
   });
 
   it('creates worktree and sandbox, then on SIGINT skips save when patch unchanged', async () => {
-    const runInspect = await importRunInspect();
     const storage = makeStorage();
     const p = runInspect({
       runId: baseArtifact.runId,
@@ -443,7 +433,6 @@ describe('runInspect', () => {
   });
 
   it('calls saveRun with ifRevisionEquals when patch changes', async () => {
-    const runInspect = await importRunInspect();
     const artifact = {
       ...baseArtifact,
       artifactRevision: 2,
@@ -487,7 +476,6 @@ describe('runInspect', () => {
   });
 
   it('writes fallback json file on StaleArtifactError', async () => {
-    const runInspect = await importRunInspect();
     const artifact = {
       ...baseArtifact,
       artifactRevision: 1,
@@ -534,7 +522,6 @@ describe('runInspect', () => {
   });
 
   it('rethrows non-stale save errors after cleanup', async () => {
-    const runInspect = await importRunInspect();
     const artifact = {
       ...baseArtifact,
       runCommits: [{ message: 'm', diff: 'a\n' }],

@@ -11,16 +11,10 @@
 import { mkdir, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
-import { resolveAgentProfile } from '../agent-profiles/index.js';
 import type { SaifctlConfig } from '../config/schema.js';
 import { createEngine } from '../engines/index.js';
 import { defaultEngineLog } from '../engines/logs.js';
-import {
-  type AssertionSuiteResult,
-  type CoderInspectSessionHandle,
-  type LiveInfra,
-  type TestsResult,
-} from '../engines/types.js';
+import { type AssertionSuiteResult, type LiveInfra, type TestsResult } from '../engines/types.js';
 import { parseJUnitXmlString } from '../engines/utils/test-parser.js';
 import { getHatchetClient } from '../hatchet/client.js';
 import { serializeOrchestratorOpts } from '../hatchet/utils/serialize-opts.js';
@@ -29,9 +23,9 @@ import {
   createFeatRunWorkflow,
   type FeatRunSerializedInput,
 } from '../hatchet/workflows/feat-run.workflow.js';
-import { type ModelOverrides, resolveAgentLlmConfig } from '../llm-config.js';
+import { type ModelOverrides } from '../llm-config.js';
 import { consola } from '../logger.js';
-import { cloneRunRules, rulesForPrompt } from '../runs/rules.js';
+import { cloneRunRules } from '../runs/rules.js';
 import { type RunStorage } from '../runs/storage.js';
 import {
   type OuterAttemptSummary,
@@ -46,11 +40,7 @@ import { resolveFeature } from '../specs/discover.js';
 import { CleanupRegistry } from '../utils/cleanup.js';
 import { git } from '../utils/git.js';
 import { pathExists, writeUtf8 } from '../utils/io.js';
-import { buildCoderContainerEnv } from './agent-env.js';
-import { buildTaskPrompt } from './agent-task.js';
-import { createAgentStdoutPipe, createDefaultAgentLog } from './logs.js';
 import {
-  buildInitialTask,
   buildPatchExcludeRules,
   type IterativeLoopOpts,
   logIterativeLoopSettings,
@@ -74,7 +64,6 @@ import {
   type Sandbox,
   sandboxFromPausedBasePath,
 } from './sandbox.js';
-import { getArgusBinaryPath } from './sidecars/reviewer/argus.js';
 import {
   captureBaseGitState,
   cleanupArtifactRunWorktree,
@@ -1020,7 +1009,7 @@ export async function runStop(opts: {
     const rev = artifact.artifactRevision ?? 0;
     const t = new Date().toISOString();
 
-    // Mark as failed
+    // Mark as failed, clearing live infra (teardown already completed above)
     await runStorage.saveRun(
       runId,
       {
@@ -1028,6 +1017,7 @@ export async function runStop(opts: {
         status: 'failed',
         controlSignal: null,
         pausedSandboxBasePath: null,
+        liveInfra: null,
         updatedAt: t,
       },
       { ifRevisionEquals: rev },
@@ -1078,13 +1068,13 @@ export type InspectOpts = FromArtifactOpts & {
 };
 
 /**
- * Opens the same coding environment as the first round of `run start`, with an idle container
- * (`sleep infinity`). When the process is stopped, code changes from the container are extracted
- * and saved the same way as when we run the coding agent. Thus, allowing the user
- * to manually code the feature and save the changes to the run storage.
+ * Opens an idle coding container for a stored run.
  *
- * Not wrapped with the cleanup-registry decorator: SIGINT ends the wait and
- * runs a controlled teardown (save + destroy) instead of the global registry exit path.
+ * Reuses the full {@link fromArtifactCore} → {@link runStartCore} → `runIterativeLoop` path
+ * with `maxRuns: 1` and `runStorage: null`. The coding agent is replaced by an idle
+ * `sleep infinity` container via {@link RunAgentOpts#inspectMode}; the user interacts with
+ * the container directly. When Ctrl+C is pressed, code changes are extracted and saved back
+ * to the original run artifact.
  */
 export async function runInspect(opts: InspectOpts): Promise<void> {
   const {
@@ -1098,7 +1088,6 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
     inspectLeash,
     engineCli,
   } = opts;
-  const inspectDangerousNoLeash = inspectLeash !== true;
 
   if (!runStorage) {
     throw new Error('Run inspect requires run storage (do not use --storage with runs=none).');
@@ -1115,8 +1104,94 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
     );
   }
 
-  consola.log(`\n[orchestrator] MODE: inspect — ${artifact.config.featureName} (run ${runId})`);
+  // Resolve full orchestrator opts to check the engine type before entering the shared path.
+  const deserialized = deserializeArtifactConfig(artifact.config);
+  const feature = await resolveFeature({
+    input: deserialized.featureName,
+    projectDir,
+    saifctlDir: deserialized.saifctlDir,
+  });
 
+  const mergedOpts = await resolveOrchestratorOpts({
+    projectDir,
+    saifctlDir,
+    config,
+    feature,
+    cli,
+    cliModelDelta,
+    artifact,
+    engineCli,
+  });
+
+  if (mergedOpts.codingEnvironment.engine === 'local') {
+    throw new Error(
+      'Run inspect does not support coding engine "local" (host-based agent). ' +
+        'Use environments.coding with docker (or omit --engine local) for inspect.',
+    );
+  }
+
+  // Inspect runs plain docker by default so the user can `git commit` inside the container.
+  // --leash flag opts in to the Cedar-constrained Leash path.
+  mergedOpts.dangerousNoLeash = inspectLeash !== true;
+
+  // The loop must not write to run storage — inspect manages its own artifact save after
+  // the session ends (preserving the original status rather than writing 'completed'/'failed').
+  mergedOpts.runStorage = null;
+
+  // Single pass: the loop exits after one "coding attempt" (the idle inspect container).
+  mergedOpts.maxRuns = 1;
+
+  const expectedRevision = artifact.artifactRevision ?? 0;
+  const prevCommitsJson = JSON.stringify(artifact.runCommits);
+  const patchExclude = buildPatchExcludeRules(saifctlDir, mergedOpts.patchExclude);
+  let inspectSaveError: unknown;
+
+  // Commits extracted inside onReady (while the sandbox is still alive) for post-loop save.
+  let extractedCommits: RunCommit[] | null = null;
+
+  // Wire up inspectMode: replaces the coding agent with an idle container + user-signal wait.
+  mergedOpts.inspectMode = {
+    async onReady(session, ctx) {
+      // Snapshot HEAD before the user makes any changes — this is the diff base for patch extraction.
+      const preInspectHead = (await git({ cwd: ctx.codePath, args: ['rev-parse', 'HEAD'] })).trim();
+
+      consola.log(`\n[inspect] MODE: inspect — ${artifact.config.featureName} (run ${runId})`);
+      consola.log(`\n[inspect] Attach your editor with Dev Containers or \`docker exec -it\`:`);
+      consola.log(`  Container: \`${session.containerName}\``);
+      consola.log(`  Workspace: \`${session.workspacePath}\``);
+      consola.log('[inspect] Press Ctrl+C when done to save changes and clean up.\n');
+
+      await new Promise<void>((resolve) => {
+        const onExit = (sig: string) => {
+          consola.log(
+            `\n[inspect] ${sig} received — stopping session and cleaning up Docker (this may take a few seconds)...`,
+          );
+          // Suppress further SIGINT/SIGTERM so pnpm's signal forwarding can't kill the
+          // process while we're doing async cleanup (patch extraction, container stop, etc.).
+          const ignore = () => {};
+          process.on('SIGINT', ignore);
+          process.on('SIGTERM', ignore);
+          resolve();
+        };
+        process.once('SIGINT', () => onExit('SIGINT'));
+        process.once('SIGTERM', () => onExit('SIGTERM'));
+      });
+
+      // Extract patch NOW — while the sandbox (bind-mounted codePath) is still alive.
+      // session.stop() and sandbox destruction happen after onReady returns.
+      const { commits } = await extractIncrementalRoundPatch(ctx.codePath, {
+        preRoundHeadSha: preInspectHead,
+        attempt: 1,
+        message: 'saifctl: inspect session',
+        exclude: patchExclude,
+      });
+      extractedCommits = commits;
+    },
+  };
+
+  // ── Replicate fromArtifactCore preamble: worktree + fromArtifact context ──
+  // We cannot call fromArtifactCore directly because it calls resolveOrchestratorOpts internally
+  // and would overwrite the mergedOpts we already built (maxRuns, inspectMode, dangerousNoLeash).
   const { worktreePath, branchName, baseSnapshotPath } = await createArtifactRunWorktree({
     projectDir,
     runId,
@@ -1125,263 +1200,99 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
     runCommits: artifact.runCommits,
   });
 
-  const expectedRevision = artifact.artifactRevision ?? 0;
-  const prevCommitsJson = JSON.stringify(artifact.runCommits);
-  let inspectSaveError: unknown;
+  mergedOpts.fromArtifact = {
+    sandboxSourceDir: worktreePath,
+    baseSnapshotPath,
+    seedRunCommits: artifact.runCommits,
+    seedRoundSummaries: artifact.roundSummaries,
+    runContext: {
+      baseCommitSha: artifact.baseCommitSha,
+      basePatchDiff: artifact.basePatchDiff,
+      rules: cloneRunRules(artifact.rules),
+    },
+    initialErrorFeedback: artifact.lastFeedback,
+    persistedRunId: runId,
+    artifactRevisionWhenFromArtifact: artifact.artifactRevision ?? 0,
+    resumedCodingInfra: null,
+  };
+
+  // Use a bare CleanupRegistry (no SIGINT wiring — signal handling is done inside onReady).
+  // The registry still tracks engines for emergency teardown on unexpected throws.
+  const registry = new CleanupRegistry();
 
   try {
-    const deserialized = deserializeArtifactConfig(artifact.config);
-    const feature = await resolveFeature({
-      input: deserialized.featureName,
-      projectDir,
-      saifctlDir: deserialized.saifctlDir,
-    });
-
-    const mergedOpts = await resolveOrchestratorOpts({
-      projectDir,
-      saifctlDir,
-      config,
-      feature,
-      cli,
-      cliModelDelta,
-      artifact,
-      engineCli,
-    });
-
-    if (mergedOpts.codingEnvironment.engine === 'local') {
-      throw new Error(
-        'Run inspect does not support coding engine "local" (host-based agent). ' +
-          'Use environments.coding with docker (or omit --engine local) for inspect.',
-      );
+    await runStartCore(mergedOpts, registry);
+  } catch (err) {
+    // Only swallow errors that occurred after onReady ran (i.e. during teardown after the user
+    // pressed Ctrl+C). If onReady was never called, the error happened before the container was
+    // ready and must be re-thrown so the user sees it.
+    if (extractedCommits === null) {
+      throw err;
     }
-
-    mergedOpts.fromArtifact = {
-      sandboxSourceDir: worktreePath,
-      baseSnapshotPath,
-      seedRunCommits: artifact.runCommits,
-      runContext: {
-        baseCommitSha: artifact.baseCommitSha,
-        basePatchDiff: artifact.basePatchDiff,
-        rules: cloneRunRules(artifact.rules),
-      },
-      initialErrorFeedback: artifact.lastFeedback,
-      resumedCodingInfra: null,
-    };
-
-    const sandboxSourceDir = getSandboxSourceDir(mergedOpts);
-    const sandbox = await createSandbox({
-      feature,
-      projectDir: sandboxSourceDir,
-      codeSourceDir: mergedOpts.fromArtifact?.baseSnapshotPath ?? sandboxSourceDir,
-      saifctlDir,
-      projectName: mergedOpts.projectName,
-      sandboxBaseDir: mergedOpts.sandboxBaseDir,
-      gateScript: mergedOpts.gateScript,
-      startupScript: mergedOpts.startupScript,
-      agentInstallScript: mergedOpts.agentInstallScript,
-      agentScript: mergedOpts.agentScript,
-      stageScript: mergedOpts.stageScript,
-      verbose: mergedOpts.verbose,
-      runCommits: mergedOpts.fromArtifact?.seedRunCommits ?? [],
-      includeDirty: mergedOpts.includeDirty,
-    });
-
-    logIterativeLoopSettings(mergedOpts, { runId });
-
-    const preInspectHead = (
-      await git({ cwd: sandbox.codePath, args: ['rev-parse', 'HEAD'] })
-    ).trim();
-
-    const patchExclude = buildPatchExcludeRules(saifctlDir, mergedOpts.patchExclude);
-
-    const runContext = mergedOpts.fromArtifact.runContext;
-    const inspectRunId = `${sandbox.runId}-inspect`;
-    const codingEngine = createEngine(mergedOpts.codingEnvironment);
-
-    const task = await buildInitialTask({
-      feature,
-      saifctlDir,
-      rules: rulesForPrompt(runContext.rules),
-    });
-    const errorFeedback = artifact.lastFeedback ?? '';
-
-    const coderLlmConfig = resolveAgentLlmConfig('coder', mergedOpts.overrides);
-    const reviewer = mergedOpts.reviewerEnabled
-      ? {
-          llmConfig: resolveAgentLlmConfig('reviewer', mergedOpts.overrides),
-          argusBinaryPath: await getArgusBinaryPath(),
-        }
-      : null;
-
-    // Full task text: feature spec + rules + prior feedback (same shape as the coding agent).
-    const taskPrompt = await buildTaskPrompt({
-      codePath: sandbox.codePath,
-      task,
-      saifctlDir,
-      feature,
-      errorFeedback,
-    });
-
-    // Env vars and secrets passed into the inspect coder container.
-    const inspectContainerEnv = await buildCoderContainerEnv({
-      mode: { kind: 'container' },
-      llmConfig: coderLlmConfig,
-      reviewer: reviewer ? { llmConfig: reviewer.llmConfig } : null,
-      agentEnv: mergedOpts.agentEnv,
-      projectDir: mergedOpts.projectDir,
-      agentSecretKeys: mergedOpts.agentSecretKeys,
-      agentSecretFiles: mergedOpts.agentSecretFiles,
-      taskPrompt,
-      gateRetries: mergedOpts.gateRetries,
-      runId,
-    });
-
-    let inspectHandle: CoderInspectSessionHandle | null = null;
-
-    // Track latest live infra for engine.teardown() after the inspect session stops.
-    // Each operation may mutate the live infra shape. There is no CleanupRegistry here:
-    // SIGINT ends the wait and this finally path runs teardown explicitly.
-    let inspectTeardownInfra: LiveInfra | null = null;
-
-    try {
-      try {
-        // Provision network (and optional compose); Docker coding also includes
-        // the leash container for teardown.
-        const { infra: inspectSetupInfra } = await codingEngine.setup({
-          runId: inspectRunId,
-          projectName: mergedOpts.projectName,
-          featureName: feature.name,
-          projectDir: mergedOpts.projectDir,
-          sandboxBasePath: sandbox.sandboxBasePath,
-        });
-        inspectTeardownInfra = inspectSetupInfra;
-
-        // Stream inspect stdout/stderr according to profile (e.g. tee vs line-buffered logs).
-        const inspectAgentProfile = resolveAgentProfile(mergedOpts.agentProfileId);
-        const inspectLogStrategy = inspectAgentProfile.stdoutStrategy;
-        const { onAgentStdout, onAgentStdoutEnd } = createAgentStdoutPipe({
-          stdoutStrategy: inspectLogStrategy,
-          onAgentLog: createDefaultAgentLog({
-            linePrefix: 'inspect',
-            stdoutStrategy: inspectLogStrategy,
-          }),
-        });
-
-        // Idle coder container + workspace for manual editing; updates infra for teardown.
-        const { session, infra: afterInspect } = await codingEngine.startInspect({
-          codePath: sandbox.codePath,
-          sandboxBasePath: sandbox.sandboxBasePath,
-          containerEnv: inspectContainerEnv,
-          coderImage: mergedOpts.coderImage,
-          dangerousNoLeash: inspectDangerousNoLeash,
-          cedarPolicyPath: mergedOpts.cedarPolicyPath,
-          saifctlPath: sandbox.saifctlPath,
-          onAgentStdout,
-          onAgentStdoutEnd,
-          onLog: defaultEngineLog,
-          reviewer: reviewer ? { argusBinaryPath: reviewer.argusBinaryPath } : null,
-          infra: inspectSetupInfra,
-        });
-        inspectHandle = session;
-        inspectTeardownInfra = afterInspect;
-
-        consola.log(`\n[inspect] Attach your editor with Dev Containers or \`docker exec -it\`:`);
-        consola.log(`  Container: \`${inspectHandle.containerName}\``);
-        consola.log(`  Workspace: \`${inspectHandle.workspacePath}\``);
-        consola.log('[inspect] Press Ctrl+C when done to save changes and clean up.\n');
-
-        await new Promise<void>((resolve) => {
-          const onExit = (sig: string) => {
-            consola.log(
-              `\n[inspect] ${sig} received — stopping session and cleaning up Docker (this may take a few seconds)...`,
-            );
-            resolve();
-          };
-          process.once('SIGINT', () => onExit('SIGINT'));
-          process.once('SIGTERM', () => onExit('SIGTERM'));
-        });
-      } finally {
-        const ignore = () => {};
-        process.on('SIGINT', ignore);
-        process.on('SIGTERM', ignore);
-        try {
-          if (inspectHandle) {
-            await inspectHandle.stop().catch((err: unknown) => {
-              consola.warn('[inspect] inspect session stop:', err);
-            });
-          }
-          // Teardown when we have an infra snapshot (null ⇒ failed setup ⇒ no-ops / warns).
-          await codingEngine
-            .teardown({
-              runId: inspectRunId,
-              infra: inspectTeardownInfra,
-              projectDir: mergedOpts.projectDir,
-            })
-            .catch((err: unknown) => {
-              consola.warn('[inspect] engine teardown:', err);
-            });
-
-          // Extract any changes made in the container
-          const { commits: inspectCommits } = await extractIncrementalRoundPatch(sandbox.codePath, {
-            preRoundHeadSha: preInspectHead,
-            attempt: 1,
-            message: 'saifctl: inspect session',
-            exclude: patchExclude,
-          });
-          const nextCommits =
-            inspectCommits.length > 0
-              ? [...artifact.runCommits, ...inspectCommits]
-              : artifact.runCommits;
-          const nextJson = JSON.stringify(nextCommits);
-          if (nextJson !== prevCommitsJson) {
-            const { runStorage: _rs, fromArtifact: _fa, ...artifactLoopOpts } = mergedOpts;
-            const newArtifact = buildRunArtifact({
-              runId,
-              baseCommitSha: runContext.baseCommitSha,
-              basePatchDiff: runContext.basePatchDiff,
-              runCommits: nextCommits,
-              specRef: feature.relativePath,
-              lastFeedback: artifact.lastFeedback,
-              rules: runContext.rules,
-              roundSummaries: artifact.roundSummaries,
-              status: artifact.status,
-              controlSignal: artifact.controlSignal,
-              pausedSandboxBasePath: artifact.pausedSandboxBasePath,
-              opts: artifactLoopOpts as BuildRunArtifactOpts,
-              liveInfra: artifact.liveInfra ?? null,
-            });
-            try {
-              await runStorage.saveRun(runId, newArtifact, {
-                ifRevisionEquals: expectedRevision,
-              });
-              consola.log('[inspect] Saved updated run commits to storage.');
-            } catch (e) {
-              if (e instanceof StaleArtifactError) {
-                consola.warn(`[inspect] ${e.message}`);
-                const fallback = join(projectDir, `.saifctl-inspect-stale-${runId}.json`);
-                await writeUtf8(fallback, nextJson);
-                consola.warn(
-                  `[inspect] Wrote working tree commits to ${fallback} — merge manually after reloading the run.`,
-                );
-              } else {
-                inspectSaveError = e;
-              }
-            }
-          } else {
-            consola.log('[inspect] No patch changes; skipping save.');
-          }
-        } finally {
-          process.removeListener('SIGINT', ignore);
-          process.removeListener('SIGTERM', ignore);
-        }
-      }
-    } finally {
-      await destroySandbox(sandbox.sandboxBasePath);
-    }
+    // Otherwise: teardown/abort error after a successful session — log and continue to save.
+    consola.warn('[inspect] Teardown error after session (non-fatal):', err);
   } finally {
     await cleanupArtifactRunWorktree({ worktreePath, projectDir, branchName }, () => {
       consola.warn(`[orchestrator] Could not clean up worktree at ${worktreePath}`);
     });
+  }
+
+  // ── Post-session: save extracted commits back to the original artifact ──
+
+  if (extractedCommits === null) {
+    // onReady was never called (e.g. container setup failed before it was ready).
+    return;
+  }
+
+  const inspectCommits: RunCommit[] = extractedCommits;
+
+  try {
+    const nextCommits =
+      inspectCommits.length > 0 ? [...artifact.runCommits, ...inspectCommits] : artifact.runCommits;
+    const nextJson = JSON.stringify(nextCommits);
+
+    if (nextJson !== prevCommitsJson) {
+      const {
+        runStorage: _rs,
+        fromArtifact: _fa,
+        inspectMode: _im,
+        ...artifactLoopOpts
+      } = mergedOpts;
+      const newArtifact = buildRunArtifact({
+        runId,
+        baseCommitSha: artifact.baseCommitSha,
+        basePatchDiff: artifact.basePatchDiff,
+        runCommits: nextCommits,
+        specRef: feature.relativePath,
+        lastFeedback: artifact.lastFeedback,
+        rules: cloneRunRules(artifact.rules),
+        roundSummaries: artifact.roundSummaries,
+        status: artifact.status,
+        controlSignal: artifact.controlSignal,
+        pausedSandboxBasePath: artifact.pausedSandboxBasePath,
+        opts: artifactLoopOpts as BuildRunArtifactOpts,
+        liveInfra: artifact.liveInfra ?? null,
+      });
+      try {
+        await runStorage.saveRun(runId, newArtifact, { ifRevisionEquals: expectedRevision });
+        consola.log('[inspect] Saved updated run commits to storage.');
+      } catch (e) {
+        if (e instanceof StaleArtifactError) {
+          consola.warn(`[inspect] ${(e as Error).message}`);
+          const fallback = join(projectDir, `.saifctl-inspect-stale-${runId}.json`);
+          await writeUtf8(fallback, nextJson);
+          consola.warn(
+            `[inspect] Wrote working tree commits to ${fallback} — merge manually after reloading the run.`,
+          );
+        } else {
+          inspectSaveError = e;
+        }
+      }
+    } else {
+      consola.log('[inspect] No patch changes; skipping save.');
+    }
+  } catch (e) {
+    inspectSaveError = e;
   }
 
   if (inspectSaveError) throw inspectSaveError;

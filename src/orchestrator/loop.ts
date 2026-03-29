@@ -21,6 +21,7 @@ import { defaultEngineLog } from '../engines/logs.js';
 import {
   type AssertionSuiteResult,
   type LiveInfra,
+  type RunAgentOpts,
   type RunTestsOpts,
   type TestsResult,
 } from '../engines/types.js';
@@ -37,8 +38,10 @@ import {
 import {
   type OuterAttemptSummary,
   type RunCommit,
+  type RunControlSignal,
   type RunLiveInfra,
   type RunRule,
+  type RunStatus,
   StaleArtifactError,
 } from '../runs/types.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from '../runs/utils/artifact.js';
@@ -306,6 +309,11 @@ export interface IterativeLoopOpts {
    * Used by `saifctl run test` (stored run re-verification).
    */
   testOnly?: boolean;
+  /**
+   * Internal: set by `runInspect` to run an idle container (`sleep infinity`) instead of the
+   * coding agent. Threaded through to {@link RunAgentOpts#inspectMode}.
+   */
+  inspectMode?: RunAgentOpts['inspectMode'];
 }
 
 /** Outcome of {@link runIterativeLoop} and other orchestrator entry points (distinct from stored {@link RunArtifact} status). */
@@ -343,6 +351,17 @@ export async function runStagingTestVerification(params: {
   testRunnerOpts: Awaited<ReturnType<typeof prepareTestRunnerOpts>>;
   /** Outer loop attempt index (1-based), used in test run IDs. */
   outerAttempt: number;
+  /**
+   * Called immediately after the staging engine is set up and the first {@link LiveInfra}
+   * snapshot is available. Allows the caller to persist the live resource list before
+   * `startStaging` / `runTests` runs, so a crash mid-test still has an accurate record.
+   */
+  onStagingInfraReady?: (infra: LiveInfra) => Promise<void>;
+  /**
+   * Called after staging teardown completes so the caller can clear the persisted
+   * staging infra (resources are gone). Only called when {@link onStagingInfraReady} is set.
+   */
+  onStagingTeardownComplete?: () => Promise<void>;
 }): Promise<StagingTestVerificationResult> {
   const {
     sandboxProfileId,
@@ -356,7 +375,14 @@ export async function runStagingTestVerification(params: {
     testRetries,
     stagingEnvironment,
   } = params.orchestratorOpts;
-  const { sandbox, registry, testRunnerOpts, outerAttempt } = params;
+  const {
+    sandbox,
+    registry,
+    testRunnerOpts,
+    outerAttempt,
+    onStagingInfraReady,
+    onStagingTeardownComplete,
+  } = params;
 
   let testAttempts = 0;
   let lastRunId = '';
@@ -395,6 +421,9 @@ export async function runStagingTestVerification(params: {
       projectDir,
     });
     stagingInfraRef = stAfterSetup;
+    if (onStagingInfraReady) {
+      await onStagingInfraReady(stAfterSetup);
+    }
 
     const result: TestsResult = await (async (): Promise<TestsResult> => {
       try {
@@ -435,6 +464,10 @@ export async function runStagingTestVerification(params: {
           infra: stagingInfraRef,
           projectDir,
         });
+        // Resources are gone — clear the persisted staging infra record.
+        if (onStagingTeardownComplete) {
+          await onStagingTeardownComplete();
+        }
       }
     })();
 
@@ -547,58 +580,85 @@ export async function runIterativeLoop(
     verbose,
     agentSecretKeys,
     agentSecretFiles,
+    fromArtifact,
+    patchExclude: optsPatchExclude,
+    inspectMode,
   } = opts;
 
   const runId = sandbox.runId;
+
+  //////////////////////////////////////////////////
+  // Globals
+  //////////////////////////////////////////////////
+
+  // TODO
+  // TODO - NOT GREAT! All this 'global' makes it hard to reason about the code.
+  //        It will be hard to decouple when moving to Hatchet workflow.
+  //        We'll need to take every loop, every file write, each 'global' variable,
+  //        and define Hatchet workflows around them
+  // TODO
+
+  /**
+   * After `run resume`: coding infra from the paused artifact. Consumed on the first coding round
+   * so we skip {@link Engine.setup} and preserve the existing Docker network / compose stack.
+   */
+  let resumedCodingInfra: LiveInfra | null = fromArtifact?.resumedCodingInfra ?? null;
 
   /** Accumulated run commits (seeded from stored run + each successful coding round). */
   let runCommitsAccum: RunCommit[] = [...(seedRunCommits ?? [])];
   let lastErrorFeedback = '';
   let roundSummaries: OuterAttemptSummary[] = [...(seedRoundSummaries ?? [])];
 
-  // Resolve the coder agent's LLM config once per loop.
-  const coderLlmConfig = resolveAgentLlmConfig('coder', overrides);
-  const codingIsLocal = codingEnvironment.engine === 'local';
-  const reviewer =
-    reviewerEnabled && !codingIsLocal
-      ? {
-          llmConfig: resolveAgentLlmConfig('reviewer', overrides),
-          argusBinaryPath: await getArgusBinaryPath(),
-        }
-      : null;
-  const patchExclude = buildPatchExcludeRules(saifDir, opts.patchExclude);
-  const agentProfile = resolveAgentProfile(agentProfileId);
+  let errorFeedback = initialErrorFeedback ?? '';
+  let attempts = 0;
+  let sandboxDestroyed = false;
 
-  const testRunnerOpts = await prepareTestRunnerOpts({
-    feature,
-    sandboxBasePath: sandbox.sandboxBasePath,
-    testScript,
-  });
+  let pauseSnapshotLiveInfra: RunLiveInfra | null = null;
+
+  //////////////////////////////////////////////////
+  // Helpers
+  //////////////////////////////////////////////////
+
+  // Strip loop-internal fields from opts once; the remainder is safe to persist.
+  const { registry: _reg, runStorage: _rs, runContext: _rc, fromArtifact: _fa, ...loopOpts } = opts;
 
   /**
-   * Persists the current running artifact (rules with `consumedAt`, commits, round summaries,
-   * last feedback). Used for incremental saves and immediately after marking once-rules consumed.
+   * Builds and saves a {@link RunArtifact} to storage with optimistic-locking revision tracking.
+   *
+   * Handles the boilerplate shared by all three save paths (running / paused / terminal):
+   * - constructs the artifact from current loop state merged with the caller-supplied overrides
+   * - saves with `ifRevisionEquals` when a revision is known
+   * - updates `runContext.expectedArtifactRevision` so the next save uses the new revision
+   * - swallows {@link StaleArtifactError} with a warning (another writer won the race; not fatal)
+   *
+   * @param overrides  Fields that differ between the three save paths (status, liveInfra, etc.)
+   * @param failureContext  Human-readable label used in the warning log when an unexpected error occurs.
    */
-  const saveRunningArtifact = async (failureContext: string) => {
+  const persistArtifact = async (
+    overrides: {
+      status: RunStatus;
+      controlSignal: RunControlSignal | null;
+      pausedSandboxBasePath: string | null;
+      liveInfra: RunLiveInfra | null;
+      lastFeedback?: string;
+    },
+    failureContext: string,
+  ): Promise<void> => {
     if (!runStorage || !runContext) return;
     try {
-      const {
-        registry: _reg,
-        runStorage: _rs,
-        runContext: _rc,
-        fromArtifact: _fromArtifact,
-        ...loopOpts
-      } = opts;
       const artifact = buildRunArtifact({
         runId,
         baseCommitSha: runContext.baseCommitSha,
         basePatchDiff: runContext.basePatchDiff,
         runCommits: runCommitsAccum,
         specRef: feature.relativePath,
-        lastFeedback: lastErrorFeedback || undefined,
+        lastFeedback: overrides.lastFeedback,
         rules: runContext.rules,
         roundSummaries,
-        status: 'running',
+        status: overrides.status,
+        controlSignal: overrides.controlSignal,
+        pausedSandboxBasePath: overrides.pausedSandboxBasePath,
+        liveInfra: overrides.liveInfra,
         opts: loopOpts as BuildRunArtifactOpts,
       });
       const expectedRev = runContext.expectedArtifactRevision;
@@ -617,53 +677,73 @@ export async function runIterativeLoop(
     }
   };
 
+  /**
+   * Incremental save during an active run.
+   *
+   * - `controlSignal` is re-read from storage so concurrent `saifctl run pause/stop` writes are
+   *   not overwritten (last-write-wins for control signals).
+   * - `liveInfra` is supplied by the caller (current in-flight snapshot) so crash recovery has
+   *   an accurate resource list even before the round completes and `pauseSnapshotLiveInfra` is set.
+   *   When omitted (calls outside a coding round) the stored value is preserved.
+   */
+  const saveRunningArtifact = async (
+    failureContext: string,
+    currentLiveInfra?: RunLiveInfra | null,
+  ) => {
+    if (!runStorage || !runContext) return;
+    const latest = await runStorage.getRun(runId);
+    await persistArtifact(
+      {
+        status: 'running',
+        controlSignal: latest?.controlSignal ?? null,
+        pausedSandboxBasePath: null,
+        liveInfra: currentLiveInfra !== undefined ? currentLiveInfra : (latest?.liveInfra ?? null),
+        lastFeedback: lastErrorFeedback || undefined,
+      },
+      failureContext,
+    );
+  };
+
   const saveRoundProgress = async () => saveRunningArtifact('round progress');
 
-  const cleanupAndSaveRun = async (input: { didSucceed: boolean }) => {
-    const { didSucceed } = input;
+  const savePausedArtifact = async () => {
+    await persistArtifact(
+      {
+        status: 'paused',
+        controlSignal: null,
+        pausedSandboxBasePath: sandbox.sandboxBasePath,
+        liveInfra: pauseSnapshotLiveInfra,
+        lastFeedback: lastErrorFeedback || undefined,
+      },
+      'paused run state',
+    );
+    consola.log(`[orchestrator] Run paused — resume with: saifctl run resume ${runId}`);
+    registry.clearEmergencySandboxPath();
+  };
+
+  const cleanupAndSaveRun = async (input: { status: OrchestratorOutcomeStatus }) => {
+    const { status } = input;
+    const didSucceed = status === 'success';
 
     // Always persist a run artifact when storage is enabled (completed or failed) so `run ls`
     // and downstream tooling see every run.
     if (runStorage && runContext) {
-      try {
-        const {
-          registry: _reg,
-          runStorage: _rs,
-          runContext: _rc,
-          fromArtifact: _fromArtifact,
-          ...loopOpts
-        } = opts;
-        const artifact = buildRunArtifact({
-          runId,
-          baseCommitSha: runContext.baseCommitSha,
-          basePatchDiff: runContext.basePatchDiff,
-          runCommits: runCommitsAccum,
-          specRef: feature.relativePath,
-          lastFeedback: didSucceed ? undefined : lastErrorFeedback || undefined,
-          rules: runContext.rules,
-          roundSummaries,
+      await persistArtifact(
+        {
           status: didSucceed ? 'completed' : 'failed',
-          opts: loopOpts as BuildRunArtifactOpts,
-        });
-        const expectedRev = runContext.expectedArtifactRevision;
-        await runStorage.saveRun(
-          runId,
-          artifact,
-          expectedRev !== undefined ? { ifRevisionEquals: expectedRev } : undefined,
+          controlSignal: null,
+          pausedSandboxBasePath: null,
+          liveInfra: null,
+          lastFeedback: didSucceed ? undefined : lastErrorFeedback || undefined,
+        },
+        'run state',
+      );
+      if (didSucceed) {
+        consola.log(`[orchestrator] Run artifact saved (completed). Run ID: ${runId}`);
+      } else {
+        consola.log(
+          `[orchestrator] Run artifact saved (failed). Start again with: saifctl run start ${runId}`,
         );
-        if (didSucceed) {
-          consola.log(`[orchestrator] Run artifact saved (completed). Run ID: ${runId}`);
-        } else {
-          consola.log(
-            `[orchestrator] Run artifact saved (failed). Start again with: saifctl run start ${runId}`,
-          );
-        }
-      } catch (err) {
-        if (err instanceof StaleArtifactError) {
-          consola.warn(`[orchestrator] ${err.message}`);
-        } else {
-          consola.warn('[orchestrator] Failed to save run state:', err);
-        }
       }
     }
     if (!sandboxDestroyed) {
@@ -674,21 +754,52 @@ export async function runIterativeLoop(
 
   // Wrapper for the main loop so we can derive didSucceed from returned value and cleanup on error.
   const withCleanup = async (fn: () => Promise<OrchestratorResult>) => {
-    let didSucceed = false;
+    let resultStatus: OrchestratorOutcomeStatus = 'failed';
     try {
       const result = await fn();
-      didSucceed = result.success;
+      resultStatus = result.status;
       return result;
     } finally {
-      await cleanupAndSaveRun({ didSucceed });
+      if (resultStatus === 'paused') {
+        await savePausedArtifact();
+      } else {
+        await cleanupAndSaveRun({ status: resultStatus });
+      }
     }
   };
 
-  let errorFeedback = initialErrorFeedback ?? '';
-  let attempts = 0;
-  let sandboxDestroyed = false;
+  /** Builds a stopped/paused {@link OrchestratorResult} for the current attempt count. */
+  const controlResult = (
+    status: OrchestratorOutcomeStatus,
+    message: string,
+  ): OrchestratorResult => ({
+    status,
+    attempts,
+    runId,
+    message,
+  });
+
+  //////////////////////////////////////////////////
+  // Main - Wrapped in cleanup logic
+  //////////////////////////////////////////////////
 
   return await withCleanup(async () => {
+    const testRunnerOpts = await prepareTestRunnerOpts({
+      feature,
+      sandboxBasePath: sandbox.sandboxBasePath,
+      testScript,
+    });
+
+    // Resolve the coder agent's LLM config once per loop.
+    const patchExclude = buildPatchExcludeRules(saifctlDir, optsPatchExclude);
+
+    //////////////////////////////////////////////////
+    // 'run test'
+    //
+    // TODO - We should use single Hatchet workflow, whether we call
+    //        'run test' or 'run start'.
+    //////////////////////////////////////////////////
+
     if (testOnly) {
       consola.log(
         '\n[orchestrator] test-only — skipping coding agent; verifying stored patch with staging tests.',
@@ -704,6 +815,12 @@ export async function runIterativeLoop(
         registry,
         testRunnerOpts,
         outerAttempt: 1,
+        onStagingInfraReady: async (infra) => {
+          await saveRunningArtifact('staging infra provisioned', { coding: null, staging: infra });
+        },
+        onStagingTeardownComplete: async () => {
+          await saveRunningArtifact('staging infra torn down', { coding: null, staging: null });
+        },
       });
 
       if (verifyOnly.kind === 'passed') {
@@ -762,34 +879,59 @@ export async function runIterativeLoop(
       };
     }
 
+    //////////////////////////////////////////////////
+    // Main Loop - 'run start'
+    //////////////////////////////////////////////////
+
     while (attempts < maxRuns) {
       attempts++;
       consola.log(`\n[orchestrator] ===== ATTEMPT ${attempts}/${maxRuns} (run ${runId}) =====`);
 
+      //////////////////////////////////////////////////
+      // Prep
+      //////////////////////////////////////////////////
+
       const attemptStartedAt = new Date().toISOString();
 
+      // Snapshot HEAD before this coding round: used as the diff base for
+      // `extractIncrementalRoundPatch` and as the reset target when staging tests fail
+      // (discard this attempt's work without losing earlier rounds or seeded commits).
       const preRoundHead = (
         await git({ cwd: sandbox.codePath, args: ['rev-parse', 'HEAD'] })
       ).trim();
 
-      // Part of real-time human feedback:
-      // Refresh the Run artifact on each attempt (outer loop), so that if new Run rules
-      // were created while tests ran on the previous attempt, we detect them and include them
-      // in the task prompt for next inner round.
+      // Part of real-time human feedback and 'run stop' / 'run pause' control signals.
+      // To detect if we received some actions from the user, we refresh the Run artifact
+      // on each attempt (outer loop). It stores info on pending control signals (pause / stop)
+      // or new Run rules that were created during the previous attempt.
+      let controlBeforeRound: 'pause' | 'stop' | null = null;
       if (runStorage && runContext) {
         const freshArtifact = await runStorage.getRun(runId);
         if (freshArtifact) {
+          // Check for control signals (pause / stop)
+          const a = freshArtifact.controlSignal?.action;
+          if (a === 'pause' || a === 'stop') {
+            controlBeforeRound = a;
+          }
+          // Check for new Run rules
           runContext.rules = reconcileRunRulesWithStorage({
             inMemory: runContext.rules,
             fromStorage: freshArtifact.rules ?? [],
           });
+          // Update the expected artifact revision
           if (freshArtifact.artifactRevision !== undefined) {
             runContext.expectedArtifactRevision = freshArtifact.artifactRevision;
           }
         }
       }
 
-      // Some rules are marked as "once" and should be consumed after the coding round.
+      // Act on control signals (pause / stop) from storage
+      if (controlBeforeRound === 'stop')
+        return controlResult('stopped', 'Run stopped by request (before coding round).');
+      if (controlBeforeRound === 'pause')
+        return controlResult('paused', 'Run paused by request (before coding round).');
+
+      // Some Run rules are marked as "once" and should be consumed after the coding round.
       // Thus these rules are included in the task prompt only on the first round.
       const onceIdsThisRound = runContext ? activeOnceRuleIds(runContext.rules) : [];
       const task = await buildInitialTask({
@@ -798,103 +940,63 @@ export async function runIterativeLoop(
         rules: runContext ? rulesForPrompt(runContext.rules) : [],
       });
 
-      // 1. Run agent (fresh context every iteration — Ralph Wiggum)
-      //    The coding engine sets up its network + compose services, runs the agent,
-      //    then tears itself down, regardless of outcome.
-      const codingRunId = `${sandbox.runId}-coding-${attempts}`;
-      const codingEngine = createEngine(codingEnvironment);
-      registry?.registerEngine(codingEngine, codingRunId);
+      //////////////////////////////////////////////////
+      // Run agent
+      //////////////////////////////////////////////////
 
-      let innerRounds: InnerRoundSummary[] = [];
-
-      // Part of real-time human feedback:
-      // Poll the saved Run artifact for new active rules and append them to the pending-rules file
-      // so we can include them in the task prompt for the next inner round.
-      const rulesWatcher = (() => {
-        if (!runStorage || !runContext) return null;
-        const rc = runContext;
-        const knownRuleIds = new Set(
-          runContext ? rulesForPrompt(runContext.rules).map((r) => r.id) : [],
-        );
-        const pendingFile = pendingRulesPath(sandbox.sandboxBasePath);
-        return startRulesWatcher({
-          runStorage,
-          runId,
-          knownRuleIds,
-          onNewRules: async (newRules) => {
-            await mkdir(dirname(pendingFile), { recursive: true });
-            await appendUtf8(pendingFile, formatRuleBlockForPending(newRules));
-            rc.rules = appendMissingRunRules({ inMemory: rc.rules, incoming: newRules });
-          },
-          onArtifactRevision: (rev) => {
-            rc.expectedArtifactRevision = rev;
-          },
-        });
-      })();
-
-      try {
-        await codingEngine.setup({
-          runId: codingRunId,
+      // Run agent (fresh context every iteration — Ralph Wiggum)
+      // The coding engine sets up its network + compose services, runs the coder agent,
+      // then tears itself down (or pauses) depending on control signals.
+      const codingResult = await runCodingPhase({
+        sandbox,
+        attempt: attempts,
+        errorFeedback,
+        task,
+        resumedCodingInfra,
+        storage: runStorage && runContext ? { runStorage, runContext } : null,
+        registry: registry ?? null,
+        onInfraReady: async (infra) => {
+          await saveRunningArtifact('coding infra provisioned', { coding: infra, staging: null });
+        },
+        opts: {
+          overrides,
+          projectDir,
           projectName,
-          featureName: feature.name,
-          projectDir,
-        });
-
-        await prepareRoundsStatsFile(sandbox.sandboxBasePath);
-        await preparePendingRulesFile(sandbox.sandboxBasePath);
-
-        const logStrategy = agentProfile.stdoutStrategy;
-        const { onAgentStdout, onAgentStdoutEnd } = createAgentStdoutPipe({
-          stdoutStrategy: logStrategy,
-          onAgentLog: createDefaultAgentLog({
-            linePrefix: 'agent',
-            stdoutStrategy: logStrategy,
-          }),
-        });
-
-        const taskPrompt = await buildTaskPrompt({
-          codePath: sandbox.codePath,
-          task,
-          saifDir,
           feature,
-          errorFeedback,
-        });
-
-        const containerEnv = await buildCoderContainerEnv({
-          mode: codingIsLocal
-            ? { kind: 'host', codePath: sandbox.codePath, saifctlPath: sandbox.saifctlPath }
-            : { kind: 'container' },
-          llmConfig: coderLlmConfig,
-          reviewer: reviewer ? { llmConfig: reviewer.llmConfig } : null,
-          agentEnv,
-          projectDir,
-          agentSecretKeys,
-          agentSecretFiles,
-          taskPrompt,
-          gateRetries,
-          runId,
-        });
-
-        await codingEngine.runAgent({
-          codePath: sandbox.codePath,
-          sandboxBasePath: sandbox.sandboxBasePath,
-          containerEnv,
           dangerousNoLeash,
           cedarPolicyPath,
           coderImage,
-          saifctlPath: sandbox.saifctlPath,
-          onAgentStdout,
-          onAgentStdoutEnd,
-          onLog: defaultEngineLog,
-          reviewer: reviewer ? { argusBinaryPath: reviewer.argusBinaryPath } : null,
-        });
+          gateRetries,
+          agentEnv,
+          agentSecretKeys,
+          agentSecretFiles,
+          agentProfileId,
+          reviewerEnabled,
+          codingEnvironment,
+          saifctlDir,
+          inspectMode,
+        },
+      });
 
-        innerRounds = await readInnerRounds(roundsStatsPath(sandbox.sandboxBasePath));
-      } finally {
-        rulesWatcher?.stop();
-        registry?.deregisterEngine(codingEngine);
-        await codingEngine.teardown({ runId: codingRunId });
+      // Consume resumed infra after the first round (setup was skipped; next round provisions fresh).
+      resumedCodingInfra = null;
+
+      // Act on control signals (pause / stop) received during the coding round.
+      if (codingResult.outcome === 'stopped')
+        return controlResult('stopped', 'Run stopped by request.');
+      if (codingResult.outcome === 'paused') {
+        pauseSnapshotLiveInfra = { coding: codingResult.liveInfra, staging: null };
+        return controlResult('paused', 'Run paused by request.');
       }
+      // Inspect session ended — skip tests, git branch creation, and further iterations.
+      if (codingResult.outcome === 'inspected')
+        return controlResult('stopped', 'Inspect session complete.');
+
+      //////////////////////////////////////////////////
+      // Run completed; extract patch
+      //////////////////////////////////////////////////
+
+      const { innerRounds } = codingResult;
 
       // Mark once rules as consumed if they were used this round, then persist so storage
       // stays authoritative before the next reconcile (start of next outer attempt).
@@ -903,7 +1005,8 @@ export async function runIterativeLoop(
         await saveRunningArtifact('consumed rules');
       }
 
-      // 2. Extract incremental patch(es) for this round (one RunCommit per sandbox commit + optional WIP).
+      // Extract incremental patch(es) for this round
+      // (one RunCommit per sandbox commit + optional WIP).
       const { patch: patchContent, commits: roundCommits } = await extractIncrementalRoundPatch(
         sandbox.codePath,
         {
@@ -981,16 +1084,31 @@ export async function runIterativeLoop(
         }
       }
 
-      // 3. Mutual Verification (with test retries for flaky environments)
+      //////////////////////////////////////////////////
+      // Run tests
+      //////////////////////////////////////////////////
+
+      // Mutual Verification (with test retries for flaky environments)
       const verify = await runStagingTestVerification({
         sandbox,
         orchestratorOpts: opts,
         registry,
         testRunnerOpts,
         outerAttempt: attempts,
+        onStagingInfraReady: async (infra) => {
+          // Coding infra is already torn down at this point; record only staging resources
+          // so crash recovery can clean up the live staging containers/network.
+          await saveRunningArtifact('staging infra provisioned', { coding: null, staging: infra });
+        },
+        onStagingTeardownComplete: async () => {
+          await saveRunningArtifact('staging infra torn down', { coding: null, staging: null });
+        },
       });
 
+      // Success path - apply patch to host as git branch (optionally open PR)
       if (verify.kind === 'passed') {
+        consola.log('\n[orchestrator] ✓ ALL TESTS PASSED — applying patch to host');
+
         roundSummaries = [
           ...roundSummaries,
           buildOuterAttemptSummary({
@@ -1004,8 +1122,6 @@ export async function runIterativeLoop(
         ];
         await saveRoundProgress();
 
-        // 4. Success path
-        consola.log('\n[orchestrator] ✓ ALL TESTS PASSED — applying patch to host');
         await applyPatchToHost({
           codePath: sandbox.codePath,
           projectDir,
@@ -1032,7 +1148,10 @@ export async function runIterativeLoop(
         };
       }
 
+      // Tests aborted - discard this attempt's work and reset to the pre-round HEAD
       if (verify.kind === 'aborted') {
+        consola.log(`\n[orchestrator] Tests aborted after ${attempts} attempt(s).`);
+
         roundSummaries = [
           ...roundSummaries,
           buildOuterAttemptSummary({
@@ -1046,7 +1165,6 @@ export async function runIterativeLoop(
         ];
         await saveRoundProgress();
 
-        consola.log(`\n[orchestrator] Tests aborted after ${attempts} attempt(s).`);
         if (roundCommitCount > 0) {
           runCommitsAccum = runCommitsAccum.slice(0, -roundCommitCount);
         }
@@ -1063,7 +1181,12 @@ export async function runIterativeLoop(
         };
       }
 
-      // Exhausted test retries — treat as genunine failure and send feedback to the agent.
+      //////////////////////////////////////////////////
+      // Exhausted test retries within one outer attempt.
+      //
+      // Treat as failure; send feedback to the agent.
+      //////////////////////////////////////////////////
+
       // NOTE: Never mention tests - That's why we return the "sanitizedHint" - it's
       //       AI summarisation of the error(s) that avoids talking about the specifics
       //       of what was assessed.
@@ -1110,15 +1233,13 @@ export async function runIterativeLoop(
       await gitClean({ cwd: sandbox.codePath });
     }
 
+    //////////////////////////////////////////////////
     // Max attempts reached
+    //////////////////////////////////////////////////
+
     consola.error(`\n[orchestrator] Max runs (${maxRuns}) reached without success.`);
 
-    return {
-      status: 'failed',
-      attempts,
-      runId,
-      message: `Failed after ${maxRuns} runs. Last error:\n${errorFeedback}`,
-    };
+    return controlResult('failed', `Failed after ${maxRuns} runs. Last error:\n${errorFeedback}`);
   });
 }
 

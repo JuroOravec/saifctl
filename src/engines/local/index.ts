@@ -70,6 +70,12 @@ export class LocalEngine implements Engine {
   }
 
   async runAgent(opts: RunAgentOpts): Promise<RunAgentEngineResult> {
+    if (opts.inspectMode) {
+      throw new Error(
+        '[engine] run inspect needs a container coding engine. Use --engine coding=docker (or omit --engine local) for inspect.',
+      );
+    }
+
     const {
       codePath,
       containerEnv,

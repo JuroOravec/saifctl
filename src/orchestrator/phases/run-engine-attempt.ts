@@ -1,0 +1,286 @@
+/**
+ * Shared engine-lifecycle atom for a single coding attempt.
+ *
+ * Covers the innermost unit that both the iterative loop ({@link runCodingPhase})
+ * and the Hatchet workflow step ({@link runAgentPhase}) need:
+ *
+ *   register → setup (or resume) → prepareStats → runAgent → readInnerRounds
+ *             └── finally: deregister → teardown (or pause, if caller requested it)
+ *
+ * Callers own everything outside this scope:
+ * - **`run-coding-phase`**: rules watcher, pause/stop routing, `CodingPhaseResult` union
+ * - **`run-agent-phase`**: patch extraction, `RunAgentPhaseOutput`
+ *
+ * The `onFinally` callback lets the caller intercept the finally block before
+ * deregister/teardown so it can do engine-specific work (e.g. `pauseInfra`)
+ * while the infra is still registered.
+ */
+
+import { resolveAgentProfile } from '../../agent-profiles/index.js';
+import { createEngine } from '../../engines/index.js';
+import { defaultEngineLog } from '../../engines/logs.js';
+import type { LiveInfra } from '../../engines/types.js';
+import { resolveAgentLlmConfig } from '../../llm-config.js';
+import { preparePendingRulesFile } from '../../runs/rules.js';
+import type { InnerRoundSummary } from '../../runs/types.js';
+import type { CleanupRegistry } from '../../utils/cleanup.js';
+import { buildCoderContainerEnv } from '../agent-env.js';
+import { buildTaskPrompt } from '../agent-task.js';
+import { createAgentStdoutPipe, createDefaultAgentLog } from '../logs.js';
+import type { IterativeLoopOpts } from '../loop.js';
+import type { Sandbox } from '../sandbox.js';
+import { getArgusBinaryPath } from '../sidecars/reviewer/argus.js';
+import { prepareRoundsStatsFile, readInnerRounds, roundsStatsPath } from '../stats.js';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface RunEngineAttemptOpts {
+  sandbox: Sandbox;
+  /** Which outer attempt this is (1-indexed). Used for the engine label. */
+  attempt: number;
+  /** Error feedback from the previous test run (empty string on first attempt). */
+  errorFeedback: string;
+  /** Initial task string (built once per loop from plan.md + specification.md). */
+  task: string;
+  /**
+   * On `run resume`: coding {@link LiveInfra} from the paused artifact.
+   * When set, `Engine.setup()` is skipped so the existing Docker network / compose stack
+   * is reused instead of being recreated.
+   */
+  resumedCodingInfra: LiveInfra | null;
+  registry: CleanupRegistry | null;
+  /**
+   * Called immediately after the engine is set up (or resumed) and the first `LiveInfra`
+   * snapshot is available. Allows the caller to persist the live resource list before
+   * `runAgent` starts, so a crash mid-round still has an accurate record for cleanup.
+   */
+  onInfraReady?: (infra: LiveInfra) => Promise<void>;
+  /**
+   * Called inside the `finally` block, before deregister and teardown.
+   * Receives the latest infra snapshot and the abort signal.
+   * The callback decides whether to `pauseInfra` or let the default teardown proceed;
+   * it returns `'pause' | 'teardown'` to tell the atom which path to take.
+   */
+  onFinally: (opts: {
+    infra: LiveInfra | null;
+    abortSignal: AbortSignal;
+  }) => Promise<'pause' | 'teardown'>;
+  /** Abort signal from the caller (Hatchet cancellation or `controlAbort` from the loop). */
+  signal: AbortSignal | null;
+  opts: Pick<
+    IterativeLoopOpts,
+    | 'overrides'
+    | 'projectDir'
+    | 'projectName'
+    | 'feature'
+    | 'dangerousNoLeash'
+    | 'cedarPolicyPath'
+    | 'coderImage'
+    | 'gateRetries'
+    | 'agentEnv'
+    | 'agentSecretKeys'
+    | 'agentSecretFiles'
+    | 'agentProfileId'
+    | 'reviewerEnabled'
+    | 'codingEnvironment'
+    | 'saifctlDir'
+    | 'inspectMode'
+  >;
+  /** When true, also prepare the pending-rules file (iterative loop path only). */
+  preparePendingRules: boolean;
+}
+
+export interface RunEngineAttemptResult {
+  /** Final infra snapshot after `runAgent` (or null if setup failed). */
+  infra: LiveInfra | null;
+  innerRounds: InnerRoundSummary[];
+  /**
+   * Whether the finally block ran `pauseInfra` (true) or `teardown` (false).
+   * Lets the caller know whether infra is frozen and needs to be persisted.
+   */
+  didPause: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Implementation
+// ---------------------------------------------------------------------------
+
+export async function runEngineAttempt(
+  input: RunEngineAttemptOpts,
+): Promise<RunEngineAttemptResult> {
+  const {
+    sandbox,
+    attempt,
+    errorFeedback,
+    task,
+    resumedCodingInfra: initialResumedInfra,
+    registry,
+    signal,
+    opts,
+    preparePendingRules,
+    onInfraReady,
+    onFinally,
+  } = input;
+
+  const {
+    overrides,
+    projectDir,
+    projectName,
+    feature,
+    dangerousNoLeash,
+    cedarPolicyPath,
+    coderImage,
+    gateRetries,
+    agentEnv,
+    agentProfileId,
+    reviewerEnabled,
+    codingEnvironment,
+    saifctlDir,
+    agentSecretKeys,
+    agentSecretFiles,
+    inspectMode,
+  } = opts;
+
+  const runId = sandbox.runId;
+  const codingLabel = `${runId}-coding-${attempt}`;
+  const codingEngine = createEngine(codingEnvironment);
+  const codingIsLocal = codingEnvironment.engine === 'local';
+
+  const agentProfile = resolveAgentProfile(agentProfileId);
+  const coderLlmConfig = resolveAgentLlmConfig('coder', overrides);
+  const reviewer = reviewerEnabled
+    ? {
+        llmConfig: resolveAgentLlmConfig('reviewer', overrides),
+        argusBinaryPath: await getArgusBinaryPath(),
+      }
+    : null;
+
+  // Track latest live infra: SIGINT cleanup and teardown() need the same snapshot.
+  // Each operation like Engine.setup() may mutate the live infra shape.
+  let codingInfraRef: LiveInfra | null = null;
+
+  // Register before setup so an early signal still sees infra once setup()
+  // has assigned codingInfraRef.
+  registry?.registerEngine({
+    engine: codingEngine,
+    runId,
+    label: codingLabel,
+    projectDir,
+    getInfra: () => codingInfraRef,
+  });
+
+  let innerRounds: InnerRoundSummary[] = [];
+  let didPause = false;
+
+  try {
+    let afterCodingSetup: LiveInfra;
+    if (initialResumedInfra) {
+      // Resume path: infra already matches the paused network/compose; setup() would recreate
+      // the bridge and break the stopped coder container still attached to the old network.
+      afterCodingSetup = initialResumedInfra;
+    } else {
+      // Provision network (and optional compose); Docker coding also includes
+      // the leash container for teardown.
+      const { infra } = await codingEngine.setup({
+        runId,
+        projectName,
+        featureName: feature.name,
+        projectDir,
+        sandboxBasePath: sandbox.sandboxBasePath,
+      });
+      afterCodingSetup = infra;
+    }
+    codingInfraRef = afterCodingSetup;
+    if (onInfraReady) {
+      await onInfraReady(afterCodingSetup);
+    }
+
+    // Per-round stats file for inner gate rounds (read later by the outer loop).
+    await prepareRoundsStatsFile(sandbox.sandboxBasePath);
+    if (preparePendingRules) {
+      // Pending-rules file for human-in-the-loop rule updates mid-round.
+      await preparePendingRulesFile(sandbox.sandboxBasePath);
+    }
+
+    // Stream agent stdout/stderr according to profile (e.g. tee vs line-buffered logs).
+    const logStrategy = agentProfile.stdoutStrategy;
+    const { onAgentStdout, onAgentStdoutEnd } = createAgentStdoutPipe({
+      stdoutStrategy: logStrategy,
+      onAgentLog: createDefaultAgentLog({
+        linePrefix: 'agent',
+        stdoutStrategy: logStrategy,
+      }),
+    });
+
+    // Full task text: feature spec + rules + prior test feedback for this outer attempt.
+    const taskPrompt = await buildTaskPrompt({
+      codePath: sandbox.codePath,
+      task,
+      saifctlDir,
+      feature,
+      errorFeedback,
+    });
+
+    // Env vars and secrets passed into the coder container (or host process when engine is local).
+    const containerEnv = await buildCoderContainerEnv({
+      mode: codingIsLocal
+        ? { kind: 'host', codePath: sandbox.codePath, saifctlPath: sandbox.saifctlPath }
+        : { kind: 'container' },
+      llmConfig: coderLlmConfig,
+      reviewer: reviewer ? { llmConfig: reviewer.llmConfig } : null,
+      agentEnv,
+      projectDir,
+      agentSecretKeys,
+      agentSecretFiles,
+      taskPrompt,
+      gateRetries,
+      runId,
+    });
+
+    // Run coding agent container (Leash / local) until exit or abort.
+    // When inspectMode is set, runAgent starts an idle container instead and calls onReady.
+    const { infra: afterAgent } = await codingEngine.runAgent({
+      codePath: sandbox.codePath,
+      sandboxBasePath: sandbox.sandboxBasePath,
+      containerEnv,
+      dangerousNoLeash,
+      cedarPolicyPath,
+      coderImage,
+      saifctlPath: sandbox.saifctlPath,
+      onAgentStdout,
+      onAgentStdoutEnd,
+      onLog: defaultEngineLog,
+      reviewer: reviewer ? { argusBinaryPath: reviewer.argusBinaryPath } : null,
+      signal,
+      runId,
+      infra: afterCodingSetup,
+      inspectMode,
+    });
+    codingInfraRef = afterAgent;
+
+    innerRounds = await readInnerRounds(roundsStatsPath(sandbox.sandboxBasePath));
+  } finally {
+    // Deregister first so global signal cleanup does not double-tear-down; then pause or
+    // teardown using the latest infra snapshot (null ⇒ failed setup ⇒ teardown no-ops / warns).
+    registry?.deregisterEngine(codingEngine);
+
+    const action = await onFinally({
+      infra: codingInfraRef,
+      abortSignal: signal ?? new AbortController().signal,
+    });
+
+    if (action === 'pause' && codingInfraRef) {
+      await codingEngine.pauseInfra({
+        sandboxBasePath: sandbox.sandboxBasePath,
+        infra: codingInfraRef,
+      });
+      didPause = true;
+    } else {
+      await codingEngine.teardown({ runId, infra: codingInfraRef, projectDir });
+    }
+  }
+
+  return { infra: codingInfraRef, innerRounds, didPause };
+}

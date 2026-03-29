@@ -272,6 +272,20 @@ export interface RunAgentOpts {
   runId: string;
   /** From {@link Engine.setup} (and any prior steps); coder container name appended on fresh run. */
   infra: LiveInfra;
+  /**
+   * When set, run the container in idle mode (`sleep infinity`) instead of the agent script.
+   *
+   * The engine starts the container, waits until it is ready, then calls `onReady` with the
+   * session handle and the sandbox code path. `onReady` is expected to block (e.g. await a user
+   * signal) and call `session.stop()` before returning. `runAgent` then returns a synthetic
+   * success result.
+   *
+   * Used by `run inspect` so the full engine lifecycle (setup / LLM config / container env /
+   * teardown) is reused without executing the coding agent.
+   */
+  inspectMode?: {
+    onReady: (session: CoderInspectSessionHandle, ctx: { codePath: string }) => Promise<void>;
+  };
 }
 
 /**
