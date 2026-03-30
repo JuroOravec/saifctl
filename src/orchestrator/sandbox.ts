@@ -7,6 +7,7 @@
  *
  * Directory structure produced:
  *   {sandboxBaseDir}/{proj}-{feat}-{runId}/
+ *     policy.cedar           ← Cedar policy for Leash; same dir as gate.sh (host path passed as --policy)
  *     gate.sh                ← user-supplied or default gate script; mounted :ro at /saifctl/gate.sh
  *     code/                  ← copy of repo (git archive HEAD or rsync); workspace for the AI agent
  *                              for staging container (Container A) during tests
@@ -26,7 +27,7 @@ import { join } from 'node:path';
 
 import { minimatch } from 'minimatch';
 
-import { getSaifctlRoot } from '../constants.js';
+import { getSaifctlRoot, SANDBOX_CEDAR_POLICY_BASENAME } from '../constants.js';
 import type { TestCatalog } from '../design-tests/schema.js';
 import { consola } from '../logger.js';
 import type { RunCommit } from '../runs/types.js';
@@ -183,6 +184,10 @@ export interface CreateSandboxOpts {
    */
   stageScript: string;
   /**
+   * Cedar policy text persisted with the run and written to `saifctl/{@link SANDBOX_CEDAR_POLICY_BASENAME}`.
+   */
+  cedarScript: string;
+  /**
    * When true, `git commit` omits `-q` so per-file summaries are printed.
    * When false/omitted, commits use `-q` for quieter output.
    */
@@ -301,6 +306,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
     agentInstallScript,
     agentScript,
     stageScript,
+    cedarScript,
     verbose,
     runCommits = [],
     includeDirty,
@@ -318,6 +324,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   const agentInstallPath = join(saifctlPath, 'agent-install.sh');
   const agentPath = join(saifctlPath, 'agent.sh');
   const stagePath = join(saifctlPath, 'stage.sh');
+  const cedarPolicyPath = join(saifctlPath, SANDBOX_CEDAR_POLICY_BASENAME);
   const hostBasePatchPath = join(sandboxBasePath, 'host-base.patch');
 
   if (await pathExists(sandboxBasePath)) {
@@ -496,6 +503,9 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   await writeUtf8(stagePath, stageScript);
   await chmod(stagePath, 0o755);
   consola.log(`[sandbox] Stage script written to ${stagePath}`);
+
+  await writeUtf8(cedarPolicyPath, cedarScript);
+  consola.log(`[sandbox] Cedar policy written to ${cedarPolicyPath}`);
 
   for (const name of ['coder-start.sh', 'staging-start.sh', 'reviewer.sh'] as const) {
     const dest = join(saifctlPath, name);

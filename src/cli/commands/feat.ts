@@ -21,6 +21,7 @@ import { defineCommand, runMain } from 'citty';
 
 import { loadSaifctlConfig } from '../../config/load.js';
 import { type SaifctlConfig } from '../../config/schema.js';
+import { defaultCedarPolicyPath } from '../../constants.js';
 import { runDiscovery } from '../../design-discovery/run.js';
 import { runDesignTests } from '../../design-tests/design.js';
 import { generateTests } from '../../design-tests/write.js';
@@ -604,6 +605,9 @@ async function _runDesignFail2pass(opts: {
   const { agentInstallScript, agentScript } = agentR;
   const testScript = testR.testScript;
 
+  const cedarPolicyPath = config?.defaults?.cedarPolicyPath ?? defaultCedarPolicyPath();
+  const cedarScript = await readUtf8(cedarPolicyPath);
+
   const stagingEnvironment = resolveStagingEnvironment(config);
   const includeDirty =
     args['include-dirty'] === true ? true : (config?.defaults?.includeDirty ?? false);
@@ -624,6 +628,7 @@ async function _runDesignFail2pass(opts: {
     stageScript,
     testScript,
     startupScript,
+    cedarScript,
     includeDirty,
   });
 

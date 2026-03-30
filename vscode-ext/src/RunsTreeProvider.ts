@@ -12,19 +12,15 @@ import * as vscode from 'vscode';
 import { type SaifctlCliService } from './cliService';
 import { discoverSaifctlProjects } from './projectDiscovery';
 
-/** Config keys omitted from the tree (large script bodies, file path mirrors). */
+/** Config keys omitted from the tree (large script/policy bodies only; *File paths stay visible). */
 const HIDDEN_CONFIG_KEYS = new Set([
   'gateScript',
   'startupScript',
   'agentInstallScript',
   'agentScript',
   'stageScript',
-  'startupScriptFile',
-  'gateScriptFile',
-  'stageScriptFile',
-  'testScriptFile',
-  'agentInstallScriptFile',
-  'agentScriptFile',
+  'testScript',
+  'cedarScript',
 ]);
 
 /** Raw artifact shape from .saifctl/runs/*.json (subset of full RunArtifact) */
@@ -45,7 +41,8 @@ export interface SaifctlRunData {
   projectLabel: string;
   status: RunArtifactRaw['status'];
   specRef: string;
-  config: Record<string, string>;
+  /** Deep clone of artifact `config` (SerializedLoopOpts-shaped JSON). */
+  artifactConfig: Record<string, unknown>;
 }
 
 export type RunTreeElement =
@@ -125,32 +122,49 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
   }
 
   private getRunMetadata(run: SaifctlRunData): RunTreeElement[] {
-    const entries = visibleConfigEntries(run.config);
-    const configGroup = new RunConfigGroupItem(entries, run.config);
+    const entries = visibleConfigEntries(run.artifactConfig);
+    const configGroup = new RunConfigGroupItem({
+      entries,
+      artifactConfig: run.artifactConfig,
+      projectPath: run.projectPath,
+    });
     return [new RunStatusItem(run.status), new RunFeatureItem(run.specRef), configGroup];
   }
 }
 
-function visibleConfigEntries(config: Record<string, string>): [string, string][] {
+function visibleConfigEntries(config: Record<string, unknown>): [string, string][] {
   return Object.entries(config)
     .filter(([k]) => !HIDDEN_CONFIG_KEYS.has(k))
-    .sort(([a], [b]) => a.localeCompare(b));
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => [k, formatConfigValueForDisplay(v)]);
 }
 
-/**
- * Turn {@link SaifctlRunData#config} (each value is a JSON fragment) into pretty-printed JSON
- * for the whole object.
- */
-export function formatRunConfigAsPrettyJson(config: Record<string, string>): string {
-  const obj: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(config)) {
-    try {
-      obj[k] = JSON.parse(v) as unknown;
-    } catch {
-      obj[k] = v;
-    }
+function formatConfigValueForDisplay(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+    return String(v);
   }
-  return JSON.stringify(obj, null, 2);
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return String(v);
+  }
+}
+
+/** Pretty-print full artifact config for clipboard. */
+export function formatRunConfigAsPrettyJson(config: Record<string, unknown>): string {
+  return JSON.stringify(config, null, 2);
+}
+
+function cloneArtifactConfig(cfg: unknown): Record<string, unknown> {
+  if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) {
+    return {};
+  }
+  try {
+    return JSON.parse(JSON.stringify(cfg)) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
 }
 
 function toSaifctlRunData(
@@ -162,19 +176,6 @@ function toSaifctlRunData(
   const specRef = a.specRef ?? '';
   const specName = specRef ? path.basename(specRef) : featureName;
 
-  const config: Record<string, string> = {};
-  if (cfg && typeof cfg === 'object') {
-    for (const [k, v] of Object.entries(cfg)) {
-      if (v === undefined) continue;
-      try {
-        const s = JSON.stringify(v);
-        if (s !== undefined) config[k] = s;
-      } catch {
-        config[k] = JSON.stringify(String(v));
-      }
-    }
-  }
-
   return {
     id: a.runId,
     name: featureName,
@@ -182,7 +183,7 @@ function toSaifctlRunData(
     projectLabel: project.projectLabel,
     status: a.status,
     specRef: specName,
-    config,
+    artifactConfig: cloneArtifactConfig(cfg),
   };
 }
 
@@ -255,18 +256,24 @@ export class RunFeatureItem extends vscode.TreeItem {
 export class RunConfigGroupItem extends vscode.TreeItem {
   /** Sorted visible key-value pairs (scripts stripped). */
   public readonly entries: [string, string][];
-  /** Full artifact config (all keys), for copy-as-JSON. */
-  public readonly fullConfig: Record<string, string>;
+  /** Full artifact config (all keys), for copy-as-JSON / CLI. */
+  public readonly artifactConfig: Record<string, unknown>;
+  /** SaifCTL project cwd for `--project-dir` vs artifact `projectDir`. */
+  public readonly projectPath: string;
 
-  constructor(entries: [string, string][], fullConfig: Record<string, string>) {
+  constructor(opts: {
+    entries: [string, string][];
+    artifactConfig: Record<string, unknown>;
+    projectPath: string;
+  }) {
     super('Config', vscode.TreeItemCollapsibleState.Collapsed);
-    this.entries = entries;
-    this.fullConfig = fullConfig;
-    this.description = entries.length === 0 ? 'default' : `${entries.length} keys`;
+    this.entries = opts.entries;
+    this.artifactConfig = opts.artifactConfig;
+    this.projectPath = opts.projectPath;
+    const n = opts.entries.length;
+    this.description = n === 0 ? 'default' : `${n} keys`;
     this.tooltip =
-      entries.length === 0
-        ? 'No config keys in artifact (default)'
-        : `Run configuration (${entries.length} entries)`;
+      n === 0 ? 'No config keys in artifact (default)' : `Run configuration (${n} entries)`;
     this.contextValue = 'runMeta_configGroup';
     this.iconPath = new vscode.ThemeIcon('settings-gear');
   }

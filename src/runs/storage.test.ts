@@ -34,6 +34,7 @@ const dummyArtifact: RunArtifact = {
     resolveAmbiguity: 'ai',
     dangerousNoLeash: false,
     cedarPolicyPath: '',
+    cedarScript: '',
     coderImage: '',
     push: null,
     pr: false,

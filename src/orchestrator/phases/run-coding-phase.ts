@@ -75,7 +75,6 @@ export interface RunCodingPhaseOpts {
     | 'projectName'
     | 'feature'
     | 'dangerousNoLeash'
-    | 'cedarPolicyPath'
     | 'coderImage'
     | 'gateRetries'
     | 'agentEnv'

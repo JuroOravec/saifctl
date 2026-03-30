@@ -1310,6 +1310,7 @@ export async function buildOrchestratorCliInputFromFeatArgs(
     testRetries,
     dangerousNoLeash,
     cedarPolicyPath,
+    cedarScript: undefined,
     coderImage,
     startupScript,
     startupScriptFile,

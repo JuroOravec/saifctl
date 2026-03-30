@@ -21,6 +21,7 @@ import {
   filterPatchHunks,
   listFilePathsInUnifiedDiff,
   removeAllHiddenDirs,
+  SANDBOX_CEDAR_POLICY_BASENAME,
   sandboxFromPausedBasePath,
 } from './sandbox.js';
 
@@ -361,6 +362,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
   const AGENT_INSTALL_SCRIPT = '#!/bin/sh\necho "agent-install"';
   const AGENT_SCRIPT = '#!/bin/sh\necho "agent"';
   const STAGE_SCRIPT = '#!/bin/sh\necho "stage"';
+  const CEDAR_SCRIPT = '// test cedar policy';
 
   it('creates sandbox with hidden dirs removed, clean git, and mounted scripts; destroySandbox cleans up', async () => {
     const projectDir = await mkdtemp(join(process.cwd(), 'createSandbox-project-'));
@@ -442,6 +444,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         agentInstallScript: AGENT_INSTALL_SCRIPT,
         agentScript: AGENT_SCRIPT,
         stageScript: STAGE_SCRIPT,
+        cedarScript: CEDAR_SCRIPT,
         includeDirty: false,
       });
 
@@ -493,6 +496,8 @@ describe('createSandbox + destroySandbox (integration)', () => {
         expect(await readUtf8(p)).toBe(content);
         expect(((await stat(p)).mode & 0o111) !== 0).toBe(true);
       }
+      const cedarPath = join(saifctl, SANDBOX_CEDAR_POLICY_BASENAME);
+      expect(await readUtf8(cedarPath)).toBe(CEDAR_SCRIPT);
       for (const name of ['coder-start.sh', 'staging-start.sh', 'reviewer.sh'] as const) {
         const p = join(saifctl, name);
         expect(await pathExists(p)).toBe(true);
@@ -578,6 +583,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         agentInstallScript: AGENT_INSTALL_SCRIPT,
         agentScript: AGENT_SCRIPT,
         stageScript: STAGE_SCRIPT,
+        cedarScript: CEDAR_SCRIPT,
         includeDirty: false,
       };
 
@@ -700,6 +706,7 @@ describe('createSandbox + destroySandbox (integration)', () => {
         agentInstallScript: AGENT_INSTALL_SCRIPT,
         agentScript: AGENT_SCRIPT,
         stageScript: STAGE_SCRIPT,
+        cedarScript: CEDAR_SCRIPT,
         includeDirty: false,
       });
 

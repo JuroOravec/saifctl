@@ -12,6 +12,7 @@ const SCRIPT_BODY_KEYS = [
   'agentScript',
   'stageScript',
   'testScript',
+  'cedarScript',
 ] as const;
 
 /** Per-commit line in `run info` output (no unified diff). */

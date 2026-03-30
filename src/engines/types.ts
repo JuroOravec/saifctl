@@ -237,12 +237,11 @@ export interface RunAgentOpts {
    * When true, run the coder container via `docker run` (no Leash CLI). Same mounts/env/name as Leash.
    */
   dangerousNoLeash: boolean;
-  /** Absolute path to the Cedar policy file. Ignored when dangerousNoLeash=true. */
-  cedarPolicyPath: string;
   /** Docker image for the coder container. */
   coderImage: string;
   /**
    * Absolute host path to the sandbox `saifctl/` bundle (mounted read-only at `/saifctl` in the container).
+   * For Leash, the Docker engine uses `<saifctlPath>/policy.cedar` as `--policy` (materialized with the sandbox).
    */
   saifctlPath: string;
   /**

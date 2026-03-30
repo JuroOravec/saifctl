@@ -26,6 +26,7 @@ const minimalArtifact: RunArtifact = {
     resolveAmbiguity: 'ai',
     dangerousNoLeash: false,
     cedarPolicyPath: '',
+    cedarScript: 'CEDAR BODY',
     coderImage: '',
     push: null,
     pr: false,
@@ -98,6 +99,7 @@ describe('toRunInfoJson', () => {
     expect(cfg).not.toHaveProperty('stageScript');
     expect(cfg).not.toHaveProperty('agentScript');
     expect(cfg).not.toHaveProperty('agentInstallScript');
+    expect(cfg).not.toHaveProperty('cedarScript');
   });
 
   it('preserves other top-level fields', () => {

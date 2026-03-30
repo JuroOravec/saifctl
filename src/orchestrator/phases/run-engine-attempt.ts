@@ -76,7 +76,6 @@ export interface RunEngineAttemptOpts {
     | 'projectName'
     | 'feature'
     | 'dangerousNoLeash'
-    | 'cedarPolicyPath'
     | 'coderImage'
     | 'gateRetries'
     | 'agentEnv'
@@ -130,7 +129,6 @@ export async function runEngineAttempt(
     projectName,
     feature,
     dangerousNoLeash,
-    cedarPolicyPath,
     coderImage,
     gateRetries,
     agentEnv,
@@ -246,7 +244,6 @@ export async function runEngineAttempt(
       sandboxBasePath: sandbox.sandboxBasePath,
       containerEnv,
       dangerousNoLeash,
-      cedarPolicyPath,
       coderImage,
       saifctlPath: sandbox.saifctlPath,
       onAgentStdout,

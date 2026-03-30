@@ -49,6 +49,7 @@ async function writeRunJson(projectDir: string, runId: string): Promise<void> {
       resolveAmbiguity: 'ai',
       dangerousNoLeash: false,
       cedarPolicyPath: '',
+      cedarScript: '// cedar',
       coderImage: '',
       push: null,
       pr: false,

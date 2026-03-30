@@ -44,6 +44,7 @@ import type { Feature } from '../specs/discover.js';
 import { DEFAULT_TEST_PROFILE, resolveTestProfile } from '../test-profiles/index.js';
 import type { TestProfile } from '../test-profiles/types.js';
 import { validateImageTag } from '../utils/docker.js';
+import { readUtf8 } from '../utils/io.js';
 import { mergeAgentSecretKeysFromReads } from './agent-env.js';
 import type { OrchestratorOpts } from './modes.js';
 import { DEFAULT_SANDBOX_BASE_DIR } from './sandbox.js';
@@ -274,6 +275,7 @@ async function applyOrchestratorBaseline(
   const testRetries = config?.defaults?.testRetries ?? DEFAULT_ORCHESTRATOR_TEST_RETRIES;
   const dangerousNoLeash = config?.defaults?.dangerousNoLeash ?? DEFAULT_DANGEROUS_NO_LEASH;
   const cedarPolicyPath = config?.defaults?.cedarPolicyPath ?? defaultCedarPolicyPath();
+  const cedarScript = await readUtf8(cedarPolicyPath);
   const sandboxProfile = pickSandboxProfile(noCli, config);
   const agentProfile = pickAgentProfile(noCli, config);
   const coderImage = resolveCoderImage(config, sandboxProfile);
@@ -342,6 +344,7 @@ async function applyOrchestratorBaseline(
     testRetries,
     dangerousNoLeash,
     cedarPolicyPath,
+    cedarScript,
     coderImage,
     startupScript: startupR.startupScript,
     startupScriptFile: startupR.startupScriptFile,
@@ -449,6 +452,11 @@ export async function resolveOrchestratorOpts(
   if (merged.pr && !merged.push) {
     consola.error('Error: --pr requires --push <target>.');
     process.exit(1);
+  }
+
+  const keepArtifactCedar = artifact !== null && cli.cedarPolicyPath === undefined;
+  if (!keepArtifactCedar) {
+    merged.cedarScript = await readUtf8(merged.cedarPolicyPath);
   }
 
   return merged;

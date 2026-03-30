@@ -31,7 +31,7 @@ import { PassThrough } from 'node:stream';
 import Docker from 'dockerode';
 
 import type { DockerEnvironment } from '../../config/schema.js';
-import { getSaifctlRoot } from '../../constants.js';
+import { getSaifctlRoot, SANDBOX_CEDAR_POLICY_BASENAME } from '../../constants.js';
 import { consola } from '../../logger.js';
 import { SAIFCTL_PAUSE_ABORT_REASON } from '../../runs/types.js';
 import {
@@ -488,7 +488,6 @@ export class DockerEngine implements Engine {
       sandboxBasePath,
       containerEnv,
       dangerousNoLeash,
-      cedarPolicyPath,
       coderImage,
       saifctlPath,
       reviewer,
@@ -627,6 +626,7 @@ export class DockerEngine implements Engine {
         leashArgs.push('--volume', `${argusBinaryHost}:/usr/local/bin/argus:ro`);
       }
 
+      const cedarPolicyPath = join(saifctlPath, SANDBOX_CEDAR_POLICY_BASENAME);
       if (await pathExists(cedarPolicyPath)) {
         const cedarPolicyHost = await dockerHostBindPath(cedarPolicyPath);
         leashArgs.push('--policy', cedarPolicyHost);
@@ -1472,6 +1472,9 @@ function startLeashNetworkAttach(networkName: string, workspaceId: string): Netw
 
 let sidecarBinaryCache: Buffer | null = null;
 
+// TODO - PUBLISH SIDECAR SO BINARY AVAIL VIA URL. DOWNLOAD AND MOUNT OF BINARY IS DOCKER-SPECIFI
+// TODO - PUBLISH SIDECAR SO BINARY AVAIL VIA URL. DOWNLOAD AND MOUNT OF BINARY IS DOCKER-SPECIFI
+// TODO - PUBLISH SIDECAR SO BINARY AVAIL VIA URL. DOWNLOAD AND MOUNT OF BINARY IS DOCKER-SPECIFI
 async function getSidecarBinary(): Promise<Buffer> {
   // Loaded lazily to avoid blocking startup.
   if (sidecarBinaryCache) return sidecarBinaryCache;

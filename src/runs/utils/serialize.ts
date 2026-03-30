@@ -58,6 +58,7 @@ export type SerializedLoopOpts = {
   resolveAmbiguity: 'off' | 'prompt' | 'ai';
   dangerousNoLeash: boolean;
   cedarPolicyPath: string;
+  cedarScript: string;
   coderImage: string;
   push: string | null;
   pr: boolean;

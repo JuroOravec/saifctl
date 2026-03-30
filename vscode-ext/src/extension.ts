@@ -14,6 +14,7 @@ import { SaifctlCliService } from './cliService';
 import { FeatureItem, FeaturesTreeProvider } from './FeaturesTreeProvider';
 import { loggedCommand } from './loggedCommand';
 import { logger, saifctlOutputChannel, setVerboseLogging } from './logger';
+import { buildFeatRunCliFromArtifactConfig } from './runConfigToCli';
 import {
   formatRunConfigAsPrettyJson,
   RunConfigGroupItem,
@@ -519,9 +520,19 @@ export async function activate(context: vscode.ExtensionContext) {
     'saifctl.copyRunConfigJson',
     loggedCommand('saifctl.copyRunConfigJson', async (item?: vscode.TreeItem) => {
       if (!(item instanceof RunConfigGroupItem)) return;
-      const text = formatRunConfigAsPrettyJson(item.fullConfig);
+      const text = formatRunConfigAsPrettyJson(item.artifactConfig);
       await vscode.env.clipboard.writeText(text);
       void vscode.window.showInformationMessage('Copied full run config as JSON');
+    }),
+  );
+
+  const copyRunConfigCliCmd = vscode.commands.registerCommand(
+    'saifctl.copyRunConfigCli',
+    loggedCommand('saifctl.copyRunConfigCli', async (item?: vscode.TreeItem) => {
+      if (!(item instanceof RunConfigGroupItem)) return;
+      const text = buildFeatRunCliFromArtifactConfig(item.artifactConfig, item.projectPath);
+      await vscode.env.clipboard.writeText(text);
+      void vscode.window.showInformationMessage('Copied feat run command');
     }),
   );
 
@@ -582,6 +593,7 @@ export async function activate(context: vscode.ExtensionContext) {
     copyRunFeatureCmd,
     copyRunConfigValueCmd,
     copyRunConfigJsonCmd,
+    copyRunConfigCliCmd,
     showLogsCmd,
     recheckInstallCmd,
   );

@@ -44,7 +44,6 @@ export interface RunAgentPhaseInput {
     | 'projectName'
     | 'feature'
     | 'dangerousNoLeash'
-    | 'cedarPolicyPath'
     | 'coderImage'
     | 'gateRetries'
     | 'agentEnv'

@@ -281,6 +281,7 @@ type Fail2PassOpts = Pick<
   | 'agentScript'
   | 'stageScript'
   | 'testScript'
+  | 'cedarScript'
   | 'verbose'
   | 'includeDirty'
 >;
@@ -304,6 +305,7 @@ async function runFail2PassCore(
     agentScript,
     stageScript,
     testScript,
+    cedarScript,
   } = opts;
 
   consola.log(`\n[orchestrator] MODE: fail2pass — ${feature.name}`);
@@ -319,6 +321,7 @@ async function runFail2PassCore(
     agentInstallScript,
     agentScript,
     stageScript,
+    cedarScript,
     verbose: opts.verbose,
     includeDirty: opts.includeDirty,
   });
@@ -494,6 +497,19 @@ async function runStartCore(
   if (!isLocal) {
     consola.log('[orchestrator] Hatchet token detected — dispatching via Hatchet workflow.');
 
+    // TODO - HATCHET + RUN RESUME PATH DOES NOT WORK YET
+    // TODO - HATCHET + RUN RESUME PATH DOES NOT WORK YET
+    // TODO - HATCHET + RUN RESUME PATH DOES NOT WORK YET
+    //        The problem:
+    //        A paused sandbox is local state on one specific machine.
+    //        The sandbox directory, Docker network, and paused coder container all
+    //        live on the worker's filesystem. When run resume tries to reuse them,
+    //        it must run on the same worker. Hatchet's default scheduling is
+    //        round-robin / load-balanced — no guarantee of worker affinity.
+    if (!opts.fromArtifact?.pausedSandbox) {
+      throw new Error("Hatchet + 'run resume' path does not work yet.");
+    }
+
     const serializedOpts = serializeOrchestratorOpts(opts);
     const featRunWorkflow = createFeatRunWorkflow();
 
@@ -546,6 +562,7 @@ async function runStartCore(
       agentInstallScript,
       agentScript,
       stageScript,
+      cedarScript: opts.cedarScript,
       verbose: opts.verbose,
       runCommits: opts.fromArtifact?.seedRunCommits ?? [],
       runId: opts.fromArtifact?.persistedRunId,

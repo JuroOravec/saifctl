@@ -76,3 +76,9 @@ export const DEFAULT_REVIEWER_ENABLED = true;
 export function defaultCedarPolicyPath(): string {
   return join(getSaifctlRoot(), 'src', 'orchestrator', 'policies', 'default.cedar');
 }
+
+/**
+ * Filename for Cedar policy materialized next to sandbox shell scripts under `…/saifctl/`.
+ * The Docker coding engine passes `join(saifctlPath, this)` to Leash as `--policy`.
+ */
+export const SANDBOX_CEDAR_POLICY_BASENAME = 'policy.cedar';

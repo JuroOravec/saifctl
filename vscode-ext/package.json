@@ -226,6 +226,11 @@
         "icon": "$(copy)"
       },
       {
+        "command": "saifctl.copyRunConfigCli",
+        "title": "Copy feat run command",
+        "icon": "$(terminal)"
+      },
+      {
         "command": "saifctl.showLogs",
         "title": "Show SaifCTL logs",
         "icon": "$(output)"
@@ -376,9 +381,19 @@
           "group": "inline"
         },
         {
+          "command": "saifctl.copyRunConfigCli",
+          "when": "viewItem == runMeta_configGroup",
+          "group": "inline"
+        },
+        {
           "command": "saifctl.copyRunConfigJson",
           "when": "viewItem == runMeta_configGroup",
           "group": "1_runMeta@1"
+        },
+        {
+          "command": "saifctl.copyRunConfigCli",
+          "when": "viewItem == runMeta_configGroup",
+          "group": "1_runMeta@2"
         },
         {
           "command": "saifctl.createFile",
