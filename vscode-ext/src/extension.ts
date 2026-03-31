@@ -481,10 +481,18 @@ export async function activate(context: vscode.ExtensionContext) {
         async (item?: vscode.TreeItem) => {
           const runId = getRunId(item);
           const cwd = getCwdForRun(item);
-          if (runId) {
-            await cliService.removeRun(runId, cwd);
-            runsProvider.refresh();
-          }
+          if (!runId) return;
+
+          const runLabel = item instanceof RunItem ? `${item.runData.name} (${runId})` : runId;
+          const confirm = await vscode.window.showWarningMessage(
+            `Remove run "${runLabel}"? This cannot be undone.`,
+            { modal: true, detail: cwd },
+            'Remove',
+          );
+          if (confirm !== 'Remove') return;
+
+          await cliService.removeRun(runId, cwd);
+          runsProvider.refresh();
         },
       ),
     ),
@@ -499,7 +507,20 @@ export async function activate(context: vscode.ExtensionContext) {
           startDetail: (item) => `cwd=${clearAllRunsTargetCwd(item)}`,
         },
         async (item?: vscode.TreeItem) => {
-          await cliService.clearAllRuns(clearAllRunsTargetCwd(item));
+          const cwd = clearAllRunsTargetCwd(item);
+          const scopeLabel =
+            item instanceof RunProjectItem
+              ? item.projectLabel
+              : path.basename(workspaceRoot) || workspaceRoot;
+
+          const confirm = await vscode.window.showWarningMessage(
+            `Remove all SaifCTL runs for "${scopeLabel}"? This cannot be undone.`,
+            { modal: true, detail: cwd },
+            'Remove all',
+          );
+          if (confirm !== 'Remove all') return;
+
+          await cliService.clearAllRuns(cwd);
           runsProvider.refresh();
         },
       ),
