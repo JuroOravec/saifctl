@@ -473,6 +473,64 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
   );
 
+  const applyRunCmd = vscode.commands.registerCommand(
+    'saifctl.applyRun',
+    withCliGuard(
+      loggedCommand(
+        { commandId: 'saifctl.applyRun', startDetail: logDetailRunCommand },
+        async (item?: vscode.TreeItem) => {
+          const runId = getRunId(item);
+          const cwd = getCwdForRun(item);
+          if (runId) void cliService.applyRun(runId, cwd);
+        },
+      ),
+    ),
+  );
+
+  const exportRunCmd = vscode.commands.registerCommand(
+    'saifctl.exportRun',
+    withCliGuard(
+      loggedCommand(
+        { commandId: 'saifctl.exportRun', startDetail: logDetailRunCommand },
+        async (item?: vscode.TreeItem) => {
+          const runId = getRunId(item);
+          const cwd = getCwdForRun(item);
+          if (runId) void cliService.exportRun(runId, cwd);
+        },
+      ),
+    ),
+  );
+
+  const downloadRunCmd = vscode.commands.registerCommand(
+    'saifctl.downloadRun',
+    withCliGuard(
+      loggedCommand(
+        { commandId: 'saifctl.downloadRun', startDetail: logDetailRunCommand },
+        async (item?: vscode.TreeItem) => {
+          const runId = getRunId(item);
+          const cwd = getCwdForRun(item);
+          if (runId) await cliService.downloadRun(runId, cwd);
+        },
+      ),
+    ),
+  );
+
+  const duplicateRunCmd = vscode.commands.registerCommand(
+    'saifctl.duplicateRun',
+    withCliGuard(
+      loggedCommand(
+        { commandId: 'saifctl.duplicateRun', startDetail: logDetailRunCommand },
+        async (item?: vscode.TreeItem) => {
+          const runId = getRunId(item);
+          const cwd = getCwdForRun(item);
+          if (!runId) return;
+          await cliService.forkRun(runId, cwd);
+          runsProvider.refresh();
+        },
+      ),
+    ),
+  );
+
   const removeRunCmd = vscode.commands.registerCommand(
     'saifctl.removeRun',
     withCliGuard(
@@ -735,6 +793,10 @@ export async function activate(context: vscode.ExtensionContext) {
     filterRunsActiveCmd,
     clearFilterRunsCmd,
     fromArtifactCmd,
+    applyRunCmd,
+    exportRunCmd,
+    downloadRunCmd,
+    duplicateRunCmd,
     removeRunCmd,
     clearAllRunsCmd,
     goToFeatureFromRunCmd,

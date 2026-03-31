@@ -214,6 +214,26 @@
         "icon": "$(play)"
       },
       {
+        "command": "saifctl.downloadRun",
+        "title": "Download Run",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "saifctl.duplicateRun",
+        "title": "Duplicate Run",
+        "icon": "$(repo-forked)"
+      },
+      {
+        "command": "saifctl.applyRun",
+        "title": "Apply changes",
+        "icon": "$(git-merge)"
+      },
+      {
+        "command": "saifctl.exportRun",
+        "title": "Export changes",
+        "icon": "$(desktop-download)"
+      },
+      {
         "command": "saifctl.removeRun",
         "title": "Remove",
         "icon": "$(trash)"
@@ -429,6 +449,26 @@
           "command": "saifctl.copyRunFeature",
           "when": "viewItem =~ /^run_/",
           "group": "1_modification@5"
+        },
+        {
+          "command": "saifctl.downloadRun",
+          "when": "viewItem =~ /^run_/",
+          "group": "2_runGetFork@1"
+        },
+        {
+          "command": "saifctl.duplicateRun",
+          "when": "viewItem =~ /^run_/",
+          "group": "2_runGetFork@2"
+        },
+        {
+          "command": "saifctl.applyRun",
+          "when": "viewItem =~ /^run_/",
+          "group": "3_runHost@1"
+        },
+        {
+          "command": "saifctl.exportRun",
+          "when": "viewItem =~ /^run_/",
+          "group": "3_runHost@2"
         },
         {
           "command": "saifctl.copyRunStatus",

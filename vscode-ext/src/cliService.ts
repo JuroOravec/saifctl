@@ -8,7 +8,7 @@
  *   design, validate. User sees streaming output and can interact.
  */
 
-import { basename } from 'node:path';
+import { basename, join } from 'node:path';
 
 import * as vscode from 'vscode';
 
@@ -376,6 +376,58 @@ index 0000000..abc
       terminalName: `SaifCTL fromArtifact: ${runId}`,
       cwd,
     });
+  }
+
+  /** Apply run commits to the host repo as a branch (`saifctl run apply`). */
+  public async applyRun(runId: string, cwd: string): Promise<void> {
+    this.executeInTerminal({
+      command: await this.cliCommand(cwd, `run apply ${escapeArg(runId)}`),
+      terminalName: `SaifCTL apply: ${runId}`,
+      cwd,
+    });
+  }
+
+  /** Export run as a patch file (`saifctl run export`). */
+  public async exportRun(runId: string, cwd: string): Promise<void> {
+    this.executeInTerminal({
+      command: await this.cliCommand(cwd, `run export ${escapeArg(runId)}`),
+      terminalName: `SaifCTL export: ${runId}`,
+      cwd,
+    });
+  }
+
+  /**
+   * Fetch full run JSON (`saifctl run get`) and save to a path chosen by the user.
+   */
+  public async downloadRun(runId: string, cwd: string): Promise<void> {
+    const json = await this.executeInBackground(
+      await this.cliCommand(cwd, `run get ${escapeArg(runId)}`),
+      cwd,
+    );
+    const defaultPath = join(cwd, `saifctl-run-${runId}.json`);
+    const uri = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.file(defaultPath),
+      filters: { JSON: ['json'] },
+      saveLabel: 'Save',
+    });
+    if (!uri) return;
+    await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(json));
+    vscode.window.showInformationMessage(`Saved run artifact to ${uri.fsPath}`);
+  }
+
+  /**
+   * Duplicate run (`saifctl run fork`). Runs in the background so callers can refresh the UI when it finishes.
+   */
+  public async forkRun(runId: string, cwd: string): Promise<void> {
+    const out = await this.executeInBackground(
+      await this.cliCommand(cwd, `run fork ${escapeArg(runId)}`),
+      cwd,
+    );
+    const forkLine = out
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => l.includes('Forked run'));
+    vscode.window.showInformationMessage(forkLine ?? `Forked run from ${runId}.`);
   }
 
   public async removeRun(runId: string, cwd: string): Promise<void> {
