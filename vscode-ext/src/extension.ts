@@ -12,14 +12,17 @@ import * as vscode from 'vscode';
 import { findBestInstallCwd, type ResolverLog } from './binaryResolver';
 import { SaifctlCliService } from './cliService';
 import { FeatureItem, FeaturesTreeProvider } from './FeaturesTreeProvider';
+import { goToFeatureForRun } from './goToFeatureFromRun';
 import { loggedCommand } from './loggedCommand';
 import { logger, saifctlOutputChannel, setVerboseLogging } from './logger';
 import { buildFeatRunCliFromArtifactConfig } from './runConfigToCli';
 import { RunDiffContentProvider, runDiffUri } from './runDiffContentProvider';
 import {
+  collectRunDiffFileLeavesUnderDir,
   formatRunConfigAsPrettyJson,
   RunConfigGroupItem,
   RunConfigKeyItem,
+  RunDiffDirItem,
   RunDiffFileItem,
   RunFeatureItem,
   RunItem,
@@ -27,6 +30,7 @@ import {
   type RunStatus,
   RunStatusItem,
   RunsTreeProvider,
+  type RunTreeElement,
 } from './RunsTreeProvider';
 
 function makeWorkspaceResolverLog(): ResolverLog {
@@ -176,7 +180,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(binWatcher);
 
   const runsProvider = new RunsTreeProvider(workspaceRoot, cliService);
-  const runsTreeView = vscode.window.createTreeView('saifctl-runs', {
+  const runsTreeView = vscode.window.createTreeView<RunTreeElement>('saifctl-runs', {
     treeDataProvider: runsProvider,
     showCollapseAll: true,
   });
@@ -502,18 +506,21 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
   );
 
-  const revealRunInFinderCmd = vscode.commands.registerCommand(
-    'saifctl.revealRunInFinder',
-    loggedCommand(
-      { commandId: 'saifctl.revealRunInFinder', startDetail: logDetailRunCommand },
-      (item?: vscode.TreeItem) => {
-        const runId = getRunId(item);
-        const cwd = getCwdForRun(item);
-        if (runId) {
-          const runFilePath = vscode.Uri.file(path.join(cwd, '.saifctl', 'runs', `${runId}.json`));
-          void vscode.commands.executeCommand('revealFileInOS', runFilePath);
-        }
-      },
+  const goToFeatureFromRunCmd = vscode.commands.registerCommand(
+    'saifctl.goToFeatureFromRun',
+    withCliGuard(
+      loggedCommand(
+        { commandId: 'saifctl.goToFeatureFromRun', startDetail: logDetailRunCommand },
+        async (item?: vscode.TreeItem) => {
+          if (!(item instanceof RunItem)) return;
+          await goToFeatureForRun({
+            run: item.runData,
+            featuresProvider,
+            featuresTreeView,
+            cli: cliService,
+          });
+        },
+      ),
     ),
   );
 
@@ -631,6 +638,28 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
   );
 
+  const expandRunDiffDirRecursiveCmd = vscode.commands.registerCommand(
+    'saifctl.expandRunDiffDirRecursive',
+    loggedCommand('saifctl.expandRunDiffDirRecursive', async (item?: vscode.TreeItem) => {
+      if (!(item instanceof RunDiffDirItem)) return;
+      const leaves = collectRunDiffFileLeavesUnderDir(item);
+      if (leaves.length === 0) {
+        void vscode.window.showInformationMessage(
+          'SaifCTL: No files under this folder in the patch.',
+        );
+        return;
+      }
+      await vscode.commands.executeCommand('workbench.view.extension.saifctl-explorer');
+      for (const leaf of leaves) {
+        try {
+          await runsTreeView.reveal(leaf, { expand: true, select: false });
+        } catch {
+          // Reveal may fail for some nodes; continue so other branches still expand.
+        }
+      }
+    }),
+  );
+
   const showLogsCmd = vscode.commands.registerCommand(
     'saifctl.showLogs',
     loggedCommand('saifctl.showLogs', () => {
@@ -687,7 +716,7 @@ export async function activate(context: vscode.ExtensionContext) {
     fromArtifactCmd,
     removeRunCmd,
     clearAllRunsCmd,
-    revealRunInFinderCmd,
+    goToFeatureFromRunCmd,
     copyRunIdCmd,
     copyRunNameCmd,
     copyRunStatusCmd,
@@ -696,6 +725,7 @@ export async function activate(context: vscode.ExtensionContext) {
     copyRunConfigJsonCmd,
     copyRunConfigCliCmd,
     openRunFileDiffCmd,
+    expandRunDiffDirRecursiveCmd,
     showLogsCmd,
     recheckInstallCmd,
   );
@@ -718,7 +748,7 @@ function updateFeaturesViewDescription(
 }
 
 function updateRunsViewDescription(
-  treeView: vscode.TreeView<unknown>,
+  treeView: vscode.TreeView<RunTreeElement>,
   provider: RunsTreeProvider,
 ): void {
   const parts: string[] = [];
@@ -772,7 +802,7 @@ function showFeaturesFilterQuickPick(
 
 function showRunsFilterQuickPick(
   runsProvider: RunsTreeProvider,
-  treeView: vscode.TreeView<unknown>,
+  treeView: vscode.TreeView<RunTreeElement>,
 ): void {
   const statusItems = runStatusFilterQuickPickItems();
   const qp = vscode.window.createQuickPick();

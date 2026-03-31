@@ -14,6 +14,14 @@ import { discoverSaifctlProjects } from './projectDiscovery';
 
 export type SaifctlTreeItem = ProjectItem | FeatureItem | FileItem | DirItem;
 
+export function projectTreeItemId(projectPath: string): string {
+  return `saifctl-proj:${projectPath}`;
+}
+
+export function featureTreeItemId(featurePath: string): string {
+  return `saifctl-feat:${featurePath}`;
+}
+
 export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifctlTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<SaifctlTreeItem | undefined | void>();
   readonly onDidChangeTreeData: vscode.Event<SaifctlTreeItem | undefined | void> =
@@ -46,8 +54,35 @@ export class FeaturesTreeProvider implements vscode.TreeDataProvider<SaifctlTree
     this._onDidChangeTreeData.fire();
   }
 
+  /**
+   * All feature rows for a SaifCTL project (same discovery as the tree). Used to jump from a Run
+   * to the matching feature folder.
+   */
+  async listFeatureItemsForProject(projectPath: string): Promise<FeatureItem[]> {
+    return this.getFeatures(projectPath);
+  }
+
   getTreeItem(element: SaifctlTreeItem): vscode.TreeItem {
     return element;
+  }
+
+  getParent(element: SaifctlTreeItem): vscode.ProviderResult<SaifctlTreeItem> {
+    if (element instanceof ProjectItem) {
+      return undefined;
+    }
+    if (element instanceof FeatureItem) {
+      return this.parentProjectItemForFeature(element);
+    }
+    return undefined;
+  }
+
+  private parentProjectItemForFeature(feature: FeatureItem): vscode.ProviderResult<ProjectItem> {
+    return discoverSaifctlProjects(this.workspaceRoot).then((projects) => {
+      const meta = projects.find((p) => p.projectPath === feature.projectPath);
+      const label = meta?.name ?? path.basename(feature.projectPath);
+      const item = new ProjectItem(label, feature.projectPath);
+      return item;
+    });
   }
 
   async getChildren(element?: SaifctlTreeItem): Promise<SaifctlTreeItem[]> {
@@ -191,6 +226,7 @@ export class ProjectItem extends vscode.TreeItem {
     public readonly projectPath: string,
   ) {
     super(label, vscode.TreeItemCollapsibleState.Expanded);
+    this.id = projectTreeItemId(projectPath);
     this.tooltip = `Project: ${this.label}`;
     this.contextValue = 'project';
     this.iconPath = new vscode.ThemeIcon('repo');
@@ -205,6 +241,7 @@ export class FeatureItem extends vscode.TreeItem {
     super(opts.label, vscode.TreeItemCollapsibleState.Collapsed);
     this.featurePath = opts.featurePath;
     this.projectPath = opts.projectPath;
+    this.id = featureTreeItemId(opts.featurePath);
     this.tooltip = `Feature: ${this.label}`;
     this.contextValue = 'feature';
     this.iconPath = new vscode.ThemeIcon('git-pull-request-draft');

@@ -66,6 +66,48 @@ interface RunDiffArtifactContext {
   runCommits: Array<{ diff?: string }>;
 }
 
+export function runProjectItemTreeId(projectPath: string): string {
+  return `saifctl-runproj:${encodeURIComponent(projectPath)}`;
+}
+
+export function runDiffGroupItemTreeId(projectPath: string, runId: string): string {
+  return `saifctl-rung:${encodeURIComponent(projectPath)}:${encodeURIComponent(runId)}`;
+}
+
+export function runDiffDirItemTreeId(opts: {
+  projectPath: string;
+  runId: string;
+  triePath: string;
+}): string {
+  const { projectPath, runId, triePath } = opts;
+  return `saifctl-rund:${encodeURIComponent(projectPath)}:${encodeURIComponent(runId)}:${encodeURIComponent(triePath)}`;
+}
+
+export function runDiffFileItemTreeId(opts: {
+  projectPath: string;
+  runId: string;
+  filePath: string;
+}): string {
+  const { projectPath, runId, filePath } = opts;
+  return `saifctl-runf:${encodeURIComponent(projectPath)}:${encodeURIComponent(runId)}:${encodeURIComponent(filePath)}`;
+}
+
+/** All {@link RunDiffFileItem} leaves under a Changes directory (depth-first order). */
+export function collectRunDiffFileLeavesUnderDir(dir: RunDiffDirItem): RunDiffFileItem[] {
+  const out: RunDiffFileItem[] = [];
+  const walk = (nodes: RunTreeElement[]) => {
+    for (const n of nodes) {
+      if (n instanceof RunDiffFileItem) {
+        out.push(n);
+      } else if (n instanceof RunDiffDirItem) {
+        walk(n.childElements);
+      }
+    }
+  };
+  walk(dir.childElements);
+  return out;
+}
+
 export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement> {
   private _onDidChangeTreeData = new vscode.EventEmitter<RunTreeElement | undefined | void>();
   readonly onDidChangeTreeData: vscode.Event<RunTreeElement | undefined | void> =
@@ -131,6 +173,16 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
     return element;
   }
 
+  getParent(element: RunTreeElement): vscode.ProviderResult<RunTreeElement> {
+    if (element instanceof RunProjectItem) {
+      return undefined;
+    }
+    if ('runTreeParent' in element && element.runTreeParent !== undefined) {
+      return element.runTreeParent;
+    }
+    return undefined;
+  }
+
   async getChildren(element?: RunTreeElement): Promise<RunTreeElement[]> {
     // No workspace folder open — nothing to list.
     if (!this.workspaceRoot) {
@@ -178,7 +230,14 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
       const projectRuns = this.runsCache.filter(
         (run) => run.projectPath === element.projectPath && this.matchesFilter(run),
       );
-      return projectRuns.map((run) => new RunItem(run, run.projectPath));
+      return projectRuns.map(
+        (run) =>
+          new RunItem({
+            runData: run,
+            projectPath: run.projectPath,
+            parentProject: element,
+          }),
+      );
     }
 
     // One run expanded: hydrate artifact config if needed, then metadata + Changes group.
@@ -203,12 +262,15 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
           element.runData = this.runsCache[idx]!;
         }
       }
-      return this.getRunMetadata(element.runData);
+      return this.getRunMetadata(element.runData, element);
     }
 
     // Config group expanded: one row per visible config key.
     if (element instanceof RunConfigGroupItem) {
-      return element.entries.map(([key, value]) => new RunConfigKeyItem(key, value));
+      return element.entries.map(
+        ([key, value]) =>
+          new RunConfigKeyItem({ configKey: key, configValue: value, parentGroup: element }),
+      );
     }
 
     // Changes expanded: lazy fetch run get, parse patches, nested folder tree of files.
@@ -242,10 +304,11 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
         group.tooltip = 'Could not load run (run get failed). Is saifctl up to date?';
         this._onDidChangeTreeData.fire(group);
         return [
-          new RunDiffMessageItem(
-            'Could not load changes (run get failed)',
-            'Is the CLI recent enough? Try: saifctl run get ' + runId,
-          ),
+          new RunDiffMessageItem({
+            message: 'Could not load changes (run get failed)',
+            detail: 'Is the CLI recent enough? Try: saifctl run get ' + runId,
+            parent: group,
+          }),
         ];
       }
 
@@ -273,17 +336,18 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
     // Subsequent expansions after a failed first load: show a stable error row (no re-fetch).
     if (this.diffLoadFailed.has(runId)) {
       return [
-        new RunDiffMessageItem(
-          'Could not load changes (run get failed)',
-          'Is the CLI recent enough?',
-        ),
+        new RunDiffMessageItem({
+          message: 'Could not load changes (run get failed)',
+          detail: 'Is the CLI recent enough?',
+          parent: group,
+        }),
       ];
     }
 
     // Successful load but no file hunks in runCommits (e.g. empty commits).
     const stats = this.diffCache.get(runId) ?? [];
     if (stats.length === 0) {
-      return [new RunDiffMessageItem('No file changes', '')];
+      return [new RunDiffMessageItem({ message: 'No file changes', detail: '', parent: group })];
     }
 
     // Build nested folders and file rows; each file carries slices of base/run patches for vscode.diff.
@@ -300,22 +364,30 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
       featureLabel,
       parentPath: '',
       diffCtx,
+      parentElement: group,
     });
   }
 
-  private getRunMetadata(run: SaifctlRunData): RunTreeElement[] {
+  private getRunMetadata(run: SaifctlRunData, parentRun: RunItem): RunTreeElement[] {
     const entries = visibleConfigEntries(run.artifactConfig);
     const configGroup = new RunConfigGroupItem({
       entries,
       artifactConfig: run.artifactConfig,
       projectPath: run.projectPath,
+      parentRun,
     });
     const diffGroup = new RunDiffGroupItem({
       runId: run.id,
       projectPath: run.projectPath,
       featureLabel: run.name,
+      parentRun,
     });
-    return [new RunStatusItem(run.status), new RunFeatureItem(run.specRef), configGroup, diffGroup];
+    return [
+      new RunStatusItem(run.status, parentRun),
+      new RunFeatureItem(run.specRef, parentRun),
+      configGroup,
+      diffGroup,
+    ];
   }
 }
 
@@ -330,21 +402,30 @@ function trieToRunElements(opts: {
   featureLabel: string;
   parentPath: string;
   diffCtx: RunDiffArtifactContext;
+  parentElement: RunDiffGroupItem | RunDiffDirItem;
 }): RunTreeElement[] {
-  const { node, runId, projectPath, featureLabel, parentPath, diffCtx } = opts;
+  const { node, runId, projectPath, featureLabel, parentPath, diffCtx, parentElement } = opts;
 
   // Subdirectories: recurse; `parentPath` threads the trie path (labels use a single segment per row).
   const dirItems: RunDiffDirItem[] = node.dirs.map((d) => {
     const full = parentPath ? `${parentPath}/${d.segment}` : d.segment;
-    const inner = trieToRunElements({
+    const dirItem = new RunDiffDirItem({
+      segment: d.segment,
+      parent: parentElement,
+      triePath: full,
+      runId,
+      projectPath,
+    });
+    dirItem.childElements = trieToRunElements({
       node: d,
       runId,
       projectPath,
       featureLabel,
       parentPath: full,
       diffCtx,
+      parentElement: dirItem,
     });
-    return new RunDiffDirItem(d.segment, inner);
+    return dirItem;
   });
 
   // Files at this level: split combined patches into this path’s sections for `RunDiffContentProvider`.
@@ -362,6 +443,7 @@ function trieToRunElements(opts: {
       baseCommitSha: diffCtx.baseCommitSha,
       basePatchSection,
       runCommitSections,
+      parent: parentElement,
     });
   });
 
@@ -464,6 +546,7 @@ export class RunProjectItem extends vscode.TreeItem {
     public readonly projectPath: string,
   ) {
     super(projectLabel, vscode.TreeItemCollapsibleState.Expanded);
+    this.id = runProjectItemTreeId(projectPath);
     this.tooltip = `Runs for project: ${projectLabel}\n${projectPath}`;
     this.contextValue = 'runProject';
     this.iconPath = new vscode.ThemeIcon('folder-library');
@@ -476,15 +559,23 @@ export function runItemTreeId(projectPath: string, runId: string): string {
 }
 
 export class RunItem extends vscode.TreeItem {
+  /** Updated when run metadata is hydrated after first expand. */
+  public runData: SaifctlRunData;
   public readonly projectPath: string;
+  /** For {@link RunsTreeProvider#getParent} / {@link vscode.TreeView#reveal}. */
+  public readonly runTreeParent: RunProjectItem;
 
-  constructor(
-    public runData: SaifctlRunData,
-    projectPath: string,
-  ) {
+  constructor(opts: {
+    runData: SaifctlRunData;
+    projectPath: string;
+    parentProject: RunProjectItem;
+  }) {
+    const { runData, projectPath, parentProject } = opts;
     super(`${runData.name} (${runData.id})`, vscode.TreeItemCollapsibleState.Collapsed);
+    this.runData = runData;
     this.id = runItemTreeId(projectPath, runData.id);
     this.projectPath = projectPath;
+    this.runTreeParent = parentProject;
     this.tooltip = `Run ID: ${runData.id}\nStatus: ${runData.status}\nProject: ${projectPath}`;
     this.contextValue = `run_${runData.status}`;
 
@@ -493,8 +584,15 @@ export class RunItem extends vscode.TreeItem {
 }
 
 export class RunStatusItem extends vscode.TreeItem {
-  constructor(public readonly status: SaifctlRunData['status']) {
+  public readonly runTreeParent: RunItem;
+
+  constructor(
+    public readonly status: SaifctlRunData['status'],
+    parentRun: RunItem,
+  ) {
     super('Status', vscode.TreeItemCollapsibleState.None);
+    this.runTreeParent = parentRun;
+    this.id = `saifctl-runmeta:${encodeURIComponent(parentRun.projectPath)}:${encodeURIComponent(parentRun.runData.id)}:status`;
     this.description = status;
     this.tooltip = `Run status: ${status}`;
     this.contextValue = 'runMeta_status';
@@ -503,8 +601,15 @@ export class RunStatusItem extends vscode.TreeItem {
 }
 
 export class RunFeatureItem extends vscode.TreeItem {
-  constructor(public readonly featureName: string) {
+  public readonly runTreeParent: RunItem;
+
+  constructor(
+    public readonly featureName: string,
+    parentRun: RunItem,
+  ) {
     super('Feature', vscode.TreeItemCollapsibleState.None);
+    this.runTreeParent = parentRun;
+    this.id = `saifctl-runmeta:${encodeURIComponent(parentRun.projectPath)}:${encodeURIComponent(parentRun.runData.id)}:feature`;
     this.description = featureName || 'None';
     this.tooltip = `Feature: ${featureName || 'None'}`;
     this.contextValue = 'runMeta_specRef';
@@ -519,16 +624,20 @@ export class RunConfigGroupItem extends vscode.TreeItem {
   public readonly artifactConfig: Record<string, unknown>;
   /** SaifCTL project cwd for `--project-dir` vs artifact `projectDir`. */
   public readonly projectPath: string;
+  public readonly runTreeParent: RunItem;
 
   constructor(opts: {
     entries: [string, string][];
     artifactConfig: Record<string, unknown>;
     projectPath: string;
+    parentRun: RunItem;
   }) {
     super('Config', vscode.TreeItemCollapsibleState.Collapsed);
     this.entries = opts.entries;
     this.artifactConfig = opts.artifactConfig;
     this.projectPath = opts.projectPath;
+    this.runTreeParent = opts.parentRun;
+    this.id = `saifctl-runmeta:${encodeURIComponent(opts.parentRun.projectPath)}:${encodeURIComponent(opts.parentRun.runData.id)}:config`;
     const n = opts.entries.length;
     this.description = n === 0 ? 'default' : `${n} keys`;
     this.tooltip =
@@ -539,11 +648,17 @@ export class RunConfigGroupItem extends vscode.TreeItem {
 }
 
 export class RunConfigKeyItem extends vscode.TreeItem {
-  constructor(
-    public readonly configKey: string,
-    public readonly configValue: string,
-  ) {
-    super(configKey, vscode.TreeItemCollapsibleState.None);
+  public readonly runTreeParent: RunConfigGroupItem;
+  public readonly configKey: string;
+  public readonly configValue: string;
+
+  constructor(opts: { configKey: string; configValue: string; parentGroup: RunConfigGroupItem }) {
+    super(opts.configKey, vscode.TreeItemCollapsibleState.None);
+    const { configKey, configValue, parentGroup } = opts;
+    this.configKey = configKey;
+    this.configValue = configValue;
+    this.runTreeParent = parentGroup;
+    this.id = `saifctl-runmeta:${encodeURIComponent(parentGroup.projectPath)}:${encodeURIComponent(parentGroup.runTreeParent.runData.id)}:cfg:${encodeURIComponent(configKey)}`;
     this.description = configValue;
     this.tooltip = `${configKey}: ${configValue}`;
     this.contextValue = 'runMeta_configKey';
@@ -559,12 +674,20 @@ export class RunDiffGroupItem extends vscode.TreeItem {
   public readonly runId: string;
   public readonly projectPath: string;
   public readonly featureLabel: string;
+  public readonly runTreeParent: RunItem;
 
-  constructor(opts: { runId: string; projectPath: string; featureLabel: string }) {
+  constructor(opts: {
+    runId: string;
+    projectPath: string;
+    featureLabel: string;
+    parentRun: RunItem;
+  }) {
     super('Changes', vscode.TreeItemCollapsibleState.Collapsed);
     this.runId = opts.runId;
     this.projectPath = opts.projectPath;
     this.featureLabel = opts.featureLabel;
+    this.runTreeParent = opts.parentRun;
+    this.id = runDiffGroupItemTreeId(opts.projectPath, opts.runId);
     this.description = '…';
     this.tooltip = 'Expand to load file list from run get (combined runCommits diffs)';
     this.contextValue = 'runDiffGroup';
@@ -574,11 +697,26 @@ export class RunDiffGroupItem extends vscode.TreeItem {
 
 /** One directory segment in the Changes tree; children are further dirs and/or {@link RunDiffFileItem}s. */
 export class RunDiffDirItem extends vscode.TreeItem {
-  constructor(
-    public readonly segment: string,
-    public readonly childElements: RunTreeElement[],
-  ) {
-    super(segment, vscode.TreeItemCollapsibleState.Collapsed);
+  public readonly segment: string;
+  public childElements: RunTreeElement[];
+  public readonly runTreeParent: RunDiffGroupItem | RunDiffDirItem;
+
+  constructor(opts: {
+    segment: string;
+    parent: RunDiffGroupItem | RunDiffDirItem;
+    triePath: string;
+    runId: string;
+    projectPath: string;
+  }) {
+    super(opts.segment, vscode.TreeItemCollapsibleState.Collapsed);
+    this.segment = opts.segment;
+    this.childElements = [];
+    this.runTreeParent = opts.parent;
+    this.id = runDiffDirItemTreeId({
+      projectPath: opts.projectPath,
+      runId: opts.runId,
+      triePath: opts.triePath,
+    });
     this.contextValue = 'runDiffDir';
     this.iconPath = new vscode.ThemeIcon('folder');
   }
@@ -596,6 +734,7 @@ export class RunDiffFileItem extends vscode.TreeItem {
   public readonly baseCommitSha: string;
   public readonly basePatchSection: string;
   public readonly runCommitSections: string[];
+  public readonly runTreeParent: RunDiffGroupItem | RunDiffDirItem;
 
   constructor(opts: {
     runId: string;
@@ -605,6 +744,7 @@ export class RunDiffFileItem extends vscode.TreeItem {
     baseCommitSha: string;
     basePatchSection: string;
     runCommitSections: string[];
+    parent: RunDiffGroupItem | RunDiffDirItem;
   }) {
     const baseName = path.basename(opts.stat.path);
     super(baseName, vscode.TreeItemCollapsibleState.None);
@@ -615,6 +755,12 @@ export class RunDiffFileItem extends vscode.TreeItem {
     this.baseCommitSha = opts.baseCommitSha;
     this.basePatchSection = opts.basePatchSection;
     this.runCommitSections = opts.runCommitSections;
+    this.runTreeParent = opts.parent;
+    this.id = runDiffFileItemTreeId({
+      projectPath: opts.projectPath,
+      runId: opts.runId,
+      filePath: opts.stat.path,
+    });
     const stat = opts.stat;
     // Line counts from parsed unified diff (may aggregate multiple commits for the same path).
     const parts: string[] = [];
@@ -639,8 +785,15 @@ export class RunDiffFileItem extends vscode.TreeItem {
 
 /** Non-interactive row under Changes (empty list, load error, or hint text). */
 export class RunDiffMessageItem extends vscode.TreeItem {
-  constructor(message: string, detail: string) {
-    super(message, vscode.TreeItemCollapsibleState.None);
+  public readonly runTreeParent?: RunDiffGroupItem;
+
+  constructor(opts: { message: string; detail: string; parent?: RunDiffGroupItem }) {
+    super(opts.message, vscode.TreeItemCollapsibleState.None);
+    const { message, detail, parent } = opts;
+    this.runTreeParent = parent;
+    if (parent) {
+      this.id = `saifctl-rundmsg:${encodeURIComponent(parent.projectPath)}:${encodeURIComponent(parent.runId)}:${encodeURIComponent(message)}`;
+    }
     this.description = detail;
     this.contextValue = 'runDiffMessage';
     this.iconPath = new vscode.ThemeIcon('info');

@@ -224,8 +224,8 @@
         "icon": "$(clear-all)"
       },
       {
-        "command": "saifctl.revealRunInFinder",
-        "title": "Reveal in Explorer"
+        "command": "saifctl.goToFeatureFromRun",
+        "title": "Go to Feature"
       },
       {
         "command": "saifctl.copyRunId",
@@ -264,6 +264,11 @@
         "command": "saifctl.openRunFileDiff",
         "title": "Open Diff",
         "icon": "$(diff)"
+      },
+      {
+        "command": "saifctl.expandRunDiffDirRecursive",
+        "title": "Expand recursively",
+        "icon": "$(expand-all)"
       },
       {
         "command": "saifctl.showLogs",
@@ -401,7 +406,7 @@
           "group": "inline"
         },
         {
-          "command": "saifctl.revealRunInFinder",
+          "command": "saifctl.goToFeatureFromRun",
           "when": "viewItem =~ /^run_/",
           "group": "1_modification@1"
         },
@@ -469,6 +474,11 @@
           "command": "saifctl.createDir",
           "when": "view == saifctl-features && (viewItem == feature || viewItem == dir)",
           "group": "2_workspace@2"
+        },
+        {
+          "command": "saifctl.expandRunDiffDirRecursive",
+          "when": "viewItem == runDiffDir",
+          "group": "1_changes@1"
         }
       ]
     }
