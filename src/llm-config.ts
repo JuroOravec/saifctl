@@ -96,6 +96,20 @@ export interface LlmConfig {
 }
 
 /**
+ * Placeholder LLM config for `saifctl run inspect`: the coding container stays idle
+ * (`sleep infinity`) and does not run the factory agent, so host API keys are not required.
+ * Reuses the same no-key pattern as Ollama in {@link resolveApiKey}.
+ */
+export function dummyInspectLlmConfig(): LlmConfig {
+  return {
+    modelId: 'inspect',
+    provider: 'ollama',
+    fullModelString: 'ollama/inspect',
+    apiKey: 'sk-none',
+  };
+}
+
+/**
  * CLI-level overrides parsed from command flags.
  *
  * Examples:

@@ -20,7 +20,7 @@ import { resolveAgentProfile } from '../../agent-profiles/index.js';
 import { createEngine } from '../../engines/index.js';
 import { defaultEngineLog } from '../../engines/logs.js';
 import type { LiveInfra } from '../../engines/types.js';
-import { resolveAgentLlmConfig } from '../../llm-config.js';
+import { dummyInspectLlmConfig, resolveAgentLlmConfig } from '../../llm-config.js';
 import { preparePendingRulesFile } from '../../runs/rules.js';
 import type { InnerRoundSummary } from '../../runs/types.js';
 import type { CleanupRegistry } from '../../utils/cleanup.js';
@@ -147,13 +147,16 @@ export async function runEngineAttempt(
   const codingIsLocal = codingEnvironment.engine === 'local';
 
   const agentProfile = resolveAgentProfile(agentProfileId);
-  const coderLlmConfig = resolveAgentLlmConfig('coder', overrides);
-  const reviewer = reviewerEnabled
-    ? {
-        llmConfig: resolveAgentLlmConfig('reviewer', overrides),
-        argusBinaryPath: await getArgusBinaryPath(),
-      }
-    : null;
+  const coderLlmConfig = inspectMode
+    ? dummyInspectLlmConfig()
+    : resolveAgentLlmConfig('coder', overrides);
+  const reviewer =
+    inspectMode || !reviewerEnabled
+      ? null
+      : {
+          llmConfig: resolveAgentLlmConfig('reviewer', overrides),
+          argusBinaryPath: await getArgusBinaryPath(),
+        };
 
   // Track latest live infra: SIGINT cleanup and teardown() need the same snapshot.
   // Each operation like Engine.setup() may mutate the live infra shape.

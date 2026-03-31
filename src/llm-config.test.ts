@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  dummyInspectLlmConfig,
   isSupportedAgentName,
   resolveAgentLlmConfig,
   SUPPORTED_AGENT_NAMES,
@@ -45,6 +46,20 @@ describe('llm-config', () => {
       expect(config.provider).toBeDefined();
       expect(config.modelId).toBeDefined();
       expect(config.apiKey).toBe('sk-test-key');
+    });
+  });
+
+  describe('dummyInspectLlmConfig', () => {
+    it('returns a stable placeholder without reading env', () => {
+      delete process.env.OPENAI_API_KEY;
+      delete process.env.OPENROUTER_API_KEY;
+      const c = dummyInspectLlmConfig();
+      expect(c).toEqual({
+        modelId: 'inspect',
+        provider: 'ollama',
+        fullModelString: 'ollama/inspect',
+        apiKey: 'sk-none',
+      });
     });
   });
 });
