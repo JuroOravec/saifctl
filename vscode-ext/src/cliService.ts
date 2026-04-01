@@ -13,6 +13,7 @@ import { basename, join } from 'node:path';
 import * as vscode from 'vscode';
 
 import { resolveCliInvocation, type ResolverLog } from './binaryResolver';
+import { appendCliExtraArgs } from './cliArgs.js';
 import { type EnvManager } from './envManager';
 import { logger, saifctlOutputChannel } from './logger';
 import { spawnUserCmdCapture } from './userCmdCapture.js';
@@ -233,12 +234,24 @@ export class SaifctlCliService {
    * Executes a command in a visible VS Code Terminal.
    * Use for long-running agent processes (run, design, validate).
    */
+  /**
+   * Extra flags from `saifctl.extraArgs` (workspace setting), appended to long-running run commands.
+   */
+  private getExtraArgsFromSettings(): string {
+    return vscode.workspace.getConfiguration('saifctl').get<string>('extraArgs', '').trim();
+  }
+
   private async executeInTerminal(opts: {
     command: string;
     terminalName: string;
     cwd: string;
+    /**
+     * When false, paste the command into the terminal without submitting (user presses Enter).
+     * Shell integration cannot do this, so we always use {@link vscode.Terminal.sendText}.
+     */
+    execute?: boolean;
   }): Promise<void> {
-    const { command, terminalName, cwd } = opts;
+    const { command, terminalName, cwd, execute = true } = opts;
     const env = await this.envManager.resolveEnv(cwd);
     let terminal = this.terminals.get(terminalName);
 
@@ -257,6 +270,10 @@ export class SaifctlCliService {
     }
 
     terminal.show(false);
+    if (!execute) {
+      terminal.sendText(command, false);
+      return;
+    }
     const si = terminal.shellIntegration;
     if (si) {
       si.executeCommand(command);
@@ -278,10 +295,30 @@ export class SaifctlCliService {
   }
 
   public async runFeature(featureName: string, cwd: string): Promise<void> {
+    const sub = appendCliExtraArgs(
+      `feat run -n ${escapeArg(featureName)}`,
+      this.getExtraArgsFromSettings(),
+    );
     await this.executeInTerminal({
-      command: await this.cliCommand(cwd, `feat run -n ${escapeArg(featureName)}`),
+      command: await this.cliCommand(cwd, sub),
       terminalName: `SaifCTL run: ${featureName}`,
       cwd,
+    });
+  }
+
+  /** Like {@link runFeature} but leaves the command in the terminal for the user to edit and run. */
+  public async runFeatureWithArgs(opts: {
+    featureName: string;
+    cwd: string;
+    extraArgs: string;
+  }): Promise<void> {
+    const { featureName, cwd, extraArgs } = opts;
+    const sub = appendCliExtraArgs(`feat run -n ${escapeArg(featureName)}`, extraArgs);
+    await this.executeInTerminal({
+      command: await this.cliCommand(cwd, sub),
+      terminalName: `SaifCTL run: ${featureName}`,
+      cwd,
+      execute: false,
     });
   }
 
@@ -425,10 +462,30 @@ index 0000000..abc
   }
 
   public async fromArtifact(runId: string, cwd: string): Promise<void> {
+    const sub = appendCliExtraArgs(
+      `run start ${escapeArg(runId)}`,
+      this.getExtraArgsFromSettings(),
+    );
     await this.executeInTerminal({
-      command: await this.cliCommand(cwd, `run start ${escapeArg(runId)}`),
+      command: await this.cliCommand(cwd, sub),
       terminalName: this.runSessionTerminalName(runId),
       cwd,
+    });
+  }
+
+  /** Like {@link fromArtifact} but leaves the command in the terminal for the user to edit and run. */
+  public async fromArtifactWithArgs(opts: {
+    runId: string;
+    cwd: string;
+    extraArgs: string;
+  }): Promise<void> {
+    const { runId, cwd, extraArgs } = opts;
+    const sub = appendCliExtraArgs(`run start ${escapeArg(runId)}`, extraArgs);
+    await this.executeInTerminal({
+      command: await this.cliCommand(cwd, sub),
+      terminalName: this.runSessionTerminalName(runId),
+      cwd,
+      execute: false,
     });
   }
 
@@ -443,8 +500,9 @@ index 0000000..abc
 
   /** Re-run tests for a saved run without the agent (`saifctl run test`). */
   public async testRun(runId: string, cwd: string): Promise<void> {
+    const sub = appendCliExtraArgs(`run test ${escapeArg(runId)}`, this.getExtraArgsFromSettings());
     await this.executeInTerminal({
-      command: await this.cliCommand(cwd, `run test ${escapeArg(runId)}`),
+      command: await this.cliCommand(cwd, sub),
       terminalName: `SaifCTL test: ${runId}`,
       cwd,
     });
@@ -538,8 +596,12 @@ index 0000000..abc
 
   /** Resume a paused run in the terminal (`saifctl run resume`). */
   public async resumeRun(runId: string, cwd: string): Promise<void> {
+    const sub = appendCliExtraArgs(
+      `run resume ${escapeArg(runId)}`,
+      this.getExtraArgsFromSettings(),
+    );
     await this.executeInTerminal({
-      command: await this.cliCommand(cwd, `run resume ${escapeArg(runId)}`),
+      command: await this.cliCommand(cwd, sub),
       terminalName: this.runSessionTerminalName(runId),
       cwd,
     });

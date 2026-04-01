@@ -164,6 +164,11 @@
         "icon": "$(play)"
       },
       {
+        "command": "saifctl.runFeatureWith",
+        "title": "Run with extra args…",
+        "icon": "$(play)"
+      },
+      {
         "command": "saifctl.designFeature",
         "title": "Design",
         "icon": "$(wand)"
@@ -231,6 +236,11 @@
       {
         "command": "saifctl.fromArtifact",
         "title": "Start run",
+        "icon": "$(play)"
+      },
+      {
+        "command": "saifctl.fromArtifactWith",
+        "title": "Start run with extra args…",
         "icon": "$(play)"
       },
       {
@@ -359,6 +369,11 @@
             ".env"
           ],
           "description": "Ordered list of env file names to load from each project directory (first existing file wins). Values from secure storage override file entries."
+        },
+        "saifctl.extraArgs": {
+          "type": "string",
+          "default": "",
+          "description": "Extra CLI flags appended to saifctl run commands started from the extension (feat run, run start, run resume, run test). Passed through verbatim — quote paths with spaces. Example: --model anthropic/claude-3-5-sonnet-latest --no-reviewer"
         }
       }
     },
@@ -472,6 +487,11 @@
           "group": "1_feature@5"
         },
         {
+          "command": "saifctl.runFeatureWith",
+          "when": "viewItem == feature",
+          "group": "1_feature@6"
+        },
+        {
           "command": "saifctl.pauseRun",
           "when": "viewItem == run_running",
           "group": "inline@1"
@@ -490,6 +510,11 @@
           "command": "saifctl.fromArtifact",
           "when": "viewItem =~ /^run_/ && viewItem != run_inspecting && viewItem != run_running && viewItem != run_paused && viewItem != run_starting && viewItem != run_pausing && viewItem != run_stopping && viewItem != run_resuming",
           "group": "inline@3"
+        },
+        {
+          "command": "saifctl.fromArtifactWith",
+          "when": "viewItem =~ /^run_/ && viewItem != run_inspecting && viewItem != run_running && viewItem != run_paused && viewItem != run_starting && viewItem != run_pausing && viewItem != run_stopping && viewItem != run_resuming",
+          "group": "1_modification@8"
         },
         {
           "command": "saifctl.inspectRun",

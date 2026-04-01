@@ -236,6 +236,9 @@ export async function activate(context: vscode.ExtensionContext) {
     if (e.affectsConfiguration('saifctl.envFiles')) {
       logger.info(`SaifCTL settings: envFiles=${JSON.stringify(cfg.get('envFiles'))}`);
     }
+    if (e.affectsConfiguration('saifctl.extraArgs')) {
+      logger.info(`SaifCTL settings: extraArgs=${JSON.stringify(cfg.get('extraArgs'))}`);
+    }
   });
   context.subscriptions.push(saifctlSettingsListener);
 
@@ -352,6 +355,35 @@ export async function activate(context: vscode.ExtensionContext) {
               void cliService.runFeature(name, cwd);
               runsProvider.kickLiveStatusPolling();
             }
+          },
+        ),
+      ),
+    ),
+  );
+
+  const runFeatureWithCmd = vscode.commands.registerCommand(
+    'saifctl.runFeatureWith',
+    withCliGuard(
+      withLlmKeys(
+        (item?: vscode.TreeItem) => getCwdForFeature(item),
+        loggedCommand(
+          { commandId: 'saifctl.runFeatureWith', startDetail: logDetailFeatureCommand },
+          async (item?: vscode.TreeItem) => {
+            const name = getItemName(item);
+            const cwd = getCwdForFeature(item);
+            if (!name) return;
+            const defaultExtra = vscode.workspace
+              .getConfiguration('saifctl')
+              .get<string>('extraArgs', '');
+            const extra = await vscode.window.showInputBox({
+              prompt:
+                'Extra CLI flags (appended to feat run; edit then press Enter in the terminal to run)',
+              placeHolder: '--model anthropic/claude-3-5-sonnet-latest --no-reviewer',
+              value: defaultExtra,
+            });
+            if (extra === undefined) return;
+            void cliService.runFeatureWithArgs({ featureName: name, cwd, extraArgs: extra });
+            runsProvider.kickLiveStatusPolling();
           },
         ),
       ),
@@ -530,6 +562,35 @@ export async function activate(context: vscode.ExtensionContext) {
               void cliService.fromArtifact(runId, cwd);
               runsProvider.kickLiveStatusPolling();
             }
+          },
+        ),
+      ),
+    ),
+  );
+
+  const fromArtifactWithCmd = vscode.commands.registerCommand(
+    'saifctl.fromArtifactWith',
+    withCliGuard(
+      withLlmKeys(
+        (item?: vscode.TreeItem) => getCwdForRun(item),
+        loggedCommand(
+          { commandId: 'saifctl.fromArtifactWith', startDetail: logDetailRunCommand },
+          async (item?: vscode.TreeItem) => {
+            const runId = getRunId(item);
+            const cwd = getCwdForRun(item);
+            if (!runId) return;
+            const defaultExtra = vscode.workspace
+              .getConfiguration('saifctl')
+              .get<string>('extraArgs', '');
+            const extra = await vscode.window.showInputBox({
+              prompt:
+                'Extra CLI flags (appended to run start; edit then press Enter in the terminal to run)',
+              placeHolder: '--model anthropic/claude-3-5-sonnet-latest --no-reviewer',
+              value: defaultExtra,
+            });
+            if (extra === undefined) return;
+            void cliService.fromArtifactWithArgs({ runId, cwd, extraArgs: extra });
+            runsProvider.kickLiveStatusPolling();
           },
         ),
       ),
@@ -1000,6 +1061,7 @@ export async function activate(context: vscode.ExtensionContext) {
     filterFeaturesActiveCmd,
     clearFilterFeaturesCmd,
     runFeatureCmd,
+    runFeatureWithCmd,
     designFeatureCmd,
     designFeatureSpecsCmd,
     validateFeatureTestsCmd,
@@ -1011,6 +1073,7 @@ export async function activate(context: vscode.ExtensionContext) {
     filterRunsActiveCmd,
     clearFilterRunsCmd,
     fromArtifactCmd,
+    fromArtifactWithCmd,
     pauseRunCmd,
     stopRunCmd,
     forceStopRunCmd,
