@@ -10,6 +10,7 @@ import {
   type RunArtifact,
   RunCannotPauseError,
   RunCannotStopError,
+  type RunInspectSession,
   type RunSaveOptions,
   type RunStatus,
   StaleArtifactError,
@@ -73,6 +74,7 @@ export class RunStorage {
       artifactRevision: currentRev + 1,
       updatedAt: artifact.updatedAt,
       liveInfra: artifact.liveInfra,
+      inspectSession: artifact.inspectSession ?? null,
     };
 
     await this.storage.save(runId, merged);
@@ -81,7 +83,7 @@ export class RunStorage {
 
   async setStatusRunning(runId: string, artifact: RunArtifact): Promise<number> {
     const existing = await this.storage.get(runId);
-    if (existing?.status === 'running') {
+    if (existing?.status === 'running' || existing?.status === 'inspecting') {
       throw new RunAlreadyRunningError(runId);
     }
     const currentRev = existing?.artifactRevision ?? 0;
@@ -94,13 +96,45 @@ export class RunStorage {
       artifactRevision: currentRev + 1,
       updatedAt: artifact.updatedAt,
       liveInfra: artifact.liveInfra,
+      inspectSession: null,
+    };
+    await this.storage.save(runId, merged);
+    return merged.artifactRevision!;
+  }
+
+  /**
+   * Marks the run as {@link RunStatus} `"inspecting"` and records the idle coder container for tooling.
+   *
+   * @returns New {@link RunArtifact#artifactRevision} after the write.
+   */
+  async setStatusInspecting(runId: string, session: RunInspectSession): Promise<number> {
+    const existing = await this.storage.get(runId);
+    if (!existing) {
+      throw new Error(`Run not found: ${runId}`);
+    }
+    if (existing.status === 'inspecting') {
+      throw new Error(
+        `Run "${runId}" is already in inspect mode. Finish or Ctrl+C the other inspect session first.`,
+      );
+    }
+    const currentRev = existing.artifactRevision ?? 0;
+    const merged: RunArtifact = {
+      ...existing,
+      status: 'inspecting',
+      inspectSession: session,
+      artifactRevision: currentRev + 1,
+      updatedAt: new Date().toISOString(),
     };
     await this.storage.save(runId, merged);
     return merged.artifactRevision!;
   }
 
   async getRun(runId: string): Promise<RunArtifact | null> {
-    return this.storage.get(runId);
+    const r = await this.storage.get(runId);
+    if (r && r.inspectSession === undefined) {
+      return { ...r, inspectSession: null };
+    }
+    return r;
   }
 
   async listRuns(filter?: { taskId?: string; status?: RunStatus }): Promise<RunArtifact[]> {

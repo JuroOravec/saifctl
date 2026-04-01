@@ -8,6 +8,7 @@ import type {
   RunArtifact,
   RunCommit,
   RunControlSignal,
+  RunInspectSession,
   RunLiveInfra,
   RunRule,
   RunStatus,
@@ -37,6 +38,8 @@ export interface BuildRunArtifactParams {
   controlSignal: RunControlSignal | null;
   pausedSandboxBasePath: string | null;
   liveInfra: RunLiveInfra | null;
+  /** Omit or `null` for normal runs; only set when persisting an active inspect session. */
+  inspectSession?: RunInspectSession | null;
 }
 
 /**
@@ -62,6 +65,7 @@ export function buildRunArtifact(params: BuildRunArtifactParams): RunArtifact {
     controlSignal: params.controlSignal ?? null,
     pausedSandboxBasePath: params.pausedSandboxBasePath ?? null,
     liveInfra: params.liveInfra ?? null,
+    inspectSession: params.inspectSession ?? null,
   };
   return art;
 }

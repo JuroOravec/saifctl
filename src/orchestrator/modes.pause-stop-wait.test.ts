@@ -62,6 +62,7 @@ const baseArtifact: RunArtifact = {
   controlSignal: null,
   pausedSandboxBasePath: null,
   liveInfra: null,
+  inspectSession: null,
 };
 
 function mockStorage(opts: { getRunImpl: (callIndex: number) => RunArtifact | null }): RunStorage {

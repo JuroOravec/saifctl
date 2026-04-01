@@ -72,6 +72,7 @@ const dummyArtifact: RunArtifact = {
   controlSignal: null,
   pausedSandboxBasePath: null,
   liveInfra: null,
+  inspectSession: null,
 };
 
 describe('createRunStorage', () => {
@@ -169,6 +170,47 @@ describe('createRunStorage', () => {
     }
   });
 
+  it('setStatusInspecting writes inspecting status, session, and revision', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      await storage.saveRun('run-1', { ...dummyArtifact, runId: 'run-1' });
+      const session = {
+        containerName: 'saifctl-coder-test',
+        containerId: 'abc123def456abc123def456abc123def456abc123def456abc123def456abcd',
+        workspacePath: '/workspace',
+        startedAt: '2026-01-01T12:00:00.000Z',
+      };
+      const rev = await storage.setStatusInspecting('run-1', session);
+      expect(rev).toBe(2);
+      const got = await storage.getRun('run-1');
+      expect(got?.status).toBe('inspecting');
+      expect(got?.inspectSession).toEqual(session);
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('setStatusInspecting throws when already inspecting', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      await storage.saveRun('run-1', { ...dummyArtifact, runId: 'run-1' });
+      const session = {
+        containerName: 'c1',
+        containerId: 'abc123def456abc123def456abc123def456abc123def456abc123def456abcd',
+        workspacePath: '/workspace',
+        startedAt: '2026-01-01T12:00:00.000Z',
+      };
+      await storage.setStatusInspecting('run-1', session);
+      await expect(storage.setStatusInspecting('run-1', session)).rejects.toThrow(
+        /already in inspect mode/,
+      );
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
   it('setStatusRunning throws RunAlreadyRunningError when stored status is already running', async () => {
     const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
     try {
@@ -177,6 +219,29 @@ describe('createRunStorage', () => {
         ...dummyArtifact,
         runId: 'run-1',
         status: 'running',
+      });
+      await expect(
+        storage.setStatusRunning('run-1', {
+          ...dummyArtifact,
+          runId: 'run-1',
+          status: 'running',
+        }),
+      ).rejects.toThrow(RunAlreadyRunningError);
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('setStatusRunning throws RunAlreadyRunningError when stored status is inspecting', async () => {
+    const tmp = await mkdtemp(join(tmpdir(), 'saifctl-'));
+    try {
+      const storage = createRunStorage('local', tmp)!;
+      await storage.saveRun('run-1', { ...dummyArtifact, runId: 'run-1' });
+      await storage.setStatusInspecting('run-1', {
+        containerId: 'abc123def456abc123def456abc123def456abc123def456abc123def456abcd',
+        containerName: 'c1',
+        workspacePath: '/w',
+        startedAt: '2026-01-01T00:00:00.000Z',
       });
       await expect(
         storage.setStatusRunning('run-1', {

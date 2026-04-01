@@ -24,7 +24,7 @@ import {
   type FeatRunSerializedInput,
 } from '../hatchet/workflows/feat-run.workflow.js';
 import { type ModelOverrides } from '../llm-config.js';
-import { consola } from '../logger.js';
+import { consola, ensureStdoutNewline } from '../logger.js';
 import { cloneRunRules } from '../runs/rules.js';
 import { type RunStorage } from '../runs/storage.js';
 import {
@@ -32,6 +32,7 @@ import {
   RunAlreadyRunningError,
   RunCannotStopError,
   type RunCommit,
+  type RunInspectSession,
   StaleArtifactError,
 } from '../runs/types.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from '../runs/utils/artifact.js';
@@ -590,6 +591,7 @@ async function runStartCore(
         opts: loopOpts,
         pausedSandboxBasePath: null,
         controlSignal: null,
+        inspectSession: null,
         // On resume, keep the coding infra in the artifact so a SIGINT before the first round
         // doesn't lose the live Docker resources. Non-resume paths start with null and let the
         // iterative loop fill it in once infra is provisioned.
@@ -1120,6 +1122,11 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
         `If the process died, manually edit or delete the run artifact (e.g. .saifctl/runs/${runId}.json).`,
     );
   }
+  if (artifact.status === 'inspecting') {
+    throw new Error(
+      `Run "${runId}" is already in inspect mode. Finish the other session (Ctrl+C in that terminal) or clear the artifact.`,
+    );
+  }
 
   // Resolve full orchestrator opts to check the engine type before entering the shared path.
   const deserialized = deserializeArtifactConfig(artifact.config);
@@ -1158,7 +1165,8 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
   // Single pass: the loop exits after one "coding attempt" (the idle inspect container).
   mergedOpts.maxRuns = 1;
 
-  const expectedRevision = artifact.artifactRevision ?? 0;
+  const statusBeforeInspect = artifact.status;
+  let expectedRevision = artifact.artifactRevision ?? 0;
   const prevCommitsJson = JSON.stringify(artifact.runCommits);
   const patchExclude = buildPatchExcludeRules(saifctlDir, mergedOpts.patchExclude);
   let inspectSaveError: unknown;
@@ -1171,6 +1179,14 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
     async onReady(session, ctx) {
       // Snapshot HEAD before the user makes any changes — this is the diff base for patch extraction.
       const preInspectHead = (await git({ cwd: ctx.codePath, args: ['rev-parse', 'HEAD'] })).trim();
+
+      const inspectSession: RunInspectSession = {
+        containerId: session.containerId,
+        containerName: session.containerName,
+        workspacePath: session.workspacePath,
+        startedAt: new Date().toISOString(),
+      };
+      expectedRevision = await runStorage.setStatusInspecting(runId, inspectSession);
 
       consola.log(`\n[inspect] MODE: inspect — ${artifact.config.featureName} (run ${runId})`);
       consola.log(`\n[inspect] Attach your editor with Dev Containers or \`docker exec -it\`:`);
@@ -1193,6 +1209,28 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
         process.once('SIGINT', () => onExit('SIGINT'));
         process.once('SIGTERM', () => onExit('SIGTERM'));
       });
+
+      try {
+        const cur = await runStorage.getRun(runId);
+        if (cur?.status === 'inspecting') {
+          expectedRevision = await runStorage.saveRun(
+            runId,
+            {
+              ...cur,
+              status: statusBeforeInspect,
+              inspectSession: null,
+              updatedAt: new Date().toISOString(),
+            },
+            { ifRevisionEquals: cur.artifactRevision ?? 0 },
+          );
+        }
+      } catch (e) {
+        consola.warn('[inspect] Could not clear inspect state in storage (non-fatal):', e);
+        const cur = await runStorage.getRun(runId);
+        if (cur?.artifactRevision != null) {
+          expectedRevision = cur.artifactRevision;
+        }
+      }
 
       // Extract patch NOW — while the sandbox (bind-mounted codePath) is still alive.
       // session.stop() and sandbox destruction happen after onReady returns.
@@ -1258,6 +1296,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
 
   if (extractedCommits === null) {
     // onReady was never called (e.g. container setup failed before it was ready).
+    ensureStdoutNewline();
     return;
   }
 
@@ -1289,6 +1328,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
         pausedSandboxBasePath: artifact.pausedSandboxBasePath,
         opts: artifactLoopOpts as BuildRunArtifactOpts,
         liveInfra: artifact.liveInfra ?? null,
+        inspectSession: null,
       });
       try {
         await runStorage.saveRun(runId, newArtifact, { ifRevisionEquals: expectedRevision });
@@ -1313,6 +1353,8 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
   }
 
   if (inspectSaveError) throw inspectSaveError;
+
+  ensureStdoutNewline();
 }
 
 // ---------------------------------------------------------------------------

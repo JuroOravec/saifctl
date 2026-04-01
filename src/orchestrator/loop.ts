@@ -173,12 +173,18 @@ export interface IterativeLoopOpts {
    */
   dangerousNoLeash: boolean;
   /**
-   * Absolute path to a Cedar policy file for Leash.
+   * Absolute path to the Cedar policy file used to load {@link cedarScript} and for artifact / `--cedar` replay.
+   * Leash receives the copy under the sandbox (`<saifctlPath>/policy.cedar`), not this path directly.
    *
    * Defaults to default.cedar in src/orchestrator/policies/.
    * Ignored when dangerousNoLeash=true or with `--engine local`.
    */
   cedarPolicyPath: string;
+  /**
+   * Cedar policy text persisted on the Run and written next to sandbox scripts as `policy.cedar`.
+   * Matches the file at {@link cedarPolicyPath} when resolved from disk.
+   */
+  cedarScript: string;
   /**
    * Docker image for the coder container.
    * Resolved from the sandbox profile (default: node-pnpm-python). Override via --coder-image.
@@ -559,7 +565,6 @@ export async function runIterativeLoop(
     projectName,
     registry,
     dangerousNoLeash,
-    cedarPolicyPath,
     coderImage,
     push,
     pr,
@@ -659,6 +664,7 @@ export async function runIterativeLoop(
         controlSignal: overrides.controlSignal,
         pausedSandboxBasePath: overrides.pausedSandboxBasePath,
         liveInfra: overrides.liveInfra,
+        inspectSession: null,
         opts: loopOpts as BuildRunArtifactOpts,
       });
       const expectedRev = runContext.expectedArtifactRevision;
@@ -966,7 +972,6 @@ export async function runIterativeLoop(
           projectName,
           feature,
           dangerousNoLeash,
-          cedarPolicyPath,
           coderImage,
           gateRetries,
           agentEnv,

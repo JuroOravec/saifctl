@@ -78,6 +78,7 @@ export async function forkStoredRun(opts: ForkStoredRunOpts): Promise<{ newRunId
     controlSignal: source.controlSignal ?? null,
     pausedSandboxBasePath: source.pausedSandboxBasePath ?? null,
     liveInfra: source.liveInfra ?? null,
+    inspectSession: null,
     opts: artifactLoopOpts as BuildRunArtifactOpts,
   });
 

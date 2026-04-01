@@ -9,7 +9,25 @@ import type { SerializedLoopOpts } from './utils/serialize.js';
 
 export type { DockerLiveInfra, LiveInfra, LocalLiveInfra } from '../engines/types.js';
 
-export type RunStatus = 'failed' | 'completed' | 'running' | 'paused';
+export type RunStatus = 'failed' | 'completed' | 'running' | 'paused' | 'inspecting';
+
+/**
+ * Live inspect session metadata while {@link RunStatus} is `"inspecting"`.
+ * Cleared when the session ends; used by tooling (e.g. VS Code) to attach to the idle coder container.
+ */
+export interface RunInspectSession {
+  /** Docker container name (Leash target or `docker run --name`). */
+  containerName: string;
+  /**
+   * Full Docker container ID from `docker inspect` (64-char hex). Prefer for editor attach when set.
+   * `null` when we failed to resolve the container ID.
+   */
+  containerId: string | null;
+  /** In-container workspace path (bind-mounted sandbox code). */
+  workspacePath: string;
+  /** When the inspect session became ready for attach. */
+  startedAt: string;
+}
 
 /** Passed to `AbortController.abort()` when `run pause` requests a cooperative stop. */
 export const SAIFCTL_PAUSE_ABORT_REASON = 'saifctl-pause';
@@ -226,4 +244,9 @@ export interface RunArtifact {
    * Populated in later phases; `null` until tracking is wired or after full teardown.
    */
   liveInfra: RunLiveInfra | null;
+
+  /**
+   * Set only while {@link RunArtifact#status} is `"inspecting"`; otherwise `null`.
+   */
+  inspectSession: RunInspectSession | null;
 }

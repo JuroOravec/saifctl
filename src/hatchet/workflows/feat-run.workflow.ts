@@ -402,6 +402,7 @@ export function createFeatRunWorkflow() {
             controlSignal: null,
             pausedSandboxBasePath: null,
             liveInfra: null,
+            inspectSession: null,
           });
           sandboxRaw.runningArtifactRevision = await runStorage.setStatusRunning(
             sandboxRaw.runId,
@@ -737,6 +738,7 @@ export function createFeatRunWorkflow() {
             controlSignal: null,
             pausedSandboxBasePath: null,
             liveInfra: null,
+            inspectSession: null,
           });
           const expectedArtifactRevision =
             sandboxRaw.runningArtifactRevision ??
@@ -813,6 +815,7 @@ export function createFeatRunWorkflow() {
             controlSignal: null,
             pausedSandboxBasePath: null,
             liveInfra: null,
+            inspectSession: null,
           });
           const expectedArtifactRevision =
             sandboxRaw.runningArtifactRevision ??

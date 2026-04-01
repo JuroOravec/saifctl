@@ -13,6 +13,7 @@ import { findBestInstallCwd, type ResolverLog } from './binaryResolver';
 import { SaifctlCliService } from './cliService';
 import { FeatureItem, FeaturesTreeProvider } from './FeaturesTreeProvider';
 import { goToFeatureForRun } from './goToFeatureFromRun';
+import { attachFromRunInfo, waitAndAttachAfterInspectStart } from './inspectAttach';
 import { loggedCommand } from './loggedCommand';
 import { logger, saifctlOutputChannel, setVerboseLogging } from './logger';
 import { buildFeatRunCliFromArtifactConfig } from './runConfigToCli';
@@ -185,6 +186,7 @@ export async function activate(context: vscode.ExtensionContext) {
     showCollapseAll: true,
   });
   context.subscriptions.push(runsTreeView);
+  context.subscriptions.push(new vscode.Disposable(() => runsProvider.dispose()));
 
   const saifctlSettingsListener = vscode.workspace.onDidChangeConfiguration((e) => {
     if (!e.affectsConfiguration('saifctl')) return;
@@ -481,7 +483,32 @@ export async function activate(context: vscode.ExtensionContext) {
         async (item?: vscode.TreeItem) => {
           const runId = getRunId(item);
           const cwd = getCwdForRun(item);
-          if (runId) void cliService.inspectRun(runId, cwd);
+          if (!runId) return;
+          void cliService.inspectRun(runId, cwd);
+          void waitAndAttachAfterInspectStart({
+            cli: cliService,
+            runId,
+            cwd,
+            onInspectSessionReady: () => runsProvider.refresh(),
+          });
+        },
+      ),
+    ),
+  );
+
+  const attachInspectContainerCmd = vscode.commands.registerCommand(
+    'saifctl.attachInspectContainer',
+    withCliGuard(
+      loggedCommand(
+        {
+          commandId: 'saifctl.attachInspectContainer',
+          startDetail: logDetailRunCommand,
+        },
+        async (item?: vscode.TreeItem) => {
+          const runId = getRunId(item);
+          const cwd = getCwdForRun(item);
+          if (!runId) return;
+          await attachFromRunInfo({ cli: cliService, runId, cwd });
         },
       ),
     ),
@@ -822,6 +849,7 @@ export async function activate(context: vscode.ExtensionContext) {
     clearFilterRunsCmd,
     fromArtifactCmd,
     inspectRunCmd,
+    attachInspectContainerCmd,
     testRunCmd,
     applyRunCmd,
     exportRunCmd,
@@ -872,7 +900,7 @@ function updateRunsViewDescription(
   treeView.description = parts.length > 0 ? `· ${parts.join(' · ')}` : undefined;
 }
 
-const RUN_STATUS_VALUES: RunStatus[] = ['running', 'failed', 'completed', 'paused'];
+const RUN_STATUS_VALUES: RunStatus[] = ['running', 'failed', 'completed', 'paused', 'inspecting'];
 
 function isRunStatus(s: string | undefined): s is RunStatus {
   return s !== undefined && (RUN_STATUS_VALUES as string[]).includes(s);

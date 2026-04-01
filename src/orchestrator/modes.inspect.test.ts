@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SaifctlConfig } from '../config/schema.js';
 import { getGitProvider } from '../git/index.js';
 import { type RunStorage } from '../runs/storage.js';
-import { type RunArtifact, StaleArtifactError } from '../runs/types.js';
+import { type RunArtifact, type RunInspectSession, StaleArtifactError } from '../runs/types.js';
 import type { Feature } from '../specs/discover.js';
 import { resolveTestProfile } from '../test-profiles/index.js';
 import { type OrchestratorOpts, runInspect } from './modes.js';
@@ -141,6 +141,7 @@ const baseArtifact: RunArtifact = {
   controlSignal: null,
   pausedSandboxBasePath: null,
   liveInfra: null,
+  inspectSession: null,
 };
 
 const sandbox: Sandbox = {
@@ -180,7 +181,12 @@ const {
       infra?: typeof mockInspectInfra;
       inspectMode?: {
         onReady: (
-          session: { containerName: string; workspacePath: string; stop: typeof stop },
+          session: {
+            containerName: string;
+            containerId?: string;
+            workspacePath: string;
+            stop: typeof stop;
+          },
           ctx: { codePath: string },
         ) => Promise<void>;
       };
@@ -189,6 +195,7 @@ const {
         await opts.inspectMode.onReady(
           {
             containerName: 'leash-target-test',
+            containerId: 'cbe2a522f55613720b1148320aa3a04212c7ea64a6e296abd2949e448b16ff90',
             workspacePath: '/workspace',
             stop,
           },
@@ -344,19 +351,67 @@ describe('runInspect', () => {
   }
 
   function makeStorage(
+    initial: RunArtifact = baseArtifact,
     overrides: {
       getRun?: ReturnType<typeof vi.fn>;
       saveRun?: ReturnType<typeof vi.fn>;
       setStatusRunning?: ReturnType<typeof vi.fn>;
+      setStatusInspecting?: ReturnType<typeof vi.fn>;
     } = {},
-  ) {
+  ): RunStorage {
+    let art: RunArtifact = {
+      ...initial,
+      inspectSession: initial.inspectSession ?? null,
+    };
+
+    const setStatusInspecting =
+      overrides.setStatusInspecting ??
+      vi.fn(async (_runId: string, session: RunInspectSession) => {
+        const nextRev = (art.artifactRevision ?? 0) + 1;
+        art = {
+          ...art,
+          status: 'inspecting',
+          inspectSession: session,
+          artifactRevision: nextRev,
+          updatedAt: new Date().toISOString(),
+        };
+        return nextRev;
+      });
+
+    const saveRun =
+      overrides.saveRun ??
+      vi.fn(
+        async (
+          _runId: string,
+          incoming: RunArtifact,
+          opts?: { ifRevisionEquals?: number },
+        ): Promise<number> => {
+          if (
+            opts?.ifRevisionEquals !== undefined &&
+            (art.artifactRevision ?? 0) !== opts.ifRevisionEquals
+          ) {
+            throw new StaleArtifactError({
+              runId: art.runId,
+              expectedRevision: opts.ifRevisionEquals,
+              actualRevision: art.artifactRevision ?? 0,
+            });
+          }
+          art = {
+            ...incoming,
+            artifactRevision: (art.artifactRevision ?? 0) + 1,
+          };
+          return art.artifactRevision!;
+        },
+      );
+
+    const getRun = overrides.getRun ?? vi.fn(() => Promise.resolve({ ...art }));
+
     return {
       uri: 'mock',
-      getRun:
-        overrides.getRun ??
-        vi.fn().mockResolvedValue({ ...baseArtifact, runId: baseArtifact.runId }),
-      saveRun: overrides.saveRun ?? vi.fn().mockResolvedValue(undefined),
+      getRun,
+      saveRun,
       setStatusRunning: overrides.setStatusRunning ?? vi.fn().mockResolvedValue(1),
+      setStatusInspecting,
       listRuns: vi.fn(),
       deleteRun: vi.fn(),
       clearRuns: vi.fn(),
@@ -400,7 +455,7 @@ describe('runInspect', () => {
   });
 
   it('throws when run is not found', async () => {
-    const storage = makeStorage({ getRun: vi.fn().mockResolvedValue(null) });
+    const storage = makeStorage(baseArtifact, { getRun: vi.fn().mockResolvedValue(null) });
     await expect(
       runInspect({
         runId: 'missing',
@@ -416,7 +471,7 @@ describe('runInspect', () => {
   });
 
   it('throws when Run status is running', async () => {
-    const storage = makeStorage({
+    const storage = makeStorage(baseArtifact, {
       getRun: vi.fn().mockResolvedValue({ ...baseArtifact, status: 'running' }),
     });
     await expect(
@@ -431,6 +486,32 @@ describe('runInspect', () => {
         engineCli: undefined,
       }),
     ).rejects.toThrow(/already running/);
+  });
+
+  it('throws when Run status is inspecting', async () => {
+    const storage = makeStorage(baseArtifact, {
+      getRun: vi.fn().mockResolvedValue({
+        ...baseArtifact,
+        status: 'inspecting',
+        inspectSession: {
+          containerName: 'x',
+          workspacePath: '/workspace',
+          startedAt: '2026-01-01T00:00:00.000Z',
+        },
+      }),
+    });
+    await expect(
+      runInspect({
+        runId: baseArtifact.runId,
+        projectDir,
+        saifctlDir: 'saifctl',
+        config: {} as SaifctlConfig,
+        runStorage: storage,
+        cli: {} as unknown as OrchestratorCliInput,
+        cliModelDelta: undefined,
+        engineCli: undefined,
+      }),
+    ).rejects.toThrow(/already in inspect mode/);
   });
 
   it('creates worktree and sandbox, then on SIGINT skips save when patch unchanged', async () => {
@@ -454,7 +535,15 @@ describe('runInspect', () => {
     expect(mockEngine.runAgent).toHaveBeenCalledWith(
       expect.objectContaining({ dangerousNoLeash: true, inspectMode: expect.any(Object) }),
     );
-    expect(storage.saveRun).not.toHaveBeenCalled();
+    expect(storage.setStatusInspecting).toHaveBeenCalledWith(
+      baseArtifact.runId,
+      expect.objectContaining({
+        containerName: 'leash-target-test',
+        containerId: 'cbe2a522f55613720b1148320aa3a04212c7ea64a6e296abd2949e448b16ff90',
+        workspacePath: '/workspace',
+      }),
+    );
+    expect(storage.saveRun).toHaveBeenCalledTimes(1);
     expect(destroySandboxMock).toHaveBeenCalledWith(sandbox.sandboxBasePath);
     expect(cleanupArtifactRunWorktreeMock).toHaveBeenCalled();
   });
@@ -465,9 +554,7 @@ describe('runInspect', () => {
       artifactRevision: 2,
       runCommits: [] as RunArtifact['runCommits'],
     };
-    const storage = makeStorage({
-      getRun: vi.fn().mockResolvedValue(artifact),
-    });
+    const storage = makeStorage(artifact);
     const newStep = {
       message: 'saifctl: inspect session',
       diff: 'new patch content\n',
@@ -492,13 +579,13 @@ describe('runInspect', () => {
     await finishWithSigint();
     await p;
 
-    expect(storage.saveRun).toHaveBeenCalledTimes(1);
-    expect(storage.saveRun).toHaveBeenCalledWith(
+    expect(storage.saveRun).toHaveBeenCalledTimes(2);
+    expect(storage.saveRun).toHaveBeenLastCalledWith(
       artifact.runId,
       expect.objectContaining({
         runCommits: [newStep],
       }),
-      { ifRevisionEquals: 2 },
+      { ifRevisionEquals: 4 },
     );
   });
 
@@ -508,16 +595,57 @@ describe('runInspect', () => {
       artifactRevision: 1,
       runCommits: [] as RunArtifact['runCommits'],
     };
-    const storage = makeStorage({
-      getRun: vi.fn().mockResolvedValue(artifact),
-      saveRun: vi.fn().mockRejectedValue(
-        new StaleArtifactError({
-          runId: artifact.runId,
-          expectedRevision: 1,
-          actualRevision: 3,
-        }),
-      ),
+    let art: RunArtifact = { ...artifact, inspectSession: null };
+    const setStatusInspecting = vi.fn(async (_runId: string, session: RunInspectSession) => {
+      const nextRev = (art.artifactRevision ?? 0) + 1;
+      art = {
+        ...art,
+        status: 'inspecting',
+        inspectSession: session,
+        artifactRevision: nextRev,
+        updatedAt: new Date().toISOString(),
+      };
+      return nextRev;
     });
+    let saveCall = 0;
+    const saveRun = vi.fn(
+      async (
+        _runId: string,
+        incoming: RunArtifact,
+        opts?: { ifRevisionEquals?: number },
+      ): Promise<number> => {
+        if (
+          opts?.ifRevisionEquals !== undefined &&
+          (art.artifactRevision ?? 0) !== opts.ifRevisionEquals
+        ) {
+          throw new StaleArtifactError({
+            runId: art.runId,
+            expectedRevision: opts.ifRevisionEquals,
+            actualRevision: art.artifactRevision ?? 0,
+          });
+        }
+        saveCall += 1;
+        if (saveCall === 1) {
+          art = { ...incoming, artifactRevision: (art.artifactRevision ?? 0) + 1 };
+          return art.artifactRevision!;
+        }
+        throw new StaleArtifactError({
+          runId: artifact.runId,
+          expectedRevision: opts?.ifRevisionEquals ?? 0,
+          actualRevision: 999,
+        });
+      },
+    );
+    const storage = {
+      uri: 'mock',
+      getRun: vi.fn(() => Promise.resolve({ ...art })),
+      saveRun,
+      setStatusInspecting,
+      setStatusRunning: vi.fn(),
+      listRuns: vi.fn(),
+      deleteRun: vi.fn(),
+      clearRuns: vi.fn(),
+    } as unknown as RunStorage;
     const staleStep = {
       message: 'saifctl: inspect session',
       diff: 'conflict patch\n',
@@ -554,8 +682,7 @@ describe('runInspect', () => {
       runCommits: [{ message: 'm', diff: 'a\n' }],
     };
     const diskError = new Error('disk full');
-    const storage = makeStorage({
-      getRun: vi.fn().mockResolvedValue(artifact),
+    const storage = makeStorage(artifact, {
       saveRun: vi.fn().mockRejectedValue(diskError),
     });
     extractIncrementalRoundPatchMock.mockResolvedValue({

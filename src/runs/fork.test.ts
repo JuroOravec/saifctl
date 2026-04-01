@@ -74,6 +74,7 @@ function makeSourceArtifact(runId: string): RunArtifact {
     controlSignal: null,
     pausedSandboxBasePath: null,
     liveInfra: null,
+    inspectSession: null,
   };
 }
 

@@ -29,7 +29,7 @@ import { minimatch } from 'minimatch';
 
 import { getSaifctlRoot, SANDBOX_CEDAR_POLICY_BASENAME } from '../constants.js';
 import type { TestCatalog } from '../design-tests/schema.js';
-import { consola } from '../logger.js';
+import { consola, ensureStdoutNewline } from '../logger.js';
 import type { RunCommit } from '../runs/types.js';
 import type { Feature } from '../specs/discover.js';
 import { git, gitAdd, gitCommit, gitDiff, gitInit } from '../utils/git.js';
@@ -530,6 +530,7 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
 export async function destroySandbox(sandboxBasePath: string): Promise<void> {
   consola.log(`[sandbox] Removing sandbox ${sandboxBasePath}`);
   await rm(sandboxBasePath, { recursive: true, force: true });
+  ensureStdoutNewline();
 }
 
 /** A pattern used to exclude files from the extracted patch. */

@@ -290,6 +290,8 @@ export interface RunAgentOpts {
 export interface CoderInspectSessionHandle {
   /** Container name (Leash target / dangerous-no-leash docker run --name). */
   containerName: string;
+  /** Full Docker container ID when resolved (for tooling that matches by Id). */
+  containerId: string | null;
   /** In-container workspace path (bind-mounted from the sandbox code dir). */
   workspacePath: string;
   /** Stop the idle session: terminate the Leash/docker parent process and clean up direct-run containers. */

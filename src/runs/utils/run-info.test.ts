@@ -62,6 +62,7 @@ const minimalArtifact: RunArtifact = {
   controlSignal: null,
   pausedSandboxBasePath: null,
   liveInfra: null,
+  inspectSession: null,
 };
 
 describe('toRunInfoJson', () => {

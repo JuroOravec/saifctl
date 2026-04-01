@@ -357,6 +357,7 @@ export async function saveRunOnError(params: CreateSaveRunHandlerParams): Promis
     controlSignal: null,
     pausedSandboxBasePath: existingArtifact?.pausedSandboxBasePath ?? null,
     liveInfra: existingArtifact?.liveInfra ?? null,
+    inspectSession: null,
     opts,
   });
 

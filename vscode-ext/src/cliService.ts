@@ -21,7 +21,7 @@ export interface RunListEntry {
   runId: string;
   featureName: string;
   specRef: string;
-  status: 'failed' | 'completed' | 'running' | 'paused';
+  status: 'failed' | 'completed' | 'running' | 'paused' | 'inspecting';
   startedAt: string;
   updatedAt: string;
   taskId?: string;

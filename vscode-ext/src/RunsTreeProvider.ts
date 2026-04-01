@@ -32,7 +32,7 @@ const HIDDEN_CONFIG_KEYS = new Set([
   'cedarScript',
 ]);
 
-export type RunStatus = 'failed' | 'completed' | 'running' | 'paused';
+export type RunStatus = 'failed' | 'completed' | 'running' | 'paused' | 'inspecting';
 
 export interface SaifctlRunData {
   id: string;
@@ -108,12 +108,16 @@ export function collectRunDiffFileLeavesUnderDir(dir: RunDiffDirItem): RunDiffFi
   return out;
 }
 
+/** Repoll run list while any run is `inspecting` so the tree clears after terminal Ctrl+C updates storage. */
+const INSPECT_STATUS_POLL_MS = 5000;
+
 export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement> {
   private _onDidChangeTreeData = new vscode.EventEmitter<RunTreeElement | undefined | void>();
   readonly onDidChangeTreeData: vscode.Event<RunTreeElement | undefined | void> =
     this._onDidChangeTreeData.event;
 
   private runsCache: SaifctlRunData[] = [];
+  private _inspectPollTimer: ReturnType<typeof setTimeout> | undefined;
   private _filterText = '';
   private _filterStatuses = new Set<RunStatus>();
   /** Parsed file stats per run after expanding Changes (lazy). */
@@ -159,6 +163,28 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
     this._onDidChangeTreeData.fire();
   }
 
+  dispose(): void {
+    this.clearInspectPoll();
+    this._onDidChangeTreeData.dispose();
+  }
+
+  private clearInspectPoll(): void {
+    if (this._inspectPollTimer !== undefined) {
+      clearTimeout(this._inspectPollTimer);
+      this._inspectPollTimer = undefined;
+    }
+  }
+
+  /** After a successful root list load: poll until no run is `inspecting`. */
+  private scheduleInspectPollIfNeeded(merged: SaifctlRunData[]): void {
+    this.clearInspectPoll();
+    if (!merged.some((r) => r.status === 'inspecting')) return;
+    this._inspectPollTimer = setTimeout(() => {
+      this._inspectPollTimer = undefined;
+      this._onDidChangeTreeData.fire();
+    }, INSPECT_STATUS_POLL_MS);
+  }
+
   private matchesFilter(run: SaifctlRunData): boolean {
     const needle = this._filterText.trim().toLowerCase();
     const textOk =
@@ -186,6 +212,7 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
   async getChildren(element?: RunTreeElement): Promise<RunTreeElement[]> {
     // No workspace folder open — nothing to list.
     if (!this.workspaceRoot) {
+      this.clearInspectPoll();
       return [];
     }
 
@@ -211,6 +238,7 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
           }
         }
         this.runsCache = merged;
+        this.scheduleInspectPollIfNeeded(merged);
         if (!this.isFiltered) {
           return projects.map((p) => new RunProjectItem(p.name, p.projectPath));
         }
@@ -220,6 +248,7 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<RunTreeElement>
           )
           .map((p) => new RunProjectItem(p.name, p.projectPath));
       } catch {
+        this.clearInspectPoll();
         vscode.window.showErrorMessage('Failed to fetch SaifCTL runs.');
         return [];
       }
@@ -506,6 +535,9 @@ function statusIconPath(status: SaifctlRunData['status']): vscode.ThemeIcon {
   }
   if (status === 'paused') {
     return new vscode.ThemeIcon('debug-pause');
+  }
+  if (status === 'inspecting') {
+    return new vscode.ThemeIcon('debug-alt', new vscode.ThemeColor('testing.iconQueued'));
   }
   return new vscode.ThemeIcon('sync~spin', new vscode.ThemeColor('testing.iconQueued'));
 }

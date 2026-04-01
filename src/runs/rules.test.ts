@@ -281,6 +281,7 @@ describe('startRulesWatcher', () => {
         controlSignal: { action: 'pause', requestedAt: '2025-01-02T00:00:00.000Z' },
         pausedSandboxBasePath: null,
         liveInfra: null,
+        inspectSession: null,
       };
       const storage: Pick<RunStorage, 'getRun'> = {
         async getRun() {
@@ -370,6 +371,7 @@ describe('startRulesWatcher', () => {
         controlSignal: { action: 'stop', requestedAt: '2025-01-02T00:00:00.000Z' },
         pausedSandboxBasePath: null,
         liveInfra: null,
+        inspectSession: null,
       };
       const storage: Pick<RunStorage, 'getRun'> = {
         async getRun() {

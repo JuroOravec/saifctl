@@ -10,6 +10,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { SANDBOX_CEDAR_POLICY_BASENAME } from '../constants.js';
 import { resolveFeature } from '../specs/discover.js';
 import { git, gitAdd, gitCommit, gitInit } from '../utils/git.js';
 import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
@@ -21,7 +22,6 @@ import {
   filterPatchHunks,
   listFilePathsInUnifiedDiff,
   removeAllHiddenDirs,
-  SANDBOX_CEDAR_POLICY_BASENAME,
   sandboxFromPausedBasePath,
 } from './sandbox.js';
 

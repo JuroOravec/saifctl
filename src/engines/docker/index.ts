@@ -760,6 +760,19 @@ export class DockerEngine implements Engine {
         `[agent-runner] Ready — container ${containerName}, workspace ${CONTAINER_WORKSPACE}`,
       );
 
+      let containerId: string | null = null;
+      try {
+        const inf = await docker.getContainer(containerName).inspect();
+        if (typeof inf.Id === 'string' && inf.Id.trim()) {
+          containerId = inf.Id.trim();
+        }
+      } catch (e) {
+        consola.warn(
+          `[agent-runner] Could not resolve Docker container Id for "${containerName}" `,
+          e,
+        );
+      }
+
       let stopped = false;
       const stop = async (): Promise<void> => {
         if (stopped) return;
@@ -791,6 +804,7 @@ export class DockerEngine implements Engine {
       const inspectInfra = dockerInfraWithContainer(infra, containerName);
       const session: CoderInspectSessionHandle = {
         containerName,
+        containerId,
         workspacePath: CONTAINER_WORKSPACE,
         stop,
       };

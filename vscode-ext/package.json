@@ -219,6 +219,11 @@
         "icon": "$(debug-alt)"
       },
       {
+        "command": "saifctl.attachInspectContainer",
+        "title": "Attach to inspect container",
+        "icon": "$(vm-connect)"
+      },
+      {
         "command": "saifctl.testRun",
         "title": "Test run",
         "icon": "$(beaker)"
@@ -422,28 +427,43 @@
         },
         {
           "command": "saifctl.fromArtifact",
-          "when": "viewItem =~ /^run_/",
+          "when": "viewItem =~ /^run_/ && viewItem != run_inspecting",
           "group": "inline@1"
         },
         {
           "command": "saifctl.inspectRun",
-          "when": "viewItem =~ /^run_/",
+          "when": "viewItem =~ /^run_/ && viewItem != run_inspecting",
           "group": "inline@2"
         },
         {
           "command": "saifctl.testRun",
-          "when": "viewItem =~ /^run_/",
+          "when": "viewItem =~ /^run_/ && viewItem != run_inspecting",
           "group": "inline@3"
         },
         {
+          "command": "saifctl.attachInspectContainer",
+          "when": "viewItem == run_inspecting",
+          "group": "inline@1"
+        },
+        {
           "command": "saifctl.removeRun",
-          "when": "viewItem =~ /^run_/",
+          "when": "viewItem =~ /^run_/ && viewItem != run_inspecting",
           "group": "inline@4"
+        },
+        {
+          "command": "saifctl.removeRun",
+          "when": "viewItem == run_inspecting",
+          "group": "inline@2"
         },
         {
           "command": "saifctl.clearAllRuns",
           "when": "viewItem == runProject",
           "group": "inline"
+        },
+        {
+          "command": "saifctl.attachInspectContainer",
+          "when": "viewItem == run_inspecting",
+          "group": "1_modification@0"
         },
         {
           "command": "saifctl.goToFeatureFromRun",
