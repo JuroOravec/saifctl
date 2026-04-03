@@ -38,28 +38,17 @@ Full design: [docs/development/v0/](./development/v0/).
 
 ## 0. Initialize (one-time)
 
-> _Set up Shotgun, and codebase index_
+> _Scaffold Saifctl config; optional codebase index_
 
-Before creating features, set an LLM API key and run the init command once:
+Before creating features, run the init command once:
 
 ```sh
-# Or OPENAI_API_KEY / OPENROUTER_API_KEY
-export ANTHROPIC_API_KEY=sk-ant-...
-
 saifctl init
 ```
 
-This scaffolds `saifctl/config.ts` (if missing), creates and configures Shotgun, and indexes your codebase.
+This scaffolds `saifctl/config.ts` (if missing) and the `saifctl/` directory.
 
-See [LLM configuration](models.md) for all supported providers and model override options.
-
-You can provide `CONTEXT7_API_KEY` to make Shotgun use Context7 for documentation lookup:
-
-```sh
-export CONTEXT7_API_KEY=my-secret-key
-
-saifctl init
-```
+_Note: Specific Codebase indexers may require additional setup. See [Indexers](indexer/README.md)._
 
 ## 1. Create new feature
 
@@ -87,11 +76,11 @@ saifctl/
 
 See [`saifctl feat new`](commands/feat-new.md) for full options.
 
-## 2. Define feature spec
+## 2. Define feature proposal
 
-> _Write out your feature spec_
+> _Write out your feature proposal_
 
-Fill out the feature details in `proposal.md`:
+Fill out the feature details in `proposal.md`.
 
 ```markdown
 ## What Changes
@@ -118,11 +107,11 @@ Add login to the React website: email/password authentication with a protected d
 Registration, forgot password, OAuth, and email verification. Assume a backend endpoint exists at `POST /api/auth/login` returning `{ token: string }` or equivalent.
 ```
 
-## 3. Reseach & Design
+## 3. Research & Design
 
-> _Run AI to do research and improve specs. Update what's wrong, clear out ambiguities._
+> _Run AI to convert your proposal into a detailed spec. Update what's wrong, clear out ambiguities._
 
-This runs [Shotgun](https://github.com/shotgun-sh/shotgun) to make our specs more detailed:
+By default, `feat design` runs a sandboxed coding agent that builds a proof-of-concept to explore the feature before writing the spec.
 
 ```bash
 saifctl feat design -n add-login
@@ -132,30 +121,17 @@ saifctl feat design -n add-login \
   --model anthropic/claude-sonnet-4-6
 ```
 
-Shotgun CLI will:
+The designer will explore the codebase, probe constraints, and produce `specification.md` and `plan.md`.
 
-- Index your codebase
-- Look for relevant coding patterns
-- Write out the details - which file where is relevant, etc.
-
-After a while, we will end up with 4 new files:
-
-| File               | Purpose                     |
-| ------------------ | --------------------------- |
-| `research.md`      | Info about the codebase     |
-| `specification.md` | Detailed spec               |
-| `plan.md`          | Action plan for the agent   |
-| `tasks.md`         | Task tracking for the agent |
+Example output:
 
 ```txt
 saifctl/
 └─ features/
    └─ add-login/
       ├─ proposal.md
-      ├─ research.md       # new!
       ├─ specification.md  # new!
       ├─ plan.md           # new!
-      └─ tasks.md          # new!
 ```
 
 Fix factual errors, clear out ambiguities, add extra context.
@@ -217,19 +193,14 @@ saifctl feat design-tests -n add-login
 
 > _If needed, you can write more tests._
 
-When writing tests, do NOT import the tested code. It's dangerous.
+Tests are meant to assert changes made by the agent. But importing the tested code is dangerous.
 
-Instead, we have two containers:
+To stay safe, codebase with agent's changes is isolated in a staging container.
 
-1. The test runner (which executes your test code)
-2. Staging, with a copy of your codebase + agent's changes.
-
-To assert behaviour, you send HTTP requests from the test runner to the staging container.
-Use provided `httpRequest()` and `execSidecar()`:
+To assert behaviour, you send HTTP requests from the test runner to the staging container. Use provided `httpRequest()` and `execSidecar()` helpers:
 
 - `httpRequest()` - if your project exposes a web server.
 - `execSidecar()` - to safely execute a command in the staging container (over HTTP).
-
 In both cases, you assert against the response.
 
 **Testing web servers**
@@ -309,6 +280,34 @@ After the tests successfully failed, you can start your coding agent.
 
 **Infra vs genuine failures:** When tests fail at `fail2pass`, you can be certain it's genuine errors. Tests run in containers, which means tests can fail due to infra or network errors. However, SaifCTL handles this with health checks from the test runner to the staging container.
 
+## 7. Run coding agent
+
+<!--
+# TODO
+# TODO
+# TODO
+
+Run the coding agent to implement your specs:
+
+```bash
+saifctl feat run -n add-login
+```
+
+The agent runs in a loop: code → gate (lint, format) → semantic reviewer (if enabled) → tests. It continues until tests pass or max runs are exceeded. Use `--no-reviewer` to disable the AI reviewer.
+
+Resume a failed run:
+
+```bash
+saifctl run start <runId>
+```
+
+See [feat run](commands/feat-run.md) for all options.
+-->
+
+<!-- TODO -->
+<!-- TODO - ADD RESUME -->
+<!-- TODO -->
+
 ## Guides
 
 - [Fix agent mistakes: inspect, then run start](guides/inspect-and-start.md) — open the saved run’s coding container in VS Code or Cursor, edit by hand, then `run start`.
@@ -316,14 +315,12 @@ After the tests successfully failed, you can start your coding agent.
 
 ## Notes
 
-- The coder agent runs inside a **Leash** container by default.
-
 - Running tests requires Docker deamon.
 
-- A **semantic AI reviewer** runs after the gate by default. Disable with `--no-reviewer`. See [reviewer](reviewer.md).
+- The coder agent runs inside an isolated (**Leash**) container.
 
-- On test failures, an AI **Va gue Specs Checker** decides whether the errors are:
-  1. Genuine - coding agent made an error
-  2. Due to ambiguity in the specs
+- On test failures, an AI **Vague Specs Checker** decides whether the errors are due to:
+  1. Genuine - the agent made an error
+  2. Ambiguity in the specs
 
   If specs are ambiguous, the agent updates the specs. See [`feat run`](commands/feat-run.md).

@@ -4,7 +4,7 @@ Generate specs from a feature's proposal — the first step of `feat design` onl
 
 When `discovery.md` exists in the feature directory (from a prior `saifctl feat design-discovery` run), the designer receives both `proposal.md` and `discovery.md`.
 
-Runs the designer (e.g. Shotgun) to produce spec files from `proposal.md`. Use this when you want spec generation only, without proceeding to tests generation. The full `feat design` command runs this step first, then continues automatically.
+Runs the designer (default: [POC Explorer](../designers/poc.md)) to produce spec files from `proposal.md`. Use this when you want spec generation only, without proceeding to tests generation. The full `feat design` command runs this step first, then continues automatically.
 
 When `--name`/`-n` is omitted, prompts interactively with a list of existing features.
 
@@ -22,7 +22,7 @@ saifctl feature design-specs [options]
 | `--name`        | `-n`  | string  | Feature name (kebab-case). Prompts with a list if omitted.                                                                                                      |
 | `--yes`         | `-y`  | boolean | Non-interactive mode. Requires `--name`. Skips confirm when designer output exists; assumes redo.                                                               |
 | `--force`       | `-f`  | boolean | Always re-run the designer, overwriting existing spec files without prompting.                                                                                  |
-| `--designer`    | —     | string  | Designer profile for spec generation (default: shotgun)                                                                                                         |
+| `--designer`    | —     | string  | Designer profile for spec generation (default: `poc`). Pass `none` to skip.                                                                                     |
 | `--model`       | —     | string  | LLM model. Single global or comma-separated `agent=model`. At most one global. See [models.md](../models.md).                                                   |
 | `--base-url`    | —     | string  | LLM base URL. Single global or comma-separated `agent=url` (e.g. `http://localhost:11434/v1` or `pr-summarizer=https://api.openai.com/v1`). At most one global. |
 | `--saifctl-dir`  | —     | string  | Path to saifctl directory (default: `saifctl`)                                                                                                                    |
@@ -45,6 +45,7 @@ saifctl feat design-specs -n add-login
 With a specific designer and model:
 
 ```bash
+saifctl feat design-specs --designer poc --model anthropic/claude-opus-4-5
 saifctl feat design-specs --designer shotgun --model anthropic/claude-opus-4-5
 ```
 
@@ -75,6 +76,12 @@ saifctl feat design-specs --project-dir ./packages/my-app
 
 ## Environment variables
 
+The required environment variables depend on the active designer.
+
+**POC Explorer (default):** requires a coding-agent LLM API key. See [Models](../models.md) for auto-discovery rules.
+
+**Shotgun (`--designer shotgun`):**
+
 | Variable           | Required | Description                                                                                                      |
 | ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------- |
 | `SHOTGUN_PYTHON`   | no       | Path to the Python binary that has `shotgun-sh` installed (default: `python`). Example: `$(uv run which python)` |
@@ -85,7 +92,7 @@ saifctl feat design-specs --project-dir ./packages/my-app
 ## What it does
 
 1. Checks if the designer has already run for this feature; prompts to redo if so (skipped with `--yes`).
-2. Runs the designer (e.g. Shotgun) to research your codebase and produce enriched spec files in `saifctl/features/<name>/`.
+2. Runs the designer (default: POC Explorer) to produce spec files in `saifctl/features/<name>/`.
 
 ## Next steps
 

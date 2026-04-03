@@ -213,6 +213,8 @@ const ORCHESTRATOR_MERGE_KEYS = [
   'stagingEnvironment',
   'codingEnvironment',
   'patchExclude',
+  'allowSaifctlInPatch',
+  'taskPromptOverride',
   'fromArtifact',
   'verbose',
 ] as const satisfies readonly (keyof OrchestratorOpts)[];
@@ -371,6 +373,7 @@ async function applyOrchestratorBaseline(
     fromArtifact: null,
     verbose: false,
     testOnly: false,
+    allowSaifctlInPatch: false,
   };
 }
 

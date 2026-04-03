@@ -1,8 +1,8 @@
 # saifctl init
 
-Initialize Saifctl config and Shotgun indexer.
+Initialize Saifctl config. Optionally builds a codebase index. One-time setup.
 
-One-time setup: Scaffolds `saifctl/config.ts` (if no config exists), creates the `saifctl/` directory, configures Shotgun (optionally with Context7 for documentation lookup), and indexes the codebase for spec-driven workflows.
+If you're using a codebase indexer, pass `--indexer <id>` to initialize it. See [Indexers](../indexer/README.md) for available profiles.
 
 ## Usage
 
@@ -12,11 +12,12 @@ saifctl init [options]
 
 ## Arguments
 
-| Argument        | Alias | Type   | Description                                            |
-| --------------- | ----- | ------ | ------------------------------------------------------ |
-| `--project`     | `-p`  | string | Project name override (default: `package.json` "name") |
-| `--saifctl-dir`  | —     | string | Path to saifctl directory (default: `saifctl`)           |
-| `--project-dir` | —     | string | Project directory (default: current directory) |
+| Argument        | Alias | Type   | Description                                                                 |
+| --------------- | ----- | ------ | --------------------------------------------------------------------------- |
+| `--project`     | `-p`  | string | Project name override (default: `package.json` "name")                    |
+| `--saifctl-dir`  | —     | string | Path to saifctl directory (default: `saifctl`)                              |
+| `--project-dir` | —     | string | Project directory (default: current directory)                              |
+| `--indexer`     | —     | string | Indexer profile. Omit or `none` → no indexing. `shotgun` → Shotgun setup + index. |
 
 ## Examples
 
@@ -32,13 +33,13 @@ Override project name:
 saifctl init -p my-project
 ```
 
-Use a custom saifctl directory:
+Init and build the [Shotgun](../indexer/shotgun.md) codebase index:
 
 ```bash
-saifctl init --saifctl-dir ./my-saifctl
+saifctl init --indexer shotgun
 ```
 
-Use a custom project directory (e.g. when running from a parent monorepo):
+Use a custom project directory:
 
 ```bash
 saifctl init --project-dir ./packages/my-app
@@ -46,21 +47,21 @@ saifctl init --project-dir ./packages/my-app
 
 ## Environment variables
 
+When using the [Shotgun](../indexer/shotgun.md) indexer:
+
 | Variable           | Required | Description                                                                                                      |
 | ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------- |
 | `SHOTGUN_PYTHON`   | no       | Path to the Python binary that has `shotgun-sh` installed (default: `python`). Example: `$(uv run which python)` |
-| `CONTEXT7_API_KEY` | no       | API key for Context7 documentation lookup inside Shotgun. Configured once via `saifctl init`.                     |
+| `CONTEXT7_API_KEY` | no       | API key for Context7 documentation lookup inside Shotgun.                                                       |
 
 ## What it does
 
 1. Scaffolds `saifctl/config.ts` (if no config exists).
-2. Runs `python -m shotgun.main config init`
-3. Optionally configures Context7 via `python -m shotgun.main config set-context7 --api-key <key>` (if CONTEXT7_API_KEY is set)
-4. Indexes the codebase with `python -m shotgun.main codebase index . --name <project>`
+2. Initializes codebase indexer if specified. See [Indexers](../indexer/README.md) for more details.
 
 ## Generated config
 
-When no config exists, `saifctl init` creates `saifctl/config.ts` with:
+When no config exists, `saifctl init` creates `saifctl/config.ts`. Example:
 
 ```typescript
 import type { SaifctlConfig } from 'safe-ai-factory';
@@ -90,9 +91,3 @@ const config: SaifctlConfig = {
 
 export default config;
 ```
-
-Set `engine: 'docker'` and add a `file` when you need ephemeral services (databases, queues, etc.). See [Environments and Infrastructure](../services.md) for details.
-
-## Notes
-
-- **Custom Python path** - Use `SHOTGUN_PYTHON=$(uv run which python) saifctl init ...` if Python needs uv.

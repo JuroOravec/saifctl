@@ -1,7 +1,7 @@
 /**
  * DesignerProfile — encapsulates the "spec generation" step of the feature workflow.
  *
- * Supported profiles: shotgun (default)
+ * Supported profiles: poc (default), shotgun
  *
  * Each profile is responsible for:
  *   1. `hasRun`  — detecting whether the design step has already been completed
@@ -84,5 +84,5 @@ export interface DesignerProfile {
   run(opts: DesignerRunOpts): void | Promise<void>;
 }
 
-export const SUPPORTED_DESIGNER_PROFILE_IDS = ['shotgun'] as const;
+export const SUPPORTED_DESIGNER_PROFILE_IDS = ['poc', 'shotgun'] as const;
 export type SupportedDesignerProfileId = (typeof SUPPORTED_DESIGNER_PROFILE_IDS)[number];

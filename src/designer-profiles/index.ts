@@ -5,6 +5,7 @@
  * SUPPORTED_DESIGNER_PROFILE_IDS in types.ts.
  */
 
+import { pocDesignerProfile } from './poc/profile.js';
 import { shotgunDesignerProfile } from './shotgun/profile.js';
 import type { DesignerProfile, SupportedDesignerProfileId } from './types.js';
 
@@ -16,10 +17,11 @@ export {
 } from './types.js';
 
 const designerProfiles: Record<SupportedDesignerProfileId, DesignerProfile> = {
+  poc: pocDesignerProfile,
   shotgun: shotgunDesignerProfile,
 };
 
-export const DEFAULT_DESIGNER_PROFILE: DesignerProfile = shotgunDesignerProfile;
+export const DEFAULT_DESIGNER_PROFILE: DesignerProfile = pocDesignerProfile;
 
 /**
  * Resolves a designer profile by id. Returns DEFAULT_DESIGNER_PROFILE when id is empty/undefined.

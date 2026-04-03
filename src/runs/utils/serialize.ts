@@ -79,6 +79,10 @@ export type SerializedLoopOpts = {
   testRetries: number;
   reviewerEnabled: boolean;
   includeDirty: boolean;
+  /** When true, saifctl/ paths are not stripped from run commit diffs (POC designer). */
+  allowSaifctlInPatch?: boolean;
+  /** When set, replaces default plan/spec task (POC designer). */
+  taskPromptOverride?: string;
   patchExcludeStr?: SerializedPatchExcludeRule[];
   /**
    * Normalized staging environment — always present.

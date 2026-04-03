@@ -1,11 +1,15 @@
 {
   "name": "saifctl",
   "displayName": "SaifCTL",
-  "description": "Containerized coding agent workflow orchestrator.",
-  "version": "0.0.1",
+  "description": "Manage containerized AI coding agents from VS Code. Run agents, monitor attempts, send live feedback, inspect diffs — without leaving your editor.",
+  "version": "0.1.0",
   "publisher": "JuroOravec",
   "license": "MIT",
   "icon": "resources/saifctl-icon-green.png",
+  "galleryBanner": {
+    "color": "#111111",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/safe-ai-factory/saifctl.git",
@@ -29,7 +33,10 @@
     "vscode": "^1.86.0"
   },
   "categories": [
-    "Other"
+    "AI",
+    "Chat",
+    "Machine Learning",
+    "Testing"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",

@@ -230,53 +230,51 @@ saifctl feat run --cedar ./my-policy.cedar
 
 [See the full default policy and customization guide here](./leash-access-control.md).
 
-## Configure spec generation
+## Automated spec generation
 
-The factory uses [Shotgun](https://app.shotgun.sh/) to turn your feature proposal into a full technical spec before any coding agent runs. Write one paragraph - get back `plan.md`, `specification.md`, `research.md`, and `tasks.md`, all grounded in your existing codebase patterns.
+Writing detailed specs is boring and error-prone. The factory automates it for you.
 
-Just like other parts of SaifCTL, this step is swappable.
+By default, the factory runs a sandboxed coding agent that builds a proof-of-concept to explore the feature before writing the spec.
 
-Use `--designer` to switch:
+The designer is swappable. Use `--designer` to switch:
 
 ```bash
-# Default:
+# Default (POC Explorer):
 saifctl feat design
 
-# Explicit:
+# Static research with Shotgun CLI:
 saifctl feat design --designer shotgun
 ```
 
-| Designer          | Switch with          |
-| ----------------- | -------------------- |
-| Shotgun (default) | `--designer shotgun` |
+| Designer               | Switch with          | Notes |
+| ---------------------- | -------------------- | ----- |
+| POC Explorer (default) | `--designer poc`     | Docker + LLM API key for the sandbox agent. See [POC Explorer](./designers/poc.md). |
+| Shotgun                | `--designer shotgun` | Python 3.11+, `shotgun-sh`, config wizard. See [Shotgun designer](./designers/shotgun.md). |
 
 [See available designers and step-by-step usage →](./designers/README.md)
 
-_NOTE: Currently Shotgun is the only supported option. If you want to add your tool, [write an issue](https://github.com/safe-ai-factory/saifctl/issues)_
-
 ## Codebase indexing
 
-By default the factory uses [Shotgun](https://app.shotgun.sh/) to index your codebase before generating specs.
+Codebase indexing gives agents accurate knowledge of your existing patterns, so outputs reference real files and conventions, not guesses.
 
-The indexer gives the Architect Agent accurate knowledge of your existing patterns, so it writes specs that reference real files and conventions, not guesses.
-
-Use `--indexer` to switch or disable:
+The index is used across the design and test generation steps:
 
 ```bash
-# Index is built automatically during init:
-saifctl init
+# Build index during init:
+saifctl init --indexer shotgun
 
-# Use during spec generation:
+# Use during design:
 saifctl feat design --indexer shotgun
 
-# Disable:
+# Explicitly disable:
 saifctl feat design --indexer none
 ```
 
-| Indexer           | Switch with         |
-| ----------------- | ------------------- |
-| Shotgun (default) | `--indexer shotgun` |
+| Indexer  | Switch with         |
+| -------- | ------------------- |
+| (none)   | omit flag or `--indexer none` |
+| Shotgun  | `--indexer shotgun` |
 
 [See all available indexers and step-by-step usage here](./indexer/README.md).
 
-_NOTE: Currently Shotgun is the only supported option. If you want to add your tool, [write an issue](https://github.com/safe-ai-factory/saifctl/issues)_
+_NOTE: Currently Shotgun is the only supported indexer. If you want to add your tool, [open an issue](https://github.com/safe-ai-factory/saifctl/issues)._

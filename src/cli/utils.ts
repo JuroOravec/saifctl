@@ -16,7 +16,7 @@ import { type SaifctlConfig } from '../config/schema.js';
 import { DEFAULT_DESIGNER_PROFILE, resolveDesignerProfile } from '../designer-profiles/index.js';
 import type { DesignerProfile } from '../designer-profiles/types.js';
 import { getGitProvider } from '../git/index.js';
-import { DEFAULT_INDEXER_PROFILE, resolveIndexerProfile } from '../indexer-profiles/index.js';
+import { resolveIndexerProfile } from '../indexer-profiles/index.js';
 import type { IndexerProfile } from '../indexer-profiles/types.js';
 import { consola } from '../logger.js';
 import { mergeAgentSecretKeysFromReads } from '../orchestrator/agent-env.js';
@@ -664,8 +664,8 @@ export function pickDesignerProfile(
 }
 
 /**
- * CLI id + `config.defaults.indexerProfile` + package default.
- * `none` (CLI or config) disables the indexer. Exits on invalid id.
+ * CLI id + `config.defaults.indexerProfile`. Omitted / empty / `none` → no indexer.
+ * Exits on invalid id.
  */
 export function pickIndexerProfile(
   cliId: string | undefined,
@@ -679,7 +679,7 @@ export function pickIndexerProfile(
       : '') ||
     '';
   if (id === 'none') return undefined;
-  if (!id) return DEFAULT_INDEXER_PROFILE;
+  if (!id) return undefined;
   try {
     return resolveIndexerProfile(id);
   } catch (err) {

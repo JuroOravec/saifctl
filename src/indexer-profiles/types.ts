@@ -1,7 +1,7 @@
 /**
  * IndexerProfile — encapsulates all codebase-indexing concerns for a specific backend.
  *
- * Supported profiles: shotgun (default)
+ * Supported profiles: shotgun (opt-in via `--indexer shotgun`)
  *
  * Each profile is responsible for:
  *   1. `init`         — indexing the codebase (called by `saifctl init`)

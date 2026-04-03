@@ -1,10 +1,10 @@
 # Shotgun
 
-[Shotgun](https://github.com/shotgun-sh/shotgun) is the default codebase indexer. It parses your repository into a semantic graph so the factory's agents can ask questions like "where is auth handled?" or "what ORM does this project use?" — and get back real file paths and code references instead of guesses.
+[Shotgun](https://github.com/shotgun-sh/shotgun) is an **optional** codebase indexer. When you pass `--indexer shotgun`, it parses your repository into a semantic graph so agents can ask questions like "where is auth handled?" or "what ORM does this project use?" — and get back real file paths and code references instead of guesses.
 
-**Usage:** `saifctl init` (default) or `saifctl init --indexer shotgun`
+**Usage:** `saifctl init --indexer shotgun` and/or `saifctl feat design --indexer shotgun`
 
-NOTE: Shotgun serves a dual role, but as indexer and designer. [See here how to use Shotgun as designer](../designer/shotgun.md).
+NOTE: Shotgun serves a dual role, as both indexer and designer. [See here how to use Shotgun as designer](../designers/shotgun.md).
 
 ---
 

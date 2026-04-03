@@ -1066,16 +1066,24 @@ const PIPELINE_NODES = [
   {
     icon: '🔍',
     title: 'Spec Agent',
-    desc: 'Reads your codebase. Learns your patterns. Generates spec + tests.',
+    desc: 'Runs a PoC to find constraints. Then writes the specs.',
     detail: (
       <>
-        The Spec Agent reads your repo to understand your conventions, existing patterns, and tech
-        stack. It produces a structured spec and generates the actual TDD tests.
+        Before writing a single line of your spec, the Spec Agent runs a sandboxed proof-of-concept
+        on your actual codebase — probing the hard parts of the feature, discovering edge cases, and
+        exposing the design decisions you didn't know you needed to make.
+        <br />
+        <br />
+        The spec is written <em>after</em> that exploration, grounded in what the agent actually
+        found — not in what it guessed from a static read. Then it generates the TDD tests from that
+        grounded spec.
+        <br />
         <br />
         <code className="text-[#00FF66]">proposal.md</code> →{' '}
+        <code className="text-[#00FF66]">POC run</code> →{' '}
         <code className="text-[#00FF66]">specification.md</code> →{' '}
-        <code className="text-[#00FF66]">tests.json</code> →{' '}
         <code className="text-[#00FF66]">Test files</code>
+        <br />
         <br />
         You review and edit both the spec and the tests before the coder sees anything. This is your
         last cheap checkpoint.

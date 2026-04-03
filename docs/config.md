@@ -132,7 +132,7 @@ Discovery runs only when `discoveryMcps` or `discoveryTools` is configured. Outp
 | ----------------- | ------ | -------------------- | ---------------- |
 | `testProfile`     | string | `"node-vitest"`      | `--test-profile` |
 | `agentProfile`    | string | `"openhands"`        | `--agent`        |
-| `designerProfile` | string | `"shotgun"`          | `--designer`     |
+| `designerProfile` | string | `"poc"`              | `--designer`     |
 | `indexerProfile`  | string | `"shotgun"`          | `--indexer`      |
 | `sandboxProfile`  | string | `"node-pnpm-python"` | `--profile`      |
 

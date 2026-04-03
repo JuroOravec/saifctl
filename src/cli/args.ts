@@ -2,7 +2,6 @@
  * Shared CLI argument definitions used across feat and run commands.
  */
 
-import { DEFAULT_INDEXER_PROFILE } from '../indexer-profiles/index.js';
 import { DEFAULT_SANDBOX_BASE_DIR } from '../orchestrator/sandbox.js';
 import { SUPPORTED_STORAGE_KEYS } from '../storage/types.js';
 
@@ -37,7 +36,8 @@ export const sandboxBaseDirArg = {
 
 export const indexerArg = {
   type: 'string' as const,
-  description: `Indexer profile to use (default: ${DEFAULT_INDEXER_PROFILE.id})`,
+  description:
+    'Indexer profile (optional; default: none). Pass shotgun to use Shotgun, or none to disable.',
 };
 
 export const nameArg = {

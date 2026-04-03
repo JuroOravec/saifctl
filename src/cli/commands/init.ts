@@ -1,10 +1,10 @@
 #!/usr/bin/env tsx
 /**
- * Init CLI — initialize Saifctl config, saifctl directory, and codebase indexer.
+ * Init CLI — initialize Saifctl config and optional codebase indexer.
  *
  * Usage: saifctl init [options]
  *   Creates saifctl/ and scaffolds saifctl/config.ts when no config exists.
- *   Requires at least one LLM API key for indexer operations.
+ *   Runs indexing only when `--indexer <profile>` is set (e.g. shotgun).
  */
 
 import { defineCommand, runMain } from 'citty';
@@ -24,7 +24,7 @@ import {
 const initCommand = defineCommand({
   meta: {
     name: 'init',
-    description: 'Initialize Saifctl config + codebase indexer',
+    description: 'Initialize Saifctl config (optional codebase indexer)',
   },
   args: {
     project: {
@@ -39,7 +39,9 @@ const initCommand = defineCommand({
   async run({ args }) {
     const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
     const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
-    const indexerProfile = resolveIndexerProfile(args.indexer);
+    const indexerProfile = resolveIndexerProfile(
+      typeof args.indexer === 'string' ? args.indexer : undefined,
+    );
     const projectName = await resolveProjectName({ project: args.project, projectDir });
 
     const scaffolded = await scaffoldSaifctlConfig(saifctlDir, projectDir);
@@ -47,10 +49,14 @@ const initCommand = defineCommand({
       consola.log(`\nCreated ${saifctlDir}/config.ts (no config found).`);
     }
 
-    consola.log(
-      `\nIndexing codebase with ${indexerProfile.displayName} (project: ${projectName})...`,
-    );
-    await indexerProfile.init({ projectDir, projectName });
+    if (indexerProfile) {
+      consola.log(
+        `\nIndexing codebase with ${indexerProfile.displayName} (project: ${projectName})...`,
+      );
+      await indexerProfile.init({ projectDir, projectName });
+    } else {
+      consola.log('\nNo indexer configured.');
+    }
 
     consola.log('\nInit complete.');
   },

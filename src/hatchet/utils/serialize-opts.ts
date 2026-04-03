@@ -47,6 +47,8 @@ export interface SerializedOrchestratorOpts extends Record<string, unknown> {
   testProfileId: string;
   testRetries: number;
   reviewerEnabled: boolean;
+  allowSaifctlInPatch: boolean;
+  taskPromptOverride?: string;
   patchExcludeStr?: SerializedPatchExcludeRule[];
   stagingEnvironment: Record<string, unknown>;
   codingEnvironment: Record<string, unknown>;
@@ -173,6 +175,8 @@ export function deserializeOrchestratorOpts(serialized: Record<string, unknown>)
     testProfile: resolveTestProfile(s.testProfileId),
     testRetries: s.testRetries,
     reviewerEnabled: s.reviewerEnabled,
+    allowSaifctlInPatch: !!s.allowSaifctlInPatch,
+    taskPromptOverride: s.taskPromptOverride ?? undefined,
     patchExclude,
     stagingEnvironment: s.stagingEnvironment as OrchestratorOpts['stagingEnvironment'],
     codingEnvironment: s.codingEnvironment as OrchestratorOpts['codingEnvironment'],

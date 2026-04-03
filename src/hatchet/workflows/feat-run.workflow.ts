@@ -43,10 +43,10 @@ import { z } from 'zod';
 import { parseJUnitXmlString } from '../../engines/utils/test-parser.js';
 import { consola } from '../../logger.js';
 import {
-  buildInitialTask,
   buildPatchExcludeRules,
   logIterativeLoopSettings,
   prepareTestRunnerOpts,
+  resolveIterativeLoopTask,
   runStagingTestVerification,
   runVagueSpecsCheckerForFailure,
   sandboxHasCommitsBeyondInitialImport,
@@ -225,7 +225,11 @@ export function createFeatRunIterationWorkflow() {
       const opts = deserializeOrchestratorOpts(input.serializedOpts);
       const { sandbox, attempt, errorFeedback, task } = input;
       const { saifctlDir } = opts;
-      const patchExclude = buildPatchExcludeRules(saifctlDir, opts.patchExclude);
+      const patchExclude = buildPatchExcludeRules({
+        saifctlDir,
+        patchExclude: opts.patchExclude,
+        allowSaifctlInPatch: opts.allowSaifctlInPatch,
+      });
 
       // Wire Hatchet step cancellation → container teardown (addresses step 1.7)
       const signal = ctx.abortController.signal;
@@ -516,7 +520,8 @@ export function createFeatRunWorkflow() {
         // Some rules are marked as "once" and should be consumed after the coding round.
         // Thus these rules are included in the task prompt only on the first round.
         const onceIdsThisRound = activeOnceRuleIds(rulesState);
-        const task = await buildInitialTask({
+        const task = await resolveIterativeLoopTask({
+          taskPromptOverride: opts.taskPromptOverride,
           feature,
           saifctlDir,
           rules: rulesForPrompt(rulesState),

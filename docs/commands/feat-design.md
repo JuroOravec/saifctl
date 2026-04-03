@@ -33,14 +33,14 @@ saifctl feature design [options]
 | `--name`             | `-n`  | string  | Feature name (kebab-case). Prompts with a list if omitted.                                                                                                      |
 | `--yes`              | `-y`  | boolean | Non-interactive mode. Requires `--name`. Skips confirm when designer output exists; assumes redo.                                                               |
 | `--force`            | `-f`  | boolean | Always re-run the designer and overwrite existing test files, without prompting.                                                                                |
-| `--designer`         | —     | string  | Designer profile for spec generation (default: shotgun)                                                                                                         |
+| `--designer`         | —     | string  | Designer profile for spec generation (default: `poc`). Pass `none` to skip.                                                                                     |
 | `--model`            | —     | string  | LLM model. Single global or comma-separated `agent=model`. At most one global. See [models.md](../models.md).                                                   |
 | `--base-url`         | —     | string  | LLM base URL. Single global or comma-separated `agent=url` (e.g. `http://localhost:11434/v1` or `pr-summarizer=https://api.openai.com/v1`). At most one global. |
 | `--saifctl-dir`       | —     | string  | Path to saifctl directory (default: `saifctl`)                                                                                                                    |
 | `--project-dir`      | —     | string  | Project directory (default: current directory)                                                                                                          |
 | `--project`          | `-p`  | string  | Project name override for the indexer (default: package.json "name")                                                                                            |
 | `--test-profile`     | —     | string  | Test profile id (default: node-vitest)                                                                                                                          |
-| `--indexer`          | —     | string  | Indexer profile for codebase search (default: shotgun). Pass `none` to disable.                                                                                 |
+| `--indexer`          | —     | string  | Indexer for codebase search (default: none). Pass `shotgun` to enable; `none` to disable.                                                                       |
 | `--sandbox-base-dir` | —     | string  | Base directory for sandbox entries (default: `/tmp/saifctl/sandboxes`)                                                                                  |
 | `--profile`          | —     | string  | Sandbox profile (default: node-pnpm-python). Sets defaults for startup-script and stage-script.                                                                 |
 | `--test-script`      | —     | string  | Path to a shell script that overrides test.sh inside the Test Runner container.                                                                                 |
@@ -72,6 +72,7 @@ saifctl feat design --project-dir ./packages/my-app
 Use a different designer or indexer:
 
 ```bash
+saifctl feat design --designer poc
 saifctl feat design --designer shotgun --indexer shotgun
 saifctl feat design --indexer none
 ```
@@ -103,7 +104,7 @@ saifctl feat design-fail2pass --test-profile go-gotest
 ## What it does
 
 1. Optionally runs `feat design-discovery` (When discovery tools / MCPs are configured) to gather context into `discovery.md`.
-2. Runs `feat design-specs`: Runs Shotgun to enrich the specs in `saifctl/features/<name>/`.
+2. Runs `feat design-specs`: Runs the designer (default: POC Explorer) to produce specs in `saifctl/features/<name>/`.
 3. Runs `feat design-tests`: reads the specs and generates a test plan (`tests.md`) and catalog (`tests.json`), then implements the tests (e.g. `*.spec.ts`).
 4. Runs `feat design-fail2pass`: verifies at least one feature test fails on the current codebase (Docker required).
 

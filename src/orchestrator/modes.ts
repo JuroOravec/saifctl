@@ -1368,7 +1368,11 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
   const statusBeforeInspect = artifact.status;
   let expectedRevision = artifact.artifactRevision ?? 0;
   const prevCommitsJson = JSON.stringify(artifact.runCommits);
-  const patchExclude = buildPatchExcludeRules(saifctlDir, mergedOpts.patchExclude);
+  const patchExclude = buildPatchExcludeRules({
+    saifctlDir,
+    patchExclude: mergedOpts.patchExclude,
+    allowSaifctlInPatch: mergedOpts.allowSaifctlInPatch,
+  });
   let inspectSaveError: unknown;
 
   // Commits extracted inside onReady (while the sandbox is still alive) for post-loop save.

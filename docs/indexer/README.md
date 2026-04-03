@@ -22,45 +22,40 @@ The indexer improves the quality of the specs, which in turn improves the qualit
 
 ## Choosing an indexer
 
-Use `--indexer <id>`:
+The factory starts **without** an indexer. Opt in with `--indexer <id>`:
 
 ```bash
 saifctl init --indexer shotgun
+saifctl feat design --indexer shotgun
 ```
 
-| ID                        | Name                | Project URL                                   |
-| ------------------------- | ------------------- | --------------------------------------------- |
-| [`shotgun`](./shotgun.md) | Shotgun _(default)_ | [Link](https://github.com/shotgun-sh/shotgun) |
+| ID                        | Name     | Project URL                                   |
+| ------------------------- | -------- | --------------------------------------------- |
+| [`shotgun`](./shotgun.md) | Shotgun  | [Link](https://github.com/shotgun-sh/shotgun) |
 
 ---
 
 ## How to use it
 
-The indexer appears in two places in the workflow.
+The indexer is used in two places of the design workflow.
 
 ### 1. Build the index — `saifctl init`
 
-At the beginning, when the codebase is indexed:
+At the beginning, if you have an indexer configured, `saifctl init` will build the index:
 
 ```bash
-saifctl init
-# or explicitly:
 saifctl init --indexer shotgun
 ```
 
 This parses your repository and builds a semantic graph the agents can query.
 
-### 2. Connect to index when generating specs and tests — `feat design`
+### 2. Use the index during `feat design`
 
-The indexer is used automatically when you run `feat design`:
+Pass `--indexer shotgun` during `feat design` so agents can query the index:
 
 ```bash
-saifctl feat design
-# or explicitly:
 saifctl feat design --indexer shotgun
 ```
-
-The Architect and tests-writing agents query the index as they write specs and tests, grounding every decision in your actual codebase.
 
 ### Disabling the indexer
 

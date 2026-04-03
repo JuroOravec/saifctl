@@ -67,22 +67,33 @@ import { buildOuterAttemptSummary } from './stats.js';
 /**
  * Builds `extractPatch` exclude rules: fixed guardrails plus optional caller rules.
  *
- * Always excludes:
+ * By default excludes:
  * - `{saifctlDir}/**` — reward-hacking prevention (agent must not modify its own test specs).
  * - `.git/hooks/**` — prevents a malicious patch from installing hooks that execute on the host
  *   when the orchestrator runs `git commit` in applyPatchToHost.
  * - `.saifctl/**` — factory-internal workspace state (e.g. per-round task file), not product code.
+ *
+ * When {@link BuildPatchExcludeRulesOpts#allowSaifctlInPatch} is true, the `{saifctlDir}/**` rule
+ * is omitted (POC runs that write spec files under saifctl/features/).
  */
-export function buildPatchExcludeRules(
-  saifctlDir: string,
-  patchExclude?: PatchExcludeRule[],
-): PatchExcludeRule[] {
-  return [
-    { type: 'glob', pattern: `${saifctlDir}/**` },
+export interface BuildPatchExcludeRulesOpts {
+  saifctlDir: string;
+  patchExclude?: PatchExcludeRule[];
+  allowSaifctlInPatch?: boolean;
+}
+
+export function buildPatchExcludeRules(opts: BuildPatchExcludeRulesOpts): PatchExcludeRule[] {
+  const { saifctlDir, patchExclude, allowSaifctlInPatch } = opts;
+  const base: PatchExcludeRule[] = [];
+  if (!allowSaifctlInPatch) {
+    base.push({ type: 'glob', pattern: `${saifctlDir}/**` });
+  }
+  base.push(
     { type: 'glob', pattern: '.git/hooks/**' },
     { type: 'glob', pattern: '.saifctl/**' },
     ...(patchExclude ?? []),
-  ];
+  );
+  return base;
 }
 
 /**
@@ -270,6 +281,19 @@ export interface IterativeLoopOpts {
    * automatically — passing rules here adds to that, not replaces it.
    */
   patchExclude?: PatchExcludeRule[];
+  /**
+   * When true, do not exclude `{saifctlDir}/**` from extracted patches so commits
+   * touching saifctl (e.g. POC designer output) are recorded on the Run.
+   * Default: false.
+   */
+  allowSaifctlInPatch?: boolean;
+  /**
+   * When set, used as the full coding-agent task instead of {@link buildInitialTask}
+   * (plan.md + specification.md + rules). {@link resolveIterativeLoopTask} still appends
+   * run rules when present. Used by the POC designer so the agent receives POC instructions
+   * without relying on plan/spec under the synthetic `-poc` feature dir.
+   */
+  taskPromptOverride?: string;
   /**
    * When true, run the semantic AI reviewer (Argus) after static checks pass.
    * Requires the Argus binary. Disable with --no-reviewer.
@@ -588,6 +612,7 @@ export async function runIterativeLoop(
     fromArtifact,
     patchExclude: optsPatchExclude,
     inspectMode,
+    taskPromptOverride,
   } = opts;
 
   const runId = sandbox.runId;
@@ -808,7 +833,11 @@ export async function runIterativeLoop(
     });
 
     // Resolve the coder agent's LLM config once per loop.
-    const patchExclude = buildPatchExcludeRules(saifctlDir, optsPatchExclude);
+    const patchExclude = buildPatchExcludeRules({
+      saifctlDir,
+      patchExclude: optsPatchExclude,
+      allowSaifctlInPatch: opts.allowSaifctlInPatch,
+    });
 
     //////////////////////////////////////////////////
     // 'run test'
@@ -952,7 +981,8 @@ export async function runIterativeLoop(
       // Some Run rules are marked as "once" and should be consumed after the coding round.
       // Thus these rules are included in the task prompt only on the first round.
       const onceIdsThisRound = runContext ? activeOnceRuleIds(runContext.rules) : [];
-      const task = await buildInitialTask({
+      const task = await resolveIterativeLoopTask({
+        taskPromptOverride,
         feature,
         saifctlDir,
         rules: runContext ? rulesForPrompt(runContext.rules) : [],
@@ -1440,7 +1470,7 @@ interface BuildInitialTaskOpts {
   rules: readonly RunRule[];
 }
 
-export async function buildInitialTask(opts: BuildInitialTaskOpts): Promise<string> {
+async function buildInitialTask(opts: BuildInitialTaskOpts): Promise<string> {
   const { feature, saifctlDir, rules } = opts;
   const planPath = join(feature.absolutePath, 'plan.md');
   const specPath = join(feature.absolutePath, 'specification.md');
@@ -1468,6 +1498,39 @@ export async function buildInitialTask(opts: BuildInitialTaskOpts): Promise<stri
   }
 
   return parts.join('\n');
+}
+
+export interface ResolveIterativeLoopTaskOpts {
+  taskPromptOverride?: string;
+  feature: Feature;
+  saifctlDir: string;
+  rules: readonly RunRule[];
+}
+
+/**
+ * Builds the task string for one outer coding attempt: either {@link taskPromptOverride}
+ * (plus optional run rules) or {@link buildInitialTask}.
+ */
+export async function resolveIterativeLoopTask(
+  opts: ResolveIterativeLoopTaskOpts,
+): Promise<string> {
+  const override = opts.taskPromptOverride?.trim();
+  if (override) {
+    const parts = [override];
+    if (opts.rules.length > 0) {
+      parts.push('', '## User feedback', '');
+      for (const r of opts.rules) {
+        const label = r.scope === 'once' ? '(this round only)' : '(always)';
+        parts.push(`- [${label}] ${r.content}`);
+      }
+    }
+    return parts.join('\n');
+  }
+  return buildInitialTask({
+    feature: opts.feature,
+    saifctlDir: opts.saifctlDir,
+    rules: opts.rules,
+  });
 }
 
 // ---------------------------------------------------------------------------

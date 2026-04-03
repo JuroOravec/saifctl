@@ -16,12 +16,11 @@ With a designer, a dedicated research-and-spec agent runs first.
 
 **What files designers produce?**
 
-- `plan.md` — Implementation steps grounded in your existing patterns
-- `specification.md` — Precise behavior contract the agent must satisfy
-- `research.md` — Codebase findings that informed the spec
-- `tasks.md` — Broken-down work items, ready to hand to the coding agent
+Every designer writes at least:
+- `specification.md` - The detailed spec of the feature.
+- `plan.md` - The step-by-step plan for the agent to follow.
 
-The coding agent sees a grounded spec, not a one-liner. It ships better code on the first attempt.
+Any extra files depend on the profile. The full list of files is documented in the [profile pages](#choosing-a-designer).
 
 ---
 
@@ -30,12 +29,18 @@ The coding agent sees a grounded spec, not a one-liner. It ships better code on 
 Use `--designer <id>` with `saifctl feat design`:
 
 ```bash
+# default — no flag needed:
+saifctl feat design
+
+# explicit:
+saifctl feat design --designer poc
 saifctl feat design --designer shotgun
 ```
 
-| ID                        | Name                | Project URL                                   |
-| ------------------------- | ------------------- | --------------------------------------------- |
-| [`shotgun`](./shotgun.md) | Shotgun _(default)_ | [Link](https://github.com/shotgun-sh/shotgun) |
+| ID                        | Name                   | When to use                                                                                           |
+| ------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| [`poc`](./poc.md)         | POC Explorer _(default)_ | Runs a sandboxed coding agent to build a proof-of-concept to explore the feature before writing the spec. Grounded, discovers edge cases. |
+| [`shotgun`](./shotgun.md) | Shotgun                | Static codebase research + spec writing via the Shotgun CLI. Faster; no Docker required.             |
 
 ---
 
@@ -55,11 +60,12 @@ Edit `saifctl/features/add-login/proposal.md` with what you want to build. One p
 
 ```bash
 saifctl feat design
-# or explicitly:
+# or with specific designer:
+saifctl feat design --designer poc
 saifctl feat design --designer shotgun
 ```
 
-The designer reads your `proposal.md`, researches the codebase (via the active indexer), and writes the 4 spec files into `saifctl/features/add-login/`.
+The designer reads your `proposal.md`, researches the codebase, and writes the required spec files into `saifctl/features/add-login/`.
 
 If the spec files already exist, the CLI asks whether to redo them — so re-running is always safe. Use `-y`/`--yes` with `--name` to skip the prompt and assume redo (non-interactive mode).
 
@@ -83,21 +89,26 @@ saifctl feat design --designer none
 
 ## Designer and indexer: how they work together
 
-The designer and indexer are complementary — they both run during `saifctl feat design`, but they do different things.
+The designer and indexer are complementary during `saifctl feat design`, but they are **not** the same thing.
 
-The designer uses the indexer to ground its spec in real code.
+The **default POC designer** explores the repo inside a sandbox and does not use the indexer tool.
+
+The **Shotgun designer** runs its own research pipeline (separate from `--indexer`).
+
+The indexer is used by the test-generation step when enabled (`feat design-tests`).
 
 | Who        | Indexer                                                                        | Designer                                                 |
 | ---------- | ------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| **What**   | Parses your repo into a semantic graph                                         | Researches your codebase and writes the spec             |
-| **When**   | Runs at `saifctl init` (build index)<br/>and `saifctl feat design` (query index) | Runs at `saifctl feat design`                             |
-| **Output** | A queryable codebase index                                                     | `plan.md`, `specification.md`, `research.md`, `tasks.md` |
+| **What**   | Parses your repo into a semantic graph                                         | Turns the proposal into spec files under the feature dir |
+| **When**   | Optional: `saifctl init --indexer …` (build),<br/>`feat design` with `--indexer` (query) | Runs at `saifctl feat design`                             |
+| **Output** | A queryable codebase index                                                     | `plan.md` + `specification.md` + extra files |
 | **Flag**   | `--indexer`                                                                    | `--designer`                                             |
 
 ---
 
 ## See Also
 
+- [POC Explorer designer](./poc.md)
 - [Shotgun designer](./shotgun.md)
 - [Codebase Indexers](../indexer/README.md)
 - [Commands reference](../commands/README.md)

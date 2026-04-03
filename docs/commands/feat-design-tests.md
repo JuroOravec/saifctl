@@ -25,7 +25,7 @@ saifctl feature design-tests [options]
 | `--saifctl-dir`   | —     | string  | Path to saifctl directory (default: `saifctl`)                                                                                                                    |
 | `--project-dir`  | —     | string  | Project directory (default: current directory)                                                                                                          |
 | `--test-profile` | —     | string  | Test profile id (default: node-vitest)                                                                                                                          |
-| `--indexer`      | —     | string  | Indexer profile for codebase search (default: shotgun). Pass `none` to disable.                                                                                 |
+| `--indexer`      | —     | string  | Indexer for codebase search (default: none). Pass `shotgun` to enable; `none` to disable.                                                                       |
 | `--project`      | `-p`  | string  | Project name override for the indexer (default: package.json "name")                                                                                            |
 
 ## Examples
