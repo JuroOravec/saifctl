@@ -76,7 +76,12 @@ export interface InnerRoundSummary {
   completedAt: string;
 }
 
-export type OuterAttemptPhase = 'no_changes' | 'tests_passed' | 'tests_failed' | 'aborted';
+export type OuterAttemptPhase =
+  | 'no_changes'
+  | 'tests_passed'
+  | 'tests_failed'
+  | 'aborted'
+  | 'sandbox_complete';
 
 export interface OuterAttemptSummary {
   attempt: number;

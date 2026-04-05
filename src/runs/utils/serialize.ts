@@ -83,6 +83,12 @@ export type SerializedLoopOpts = {
   allowSaifctlInPatch?: boolean;
   /** When set, replaces default plan/spec task (POC designer). */
   taskPromptOverride?: string;
+  /** When true, staging + tests are skipped (`saifctl sandbox` / POC designer). */
+  skipStagingTests?: boolean;
+  /** Host apply mode after sandbox agent when tests are skipped. */
+  sandboxExtract?: 'none' | 'host-apply' | 'host-apply-filtered';
+  sandboxExtractInclude?: string;
+  sandboxExtractExclude?: string;
   patchExcludeStr?: SerializedPatchExcludeRule[];
   /**
    * Normalized staging environment — always present.

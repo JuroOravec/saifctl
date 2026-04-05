@@ -16,6 +16,7 @@ describe('outerAttemptLabel', () => {
   it('maps phases', () => {
     expect(outerAttemptLabel('tests_passed')).toBe('All tests passed');
     expect(outerAttemptLabel('no_changes')).toBe('Agent made no changes');
+    expect(outerAttemptLabel('sandbox_complete')).toBe('Sandbox complete (tests skipped)');
     expect(outerAttemptLabel('aborted')).toBe('Aborted');
   });
 });

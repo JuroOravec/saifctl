@@ -217,6 +217,10 @@ const ORCHESTRATOR_MERGE_KEYS = [
   'taskPromptOverride',
   'fromArtifact',
   'verbose',
+  'skipStagingTests',
+  'sandboxExtract',
+  'sandboxExtractInclude',
+  'sandboxExtractExclude',
 ] as const satisfies readonly (keyof OrchestratorOpts)[];
 
 /** CLI payload: every key may appear; `undefined` means “do not override” (merge). */
@@ -374,6 +378,8 @@ async function applyOrchestratorBaseline(
     verbose: false,
     testOnly: false,
     allowSaifctlInPatch: false,
+    skipStagingTests: false,
+    sandboxExtract: 'none',
   };
 }
 

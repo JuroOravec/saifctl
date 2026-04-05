@@ -1,9 +1,7 @@
-// POC Leash Cedar policy for the Software Factory agent sandbox.
+// Sandbox Leash Cedar policy
 //
-// Used exclusively by POC designer runs. Identical to default.cedar except
-// the write-deny on /workspace/saifctl/ is removed — the POC agent must be
-// able to write specification.md, plan.md, poc-findings.md, etc. as it
-// explores the implementation.
+// Used exclusively by 'saifctl sandbox' runs. Identical to default.cedar except
+// the write-deny on /workspace/saifctl/ is removed.
 //
 // Security model:
 //   - Agent can read all files in the container.

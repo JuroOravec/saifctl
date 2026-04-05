@@ -55,6 +55,7 @@ import { runVagueSpecsChecker } from './agents/vague-specs-check.js';
 import type { OrchestratorOpts } from './modes.js';
 import { applyPatchToHost } from './phases/apply-patch.js';
 import { runCodingPhase } from './phases/run-coding-phase.js';
+import { applySandboxExtractToHost, type SandboxExtractMode } from './phases/sandbox-extract.js';
 import {
   destroySandbox,
   extractIncrementalRoundPatch,
@@ -340,6 +341,26 @@ export interface IterativeLoopOpts {
    */
   testOnly?: boolean;
   /**
+   * When true, skip the staging container and test runner after the agent finishes.
+   *
+   * Used by `saifctl sandbox` and the POC designer.
+   */
+  skipStagingTests?: boolean;
+  /**
+   * When {@link skipStagingTests} is true, how to apply extracted commits to the host working tree.
+   *
+   * Default: `'none'`.
+   */
+  sandboxExtract?: SandboxExtractMode;
+  /**
+   * Repo-relative path prefix to keep when `sandboxExtract` is `'host-apply-filtered'`.
+   */
+  sandboxExtractInclude?: string;
+  /**
+   * Repo-relative path prefix to exclude when `sandboxExtract` is `'host-apply-filtered'`.
+   */
+  sandboxExtractExclude?: string;
+  /**
    * Internal: set by `runInspect` to run an idle container (`sleep infinity`) instead of the
    * coding agent. Threaded through to {@link RunAgentOpts#inspectMode}.
    */
@@ -606,6 +627,10 @@ export async function runIterativeLoop(
     seedRoundSummaries,
     initialErrorFeedback,
     testOnly,
+    skipStagingTests,
+    sandboxExtract: sandboxExtractOpt,
+    sandboxExtractInclude,
+    sandboxExtractExclude,
     verbose,
     agentSecretKeys,
     agentSecretFiles,
@@ -1086,6 +1111,34 @@ export async function runIterativeLoop(
       // No changes whatsoever - no patch, no commits
       if (roundPatchEmpty && !hasPriorWorkInSandbox) {
         consola.warn('[orchestrator] Agent produced no changes (empty patch). Skipping tests.');
+
+        // Sandbox mode may make no changes in the container (e.g. user just needed
+        // to run a non-coding agent in isolation).
+        // So we return early with a success status.
+        if (skipStagingTests) {
+          roundSummaries = [
+            ...roundSummaries,
+            buildOuterAttemptSummary({
+              attempt: attempts,
+              phase: 'no_changes',
+              innerRounds,
+              commitCount: 0,
+              patchBytes: 0,
+              errorFeedback: '',
+              startedAt: attemptStartedAt,
+            }),
+          ];
+          await saveRoundProgress();
+          await destroySandbox(sandbox.sandboxBasePath);
+          sandboxDestroyed = true;
+          return {
+            status: 'success',
+            attempts,
+            runId,
+            message: 'Sandbox run complete (no git changes).',
+          };
+        }
+
         errorFeedback =
           'No changes were made. Please implement the feature as described in the plan.';
         lastErrorFeedback = errorFeedback;
@@ -1142,6 +1195,52 @@ export async function runIterativeLoop(
             `[orchestrator] Files in patch content (${patchPaths.length}): ${patchPaths.join(', ')}`,
           );
         }
+      }
+
+      //////////////////////////////////////////////////
+      // Sandbox mode: skip staging + tests; optional git apply to host
+      //////////////////////////////////////////////////
+
+      if (skipStagingTests) {
+        consola.log('\n[orchestrator] Sandbox mode — skipping staging tests.');
+        const extractMode = sandboxExtractOpt ?? 'none';
+
+        roundSummaries = [
+          ...roundSummaries,
+          buildOuterAttemptSummary({
+            attempt: attempts,
+            phase: roundPatchEmpty ? 'no_changes' : 'sandbox_complete',
+            innerRounds,
+            commitCount: roundCommits.length,
+            patchBytes: patchContent.length,
+            startedAt: attemptStartedAt,
+          }),
+        ];
+        await saveRoundProgress();
+
+        if (extractMode === 'host-apply' || extractMode === 'host-apply-filtered') {
+          await applySandboxExtractToHost({
+            runCommits: runCommitsAccum,
+            projectDir,
+            runId,
+            mode: extractMode,
+            includePrefix: sandboxExtractInclude,
+            excludePrefix: sandboxExtractExclude,
+          });
+        }
+
+        await destroySandbox(sandbox.sandboxBasePath);
+        sandboxDestroyed = true;
+
+        return {
+          status: 'success',
+          attempts,
+          runId,
+          message:
+            extractMode !== 'none'
+              ? 'Sandbox run complete; host working tree updated where applicable.'
+              : 'Sandbox run complete (no staging tests; no host apply).',
+        };
       }
 
       //////////////////////////////////////////////////
@@ -1639,4 +1738,8 @@ export function logIterativeLoopSettings(opts: OrchestratorOpts, meta?: { runId?
     consola.log('  Sandbox copy: uncommitted + untracked included (--include-dirty)');
   }
   if (opts.testOnly) consola.log('  Test-only: skip coding agent (verification / `run test`)');
+  if (opts.skipStagingTests) {
+    const ex = opts.sandboxExtract ?? 'none';
+    consola.log(`  Sandbox mode: skip staging tests (sandboxExtract=${ex})`);
+  }
 }

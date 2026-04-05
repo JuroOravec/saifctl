@@ -46,7 +46,7 @@ saifctl feat design --designer poc --model anthropic/claude-opus-4-5
 
 1. **Reads the proposal** `proposal.md` to understand the feature goal.
 
-2. **Starts an agent Run** — The agent runs inside a Docker container with access to a **copy** of your codebase. It attempts a quick implementation to probe constraints.
+2. **Starts an agent run** — Runs a coding agent on an [isolated copy of the repo](../sandbox.md) and attempts a quick implementation to probe constraints.
 
 3. **Writes the spec** — Once the agent has enough understanding, it writes `specification.md` and `plan.md` and exits.
 
@@ -61,7 +61,7 @@ The LLM API key for the agent must be available in the environment. See [Models]
 ## Notes
 
 - **No indexer tool is passed to the agent.** The factory's `--indexer` flag does not apply to the POC run.
-- **Docker required.** POC Explorer runs a sandboxed coding agent inside a Docker container.
+- **Docker required.** The [isolated sandbox](../sandbox.md) runs inside a Docker container.
 
 ---
 

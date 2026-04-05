@@ -86,6 +86,10 @@ export interface SerializedOrchestratorOpts extends Record<string, unknown> {
   verbose?: boolean;
   /** When true, sandbox includes uncommitted/untracked files. */
   includeDirty?: boolean;
+  skipStagingTests?: boolean;
+  sandboxExtract?: 'none' | 'host-apply' | 'host-apply-filtered';
+  sandboxExtractInclude?: string;
+  sandboxExtractExclude?: string;
 }
 
 export function serializeOrchestratorOpts(opts: OrchestratorOpts): SerializedOrchestratorOpts {
@@ -215,5 +219,9 @@ export function deserializeOrchestratorOpts(serialized: Record<string, unknown>)
     verbose: !!s.verbose,
     includeDirty: s.includeDirty ?? false,
     testOnly: false,
+    skipStagingTests: s.skipStagingTests ?? false,
+    sandboxExtract: s.sandboxExtract ?? 'none',
+    sandboxExtractInclude: s.sandboxExtractInclude,
+    sandboxExtractExclude: s.sandboxExtractExclude,
   };
 }

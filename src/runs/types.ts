@@ -139,7 +139,13 @@ export interface InnerRoundSummary {
 }
 
 /** Outcome of one orchestrator outer attempt (one agent container + staging tests). */
-export type OuterAttemptPhase = 'no_changes' | 'tests_passed' | 'tests_failed' | 'aborted';
+export type OuterAttemptPhase =
+  | 'no_changes'
+  | 'tests_passed'
+  | 'tests_failed'
+  | 'aborted'
+  /** Agent finished; staging tests skipped (`skipStagingTests`, e.g. sandbox / POC designer). */
+  | 'sandbox_complete';
 
 export interface OuterAttemptSummary {
   /** 1-based outer attempt index */

@@ -147,7 +147,7 @@ const innerRoundSummarySchema = z.object({
 
 const outerAttemptSummarySchema = z.object({
   attempt: z.number(),
-  phase: z.enum(['no_changes', 'tests_passed', 'tests_failed', 'aborted']),
+  phase: z.enum(['no_changes', 'tests_passed', 'tests_failed', 'aborted', 'sandbox_complete']),
   innerRoundCount: z.number(),
   innerRounds: z.array(innerRoundSummarySchema),
   commitCount: z.number(),

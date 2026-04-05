@@ -41,6 +41,8 @@ export function outerAttemptLabel(phase: string, errorFeedback?: string): string
       return 'Agent made no changes';
     case 'aborted':
       return 'Aborted';
+    case 'sandbox_complete':
+      return 'Sandbox complete (tests skipped)';
     default:
       return phase;
   }

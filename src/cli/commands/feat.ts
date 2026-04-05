@@ -17,7 +17,7 @@ import { mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
 import { cancel, confirm, intro, isCancel, outro, text } from '@clack/prompts';
-import { defineCommand, runMain } from 'citty';
+import { type CommandDef, defineCommand, runMain } from 'citty';
 
 import { loadSaifctlConfig } from '../../config/load.js';
 import { type SaifctlConfig } from '../../config/schema.js';
@@ -60,7 +60,6 @@ import {
   saifctlDirArg,
   testProfileArg,
 } from '../args.js';
-import type { ParsedArgsFromCommand } from '../types.js';
 import {
   buildOrchestratorCliInputFromFeatArgs,
   type FeatRunArgs,
@@ -97,6 +96,9 @@ import {
   resolveSaifctlDirRelative,
   shouldRunDiscovery,
 } from '../utils.js';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type CommandArgs<T extends CommandDef<any>> = Parameters<NonNullable<T['run']>>[0]['args'];
 
 /////////////////////////////////////////////
 // Shared CLI args
@@ -735,7 +737,7 @@ const runCommand = defineCommand({
   },
 });
 
-export const parseRunArgs = async (args: ParsedArgsFromCommand<typeof runCommand>) => {
+export const parseRunArgs = async (args: CommandArgs<typeof runCommand>) => {
   const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
   const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
   const config = await loadSaifctlConfig(saifctlDir, projectDir);

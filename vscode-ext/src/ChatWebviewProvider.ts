@@ -809,12 +809,13 @@ function getWebviewScript(): string {
         return sn ? 'Failed: ' + sn : 'Failed';
       case 'no_changes': return 'No changes';
       case 'aborted': return 'Aborted';
+      case 'sandbox_complete': return 'Sandbox';
       default: return phase;
     }
   }
 
   function phaseChipClass(phase) {
-    if (phase === 'tests_passed') return 'chip chip-pass';
+    if (phase === 'tests_passed' || phase === 'sandbox_complete') return 'chip chip-pass';
     if (phase === 'tests_failed' || phase === 'no_changes') return 'chip chip-fail';
     return 'chip chip-neutral';
   }

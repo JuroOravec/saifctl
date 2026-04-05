@@ -4,7 +4,7 @@ Start an agent to implement the specs. Runs until it passes your tests.
 
 Workflow:
 
-- Creates an isolated sandbox.
+- Uses an [isolated copy of the codebase](../sandbox.md).
 - Runs the coder agent (e.g. OpenHands) in a loop.
 - Runs tests against the code changes.
 - Continues until all tests pass or max runs are exceeded.
@@ -123,7 +123,7 @@ saifctl feat run -n add-login --push origin --pr
 
 ## What it does
 
-1. Creates an isolated sandbox from the current codebase (rsync copy).
+1. Prepares an [isolated workspace](../sandbox.md) from the current codebase.
 2. Starts the coder via the configured coding engine (Leash + container by default, or run on your machine with `--engine local`).
 3. In a loop: runs the agent → runs the gate script → assesses with the test runner. Repeats until tests pass or max runs are exceeded.
 4. On failure due to spec ambiguity (when `--resolve-ambiguity` is `ai` or `prompt`), the Vague Specs Checker may update the spec and regenerate tests, then retry.
@@ -162,4 +162,5 @@ The Vague Specs Checker is implemented as a single LLM call that internally perf
 - [Semantic reviewer](../reviewer.md) — Reviewer configuration and `--no-reviewer`
 - [Cedar access control](../leash-access-control.md) — Customize Leash policy
 - [LLM configuration](../models.md) — Model flags, agent names, auto-discovery
+- [Sandbox](../sandbox.md) — Isolated workspace
 - [All commands](README.md)

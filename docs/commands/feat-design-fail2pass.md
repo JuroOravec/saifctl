@@ -61,7 +61,7 @@ saifctl feat design-fail2pass --test-profile go-gotest
 
 ## What it does
 
-1. Creates an isolated sandbox with the current codebase (no patches).
+1. Prepares an [isolated workspace](../sandbox.md) from the current codebase.
 2. Spins up the staging container and test runner container.
 3. Runs the full test suite (including hidden tests).
 4. Succeeds if at least one feature test fails — confirms the tests exercise unimplemented behavior.
