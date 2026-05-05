@@ -47,10 +47,15 @@ echo "[sandbox-start] Ready. Connect with: docker exec -it <container> bash"
 # do, via saifctl_write_interactive_hint), print it so the user sees it
 # right before the container goes idle. Avoids the "command not found"
 # surprise when they `docker exec` in as root and try to invoke the agent.
-if [ -f /saifctl/.interactive-hint.md ]; then
+#
+# Path is in $SAIFCTL_WORKSPACE_BASE/.saifctl/ (writable by the default
+# Cedar policy). Was briefly in /saifctl/ but that bind-mount is read-only
+# from inside the container.
+_hint_path="${SAIFCTL_WORKSPACE_BASE:-/workspace}/.saifctl/interactive-hint.md"
+if [ -f "$_hint_path" ]; then
   echo ""
   echo "════════════════════════════════════════════════════════════════"
-  cat /saifctl/.interactive-hint.md
+  cat "$_hint_path"
   echo "════════════════════════════════════════════════════════════════"
   echo ""
 fi

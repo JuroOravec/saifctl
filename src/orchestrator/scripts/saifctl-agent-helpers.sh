@@ -152,10 +152,10 @@ saifctl_drop_privs_init() {
 # ---------------------------------------------------------------------------
 # saifctl_write_interactive_hint <agent-cli-name>
 #
-# Write an "interactive sandbox" usage hint to /saifctl/.interactive-hint.md.
-# `sandbox-start.sh` cats this file at the end of setup so users who
-# `docker exec -it <container> bash` see how to invoke the agent CLI from
-# the root shell they land in.
+# Write an "interactive sandbox" usage hint to
+# `<workspace>/.saifctl/interactive-hint.md` so `sandbox-start.sh` can cat
+# it at the end of setup. Users who `docker exec -it <container> bash`
+# then see how to invoke the agent CLI from the root shell they land in.
 #
 # `<agent-cli-name>` is what the user types to invoke the agent
 # (e.g. "claude", "aider", "codex", "openhands"). Used in the hint body.
@@ -164,12 +164,32 @@ saifctl_drop_privs_init() {
 # was called). The hint always tells the user to `runuser -l saifctl` first
 # because that's the only valid path for these agents.
 #
+# Path choice: `<workspace>/.saifctl/` — the canonical "saifctl runtime
+# state, not user code" location, where coder-start.sh already writes
+# task.md and subtask signal files. Writable inside the agent container
+# by the default Cedar policy. NOT under `/saifctl/` — that bind-mount is
+# forbidden for writes by Cedar (agents must not tamper with orchestrator
+# scripts); a write there fails with "Read-only file system" and crashes
+# agent-install via `set -e`.
+#
+# Best-effort: a write failure (rare; e.g. ENOSPC, exotic image layout)
+# does not propagate and does not break agent-install. The hint is a UX
+# nicety, not a correctness requirement; nothing depends on it beyond
+# `sandbox-start.sh` printing it when present.
+#
 # Idempotent — overwrites any prior hint file. Per-agent install scripts
 # call this once.
 # ---------------------------------------------------------------------------
 saifctl_write_interactive_hint() {
   local cli="${1:-${SAIFCTL_UNPRIV_USER}}"
-  cat > /saifctl/.interactive-hint.md <<EOF
+  local workspace="${SAIFCTL_WORKSPACE_BASE:-/workspace}"
+  local hint_path="${workspace}/.saifctl/interactive-hint.md"
+  # Build the hint body via command substitution so the heredoc parses
+  # cleanly and the file-write + error-handling are separate statements.
+  # (Prior attempt at `cat > file <<EOF || { ... } body EOF` broke
+  # because heredoc body interpretation extends through the closing brace.)
+  local hint
+  hint=$(cat <<EOF
 # Interactive sandbox — using \`${cli}\`
 
 This sandbox runs \`${cli}\` as the unprivileged \`${SAIFCTL_UNPRIV_USER}\`
@@ -190,6 +210,11 @@ Or as a one-liner from root:
 The \`${SAIFCTL_UNPRIV_USER}\` user's login PATH already includes the
 agent's install dir (\$SAIFCTL_UNPRIV_NPM_PREFIX/bin and \$HOME/.local/bin).
 EOF
+)
+  mkdir -p "$(dirname "$hint_path")" 2>/dev/null || true
+  if ! printf '%s\n' "$hint" > "$hint_path" 2>/dev/null; then
+    echo "[saifctl-helpers] note: could not write interactive-mode hint to ${hint_path} (non-fatal)" >&2
+  fi
 }
 
 # ---------------------------------------------------------------------------
