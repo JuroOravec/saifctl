@@ -1,0 +1,107 @@
+# Doc-spec validation. Runs on PRs that touch the docspec or any source
+# file referenced by a docspec `source:` pointer (commands, agents,
+# designers, indexers, config, etc.) — catches frontmatter errors,
+# YAML parse failures, and stale `source:` paths before merge.
+#
+# Currently uses `saifdocs gen --project-dir . --dry-run` (builds the
+# manifest, validates schema, resolves all source: paths). Once DOC-09.4
+# has run at least once and `docs/` is populated, this should be
+# replaced with `saifdocs validate` for actual staleness checks.
+
+name: Docs validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docspec/**'
+      - 'docs/**'
+      - 'src/cli/commands/**'
+      - 'src/agent-profiles/**'
+      - 'src/designer-profiles/**'
+      - 'src/indexer-profiles/**'
+      - 'src/sandbox-profiles/**'
+      - 'src/test-profiles/**'
+      - 'src/config/**'
+      - 'src/storage/**'
+      - 'src/orchestrator/agent-env.ts'
+      - 'src/llm-config.ts'
+      - 'src/constants.ts'
+      - 'scripts/docker.ts'
+      - 'vendor/saifdocs'
+      - '.github/workflows/tests-docs.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docspec/**'
+      - 'docs/**'
+      - 'src/cli/commands/**'
+      - 'src/agent-profiles/**'
+      - 'src/designer-profiles/**'
+      - 'src/indexer-profiles/**'
+      - 'src/sandbox-profiles/**'
+      - 'src/test-profiles/**'
+      - 'src/config/**'
+      - 'src/storage/**'
+      - 'src/orchestrator/agent-env.ts'
+      - 'src/llm-config.ts'
+      - 'src/constants.ts'
+      - 'scripts/docker.ts'
+      - 'vendor/saifdocs'
+      - '.github/workflows/tests-docs.yml'
+
+concurrency:
+  group: tests-docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install saifdocs deps
+        working-directory: vendor/saifdocs
+        run: pnpm install --frozen-lockfile
+
+      - name: Build saifdocs
+        working-directory: vendor/saifdocs
+        run: pnpm run build
+
+      # `gen --dry-run` builds the manifest from `docspec/` (which validates
+      # frontmatter shape, type enums, and source: path existence) and
+      # writes it to `docspec/.manifest.json` without emitting a feature
+      # tree. Exit code is non-zero if any docspec entry fails validation.
+      - name: Validate docspec
+        run: node vendor/saifdocs/dist/cli.js gen --project-dir . --dry-run
+
+      # Confirm the manifest update is committed if any source-of-truth
+      # files (docspec/ or referenced source files) changed in this PR.
+      # Fails CI if the committed manifest doesn't match what gen --dry-run
+      # produces — catches "I edited docspec but forgot to regen the
+      # manifest".
+      - name: Manifest is committed and current
+        run: |
+          if ! git diff --exit-code docspec/.manifest.json; then
+            echo "::error::docspec/.manifest.json is out of date. Run \`saifdocs gen --project-dir . --dry-run\` locally and commit the result."
+            exit 1
+          fi
+
+      # TODO (post-DOC-09.4): once `docs/` is populated by the first
+      # saifdocs run, replace the dry-run validation with full staleness
+      # checks. Runtime cost: zero LLM calls, single mtime sweep.
+      #
+      # - name: Validate staleness
+      #   run: node vendor/saifdocs/dist/cli.js validate --docspec-dir docspec
