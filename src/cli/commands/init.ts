@@ -31,6 +31,7 @@
 
 import { defineCommand, runMain } from 'citty';
 
+import { recordAndValidateProfileOptions } from '../../agent-profiles/options-bridge.js';
 import { loadSaifctlConfig } from '../../config/load.js';
 import { scaffoldSaifctlConfig } from '../../config/scaffold.js';
 import { resolveIndexerProfile } from '../../indexer-profiles/index.js';
@@ -134,6 +135,17 @@ const initCommand = defineCommand({
     const indexerProfile = resolveIndexerProfile(
       typeof args.indexer === 'string' ? args.indexer : undefined,
     );
+    // Wire indexer profile-specific options (--<id>-<name> CLI flags +
+    // indexerOptions config block). Skipped when no indexer is selected
+    // (`--indexer none` / unset).
+    if (indexerProfile) {
+      const earlyConfig = await loadSaifctlConfig(saifctlDir, projectDir);
+      await recordAndValidateProfileOptions({
+        profile: indexerProfile,
+        args: args as Record<string, unknown>,
+        configMap: earlyConfig.defaults?.indexerOptions?.[indexerProfile.id],
+      });
+    }
     const projectName = await resolveProjectName({ project: args.project, projectDir });
     const force = args.force === true;
 

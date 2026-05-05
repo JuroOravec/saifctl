@@ -18,9 +18,7 @@ describe('applyStagedFiles', () => {
 
   it('is a no-op (and clears any prior staging) when files is empty', async () => {
     // Pre-populate to verify cleanup
-    await applyStagedFiles(saifctlPath, [
-      { src: { kind: 'inline', content: 'x' }, dst: '/dst' },
-    ]);
+    await applyStagedFiles(saifctlPath, [{ src: { kind: 'inline', content: 'x' }, dst: '/dst' }]);
     await applyStagedFiles(saifctlPath, []);
     await expect(stat(join(saifctlPath, '.stage'))).rejects.toMatchObject({
       code: 'ENOENT',
@@ -93,9 +91,7 @@ describe('applyStagedFiles', () => {
   });
 
   it('overwrites prior staging on a second invocation (idempotent)', async () => {
-    await applyStagedFiles(saifctlPath, [
-      { src: { kind: 'inline', content: 'first' }, dst: '/a' },
-    ]);
+    await applyStagedFiles(saifctlPath, [{ src: { kind: 'inline', content: 'first' }, dst: '/a' }]);
     await applyStagedFiles(saifctlPath, [
       { src: { kind: 'inline', content: 'second' }, dst: '/b' },
       { src: { kind: 'inline', content: 'third' }, dst: '/c' },

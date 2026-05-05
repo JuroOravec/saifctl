@@ -25,6 +25,7 @@ import { type CommandDef, defineCommand, runMain } from 'citty';
 import { resolveAgentProfile } from '../../agent-profiles/index.js';
 import {
   applyConfigToProfileOptionsEnv,
+  recordAndValidateProfileOptions,
   recordProfileOptionsFromArgs,
   validateProfileOptions,
 } from '../../agent-profiles/options-bridge.js';
@@ -34,7 +35,8 @@ import { defaultCedarPolicyPath } from '../../constants.js';
 import { runDiscovery } from '../../design-discovery/run.js';
 import { runDesignTests } from '../../design-tests/design.js';
 import { generateTests } from '../../design-tests/write.js';
-import { DEFAULT_DESIGNER_PROFILE } from '../../designer-profiles/index.js';
+import { DEFAULT_DESIGNER_PROFILE, resolveDesignerProfile } from '../../designer-profiles/index.js';
+import { resolveIndexerProfile } from '../../indexer-profiles/index.js';
 import type { LlmOverrides } from '../../llm-config.js';
 import { consola, setVerboseLogging } from '../../logger.js';
 import { runFail2Pass, runStart } from '../../orchestrator/modes.js';
@@ -714,6 +716,30 @@ const designCommand = defineCommand({
     const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
     const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
     const config = await loadSaifctlConfig(saifctlDir, projectDir);
+
+    // Wire designer + indexer profile-specific options (--<id>-<name> CLI
+    // flags + designerOptions / indexerOptions config blocks). Order:
+    // CLI > config > profile.default. Validators run before any sub-flow
+    // dispatches so bad inputs fail fast.
+    const designerProfile = resolveDesignerProfile(
+      typeof args.designer === 'string' ? args.designer : undefined,
+    );
+    await recordAndValidateProfileOptions({
+      profile: designerProfile,
+      args: args as Record<string, unknown>,
+      configMap: config.defaults?.designerOptions?.[designerProfile.id],
+    });
+    const designIndexerProfile = resolveIndexerProfile(
+      typeof args.indexer === 'string' ? args.indexer : undefined,
+    );
+    if (designIndexerProfile) {
+      await recordAndValidateProfileOptions({
+        profile: designIndexerProfile,
+        args: args as Record<string, unknown>,
+        configMap: config.defaults?.indexerOptions?.[designIndexerProfile.id],
+      });
+    }
+
     const discovery = resolveDiscoveryOptions(readDiscoveryCliReads(args), projectDir, config);
 
     // 0. Design-discovery (when mcps or tools configured)

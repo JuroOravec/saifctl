@@ -15,6 +15,8 @@
 
 import type { Tool } from '@mastra/core/tools';
 
+import type { AgentProfileOption } from '../agent-profiles/types.js';
+
 /** Inputs for {@link IndexerProfile.init} (project dir + identifier). */
 export interface IndexerInitOpts {
   /** Absolute path to the project directory (where indexing commands are run). */
@@ -57,6 +59,18 @@ export interface IndexerProfile {
    * agent prompts remain profile-agnostic.
    */
   getMastraTool(opts: IndexerGetToolOpts): Tool | Promise<Tool>;
+
+  /**
+   * Profile-specific CLI options. Each becomes `--<id>-<option.name>`.
+   * Saifctl pre-parses `--indexer` from argv and dynamically extends the
+   * relevant command schema with these options before final parsing.
+   *
+   * Same shape as {@link AgentProfileOption}; resolved values are exposed
+   * to indexer code via `readProfileOptionsFromEnv`. Indexers run on the
+   * host, so values are read directly in `init()` / `getMastraTool()`
+   * implementations rather than going through a container-staging hook.
+   */
+  options?: AgentProfileOption[];
 }
 
 /** Tuple of all indexer profile ids accepted by the `--indexer` CLI flag. */

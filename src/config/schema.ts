@@ -170,6 +170,21 @@ const saifctlConfigDefaultsSchema = z.object({
   agentOptions: z
     .record(z.string(), z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])))
     .optional(),
+  /**
+   * Designer profile-specific options. Same shape as {@link agentOptions},
+   * keyed by designer id (e.g. `shotgun`). Mirrors `--<designer-id>-<name>`
+   * CLI flags. CLI > config > profile.default.
+   */
+  designerOptions: z
+    .record(z.string(), z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])))
+    .optional(),
+  /**
+   * Indexer profile-specific options. Same shape as {@link agentOptions},
+   * keyed by indexer id. Mirrors `--<indexer-id>-<name>` CLI flags.
+   */
+  indexerOptions: z
+    .record(z.string(), z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])))
+    .optional(),
 
   // Model overrides (object form)
   globalModel: z.string().optional(),

@@ -1,8 +1,8 @@
-# Agent profile options — declaring CLI flags from a profile
+# Profile options — declaring CLI flags from a profile
 
-Agent profiles can declare their own CLI flags (`--<id>-<name>`) and a hook that translates flag values into container-side artifacts (env vars, staged files). Saifctl picks them up automatically — you don't touch the central CLI definition.
+Agent, designer, and indexer profiles can declare their own CLI flags (`--<id>-<name>`) and a hook that translates flag values into container-side artifacts (env vars, staged files). Saifctl picks them up automatically — you don't touch the central CLI definition.
 
-This is what powers `--claude-max` (read host's Claude Max OAuth credentials and stage them into the coder container) without saifctl's CLI core needing claude-specific knowledge.
+This is what powers `--claude-max` (read host's Claude Max OAuth credentials and stage them into the coder container) without saifctl's CLI core needing claude-specific knowledge. The same shape works for designer / indexer profiles — `--<designer-id>-*` and `--<indexer-id>-*` get the same treatment.
 
 ## Anatomy
 
@@ -165,8 +165,34 @@ Notes:
 - `secret: true` options sourced from a config file are not automatically redacted in run storage. If you want a string value kept out of run storage / logs, source it via `agentSecretKeys` (env-var-based) instead.
 - The profile's `validate(value)` runs against the merged value regardless of source — so a bad path in config fails at the same point a bad path on the CLI would.
 
-## What's not yet wired (follow-up work)
+## Designer + indexer profiles
 
-- **Designer / Indexer profile options**. Same shape would apply to `DesignerProfile` and `IndexerProfile` (`--<designer-id>-*`, `--<indexer-id>-*`) — not yet implemented.
+`DesignerProfile` (`src/designer-profiles/types.ts`) and `IndexerProfile` (`src/indexer-profiles/types.ts`) both accept the same `options?: AgentProfileOption[]` field as agents. The CLI dynamic flag injection in `src/cli/index.ts` pre-parses `--designer` and `--indexer` (in addition to `--agent`) and injects each profile's options into the matching command schemas:
 
-The core mechanism is the same as for agents, just hooked at different points in the orchestrator.
+| Profile flag | Commands the options are injected into |
+|---|---|
+| `--agent <id>` | `feat run`, `sandbox` |
+| `--designer <id>` | `feat design`, `feat design-specs`, `feat design-discovery`, `feat design-tests`, `feat design-fail2pass` |
+| `--indexer <id>` | `init`, all `feat design*` |
+
+Resolution + validation is wired into `feat design` and `init` handlers via `recordAndValidateProfileOptions({ profile, args, configMap })`. Designer/indexer code reads the resolved values via `readProfileOptionsFromEnv(profile)` from inside its own `run()` / `init()` implementation — no `prepareAgentEnv`-style container staging applies because designers and indexers run on the host, not inside a coder container.
+
+Config-file blocks for designers and indexers mirror the agent shape:
+
+```yaml
+agents:
+  claude:
+    max: true
+designers:
+  shotgun:
+    strict: true     # hypothetical --shotgun-strict
+indexers:
+  shotgun:
+    pre-warm: true   # hypothetical --shotgun-pre-warm
+```
+
+The respective config-schema fields are `agentOptions`, `designerOptions`, `indexerOptions`. CLI > config > profile.default.
+
+## Wiring follow-up coverage
+
+The standalone `feat design-*` subcommands (`feat design-specs`, `feat design-discovery`, `feat design-tests`, `feat design-fail2pass`) currently get the dynamic CLI flag *injection* (so `--shotgun-foo --help` works) but don't yet call `recordAndValidateProfileOptions` in their handlers — only the top-level `feat design` does. Same for any other entry point that takes `--designer` or `--indexer` outside the design flow. Add the helper call when authoring a profile that needs it; the pattern is one line per handler.

@@ -28,7 +28,20 @@
  * a global `feat run` / `sandbox` flag at startup time.
  */
 
-import type { AgentPrepareContext, AgentProfile, AgentProfileOption } from './types.js';
+import type { AgentPrepareContext, AgentProfileOption } from './types.js';
+
+/**
+ * Minimal shape every profile type (agent, designer, indexer) shares for
+ * CLI-options purposes: an `id` for the namespace prefix and an optional
+ * `options[]` array.
+ *
+ * The bridge functions are typed against this shape rather than the full
+ * `AgentProfile` so the same wiring serves all three profile categories.
+ */
+export interface ProfileWithOptions {
+  id: string;
+  options?: AgentProfileOption[];
+}
 
 /** Citty-shape arg definition (citty's `defineCommand({ args: { ... } })`). */
 type CittyArg =
@@ -39,8 +52,11 @@ type CittyArg =
 /**
  * Translate a profile's `options[]` into citty-shaped args.
  * Returns an empty record if the profile declares no options.
+ *
+ * Accepts any {@link ProfileWithOptions} — agent, designer, or indexer
+ * profiles all have the same shape for option handling.
  */
-export function buildProfileCliFlags(profile: AgentProfile): Record<string, CittyArg> {
+export function buildProfileCliFlags(profile: ProfileWithOptions): Record<string, CittyArg> {
   const flags: Record<string, CittyArg> = {};
   for (const opt of profile.options ?? []) {
     const cliName = `${profile.id}-${opt.name}`;
@@ -80,7 +96,7 @@ function buildSingleFlag(opt: AgentProfileOption): CittyArg {
  * Mutates `process.env`. Call once per CLI invocation, after parsing.
  */
 export function recordProfileOptionsFromArgs(
-  profile: AgentProfile,
+  profile: ProfileWithOptions,
   args: Record<string, unknown>,
 ): void {
   for (const opt of profile.options ?? []) {
@@ -99,7 +115,9 @@ export function recordProfileOptionsFromArgs(
  * Options the user didn't pass (and that have no default) come back as
  * `undefined`.
  */
-export function readProfileOptionsFromEnv(profile: AgentProfile): AgentPrepareContext['options'] {
+export function readProfileOptionsFromEnv(
+  profile: ProfileWithOptions,
+): AgentPrepareContext['options'] {
   const out: AgentPrepareContext['options'] = {};
   for (const opt of profile.options ?? []) {
     const raw = process.env[envKeyFor(profile.id, opt.name)];
@@ -138,7 +156,7 @@ export function readProfileOptionsFromEnv(profile: AgentProfile): AgentPrepareCo
  * with future profile changes.
  */
 export function applyConfigToProfileOptionsEnv(
-  profile: AgentProfile,
+  profile: ProfileWithOptions,
   configMap: Record<string, string | number | boolean> | undefined,
 ): void {
   if (!configMap) return;
@@ -152,11 +170,30 @@ export function applyConfigToProfileOptionsEnv(
 }
 
 /**
+ * Convenience wrapper that runs the full per-invocation pipeline for a
+ * profile: record CLI args → fill from config → validate. Use from CLI
+ * handlers when you'd otherwise call all three in sequence.
+ *
+ * `configMap` is the per-id record (e.g. `agentOptions[profile.id]` from
+ * `saifctl/config.yaml`); pass `undefined` when the user has no
+ * profile-specific config block.
+ */
+export async function recordAndValidateProfileOptions(opts: {
+  profile: ProfileWithOptions;
+  args: Record<string, unknown>;
+  configMap?: Record<string, string | number | boolean>;
+}): Promise<void> {
+  recordProfileOptionsFromArgs(opts.profile, opts.args);
+  applyConfigToProfileOptionsEnv(opts.profile, opts.configMap);
+  await validateProfileOptions(opts.profile);
+}
+
+/**
  * Run all per-option `validate(value)` hooks for the active profile. Throws on
  * the first failure with a CLI-friendly message. Call after CLI parsing and
  * before container start.
  */
-export async function validateProfileOptions(profile: AgentProfile): Promise<void> {
+export async function validateProfileOptions(profile: ProfileWithOptions): Promise<void> {
   const resolved = readProfileOptionsFromEnv(profile);
   for (const opt of profile.options ?? []) {
     if (!opt.validate) continue;
@@ -179,7 +216,7 @@ export async function validateProfileOptions(profile: AgentProfile): Promise<voi
  * a descriptive Error on the first collision.
  */
 export function assertNoGlobalCollisions(
-  profiles: AgentProfile[],
+  profiles: ProfileWithOptions[],
   reservedGlobalFlags: ReadonlySet<string>,
 ): void {
   const seen = new Map<string, string>(); // cliName → owner profile id

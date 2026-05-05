@@ -26,6 +26,7 @@
 
 import type { Tool } from '@mastra/core/tools';
 
+import type { AgentProfileOption } from '../agent-profiles/types.js';
 import type { Feature } from '../specs/discover.js';
 
 /** Common inputs for all designer profile entry points (cwd, feature, saifctl dir). */
@@ -85,6 +86,21 @@ export interface DesignerProfile {
    * then writes the required output files (plan.md, specification.md, …).
    */
   run(opts: DesignerRunOpts): void | Promise<void>;
+
+  /**
+   * Profile-specific CLI options. Each becomes `--<id>-<option.name>`.
+   * Saifctl pre-parses `--designer` from argv and dynamically extends the
+   * relevant command schema with these options before final parsing —
+   * `saifctl feat design --designer <id> --help` includes them.
+   *
+   * Same shape as {@link AgentProfileOption}; resolved values are exposed
+   * to designer code via the same `readProfileOptionsFromEnv` bridge as
+   * agent options. Unlike agent profiles, designers run on the host (not
+   * inside a coder container), so `prepareAgentEnv`-style file staging
+   * does not apply — designers read option values directly in their
+   * `run()` implementation.
+   */
+  options?: AgentProfileOption[];
 }
 
 /** Tuple of all designer profile ids accepted by the `--designer` CLI flag. */
