@@ -56,6 +56,18 @@ export async function applyStagedFiles(saifctlPath: string, files: StagedFile[])
 
     applyLines.push(`# entry ${idx}: ${dst}`);
     applyLines.push(`mkdir -p ${shellQuote(dirname(dst))}`);
+    // Chown the parent dir (recursively) when the staged file is unpriv-owned.
+    // mkdir -p as root creates each level with root:root ownership, but the
+    // unpriv user often needs to write peer files inside the same dir at
+    // runtime — e.g. claude code creates ~/.claude/session-env/ at first run,
+    // which fails with EACCES if ~/.claude/ itself is root-owned. Recursive
+    // chown is fine here because saifctl staging runs once per round into
+    // dirs the unpriv user otherwise wouldn't share with anyone.
+    if (owner === 'unpriv') {
+      applyLines.push(
+        `chown -R "$(id -u "$SAIFCTL_UNPRIV_USER")":"$(id -g "$SAIFCTL_UNPRIV_USER")" ${shellQuote(dirname(dst))}`,
+      );
+    }
     applyLines.push(`cp ${shellQuote(containerSrc)} ${shellQuote(dst)}`);
     applyLines.push(`chmod ${mode.toString(8)} ${shellQuote(dst)}`);
     if (owner === 'unpriv') {

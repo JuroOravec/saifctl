@@ -76,6 +76,28 @@ describe('applyStagedFiles', () => {
     expect(apply).toContain('/.claude/.credentials.json');
   });
 
+  it("chowns the parent dir (recursively) for owner: 'unpriv' before the cp", async () => {
+    // Why this matters: mkdir -p as root creates each path level with
+    // root:root ownership. Without a follow-up chown, the unpriv user can't
+    // write peer files in the parent dir at runtime — e.g. claude-code
+    // creates ~/.claude/session-env/ at first run, which fails with EACCES
+    // when ~/.claude/ is root-owned.
+    await applyStagedFiles(saifctlPath, [
+      {
+        src: { kind: 'inline', content: 'creds' },
+        dst: '/home/saifctl/.claude/.credentials.json',
+        mode: 0o600,
+        owner: 'unpriv',
+      },
+    ]);
+    const apply = await readFile(join(saifctlPath, '.stage', 'apply.sh'), 'utf8');
+    // The apply.sh should chown the parent dir before the cp. Recursive so
+    // multi-level mkdir -p creations all end up unpriv-owned.
+    expect(apply).toMatch(
+      /chown -R "\$\(id -u "\$SAIFCTL_UNPRIV_USER"\)":"\$\(id -g "\$SAIFCTL_UNPRIV_USER"\)" '\/home\/saifctl\/\.claude'\s*\ncp /,
+    );
+  });
+
   it('omits chown for owner: root', async () => {
     await applyStagedFiles(saifctlPath, [
       {

@@ -46,17 +46,28 @@ forbid (
     resource in [ Dir::"/workspace/saifctl/" ]
 };
 
-// Disallow write to .git (sandbox-escape prevention).
-// If the agent rewrites .git/config (e.g. core.fsmonitor, diff.external) the
-// malicious hooks will be evaluated by the host orchestrator when it runs
-// `git add` / `git diff` in extractPatch — giving the agent arbitrary host
-// command execution outside the Leash container.
+// Sandbox-escape prevention: forbid agent writes to the two .git/ paths that
+// the host orchestrator's git operations (extractPatch, host-side `git apply`)
+// would honour as code: `.git/hooks/*` and `.git/config`. A malicious agent
+// could rewrite either to inject host-side command execution
+// (e.g. `core.fsmonitor`, `diff.external`, pre-commit hooks).
+//
+// The rest of `.git/` (index, objects, refs, HEAD, logs, COMMIT_EDITMSG) is
+// allowed: it's normal git plumbing, doesn't trigger code execution, and the
+// reviewer (`reviewer.sh`) needs to commit uncommitted agent changes so it can
+// diff `BASE_COMMIT..HEAD` regardless of whether the agent committed itself.
+//
+// Background: the original blanket forbid on `Dir::"/workspace/.git/"` was
+// noted in the design-time security audit (architecture-history/security_assessment.md
+// items #2 and #6) and broke the reviewer's commit step inside the container.
+// Narrowing to the two specifically-dangerous paths keeps the sandbox-escape
+// mitigation intact without over-restricting normal git plumbing.
 forbid (
     principal,
     action == Action::"FileOpenReadWrite",
     resource
 ) when {
-    resource in [ Dir::"/workspace/.git/" ]
+    resource in [ Dir::"/workspace/.git/hooks/", File::"/workspace/.git/config" ]
 };
 
 // ── Process execution ───────────────────────────────────────────────────────

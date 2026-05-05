@@ -31,12 +31,16 @@ forbid (
     resource in [ Dir::"/workspace/saifctl/" ]
 };
 
+// Sandbox-escape prevention: forbid the two .git/ paths that the host's
+// git operations would honour as code (.git/hooks/*, .git/config). Other
+// .git/ writes are allowed for normal git plumbing — see default.cedar
+// for the full rationale.
 forbid (
     principal,
     action == Action::"FileOpenReadWrite",
     resource
 ) when {
-    resource in [ Dir::"/workspace/.git/" ]
+    resource in [ Dir::"/workspace/.git/hooks/", File::"/workspace/.git/config" ]
 };
 
 permit (
