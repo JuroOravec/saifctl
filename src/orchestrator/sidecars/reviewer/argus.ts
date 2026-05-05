@@ -30,7 +30,7 @@ const REVIEWER_BIN_DIR =
   process.env.SAIF_REVIEWER_BIN_DIR?.trim() || join(SAIFCTL_TEMP_ROOT, 'bin');
 
 /** Fork release version — bump this when cutting a new fork release. */
-const ARGUS_VERSION = '0.5.6';
+const ARGUS_VERSION = '0.5.7';
 const REPO = 'safe-ai-factory/argus';
 
 // musl builds have no GLIBC dependency; they run on any Linux regardless of libc version.
