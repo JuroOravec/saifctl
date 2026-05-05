@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { join, resolve as resolvePath } from 'node:path';
 
 import type { AgentPrepareResult, AgentProfile } from '../types.js';
+import { claudeStdoutStrategy } from './logs.js';
 
 const DEFAULT_HOST_CRED_PATH = join(homedir(), '.claude', '.credentials.json');
 
@@ -10,7 +11,7 @@ const DEFAULT_HOST_CRED_PATH = join(homedir(), '.claude', '.credentials.json');
 export const claudeProfile: AgentProfile = {
   id: 'claude',
   displayName: 'Claude Code',
-  stdoutStrategy: null,
+  stdoutStrategy: claudeStdoutStrategy,
 
   options: [
     {
