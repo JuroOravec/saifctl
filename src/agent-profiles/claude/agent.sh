@@ -109,20 +109,31 @@ _agent_exit=0
 # set in the parent. So we must EXPLICITLY unset them here in OAuth mode
 # before invoking runuser, otherwise an env var inherited from saifctl's
 # orchestrator side would silently route via the API instead of the Max plan.
+#
+# Built as a bash array so empty-expansion-between-assignments doesn't
+# break parsing. (An earlier attempt used `${_VAR}` between assignment
+# tokens; in OAuth mode that variable was empty, which made bash commit
+# to args-mode and reject the following `SAIFCTL_UNPRIV_NPM_PREFIX=...`
+# as an unfound command.)
+_env_prefix=(env)
 if [[ "${SAIFCTL_CLAUDE_AUTH_MODE:-apikey}" = "oauth" ]]; then
-  # Strip every *_API_KEY env var name from the whitelist via env -u, so
-  # whatever the orchestrator forwarded won't reach claude.
-  _SAIFCTL_RUNUSER='env -u ANTHROPIC_API_KEY -u ANTHROPIC_BASE_URL -u LLM_API_KEY -u OPENAI_API_KEY -u OPENAI_API_BASE -u OPENAI_BASE_URL -u OPENROUTER_API_KEY -u GEMINI_API_KEY -u DASHSCOPE_API_KEY runuser'
-  _SAIFCTL_API_KEY_ENV=''
+  # Strip every *_API_KEY-shaped env var that runuser's whitelist would
+  # otherwise let through, so claude doesn't see them.
+  _env_prefix+=(
+    -u ANTHROPIC_API_KEY -u ANTHROPIC_BASE_URL
+    -u LLM_API_KEY
+    -u OPENAI_API_KEY -u OPENAI_API_BASE -u OPENAI_BASE_URL
+    -u OPENROUTER_API_KEY -u GEMINI_API_KEY -u DASHSCOPE_API_KEY
+  )
 else
-  _SAIFCTL_RUNUSER='runuser'
-  _SAIFCTL_API_KEY_ENV="ANTHROPIC_API_KEY=$_API_KEY"
+  # API-key mode: env passes ANTHROPIC_API_KEY through to the runuser shell.
+  _env_prefix+=("ANTHROPIC_API_KEY=$_API_KEY")
 fi
 
 SAIFCTL_TASK_CONTENT="$_TASK_CONTENT" \
-  ${_SAIFCTL_API_KEY_ENV} \
   SAIFCTL_UNPRIV_NPM_PREFIX="$SAIFCTL_UNPRIV_NPM_PREFIX" \
-  ${_SAIFCTL_RUNUSER} -l "$SAIFCTL_UNPRIV_USER" \
+  "${_env_prefix[@]}" \
+  runuser -l "$SAIFCTL_UNPRIV_USER" \
     --whitelist-environment="$(saifctl_unpriv_env_whitelist),SAIFCTL_TASK_CONTENT" \
     -c '
       export PATH="$SAIFCTL_UNPRIV_NPM_PREFIX/bin:$PATH"
