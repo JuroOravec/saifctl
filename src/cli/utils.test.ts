@@ -19,6 +19,7 @@ import {
   resolveStorageOverrides,
   resolveStrictFlag,
   scriptSourcePathForReporting,
+  validateFeatureName,
 } from './utils.js';
 
 describe('buildOrchestratorCliInputFromFeatArgs', () => {
@@ -134,5 +135,62 @@ describe('resolveStrictFlag', () => {
     expect(resolveStrictFlag({ cli: undefined, config: undefined })).toBe(true);
     expect(resolveStrictFlag({ cli: undefined, config: { defaults: {} } })).toBe(true);
     expect(resolveStrictFlag({ cli: undefined, config: {} })).toBe(true);
+  });
+});
+
+describe('validateFeatureName', () => {
+  // validateFeatureName calls process.exit(1) on rejection. Mock exit so we can
+  // assert without killing the test runner; mock consola.error to keep stderr quiet.
+  let exitSpy: ReturnType<typeof vi.spyOn>;
+  let errSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    // @ts-expect-error process.exit return type doesn't fit vi.spyOn's signature
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {
+      throw new Error('exit:1');
+    }) as never);
+    errSpy = vi.spyOn(consola, 'error').mockImplementation(() => undefined);
+  });
+  afterEach(() => {
+    exitSpy.mockRestore();
+    errSpy.mockRestore();
+  });
+
+  it.each([
+    ['add-login'],
+    ['a'],
+    ['a-b-c'],
+    ['nested/group/name'],
+    ['(auth)/login'],
+    ['(auth)/(sub)/login'],
+    // saifdocs-style ISO timestamp — the bug reporter case:
+    ['saifdocs-2026-05-05T20-09-53-070Z'],
+    // Mixed case is allowed (uppercase letters in identifiers):
+    ['MyFeature'],
+    ['fix-Bug-42'],
+  ])('accepts %s', (name) => {
+    expect(() => validateFeatureName(name)).not.toThrow();
+  });
+
+  it.each([
+    [''],
+    ['-leading-dash'],
+    ['trailing-dash-'],
+    ['double--dash'],
+    ['with space'],
+    ['with_underscore'],
+    ['with.dot'],
+    ['..'],
+    ['../escape'],
+    ['/leading-slash'],
+    ['trailing-slash/'],
+    ['with$dollar'],
+    ['with;semi'],
+    ['with`tick'],
+    ['with(unbalanced'],
+    ['with)unbalanced'],
+    ['()'],
+  ])('rejects %s', (name) => {
+    expect(() => validateFeatureName(name)).toThrow(/exit:1/);
+    expect(errSpy).toHaveBeenCalled();
   });
 });

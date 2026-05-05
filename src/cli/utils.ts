@@ -190,20 +190,43 @@ export interface FeatRunArgs extends OrchestratorArgs {
   subtasks?: string;
 }
 
-/** Path segment: kebab-case or (group) */
-const FEATURE_PATH_SEGMENT = /(?:[a-z0-9]+(?:-[a-z0-9]+)*|\([a-z0-9]+(?:-[a-z0-9]+)*\))/;
+/**
+ * Path segment: alphanumeric (case-insensitive) words joined by single
+ * hyphens; optionally wrapped in `()` to mark a group node in a path-based
+ * feature id.
+ *
+ * Rationale for allowing uppercase:
+ *   - `feat new` prompts the user for a name and enforces lowercase
+ *     kebab-case there (UX guard for hand-typed names; see feat.ts).
+ *   - `feat run --name <id>` accepts names produced by other tools, e.g.
+ *     `saifdocs gen` emits feature dirs like `saifdocs-2026-05-04T10-30-45-123Z`
+ *     — the ISO-8601 `T` and `Z` are legitimate, documented in saifdocs's
+ *     README, and should not be rejected by saifctl. The validator's job
+ *     is to prevent path-traversal / shell-injection, not enforce the
+ *     stylistic kebab-case convention.
+ *
+ * Still-rejected (security guard):
+ *   - `..`, leading `/`, embedded null bytes (anchored regex blocks them)
+ *   - shell metacharacters (`$`, `;`, `&`, `|`, `>`, `<`, backtick, quotes)
+ *   - whitespace, control characters
+ *   - dots, underscores (kept out for now; case for them hasn't surfaced)
+ */
+const FEATURE_PATH_SEGMENT =
+  /(?:[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*|\([a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*\))/;
 
 /**
  * Validates that a feature name is safe.
- * Accepts flat (add-login) or path-based ((auth)/login) IDs.
+ * Accepts flat (`add-login`, `saifdocs-2026-05-04T10-30-45-123Z`) or
+ * path-based (`(auth)/login`) IDs.
  */
-function validateFeatureName(name: string): void {
+export function validateFeatureName(name: string): void {
   const pathRegex = new RegExp(
     `^${FEATURE_PATH_SEGMENT.source}(?:/${FEATURE_PATH_SEGMENT.source})*$`,
   );
   if (!pathRegex.test(name)) {
     consola.error(
-      `Invalid feature name: "${name}". Use kebab-case (add-login) or path (auth)/login.`,
+      `Invalid feature name: "${name}". Use alphanumeric kebab-case ` +
+        `(add-login, saifdocs-2026-05-05T20-09-53Z) or path ((auth)/login).`,
     );
     process.exit(1);
   }
