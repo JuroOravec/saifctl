@@ -17,6 +17,7 @@
  */
 
 import { resolveAgentProfile } from '../../agent-profiles/index.js';
+import { readProfileOptionsFromEnv } from '../../agent-profiles/options-bridge.js';
 import { createEngine } from '../../engines/index.js';
 import { defaultEngineLog } from '../../engines/logs.js';
 import type { LiveInfra } from '../../engines/types.js';
@@ -29,6 +30,7 @@ import { createAgentStdoutPipe, createDefaultAgentLog } from '../logs.js';
 import type { IterativeLoopOpts } from '../loop.js';
 import type { Sandbox } from '../sandbox.js';
 import { getArgusBinaryPath } from '../sidecars/reviewer/argus.js';
+import { applyStagedFiles } from '../stage-files.js';
 import { prepareRoundsStatsFile } from '../stats.js';
 
 // ---------------------------------------------------------------------------
@@ -253,6 +255,29 @@ export async function runEngineAttempt(
       enableSubtaskSequence,
       sandboxInteractive: !!sandboxInteractive,
     });
+
+    // Run the agent profile's prepareAgentEnv hook (if declared) and apply
+    // its results to the container environment + stage area. This is where
+    // profile-specific options like --claude-max get translated into staged
+    // credentials files + env-var hints (e.g. SAIFCTL_CLAUDE_AUTH_MODE).
+    //
+    // Only relevant for container engines — local engines run on the host
+    // where credential staging has different semantics (the host already has
+    // the credential file in place; no staging needed).
+    if (agentProfile.prepareAgentEnv && !codingIsLocal) {
+      const profileOptions = readProfileOptionsFromEnv(agentProfile);
+      const prep = await agentProfile.prepareAgentEnv({
+        options: profileOptions,
+        projectDir,
+        unprivUser: 'saifctl',
+        // Resolved at apply.sh runtime via getent passwd; the placeholder is
+        // expanded inside the container, not here. See stage-files.ts.
+        unprivHome: '$HOME',
+      });
+      Object.assign(containerEnv.env, prep.env ?? {});
+      Object.assign(containerEnv.secretEnv, prep.secrets ?? {});
+      await applyStagedFiles(sandbox.saifctlPath, prep.stageFiles ?? []);
+    }
 
     // Run coding agent container (Leash / local) until exit or abort.
     // When inspectMode is set, runAgent starts an idle container instead and calls onReady.

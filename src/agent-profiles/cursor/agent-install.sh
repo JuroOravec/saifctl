@@ -44,3 +44,8 @@ if [[ -z "$_after" ]]; then
   exit 1
 fi
 echo "[agent-install/cursor] cursor agent installed for ${SAIFCTL_UNPRIV_USER}: ${_after}"
+
+# Drop a hint file for `saifctl sandbox --interactive` users — they land in
+# a root shell where `agent` is NOT on PATH. The hint shows the runuser drop
+# pattern. sandbox-start.sh cats this at the end of setup.
+saifctl_write_interactive_hint agent

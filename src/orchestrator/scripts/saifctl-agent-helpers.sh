@@ -146,6 +146,111 @@ saifctl_realign_unpriv_uid() {
 saifctl_drop_privs_init() {
   saifctl_assert_unpriv_env
   saifctl_realign_unpriv_uid
+  saifctl_ensure_unpriv_bashrc_path
+}
+
+# ---------------------------------------------------------------------------
+# saifctl_write_interactive_hint <agent-cli-name>
+#
+# Write an "interactive sandbox" usage hint to /saifctl/.interactive-hint.md.
+# `sandbox-start.sh` cats this file at the end of setup so users who
+# `docker exec -it <container> bash` see how to invoke the agent CLI from
+# the root shell they land in.
+#
+# `<agent-cli-name>` is what the user types to invoke the agent
+# (e.g. "claude", "aider", "codex", "openhands"). Used in the hint body.
+#
+# Only meaningful for privilege-dropping agents (`saifctl_drop_privs_init`
+# was called). The hint always tells the user to `runuser -l saifctl` first
+# because that's the only valid path for these agents.
+#
+# Idempotent — overwrites any prior hint file. Per-agent install scripts
+# call this once.
+# ---------------------------------------------------------------------------
+saifctl_write_interactive_hint() {
+  local cli="${1:-${SAIFCTL_UNPRIV_USER}}"
+  cat > /saifctl/.interactive-hint.md <<EOF
+# Interactive sandbox — using \`${cli}\`
+
+This sandbox runs \`${cli}\` as the unprivileged \`${SAIFCTL_UNPRIV_USER}\`
+user (the agent CLI refuses to run as root with
+\`--dangerously-skip-permissions\`).
+
+You're currently in a **root** shell — \`${cli}\` is NOT on this shell's
+PATH. To use it, drop to the unprivileged user:
+
+  runuser -l ${SAIFCTL_UNPRIV_USER}
+  cd /workspace
+  ${cli} -p "your task here"
+
+Or as a one-liner from root:
+
+  runuser -l ${SAIFCTL_UNPRIV_USER} -c 'cd /workspace && ${cli} -p "your task here"'
+
+The \`${SAIFCTL_UNPRIV_USER}\` user's login PATH already includes the
+agent's install dir (\$SAIFCTL_UNPRIV_NPM_PREFIX/bin and \$HOME/.local/bin).
+EOF
+}
+
+# ---------------------------------------------------------------------------
+# saifctl_ensure_unpriv_bashrc_path
+#
+# Ensure the unprivileged user's `~/.bashrc` adds the conventional
+# language-runtime bin dirs to PATH for any login shell:
+#
+#   - $SAIFCTL_UNPRIV_NPM_PREFIX/bin   (npm install -g target;
+#                                       claude, codex, copilot, gemini,
+#                                       kilocode, opencode, qwen install here)
+#   - $HOME/.local/bin                 (pipx / pip --user / uv tool target;
+#                                       aider, mini-swe-agent, terminus,
+#                                       deepagents, openhands install here)
+#
+# Why this matters:
+#
+#   - `feat run`'s agent.sh invocations explicitly export PATH inside their
+#     `runuser -c '…'` blocks, so they work regardless of the login shell's
+#     state. Sandbox-interactive sessions, by contrast, drop the user into
+#     a bash shell via `docker exec -it <container> bash` (or, after the
+#     user manually `runuser -l saifctl`, into a login shell). Without
+#     this PATH addition, the user would see "claude: command not found"
+#     even though the binary is on disk at $SAIFCTL_UNPRIV_NPM_PREFIX/bin.
+#
+#   - It also fixes the post-install probe in claude/agent-install.sh
+#     (and analogues), which uses `runuser -l <user> -c 'command -v claude'`
+#     to verify the install. Pre-fix, the probe silently emits
+#     "unknown version" because PATH didn't include npm-global/bin.
+#
+# Idempotent — uses a marker comment so repeated invocations don't append
+# duplicate exports.
+#
+# Call from every agent-install.sh after `saifctl_drop_privs_init` (the
+# unpriv user must exist and have a writable $HOME).
+# ---------------------------------------------------------------------------
+saifctl_ensure_unpriv_bashrc_path() {
+  local user="${SAIFCTL_UNPRIV_USER}"
+  local home
+  home="$(getent passwd "${user}" | cut -d: -f6)"
+  if [[ -z "${home}" || ! -d "${home}" ]]; then
+    echo "[saifctl-helpers] ERROR: cannot resolve home dir for user ${user}" >&2
+    exit 1
+  fi
+  local bashrc="${home}/.bashrc"
+  local marker='# SAIFCTL_PATH_EXPORT_v1'
+  if [[ -f "${bashrc}" ]] && grep -qF "${marker}" "${bashrc}"; then
+    return 0
+  fi
+  # Append (or create) the export block. Run as the unpriv user so file
+  # ownership matches the rest of the home dir (root-owned bashrc breaks
+  # later runuser -l invocations).
+  runuser -l "${user}" -c "cat >> '${bashrc}' <<'EOF'
+
+${marker}
+# Saifctl: agent CLIs install to per-user bin dirs (npm-global, .local).
+# Adding both to PATH so login shells (e.g. interactive sandbox sessions,
+# agent-install probe) find them without each tool having to set PATH itself.
+export PATH=\"\${SAIFCTL_UNPRIV_NPM_PREFIX:-\$HOME/.npm-global}/bin:\$HOME/.local/bin:\$PATH\"
+EOF
+"
 }
 
 # ---------------------------------------------------------------------------

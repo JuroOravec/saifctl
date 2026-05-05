@@ -42,5 +42,18 @@ if [ -n "${SAIFCTL_AGENT_INSTALL_SCRIPT:-}" ]; then
 fi
 
 echo "[sandbox-start] Ready. Connect with: docker exec -it <container> bash"
+
+# If the agent-install script left a usage hint (privilege-dropping agents
+# do, via saifctl_write_interactive_hint), print it so the user sees it
+# right before the container goes idle. Avoids the "command not found"
+# surprise when they `docker exec` in as root and try to invoke the agent.
+if [ -f /saifctl/.interactive-hint.md ]; then
+  echo ""
+  echo "════════════════════════════════════════════════════════════════"
+  cat /saifctl/.interactive-hint.md
+  echo "════════════════════════════════════════════════════════════════"
+  echo ""
+fi
+
 echo "[sandbox-start] Sleeping until stopped..."
 sleep infinity

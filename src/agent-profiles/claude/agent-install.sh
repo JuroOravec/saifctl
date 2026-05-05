@@ -61,3 +61,9 @@ NPM_CONFIG_PREFIX="${SAIFCTL_UNPRIV_NPM_PREFIX}" \
 
 _after="$(_claude_probe)"
 echo "[agent-install/claude] claude is available for ${SAIFCTL_UNPRIV_USER}: ${_after:-unknown version}"
+
+# Drop a hint file for `saifctl sandbox --interactive` users — they land in
+# a root shell where `claude` isn't on PATH (and wouldn't run there anyway
+# because of the --dangerously-skip-permissions root guard). The hint shows
+# the runuser drop pattern. sandbox-start.sh cats this at the end of setup.
+saifctl_write_interactive_hint claude

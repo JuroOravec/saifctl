@@ -40,3 +40,8 @@ runuser -l "$SAIFCTL_UNPRIV_USER" -c "uv tool install 'mini-swe-agent==${MINI_SW
 
 _after="$(_probe)"
 echo "[agent-install/mini-swe-agent] mini installed for ${SAIFCTL_UNPRIV_USER}: ${_after:-unknown version}"
+
+# Drop a hint file for `saifctl sandbox --interactive` users — they land in
+# a root shell where `mini` is NOT on PATH. The hint shows the runuser drop
+# pattern. sandbox-start.sh cats this at the end of setup.
+saifctl_write_interactive_hint mini
