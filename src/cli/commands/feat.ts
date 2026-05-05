@@ -24,6 +24,7 @@ import { type CommandDef, defineCommand, runMain } from 'citty';
 
 import { resolveAgentProfile } from '../../agent-profiles/index.js';
 import {
+  applyConfigToProfileOptionsEnv,
   recordProfileOptionsFromArgs,
   validateProfileOptions,
 } from '../../agent-profiles/options-bridge.js';
@@ -757,13 +758,22 @@ const runCommand = defineCommand({
   },
   args: featRunArgs,
   async run({ args }) {
-    // Capture profile-specific options (--<id>-<name>) into the in-process
-    // env-var protocol read by the orchestrator. Validate before parseRunArgs
-    // so config/feature-prompt errors don't mask a bad --claude-credentials
-    // path etc.
+    // Resolve agent profile-specific options (--<id>-<name>) into the
+    // in-process env-var protocol read by the orchestrator. Order:
+    //   1. CLI flags (highest precedence, written here from `args`)
+    //   2. config-file values from `agents.<id>.<name>` (filled in for
+    //      options not already set by CLI)
+    //   3. profile-declared `default` (fallback when env var unset)
+    // Then run validators so bad inputs (bad --claude-credentials path,
+    // unknown profile id, etc.) fail before parseRunArgs prompts for a
+    // feature name and triggers the rest of the orchestrator pipeline.
     if (typeof args.agent === 'string' && args.agent.trim()) {
       const profile = resolveAgentProfile(args.agent.trim());
       recordProfileOptionsFromArgs(profile, args as Record<string, unknown>);
+      const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+      const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
+      const config = await loadSaifctlConfig(saifctlDir, projectDir);
+      applyConfigToProfileOptionsEnv(profile, config.defaults?.agentOptions?.[profile.id]);
       await validateProfileOptions(profile);
     }
     const runArgs = await parseRunArgs(args);

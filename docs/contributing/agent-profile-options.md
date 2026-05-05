@@ -145,9 +145,28 @@ argv → src/cli/index.ts injectActiveAgentProfileFlags()    ← pre-parse --age
 
 Look at `src/agent-profiles/claude/profile.ts` for a complete worked example (`--claude-max`, `--claude-credentials`).
 
+## Config-file resolution
+
+Profile options can also be set in `saifctl/config.{yaml,json,ts}` under `agents.<id>.<name>`. CLI flags override config; the profile's declared `default` is the final fallback.
+
+```yaml
+# saifctl/config.yaml
+agents:
+  claude:
+    max: true
+    credentials: ~/work/team-claude-creds.json
+```
+
+Equivalent to `--claude-max --claude-credentials ~/work/team-claude-creds.json` on the CLI. Useful for project-pinned credentials or per-team defaults.
+
+Notes:
+
+- Unknown keys in the config map are silently ignored — config files are forwards-compatible with future profile changes.
+- `secret: true` options sourced from a config file are not automatically redacted in run storage. If you want a string value kept out of run storage / logs, source it via `agentSecretKeys` (env-var-based) instead.
+- The profile's `validate(value)` runs against the merged value regardless of source — so a bad path in config fails at the same point a bad path on the CLI would.
+
 ## What's not yet wired (follow-up work)
 
-- **Config-file resolution**. Today only CLI flags carry option values. The plan is to support `agents.<id>.<name>` keys in `saifctl/config.{yaml,json,ts}` with CLI overriding config — not yet implemented.
 - **Designer / Indexer profile options**. Same shape would apply to `DesignerProfile` and `IndexerProfile` (`--<designer-id>-*`, `--<indexer-id>-*`) — not yet implemented.
 
-Both are tracked as design follow-ups; the core mechanism is the same as for agents, just hooked at different points in the orchestrator.
+The core mechanism is the same as for agents, just hooked at different points in the orchestrator.

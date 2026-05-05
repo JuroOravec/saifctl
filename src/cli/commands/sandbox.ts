@@ -14,6 +14,7 @@ import { defineCommand, runMain } from 'citty';
 
 import { resolveAgentProfile } from '../../agent-profiles/index.js';
 import {
+  applyConfigToProfileOptionsEnv,
   recordProfileOptionsFromArgs,
   validateProfileOptions,
 } from '../../agent-profiles/options-bridge.js';
@@ -92,11 +93,21 @@ const sandboxCommand = defineCommand({
   },
   args: sandboxArgs,
   async run({ args }) {
-    // Capture profile-specific options (--<id>-<name>) for the orchestrator
-    // and run their validators before any sandbox-specific arg parsing.
+    // Resolve profile-specific options (--<id>-<name>): CLI > config > default.
+    // See feat.ts run handler for the full ordering rationale.
     if (typeof args.agent === 'string' && args.agent.trim()) {
       const profile = resolveAgentProfile(args.agent.trim());
       recordProfileOptionsFromArgs(profile, args as Record<string, unknown>);
+      const profileOptsProjectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+      const profileOptsSaifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
+      const profileOptsConfig = await loadSaifctlConfig(
+        profileOptsSaifctlDir,
+        profileOptsProjectDir,
+      );
+      applyConfigToProfileOptionsEnv(
+        profile,
+        profileOptsConfig.defaults?.agentOptions?.[profile.id],
+      );
       await validateProfileOptions(profile);
     }
 

@@ -146,6 +146,30 @@ const saifctlConfigDefaultsSchema = z.object({
   agentEnv: z.record(z.string(), z.string()).optional(),
   /** Env var names; values are read from the host process when starting the coder container. */
   agentSecretKeys: z.array(z.string()).optional(),
+  /**
+   * Agent profile-specific options, keyed by agent id (e.g. `claude`) then by
+   * the option's `name` suffix (without the `<id>-` CLI prefix). Mirrors the
+   * `--<id>-<name>` CLI flags declared by each profile.
+   *
+   * Example:
+   *   agents:
+   *     claude:
+   *       max: true
+   *       credentials: ~/work/team-claude-creds.json
+   *
+   * Precedence: CLI flag (`--claude-max`) > config file (`agents.claude.max`)
+   * > profile-declared `default`. Saifctl's option bridge merges them at run
+   * start; `prepareAgentEnv` sees the resolved values regardless of source.
+   *
+   * Per-option types are validated by the profile's own validator at parse
+   * time; the schema here only enforces the outer shape (string keys, any
+   * scalar value). String-typed options sourced from this map are NOT
+   * automatically treated as secrets — use `agentSecretKeys` if you want a
+   * value redacted in logs / kept out of run storage.
+   */
+  agentOptions: z
+    .record(z.string(), z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])))
+    .optional(),
 
   // Model overrides (object form)
   globalModel: z.string().optional(),

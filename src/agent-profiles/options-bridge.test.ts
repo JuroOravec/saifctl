@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  applyConfigToProfileOptionsEnv,
   assertNoGlobalCollisions,
   buildProfileCliFlags,
   envKeyFor,
@@ -137,6 +138,67 @@ describe('options-bridge', () => {
       ]);
       recordProfileOptionsFromArgs(profile, { 'claude-max': true });
       await expect(validateProfileOptions(profile)).resolves.toBeUndefined();
+    });
+  });
+
+  describe('applyConfigToProfileOptionsEnv (CLI > config > default precedence)', () => {
+    const profile = stubProfile([
+      { name: 'max', type: 'boolean', description: 'x', default: false },
+      { name: 'credentials', type: 'string', description: 'x' },
+    ]);
+
+    it('writes config values when CLI did not pass the flag', () => {
+      // No record-from-args call => env is empty.
+      applyConfigToProfileOptionsEnv(profile, { max: true, credentials: '/from/config.json' });
+      expect(readProfileOptionsFromEnv(profile)).toEqual({
+        max: true,
+        credentials: '/from/config.json',
+      });
+    });
+
+    it('CLI value wins over config (config does not overwrite)', () => {
+      recordProfileOptionsFromArgs(profile, { 'claude-credentials': '/from/cli.json' });
+      applyConfigToProfileOptionsEnv(profile, { credentials: '/from/config.json' });
+      expect(readProfileOptionsFromEnv(profile)).toMatchObject({
+        credentials: '/from/cli.json',
+      });
+    });
+
+    it('config fills only the missing keys', () => {
+      recordProfileOptionsFromArgs(profile, { 'claude-max': true });
+      // CLI set --claude-max but not --claude-credentials. Config provides
+      // both; only credentials should land.
+      applyConfigToProfileOptionsEnv(profile, { max: false, credentials: '/from/config.json' });
+      expect(readProfileOptionsFromEnv(profile)).toEqual({
+        max: true, // CLI win
+        credentials: '/from/config.json', // config fill
+      });
+    });
+
+    it('is a no-op when configMap is undefined', () => {
+      applyConfigToProfileOptionsEnv(profile, undefined);
+      expect(readProfileOptionsFromEnv(profile)).toEqual({
+        max: false, // profile default
+        credentials: undefined,
+      });
+    });
+
+    it('silently ignores unknown keys in configMap (forward-compatible)', () => {
+      applyConfigToProfileOptionsEnv(profile, {
+        max: true,
+        unknownKey: 'should-not-throw',
+      } as Record<string, string | number | boolean>);
+      expect(readProfileOptionsFromEnv(profile)).toMatchObject({ max: true });
+      // No SAIFCTL_AGENT_OPT_CLAUDE_UNKNOWNKEY env var was set.
+      expect(process.env.SAIFCTL_AGENT_OPT_CLAUDE_UNKNOWNKEY).toBeUndefined();
+    });
+
+    it('coerces config numbers and booleans to strings via the same env-var protocol', () => {
+      const numProfile = stubProfile([{ name: 'num', type: 'number', description: 'x' }], {
+        id: 'demo' as AgentProfile['id'],
+      });
+      applyConfigToProfileOptionsEnv(numProfile, { num: 7 });
+      expect(readProfileOptionsFromEnv(numProfile)).toEqual({ num: 7 });
     });
   });
 

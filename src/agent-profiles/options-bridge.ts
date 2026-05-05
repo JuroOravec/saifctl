@@ -115,6 +115,43 @@ export function readProfileOptionsFromEnv(profile: AgentProfile): AgentPrepareCo
 }
 
 /**
+ * Apply config-file values for the active profile to the env-var protocol,
+ * but ONLY for options that the CLI did not already set.
+ *
+ * Call sequence per CLI invocation:
+ *
+ *   1. {@link recordProfileOptionsFromArgs}(profile, args)   ← CLI flags win
+ *   2. applyConfigToProfileOptionsEnv(profile, configMap)    ← config fills gaps
+ *   3. {@link validateProfileOptions}(profile)               ← validate the merged result
+ *
+ * Precedence is CLI > config > profile.default. Step 1 only writes when CLI
+ * provided a value; this step only writes when (a) CLI did not provide
+ * (env var unset), AND (b) config provides one.
+ *
+ * `configMap` is the per-agent record from `agents.<id>` in
+ * `saifctl/config.{yaml,json,ts}` — i.e. the value of `agentOptions[profile.id]`.
+ * Pass `undefined` when the user has no agent-specific config block; this is
+ * a no-op in that case.
+ *
+ * Unknown keys in `configMap` (options the profile does not declare) are
+ * silently ignored — no error. This keeps the config forwards-compatible
+ * with future profile changes.
+ */
+export function applyConfigToProfileOptionsEnv(
+  profile: AgentProfile,
+  configMap: Record<string, string | number | boolean> | undefined,
+): void {
+  if (!configMap) return;
+  for (const opt of profile.options ?? []) {
+    const envKey = envKeyFor(profile.id, opt.name);
+    if (process.env[envKey] !== undefined) continue; // CLI already set it
+    const configValue = configMap[opt.name];
+    if (configValue === undefined) continue;
+    process.env[envKey] = String(configValue);
+  }
+}
+
+/**
  * Run all per-option `validate(value)` hooks for the active profile. Throws on
  * the first failure with a CLI-friendly message. Call after CLI parsing and
  * before container start.
