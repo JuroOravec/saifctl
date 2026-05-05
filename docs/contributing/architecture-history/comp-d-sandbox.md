@@ -78,7 +78,7 @@ A simple HTTP test is easy to fake. To prevent the agent from hardcoding respons
 
 The agent must **never** have write access to the test files.
 
-- **[Leash by StrongDM](https://github.com/strongdm/leash)** wraps OpenHands in a Docker container with Cedar policy. Our default `src/orchestrator/policies/default.cedar` allows read opens on `Dir::"/"`, `FileOpenReadWrite` under `/workspace/` and `/tmp/`, and forbids `FileOpenReadWrite` under `/workspace/saifctl/` and `/workspace/.git/` (Leash `Dir::` paths), so Leash blocks those write opens in real time.
+- **[Leash by StrongDM](https://github.com/strongdm/leash)** wraps OpenHands in a Docker container with Cedar policy. Our default `src/orchestrator/policies/default.cedar` allows read opens on `Dir::"/"`, `FileOpenReadWrite` under `/workspace/` and `/tmp/`, and forbids `FileOpenReadWrite` under `/workspace/saifctl/`, `Dir::"/workspace/.git/hooks/"`, and `File::"/workspace/.git/config"`, so Leash blocks those write opens in real time. (The `.git/` forbid was narrowed 2026-05-06 from a blanket `Dir::"/workspace/.git/"`; see [security_assessment.md §6](./security_assessment.md).)
 - **Patch filtering (belt-and-suspenders):** After each agent round, `extractIncrementalRoundPatch()` in `sandbox.ts` walks the first-parent chain from `preRoundHead` to `HEAD` and records **one filtered unified diff per commit** (plus one more if there is leftover staged work after those commits). Any hunks touching `openspec/` are stripped before those diffs are persisted / replayed / applied on the host. Dropped paths are logged. See [swf-comp-d-leash.md](./swf-comp-d-leash.md) for details.
 
 ### 3. The Holdout Set (Hidden Tests)

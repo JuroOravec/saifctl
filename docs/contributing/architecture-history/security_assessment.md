@@ -124,6 +124,8 @@ forbid (
 
 This is belt-and-suspenders: the sandbox's `.git` directory is owned by the orchestrator and must not be writable by the agent code regardless of what git commands the agent tries to run.
 
+> **Update 2026-05-06 — narrowed to specifically-dangerous paths.** The blanket forbid above also blocked legitimate in-container git plumbing — including `.git/COMMIT_EDITMSG`, `.git/index`, `.git/refs/*`, `.git/objects/*` — which the [reviewer](./reviewer.md) needs to commit uncommitted agent changes before diffing `BASE_COMMIT..HEAD`. Verified via `vendor/leash/docs/design/CEDAR.md` that Leash supports exact-file matching via `File::"…"`, so the policy was narrowed to the two paths that actually trigger host-side code execution: `Dir::"/workspace/.git/hooks/"` and `File::"/workspace/.git/config"`. The threat model for #2 (hooks) and #6 (config) is unchanged; everything else under `.git/` is now allowed for normal git plumbing inside the container. Applied to all three bundled policies (`default`, `sandbox`, `deny-network`).
+
 ---
 
 ### 7. Shell Injection via CLI Image Flags
@@ -152,5 +154,5 @@ Validation was added at two layers:
 | 3   | Docker socket mount → host root          | CRITICAL          | ✅ Resolved — HTTP sidecar, no socket mount                       |
 | 4   | Path traversal via `featureName`         | HIGH              | ✅ Resolved — strict regex at CLI boundary                        |
 | 5   | Default container capabilities (root)    | HIGH              | ✅ Resolved — `User: node`, `CapDrop: ALL`, `no-new-privileges`   |
-| 6   | Host command injection via `.git/config` | CRITICAL          | ✅ Resolved — `forbid` write to `/workspace/.git` in Cedar policy |
+| 6   | Host command injection via `.git/config` | CRITICAL          | ✅ Resolved — `forbid` write to `Dir::"/workspace/.git/hooks/"` + `File::"/workspace/.git/config"` (narrowed 2026-05-06; rest of `.git/` allowed for in-container git plumbing) |
 | 7   | Shell injection via CLI image flags      | LOW               | ✅ Resolved — `validateImageTag` at CLI + library boundaries      |

@@ -566,8 +566,11 @@ registries (npm, PyPI, crates.io, Go module proxy), git hosts, and
 container registries. An allowlist that covers all of these and works
 for arbitrary user projects is intractable to maintain. The real
 isolation guarantee is **filesystem-as-boundary** — Cedar forbids
-writes to `/workspace/.git/` (no host-hook escape) and to
-`/workspace/saifctl/` (no reward-hacking), and the workspace itself
+writes to `/workspace/.git/hooks/` and `/workspace/.git/config` (no
+host-hook escape via the two .git/ paths the host's git ops would
+honour as code; other .git/ writes are allowed so the in-container
+reviewer can commit) and to `/workspace/saifctl/` (no reward-hacking),
+and the workspace itself
 is a copy that gets diff-extracted on success. The agent can read
 its own env vars and exfiltrate them over the network if it's
 exploited, but that's a known trade-off, not an oversight.

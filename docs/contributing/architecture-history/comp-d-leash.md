@@ -91,7 +91,7 @@ Leash enforces outbound connectivity using its MITM proxy and Cedar `NetworkConn
 ### What We Rely On
 
 - **Pure file copy sandbox** — `rsync` copies the repo to `/tmp/saifctl/sandboxes/.../code`; agent only sees that copy.
-- **Cedar policy** — `src/orchestrator/policies/default.cedar` uses [Leash’s Cedar schema](https://github.com/strongdm/leash/blob/main/docs/design/CEDAR.md): `FileOpen` / `FileOpenReadOnly` under `Dir::"/"` (read whole container for bootstrap and tooling); `FileOpenReadWrite` under `Dir::"/workspace/"` and `Dir::"/tmp/"`; `forbid` `FileOpenReadWrite` under `/workspace/saifctl/` and `.git/`; `ProcessExec` under `Dir::"/"`; `NetworkConnect` via `Host::"*"`. Use `--cedar` for hostname-scoped network rules.
+- **Cedar policy** — `src/orchestrator/policies/default.cedar` uses [Leash's Cedar schema](https://github.com/strongdm/leash/blob/main/docs/design/CEDAR.md): `FileOpen` / `FileOpenReadOnly` under `Dir::"/"` (read whole container for bootstrap and tooling); `FileOpenReadWrite` under `Dir::"/workspace/"` and `Dir::"/tmp/"`; `forbid` `FileOpenReadWrite` under `/workspace/saifctl/`, `Dir::"/workspace/.git/hooks/"`, and `File::"/workspace/.git/config"` (narrowed 2026-05-06 — see [security_assessment.md §6](./security_assessment.md)); `ProcessExec` under `Dir::"/"`; `NetworkConnect` via `Host::"*"`. Use `--cedar` for hostname-scoped network rules.
 - **Patch filtering** — any `saifctl/` changes are dropped before the patch is applied to the host.
 
 ---
@@ -100,7 +100,7 @@ Leash enforces outbound connectivity using its MITM proxy and Cedar `NetworkConn
 
 We ship default policies under `src/orchestrator/policies/` (`default.cedar`, `deny-network.cedar`):
 
-- **Filesystem** — read opens (`FileOpen`, `FileOpenReadOnly`) under `Dir::"/"`; `FileOpenReadWrite` under `Dir::"/workspace/"` and `Dir::"/tmp/"`; `FileOpenReadWrite` forbidden under `Dir::"/workspace/saifctl/"` and `Dir::"/workspace/.git/"`
+- **Filesystem** — read opens (`FileOpen`, `FileOpenReadOnly`) under `Dir::"/"`; `FileOpenReadWrite` under `Dir::"/workspace/"` and `Dir::"/tmp/"`; `FileOpenReadWrite` forbidden under `Dir::"/workspace/saifctl/"`, `Dir::"/workspace/.git/hooks/"`, and `File::"/workspace/.git/config"`
 - **ProcessExec** — permitted under `Dir::"/"` (system binaries on `PATH`)
 - **Network** — `NetworkConnect` allowed for `Host::"*"`; override with `--cedar` for hostname allowlists (`deny-network.cedar` is one example)
 

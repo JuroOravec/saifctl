@@ -168,4 +168,6 @@ permit (
 };
 ```
 
-**Note:** The shipped `default.cedar` uses read-only opens on `Dir::"/"`, `FileOpenReadWrite` on `Dir::"/workspace/"` and `Dir::"/tmp/"`, and `forbid`s `FileOpenReadWrite` under `saifctl/` and `.git/`. Start from that file when you want parity with `saifctl feat run` defaults.
+**Note:** The shipped `default.cedar` uses read-only opens on `Dir::"/"`, `FileOpenReadWrite` on `Dir::"/workspace/"` and `Dir::"/tmp/"`, and `forbid`s `FileOpenReadWrite` under `Dir::"/workspace/saifctl/"`, `Dir::"/workspace/.git/hooks/"`, and `File::"/workspace/.git/config"`. Start from that file when you want parity with `saifctl feat run` defaults.
+
+> **Update 2026-05-06**: the `.git/` forbid was narrowed from a blanket `Dir::"/workspace/.git/"` to the two paths the host's git operations would honour as code (`hooks/`, `config`). Other `.git/` writes are allowed so the in-container reviewer can commit uncommitted agent changes for diffing. See [security_assessment.md §6](./security_assessment.md) for the full rationale.
