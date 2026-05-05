@@ -1,10 +1,299 @@
 {
   "version": 1,
-  "createdAt": "2026-05-04T21:53:10.701Z",
+  "createdAt": "2026-05-05T19:12:39.025Z",
   "docspecDir": "/Users/mac/repos/agents/safe-ai-factory/docspec",
   "outputDir": "/Users/mac/repos/agents/safe-ai-factory/docs",
   "projectDir": "/Users/mac/repos/agents/safe-ai-factory",
   "entries": [
+    {
+      "id": "reference--agent-environment",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agent-environment.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agent-environment.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/orchestrator/agent-env.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--aider",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/aider.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/aider.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/aider/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--claude",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/claude.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/claude.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/claude/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--codex",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/codex.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/codex.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/codex/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--copilot",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/copilot.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/copilot.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/copilot/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--cursor",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/cursor.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/cursor.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/cursor/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--debug",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/debug.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/debug.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/debug/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--deepagents",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/deepagents.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/deepagents.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/deepagents/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--forge",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/forge.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/forge.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/forge/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--gemini",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/gemini.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/gemini.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/gemini/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--kilocode",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/kilocode.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/kilocode.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/kilocode/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--mini-swe-agent",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/mini-swe-agent.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/mini-swe-agent.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/mini-swe-agent/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--opencode",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/opencode.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/opencode.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/opencode/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--openhands",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/openhands.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/openhands.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/openhands/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--qwen",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/qwen.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/qwen.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/qwen/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--agents--terminus",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/terminus.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/agents/terminus.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/agent-profiles/terminus/agent.sh",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--commands--cache",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/cache.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/commands/cache.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/cli/commands/cache.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
     {
       "id": "reference--commands--doctor",
       "type": "references",
@@ -12,6 +301,23 @@
       "read": [
         "/Users/mac/repos/agents/safe-ai-factory/docspec/references/commands/doctor.md",
         "/Users/mac/repos/agents/safe-ai-factory/src/cli/commands/doctor.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--commands--feat-phases",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/feat-phases.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/commands/feat-phases.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/cli/commands/feat-phases.ts",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
       ],
       "productId": null,
@@ -57,12 +363,216 @@
       "generatedAt": null
     },
     {
+      "id": "reference--commands--run-rules",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/run-rules.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/commands/run-rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/cli/commands/run-rules.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--commands--run",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/run.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/commands/run.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/cli/commands/run.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
       "id": "reference--commands--sandbox",
       "type": "references",
       "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/sandbox.md",
       "read": [
         "/Users/mac/repos/agents/safe-ai-factory/docspec/references/commands/sandbox.md",
         "/Users/mac/repos/agents/safe-ai-factory/src/cli/commands/sandbox.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--commands--version",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/version.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/commands/version.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/cli/commands/version.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--config",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/config.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/config.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/config/schema.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--designers--poc",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/designers/poc.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/designers/poc.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/designer-profiles/poc/profile.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--designers--shotgun",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/designers/shotgun.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/designers/shotgun.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/designer-profiles/shotgun/profile.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--docker-images",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/docker-images.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/docker-images.md",
+        "/Users/mac/repos/agents/safe-ai-factory/scripts/docker.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--env-vars",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/env-vars.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/env-vars.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/constants.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--indexers--shotgun",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/indexers/shotgun.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/indexers/shotgun.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/indexer-profiles/shotgun/profile.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--models",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/models.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/models.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/llm-config.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--sandbox-profiles",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/sandbox-profiles.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/sandbox-profiles.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/sandbox-profiles/index.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--test-profiles",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/test-profiles.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/test-profiles.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/test-profiles/index.ts",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
       ],
       "productId": null,
@@ -116,6 +626,48 @@
       "generatedAt": null
     },
     {
+      "id": "concept--saifctl--feature-lifecycle",
+      "type": "concepts",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/feature-lifecycle.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feature-lifecycle.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": "feature-lifecycle",
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "concept--saifctl--features",
+      "type": "concepts",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/features.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/features.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": "features",
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
       "id": "concept--saifctl--gate-reviewer-holdout",
       "type": "concepts",
       "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/gate-reviewer-holdout.md",
@@ -137,6 +689,174 @@
       "generatedAt": null
     },
     {
+      "id": "concept--saifctl--hatchet",
+      "type": "concepts",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/hatchet.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/hatchet.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": "hatchet",
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "concept--saifctl--infra",
+      "type": "concepts",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/infra.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/infra.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": "infra",
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "concept--saifctl--leash-access-control",
+      "type": "concepts",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/leash-access-control.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/leash-access-control.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": "leash-access-control",
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "concept--saifctl--run-lifecycle",
+      "type": "concepts",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/run-lifecycle.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/run-lifecycle.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": "run-lifecycle",
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "concept--saifctl--sandbox",
+      "type": "concepts",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/sandbox.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/sandbox.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": "sandbox",
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "concept--saifctl--security",
+      "type": "concepts",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/security.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/security.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": "security",
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "concept--saifctl--services",
+      "type": "concepts",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/services.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/services.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": "services",
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "concept--saifctl--source-control",
+      "type": "concepts",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/source-control.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/source-control.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": "source-control",
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
       "id": "how-to--saifctl--apply-agent-changes",
       "type": "how-tos",
       "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/apply-agent-changes.md",
@@ -148,14 +868,61 @@
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/templates/pages/how-to.md",
-        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/docker-isolation.md",
-        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/doctor.md",
-        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/sandbox.md"
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/docker-isolation.md"
       ],
       "productId": "saifctl",
       "personaId": "openclaw_user",
       "taskIds": [
         "apply-agent-changes"
+      ],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "how-to--saifctl--inspect-and-start",
+      "type": "how-tos",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/inspect-and-start.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/how-tos/inspect-and-start.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/fix-agent-mistakes.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/templates/pages/how-to.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feat-run-loop.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/run-lifecycle.md"
+      ],
+      "productId": "saifctl",
+      "personaId": "engineer",
+      "taskIds": [
+        "fix-agent-mistakes"
+      ],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "how-to--saifctl--provide-feedback",
+      "type": "how-tos",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/provide-feedback.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/how-tos/provide-feedback.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/steer-the-agent.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/templates/pages/how-to.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feat-run-loop.md"
+      ],
+      "productId": "saifctl",
+      "personaId": "engineer",
+      "taskIds": [
+        "steer-the-agent"
       ],
       "conceptId": null,
       "tutorialPosition": null,
@@ -174,9 +941,7 @@
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/templates/pages/how-to.md",
-        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/docker-isolation.md",
-        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/doctor.md",
-        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/sandbox.md"
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/docker-isolation.md"
       ],
       "productId": "saifctl",
       "personaId": "openclaw_user",
@@ -201,14 +966,35 @@
         "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/templates/pages/how-to.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feat-run-loop.md",
-        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/gate-reviewer-holdout.md",
-        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/doctor.md",
-        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/sandbox.md"
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/gate-reviewer-holdout.md"
       ],
       "productId": "saifctl",
       "personaId": "engineer",
       "taskIds": [
         "run-first-feature"
+      ],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "how-to--saifctl--troubleshoot",
+      "type": "how-tos",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/troubleshoot.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/how-tos/troubleshoot.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/troubleshoot-setup.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/templates/pages/how-to.md"
+      ],
+      "productId": "saifctl",
+      "personaId": "engineer",
+      "taskIds": [
+        "troubleshoot-setup"
       ],
       "conceptId": null,
       "tutorialPosition": null,
@@ -228,9 +1014,7 @@
         "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/templates/pages/how-to.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feat-run-loop.md",
-        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/gate-reviewer-holdout.md",
-        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/doctor.md",
-        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/sandbox.md"
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/gate-reviewer-holdout.md"
       ],
       "productId": "saifctl",
       "personaId": "engineer",
@@ -254,8 +1038,11 @@
         "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/docker-isolation.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/apply-agent-changes.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/inspect-and-start.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/provide-feedback.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-agent-safely.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-first-feature.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/troubleshoot.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/understand-safety-guarantees.md"
       ],
       "productId": "saifctl",
@@ -279,8 +1066,11 @@
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feat-run-loop.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/gate-reviewer-holdout.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/apply-agent-changes.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/inspect-and-start.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/provide-feedback.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-agent-safely.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-first-feature.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/troubleshoot.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/understand-safety-guarantees.md"
       ],
       "productId": "saifctl",
@@ -300,7 +1090,10 @@
         "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/fix-agent-mistakes.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/run-first-feature.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/steer-the-agent.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/troubleshoot-setup.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/understand-safety-guarantees.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",

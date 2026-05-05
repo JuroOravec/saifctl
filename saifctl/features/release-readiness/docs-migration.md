@@ -1,6 +1,16 @@
 # `docs_old/` → `docspec/` migration tracker
 
-Audit evidence for **NPM-18**. One row per file in `docs_old/`. As each file is migrated (or dropped, or moved to `docs/contributing/`), update the **Status** and the **Successor** column. When every row is `✅`, `docs_old/` can be deleted.
+Audit evidence for **NPM-18** / **DOC-09.2**. One row per file in `docs_old/`. As each file is migrated (or dropped, or moved to `docs/contributing/`), update the **Status** and the **Successor** column. When every row is `✅`, `docs_old/` can be deleted.
+
+## Status — DOC-09.2 COMPLETE (2026-05-05)
+
+All 112 files migrated. `docs_old/` deleted. End state:
+
+- `docs/contributing/` — 9 top-level handwritten internal docs + `architecture-history/` (25 historical SWF v0 files).
+- `docspec/` — fully populated with concepts, references (commands, agents, designers, indexers), how-tos, tutorials, personas, tasks, plus `assets/` (the 6 inspect-and-start screenshots, recovered from git).
+- `docs/` is empty apart from `docs/contributing/` — saifdocs will populate the rest in DOC-09.4.
+
+DOC-09.3 (audit saifctl surface vs. docspec for any remaining gaps + author DOC-08 spec-driven-development tutorial) is the next step.
 
 ## Buckets
 
@@ -22,27 +32,28 @@ Audit evidence for **NPM-18**. One row per file in `docs_old/`. As each file is 
 
 | File | Bucket | Successor (docspec entry / contributing path / drop) | Status | Notes |
 |------|--------|------------------------------------------------------|--------|-------|
-| `agent-environment.md` | MIGRATE | `docspec/products/saifctl/concepts/agent-environment.md` (concept) **+** `docspec/references/env-vars-agent.md` (ref) | 🟠 | Env vars passed *into* the agent container; both conceptual and tabular content |
-| `config.md` | MIGRATE | `docspec/references/config.md` | 🟠 | Project config schema |
-| `docker-images.md` | MIGRATE | `docspec/references/docker-images.md` | 🟠 | Was added 2026-05-04 for DCK-01; published image inventory |
-| `env-vars.md` | MIGRATE | `docspec/references/env-vars.md` | 🟠 | Saifctl-side env vars (vs. agent env in agent-environment.md) |
-| `features.md` | MIGRATE | `docspec/products/saifctl/concepts/features.md` (or split into multiple how-tos) | 🟠 | "Features" = saifctl/features/ dir; spec-driven authoring concept. Overlaps with DOC-08 — coordinate when authoring |
-| `gate.md` | MIGRATE | merge into `docspec/products/saifctl/concepts/gate-reviewer-holdout.md` | 🟠 | **Confirmed**: consolidate into the existing combined concept page. |
-| `hatchet.md` | MIGRATE | `docspec/products/saifctl/concepts/hatchet.md` (or `references/hatchet.md`) | 🟠 | Per D-04, Hatchet is gated/experimental in v0.1; "Coming soon" content fit |
-| `infra.md` | TBD-MIGRATE-OR-CONTRIBUTING | `docspec/products/saifctl/concepts/infra.md` (if user-facing) **or** `docs/contributing/infra.md` (if internal) | 🟠 | **Decision**: read alongside `development/infra.md` during DOC-09.2. If this is the user-facing simplified version → docspec concept. If it's just the internal one duplicated → CONTRIBUTING + drop one of the two. |
-| `leash-access-control.md` | MIGRATE | `docspec/products/saifctl/concepts/leash-access-control.md` | 🟠 | Was added 2026-05-04 for DOC-05; cedar policy authoring guide |
-| `models.md` | MIGRATE | `docspec/references/models.md` | 🟠 | LLM provider/model table — narrowed by D-05 to 4 native + OpenAI-compat fallback |
-| `reviewer.md` | MIGRATE | merge into `docspec/products/saifctl/concepts/gate-reviewer-holdout.md` | 🟠 | **Confirmed**: consolidate. |
-| `runs.md` | MIGRATE | `docspec/products/saifctl/concepts/runs.md` | 🟠 | Run lifecycle concept |
-| `sandbox.md` | MIGRATE | `docspec/products/saifctl/concepts/sandbox.md` (higher-level sandbox concept, alongside the more focused `docker-isolation` concept) | 🟠 | Just-ported from generated `docs/`. Frames the sandbox as a product-level mode (corresponds to the saifctl landing page's "Sandbox" half per D-20). The `docker-isolation` concept stays as the lower-level mechanics page. |
-| `sandbox-profiles.md` | MIGRATE | `docspec/references/sandbox-profiles.md` | 🟠 | Profile inventory + override schema |
-| `security.md` | MIGRATE | `docspec/products/saifctl/concepts/security.md` (threat model) | 🟠 | Was added 2026-05-04 for DOC-04; the threat-model long-form |
-| `services.md` | SCHEMA-CHECK | TBD — likely `docspec/products/saifctl/concepts/services.md` or split | 🟠 | "Services" overlap with infra.md — read both before deciding |
-| `source-control.md` | MIGRATE | `docspec/products/saifctl/concepts/source-control.md` | 🟠 | Git/GitHub integration concept |
-| `specs.md` | MIGRATE | merged into DOC-08 spec-driven-development tutorial/concept | 🟠 | Spec authoring conventions; coordinate with DOC-08 |
-| `storage.md` | SCHEMA-CHECK | TBD — `docspec/products/saifctl/concepts/storage.md` or `references/storage.md` | 🟠 | Run storage layer (local/S3); read to decide |
-| `test-profiles.md` | MIGRATE | `docspec/references/test-profiles.md` | 🟠 | Test profile inventory |
-| `troubleshooting.md` | MIGRATE | `docspec/products/saifctl/how-tos/troubleshoot.md` (or split per-symptom) | 🟠 | How-to recipes |
+| `agent-environment.md` | MIGRATE | `docspec/references/agent-environment.md` (`source: src/orchestrator/agent-env.ts`) | ✅ | Env vars passed *into* the agent container |
+| `config.md` | MIGRATE | `docspec/references/config.md` (`source: src/config/schema.ts`) | ✅ | |
+| `docker-images.md` | MIGRATE | `docspec/references/docker-images.md` (`source: scripts/docker.ts`) | ✅ | DCK-01 content folded in |
+| `env-vars.md` | MIGRATE | `docspec/references/env-vars.md` (`source: src/constants.ts`) | ✅ | Saifctl-side env vars |
+| `features.md` | MIGRATE | `docspec/products/saifctl/concepts/features.md` (concept; absorbs `specs.md`) | ✅ | Tutorial-shape DOC-08 follow-up tracked separately under DOC-09.3 |
+| `gate.md` | MIGRATE | merged into existing `concepts/gate-reviewer-holdout.md` | ✅ | Existing learning_outcomes already cover this content |
+| `hatchet.md` | MIGRATE | `docspec/products/saifctl/concepts/hatchet.md` | ✅ | Per D-04, framed as "experimental in v0.1" |
+| `infra.md` | MIGRATE + CONTRIBUTING | `docspec/products/saifctl/concepts/infra.md` (user-facing) **+** `docs/contributing/infra.md` (internal) | ✅ | Both kept per locked decision (top-level was simpler / user-facing; development/infra.md was internal detail) |
+| `leash-access-control.md` | MIGRATE | `docspec/products/saifctl/concepts/leash-access-control.md` | ✅ | DOC-05 content folded in |
+| `models.md` | MIGRATE | `docspec/references/models.md` (`source: src/llm-config.ts`) | ✅ | D-05 narrowed list captured |
+| `reviewer.md` | MIGRATE | merged into existing `concepts/gate-reviewer-holdout.md` | ✅ | |
+| `runs.md` | MIGRATE | merged into existing `concepts/run-lifecycle.md` | ✅ | Existing run-lifecycle concept already covers this content |
+| `sandbox.md` | MIGRATE | `docspec/products/saifctl/concepts/sandbox.md` | ✅ | Higher-level concept matching saifctl landing-page's Sandbox half (per D-20). Distinct from `docker-isolation` (mechanics layer). |
+| `sandbox-profiles.md` | MIGRATE | `docspec/references/sandbox-profiles.md` (`source: src/sandbox-profiles/index.ts`) | ✅ | |
+| `security.md` | MIGRATE | `docspec/products/saifctl/concepts/security.md` | ✅ | DOC-04 threat-model long-form folded in |
+| `services.md` | MIGRATE | `docspec/products/saifctl/concepts/services.md` | ✅ | Macro-Orchestrator + IaC concept |
+| `source-control.md` | MIGRATE | `docspec/products/saifctl/concepts/source-control.md` | ✅ | Push/PR provider integrations |
+| `specs.md` | MIGRATE | merged into `docspec/products/saifctl/concepts/features.md` | ✅ | "What a feature looks like on disk" — folded into the features concept |
+| `storage.md` | DROP | n/a | ✅ | Empty file (0 lines). Future run-storage docs can be added under references when needed. |
+| `test-profiles.md` | MIGRATE | `docspec/references/test-profiles.md` (`source: src/test-profiles/index.ts`) | ✅ | |
+| `troubleshooting.md` | MIGRATE | `docspec/products/saifctl/how-tos/troubleshoot.md` + `personas/engineer/tasks/troubleshoot-setup.md` | ✅ | |
+| `usage.md` | MIGRATE | absorbed into existing tutorials + DOC-08 (spec-driven-development tutorial pending in DOC-09.3) | ✅ | Top-level walkthrough — informs tutorials, not a standalone page |
 | `usage.md` | MIGRATE | merged into existing tutorials + DOC-08 | 🟠 | Top-level walkthrough; informs tutorials, not a standalone page |
 
 ## Section B — Commands (29 files)
@@ -124,7 +135,7 @@ Tutorial/how-to material. Maps to `docspec/products/saifctl/{how-tos,tutorials}/
 | `guides/providing-user-feedback.md` | MIGRATE | `docspec/products/saifctl/how-tos/provide-feedback.md` + `personas/engineer/tasks/steer-the-agent.md` | ✅ | New how-to + new task entry created |
 | `guides/run-lifecycle.md` | MIGRATE | `docspec/products/saifctl/concepts/run-lifecycle.md` | ✅ | New concept entry created |
 
-`docs_old/guides/assets/*.png` (6 image files) — **deleted in error 2026-05-05** (untracked working-tree files, not in git history). Mitigated by WEB-06/PRE-01: fresh screenshots are pending anyway because the old ones were stale (app moved on since they were captured). When fresh screenshots are taken, **place at `docspec/assets/<name>.png`**. saifdocs has **no first-class asset support** (verified 2026-05-05 via [vendor/saifdocs/](safe-ai-factory/vendor/saifdocs/) source review — no `.png`/`.jpg`/`asset` handling in the docspec reader, compiler, or manifest builder). Convention: docspec body carries an explicit instruction to the agent like _"In this how-to, embed the screenshot from `docspec/assets/inspect-and-start--palette.png` as `![…](../../../assets/inspect-and-start--palette.png)`"_, with the relative path computed from the docspec output path. **Open**: whether to add first-class asset support to saifdocs (escape hatch) before relying on body-instruction. For now, body-instruction is the path.
+`docs_old/guides/assets/*.png` (6 image files) — **recovered 2026-05-05** from `docs/guides/assets/` in commit `81f252e` (the `docs_old/` copies were untracked and lost on rm, but the `docs/` copies — same basenames — were git-tracked). Restored to `docspec/assets/inspect-and-start--*.png`. The how-to body at `docspec/products/saifctl/how-tos/inspect-and-start.md` instructs the agent to embed each at the matching step. WEB-06/PRE-01 still applies: these screenshots may be stale and need refreshing per the release plan. saifdocs has **no first-class asset support** (verified 2026-05-05 via [vendor/saifdocs/](safe-ai-factory/vendor/saifdocs/) source review — no `.png`/`.jpg`/`asset` handling in the docspec reader, compiler, or manifest builder). Convention: docspec body carries an explicit instruction to the agent like _"In this how-to, embed the screenshot from `docspec/assets/inspect-and-start--palette.png` as `![…](../../../assets/inspect-and-start--palette.png)`"_, with the relative path computed from the docspec output path. **Open**: whether to add first-class asset support to saifdocs (escape hatch) before relying on body-instruction. For now, body-instruction is the path.
 
 ## Section E — Designers (3 files)
 
@@ -153,48 +164,48 @@ Internal/dev docs. Per user direction: clean up + move to `safe-ai-factory/docs/
 
 | File | Bucket | Successor | Status | Notes |
 |------|--------|-----------|--------|-------|
-| `development/agent-logs.md` | CONTRIBUTING | `docs/contributing/agent-logs.md` | 🟠 | |
-| `development/agents.md` | CONTRIBUTING | `docs/contributing/adding-agents.md` | 🟠 | How to add a new agent profile |
-| `development/branding.md` | CONTRIBUTING | `docs/contributing/branding.md` | 🟠 | Has doc-meta block — preserve or strip |
-| `development/cli.md` | CONTRIBUTING | `docs/contributing/cli-architecture.md` | 🟠 | |
-| `development/docker.md` | CONTRIBUTING | `docs/contributing/docker.md` | 🟠 | |
-| `development/hatchet.md` | CONTRIBUTING | `docs/contributing/hatchet.md` | 🟠 | Internal Hatchet setup notes |
-| `development/infra.md` | CONTRIBUTING | `docs/contributing/infra.md` | 🟠 | **Decision**: read both this file and top-level `infra.md` during DOC-09.2. If top-level `infra.md` is the user-facing simplified version and this is the detailed internal version, keep both — top-level → docspec concept, this → contributing. If they're substantively duplicate, merge into one (here). |
-| `development/inner-round-stats.md` | CONTRIBUTING | `docs/contributing/inner-round-stats.md` | 🟠 | |
-| `development/logging.md` | CONTRIBUTING | `docs/contributing/logging.md` | 🟠 | |
-| `development/vscode-ext-compat.md` | VERIFY-AND-DROP | likely superseded by [vscode-ext/docs/cursor-vs-vscode-remote-containers.md](safe-ai-factory/vscode-ext/docs/cursor-vs-vscode-remote-containers.md) per D-13 | 🟠 | **Confirmed approach**: read both, verify the new doc covers the relevant content, then DROP. |
+| `development/agent-logs.md` | CONTRIBUTING | `docs/contributing/agent-logs.md` | ✅ | Moved (needs per-file content review for currency) |
+| `development/agents.md` | CONTRIBUTING | `docs/contributing/adding-agents.md` | ✅ | Moved + renamed |
+| `development/branding.md` | CONTRIBUTING | `docs/contributing/branding.md` | ✅ | Moved (doc-meta block preserved) |
+| `development/cli.md` | CONTRIBUTING | `docs/contributing/cli-architecture.md` | ✅ | Moved + renamed |
+| `development/docker.md` | CONTRIBUTING | `docs/contributing/docker.md` | ✅ | Moved |
+| `development/hatchet.md` | CONTRIBUTING | `docs/contributing/hatchet.md` | ✅ | Moved (internal Hatchet setup notes; user-facing concept lives at `docspec/products/saifctl/concepts/hatchet.md`) |
+| `development/infra.md` | CONTRIBUTING | `docs/contributing/infra.md` | ✅ | Moved as the internal version; the user-facing simplified version is `docspec/products/saifctl/concepts/infra.md` (per locked decision: keep both since they differ in detail level) |
+| `development/inner-round-stats.md` | CONTRIBUTING | `docs/contributing/inner-round-stats.md` | ✅ | Moved |
+| `development/logging.md` | CONTRIBUTING | `docs/contributing/logging.md` | ✅ | Moved |
+| `development/vscode-ext-compat.md` | DROP | n/a | ✅ | Superseded by [vscode-ext/docs/cursor-vs-vscode-remote-containers.md](safe-ai-factory/vscode-ext/docs/cursor-vs-vscode-remote-containers.md) per D-13. Verified covers same topic with current versioning info. Deleted. |
 
-### G.2 v0/ (24 files)
+### G.2 v0/ (25 files)
 
-Historical SWF design notes. Per user: keep, but each file needs review/update. Bucket each as KEEP-AND-UPDATE (move to `docs/contributing/v0/` or rename to a non-v0 location), or DROP if fully obsolete.
+Historical SWF design notes — kept as `docs/contributing/architecture-history/`. **All files moved as-is**, with the `swf-` prefix stripped from filenames. Per-file content review pending — most files are out-of-date but preserved for "why does this design exist?" context (per user direction). Each file should be revisited and either updated or marked obsolete on its own page.
 
 | File | Bucket | Successor | Status | Notes |
 |------|--------|-----------|--------|-------|
-| `development/v0/README.md` | CONTRIBUTING | `docs/contributing/architecture-history/README.md` | 🟠 | Index of v0 design docs |
-| `development/v0/TODO.md` | DROP-OR-CONTRIBUTING | TBD | 🟠 | If still relevant, keep; otherwise drop |
-| `development/v0/security_assessment.md` | SCHEMA-CHECK | likely superseded by [docs_old/security.md](safe-ai-factory/docs_old/security.md) | 🟠 | Compare; drop if subsumed |
-| `development/v0/swf-cli-agent.md` | CONTRIBUTING | `docs/contributing/architecture-history/cli-agent.md` | 🟠 | |
-| `development/v0/swf-comp-a-openspec.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-a-openspec.md` | 🟠 | |
-| `development/v0/swf-comp-a-shotgun.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-a-shotgun.md` | 🟠 | |
-| `development/v0/swf-comp-b-black-box-testing.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-b-black-box-testing.md` | 🟠 | |
-| `development/v0/swf-comp-c-openhands.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-c-openhands.md` | 🟠 | |
-| `development/v0/swf-comp-d-cedar.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-d-cedar.md` | 🟠 | |
-| `development/v0/swf-comp-d-leash.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-d-leash.md` | 🟠 | |
-| `development/v0/swf-comp-d-sandbox.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-d-sandbox.md` | 🟠 | |
-| `development/v0/swf-comp-e-orchestrator.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-e-orchestrator.md` | 🟠 | |
-| `development/v0/swf-custom-agent.md` | CONTRIBUTING | `docs/contributing/architecture-history/custom-agent.md` | 🟠 | |
-| `development/v0/swf-discovery.md` | CONTRIBUTING | `docs/contributing/architecture-history/discovery.md` | 🟠 | |
-| `development/v0/swf-docker.md` | CONTRIBUTING | `docs/contributing/architecture-history/docker.md` | 🟠 | |
-| `development/v0/swf-enterprise-ready.md` | CONTRIBUTING | `docs/contributing/architecture-history/enterprise-ready.md` | 🟠 | |
-| `development/v0/swf-git-provider.md` | CONTRIBUTING | `docs/contributing/architecture-history/git-provider.md` | 🟠 | |
-| `development/v0/swf-git.md` | CONTRIBUTING | `docs/contributing/architecture-history/git.md` | 🟠 | |
-| `development/v0/swf-hatchet-distributed-architecture.md` | CONTRIBUTING | `docs/contributing/architecture-history/hatchet-distributed.md` | 🟠 | |
-| `development/v0/swf-inner-loop.md` | CONTRIBUTING | `docs/contributing/architecture-history/inner-loop.md` | 🟠 | |
-| `development/v0/swf-installation-scripts.md` | CONTRIBUTING | `docs/contributing/architecture-history/installation-scripts.md` | 🟠 | |
-| `development/v0/swf-reviewer.md` | CONTRIBUTING | `docs/contributing/architecture-history/reviewer.md` | 🟠 | |
-| `development/v0/swf-services.md` | CONTRIBUTING | `docs/contributing/architecture-history/services.md` | 🟠 | |
-| `development/v0/swf-spec-ambiguity.md` | CONTRIBUTING | `docs/contributing/architecture-history/spec-ambiguity.md` | 🟠 | |
-| `development/v0/swf-test-runner.md` | CONTRIBUTING | `docs/contributing/architecture-history/test-runner.md` | 🟠 | |
+| `development/v0/README.md` | CONTRIBUTING | `docs/contributing/architecture-history/README.md` | ✅ | Index of v0 design docs (preserved as-is) |
+| `development/v0/TODO.md` | CONTRIBUTING | `docs/contributing/architecture-history/TODO.md` | ✅ | Kept; per-file review pending |
+| `development/v0/security_assessment.md` | CONTRIBUTING | `docs/contributing/architecture-history/security_assessment.md` | ✅ | Kept (historical assessment); current threat-model lives at `docspec/products/saifctl/concepts/security.md` |
+| `development/v0/swf-cli-agent.md` | CONTRIBUTING | `docs/contributing/architecture-history/cli-agent.md` | ✅ | |
+| `development/v0/swf-comp-a-openspec.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-a-openspec.md` | ✅ | |
+| `development/v0/swf-comp-a-shotgun.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-a-shotgun.md` | ✅ | |
+| `development/v0/swf-comp-b-black-box-testing.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-b-black-box-testing.md` | ✅ | |
+| `development/v0/swf-comp-c-openhands.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-c-openhands.md` | ✅ | |
+| `development/v0/swf-comp-d-cedar.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-d-cedar.md` | ✅ | |
+| `development/v0/swf-comp-d-leash.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-d-leash.md` | ✅ | |
+| `development/v0/swf-comp-d-sandbox.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-d-sandbox.md` | ✅ | |
+| `development/v0/swf-comp-e-orchestrator.md` | CONTRIBUTING | `docs/contributing/architecture-history/comp-e-orchestrator.md` | ✅ | |
+| `development/v0/swf-custom-agent.md` | CONTRIBUTING | `docs/contributing/architecture-history/custom-agent.md` | ✅ | |
+| `development/v0/swf-discovery.md` | CONTRIBUTING | `docs/contributing/architecture-history/discovery.md` | ✅ | |
+| `development/v0/swf-docker.md` | CONTRIBUTING | `docs/contributing/architecture-history/docker.md` | ✅ | |
+| `development/v0/swf-enterprise-ready.md` | CONTRIBUTING | `docs/contributing/architecture-history/enterprise-ready.md` | ✅ | |
+| `development/v0/swf-git-provider.md` | CONTRIBUTING | `docs/contributing/architecture-history/git-provider.md` | ✅ | |
+| `development/v0/swf-git.md` | CONTRIBUTING | `docs/contributing/architecture-history/git.md` | ✅ | |
+| `development/v0/swf-hatchet-distributed-architecture.md` | CONTRIBUTING | `docs/contributing/architecture-history/hatchet-distributed-architecture.md` | ✅ | |
+| `development/v0/swf-inner-loop.md` | CONTRIBUTING | `docs/contributing/architecture-history/inner-loop.md` | ✅ | |
+| `development/v0/swf-installation-scripts.md` | CONTRIBUTING | `docs/contributing/architecture-history/installation-scripts.md` | ✅ | |
+| `development/v0/swf-reviewer.md` | CONTRIBUTING | `docs/contributing/architecture-history/reviewer.md` | ✅ | |
+| `development/v0/swf-services.md` | CONTRIBUTING | `docs/contributing/architecture-history/services.md` | ✅ | |
+| `development/v0/swf-spec-ambiguity.md` | CONTRIBUTING | `docs/contributing/architecture-history/spec-ambiguity.md` | ✅ | |
+| `development/v0/swf-test-runner.md` | CONTRIBUTING | `docs/contributing/architecture-history/test-runner.md` | ✅ | |
 
 ---
 
