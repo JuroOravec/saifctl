@@ -76,6 +76,19 @@ import type { DockerLiveInfra } from './types.js';
 /** In-container workspace path that Leash bind-mounts the sandbox into. */
 const CONTAINER_WORKSPACE = '/workspace';
 
+/**
+ * Normalize a string into a Docker-safe identifier segment.
+ *
+ * Docker image references (the part before any `:tag`) MUST be lowercase, and
+ * container / network names accept only `[a-zA-Z0-9_.-]`. Feature directory
+ * names produced by saifdocs include ISO timestamps with uppercase `T` and
+ * `Z` (e.g. `saifdocs-2026-05-05T20-09-53-070Z`), which break image builds
+ * with: `repository name must be lowercase`.
+ */
+export function dockerSafeName(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+}
+
 // Docker client singleton
 const docker = new Docker();
 
@@ -145,10 +158,8 @@ export class DockerEngine implements Engine {
     // Target state after setup() is done
     const infra: DockerLiveInfra = {
       engine: 'docker',
-      networkName: `saifctl-net-${projectName}-${featureName}-${runId}`,
-      composeProjectName: this.composeFile
-        ? `saifctl-${runId.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`
-        : '',
+      networkName: `saifctl-net-${dockerSafeName(projectName)}-${dockerSafeName(featureName)}-${dockerSafeName(runId)}`,
+      composeProjectName: this.composeFile ? `saifctl-${dockerSafeName(runId)}` : '',
       stagingImages: [],
       containers: [],
       projectDir,
@@ -243,8 +254,8 @@ export class DockerEngine implements Engine {
     const networkName = infra.networkName;
 
     const containerConfig = stagingEnvironment.app;
-    const containerName = `saifctl-stage-${projectName}-${feature.name}-${runId}`;
-    const imageTag = `saifctl-stage-${projectName}-${feature.name}-img-${runId}`;
+    const containerName = `saifctl-stage-${dockerSafeName(projectName)}-${dockerSafeName(feature.name)}-${dockerSafeName(runId)}`;
+    const imageTag = `saifctl-stage-${dockerSafeName(projectName)}-${dockerSafeName(feature.name)}-img-${dockerSafeName(runId)}`;
 
     // Build ephemeral staging image
     await buildStagingImage({
@@ -362,7 +373,7 @@ export class DockerEngine implements Engine {
 
     assertSafeImageTag(testImage);
 
-    const containerName = `saifctl-test-${projectName}-${runId}`;
+    const containerName = `saifctl-test-${dockerSafeName(projectName)}-${dockerSafeName(runId)}`;
     const containerTestsDir = '/tests';
     const containerOutputFile = '/test-runner-output/results.xml';
     const reportPath = join(reportDir, 'results.xml');
@@ -984,7 +995,7 @@ export class DockerEngine implements Engine {
     }
 
     // Resume docker-compose file
-    const composeProjectName = `saifctl-${runId.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
+    const composeProjectName = `saifctl-${dockerSafeName(runId)}`;
     const absoluteFile = resolve(projectDir, this.composeFile);
     try {
       await runDocker(['compose', '-p', composeProjectName, '-f', absoluteFile, 'unpause'], {

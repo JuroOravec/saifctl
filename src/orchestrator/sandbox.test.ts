@@ -858,4 +858,15 @@ describe('container/image naming convention (documentation)', () => {
     // test runner containers are scoped: docker clear (no --all) uses saifctl-test-{proj}-
     expect(name).not.toContain('saifctl-test-other-project');
   });
+
+  it('feature names with uppercase chars are normalized for Docker (image tags require lowercase)', async () => {
+    const { dockerSafeName } = await import('../engines/docker/index.js');
+    // saifdocs-style ISO-8601 timestamps include uppercase T and Z; without
+    // normalization they break with: `repository name must be lowercase`.
+    expect(dockerSafeName('saifdocs-2026-05-05T20-09-53-070Z')).toBe(
+      'saifdocs-2026-05-05t20-09-53-070z',
+    );
+    expect(dockerSafeName('My-Project')).toBe('my-project');
+    expect(dockerSafeName('feat/with/slashes')).toBe('feat-with-slashes');
+  });
 });
