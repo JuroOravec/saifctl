@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": "2026-05-05T19:12:39.025Z",
+  "createdAt": "2026-05-05T19:19:30.362Z",
   "docspecDir": "/Users/mac/repos/agents/safe-ai-factory/docspec",
   "outputDir": "/Users/mac/repos/agents/safe-ai-factory/docs",
   "projectDir": "/Users/mac/repos/agents/safe-ai-factory",
@@ -567,6 +567,23 @@
       "generatedAt": null
     },
     {
+      "id": "reference--storage",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/storage.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/storage.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/storage/index.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
       "id": "reference--test-profiles",
       "type": "references",
       "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/test-profiles.md",
@@ -1054,6 +1071,35 @@
       "generatedAt": null
     },
     {
+      "id": "tutorial--saifctl--spec-driven-development",
+      "type": "tutorials",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/tutorials/spec-driven-development.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/tutorials/spec-driven-development.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/features.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feat-run-loop.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/gate-reviewer-holdout.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/apply-agent-changes.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/inspect-and-start.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/provide-feedback.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-agent-safely.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-first-feature.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/troubleshoot.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/understand-safety-guarantees.md"
+      ],
+      "productId": "saifctl",
+      "personaId": "engineer",
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": 1,
+      "tutorialThreadLength": 2,
+      "generatedAt": null
+    },
+    {
       "id": "tutorial--saifctl--spec-to-pr",
       "type": "tutorials",
       "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/tutorials/spec-to-pr.md",
@@ -1077,8 +1123,8 @@
       "personaId": "engineer",
       "taskIds": [],
       "conceptId": null,
-      "tutorialPosition": 1,
-      "tutorialThreadLength": 1,
+      "tutorialPosition": 2,
+      "tutorialThreadLength": 2,
       "generatedAt": null
     },
     {
