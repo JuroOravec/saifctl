@@ -1,0 +1,17 @@
+---
+id: feat-run-loop
+explains: how saifctl feat run drives an agent through a convergence loop until code passes all gates, including the per-phase + per-critic-round structure for phased features
+learning_outcomes:
+  - The agent is locked in a loop and cannot stop until gate, reviewer, and holdout all pass.
+  - Each iteration the agent sees gate failures and must fix them.
+  - You are only notified when the code emerges victorious.
+  - Phased features (with a `phases/` dir) repeat the loop per phase — each phase has its own spec, tests, and critics, and a phase's gate must pass before the next starts.
+  - Critic rounds run after the phase's gate passes; each critic adds two extra subtasks (discover + fix) before the phase is considered done.
+  - "Per-subtask test scope: tests run from the cumulative `phases/<id>/tests/**` PLUS feature-level `tests/**`, so later phases never break earlier ones."
+analogies:
+  - compiler error loop (write, compile, fix, repeat)
+  - CI red/green cycle
+  - phased features behave like a CI matrix where each row gates the next
+---
+
+Intent-only body; generated docs will expand this for the product lens.

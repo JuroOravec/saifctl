@@ -1,0 +1,319 @@
+{
+  "version": 1,
+  "createdAt": "2026-05-04T21:53:10.701Z",
+  "docspecDir": "/Users/mac/repos/agents/safe-ai-factory/docspec",
+  "outputDir": "/Users/mac/repos/agents/safe-ai-factory/docs",
+  "projectDir": "/Users/mac/repos/agents/safe-ai-factory",
+  "entries": [
+    {
+      "id": "reference--commands--doctor",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/doctor.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/commands/doctor.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/cli/commands/doctor.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--commands--feat",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/feat.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/commands/feat.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/cli/commands/feat.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--commands--init",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/init.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/commands/init.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/cli/commands/init.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "reference--commands--sandbox",
+      "type": "references",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/sandbox.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/references/commands/sandbox.md",
+        "/Users/mac/repos/agents/safe-ai-factory/src/cli/commands/sandbox.ts",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": null,
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "concept--saifctl--docker-isolation",
+      "type": "concepts",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/docker-isolation.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/docker-isolation.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": "docker-isolation",
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "concept--saifctl--feat-run-loop",
+      "type": "concepts",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/feat-run-loop.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feat-run-loop.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": "feat-run-loop",
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "concept--saifctl--gate-reviewer-holdout",
+      "type": "concepts",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/gate-reviewer-holdout.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/gate-reviewer-holdout.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": "gate-reviewer-holdout",
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "how-to--saifctl--apply-agent-changes",
+      "type": "how-tos",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/apply-agent-changes.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/how-tos/apply-agent-changes.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/tasks/apply-agent-changes.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/templates/pages/how-to.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/docker-isolation.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/doctor.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/sandbox.md"
+      ],
+      "productId": "saifctl",
+      "personaId": "openclaw_user",
+      "taskIds": [
+        "apply-agent-changes"
+      ],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "how-to--saifctl--run-agent-safely",
+      "type": "how-tos",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-agent-safely.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/how-tos/run-agent-safely.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/tasks/protect-my-pc.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/templates/pages/how-to.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/docker-isolation.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/doctor.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/sandbox.md"
+      ],
+      "productId": "saifctl",
+      "personaId": "openclaw_user",
+      "taskIds": [
+        "protect-my-pc"
+      ],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "how-to--saifctl--run-first-feature",
+      "type": "how-tos",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-first-feature.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/how-tos/run-first-feature.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/run-first-feature.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/templates/pages/how-to.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feat-run-loop.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/gate-reviewer-holdout.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/doctor.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/sandbox.md"
+      ],
+      "productId": "saifctl",
+      "personaId": "engineer",
+      "taskIds": [
+        "run-first-feature"
+      ],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "how-to--saifctl--understand-safety-guarantees",
+      "type": "how-tos",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/understand-safety-guarantees.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/how-tos/understand-safety-guarantees.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/understand-safety-guarantees.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/templates/pages/how-to.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feat-run-loop.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/gate-reviewer-holdout.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/doctor.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/sandbox.md"
+      ],
+      "productId": "saifctl",
+      "personaId": "engineer",
+      "taskIds": [
+        "understand-safety-guarantees"
+      ],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    },
+    {
+      "id": "tutorial--saifctl--first-sandbox-run",
+      "type": "tutorials",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/tutorials/first-sandbox-run.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/tutorials/first-sandbox-run.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/docker-isolation.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/apply-agent-changes.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-agent-safely.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-first-feature.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/understand-safety-guarantees.md"
+      ],
+      "productId": "saifctl",
+      "personaId": "openclaw_user",
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": 1,
+      "tutorialThreadLength": 1,
+      "generatedAt": null
+    },
+    {
+      "id": "tutorial--saifctl--spec-to-pr",
+      "type": "tutorials",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/tutorials/spec-to-pr.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/tutorials/spec-to-pr.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feat-run-loop.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/gate-reviewer-holdout.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/apply-agent-changes.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-agent-safely.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-first-feature.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/understand-safety-guarantees.md"
+      ],
+      "productId": "saifctl",
+      "personaId": "engineer",
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": 1,
+      "tutorialThreadLength": 1,
+      "generatedAt": null
+    },
+    {
+      "id": "landing--saifctl",
+      "type": "landing-pages",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/index.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/run-first-feature.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/understand-safety-guarantees.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/tasks/apply-agent-changes.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/openclaw_user/tasks/protect-my-pc.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null
+    }
+  ]
+}
