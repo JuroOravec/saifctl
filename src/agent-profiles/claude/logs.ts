@@ -75,8 +75,8 @@ function summarizeToolInput(name: string, input: Record<string, unknown>): strin
       return inPath ? `${pattern} in ${inPath}` : pattern;
     }
     case 'Glob': {
-      const glob = typeof input.glob === 'string' ? input.glob : pattern;
-      return glob;
+      const inPath = typeof input.path === 'string' ? input.path : '';
+      return inPath ? `${pattern} in ${inPath}` : pattern;
     }
     case 'Bash':
       return command.replaceAll('\n', ' ').slice(0, 140);
@@ -190,7 +190,49 @@ export function formatClaudeSegment(segment: string, linePrefix: AgentLogLinePre
   }
 
   if (type === 'system') {
+    // Per-subtype enrichment based on Claude Code headless docs
+    // (https://code.claude.com/docs/en/headless#stream-responses):
+    //   - init           → model, tools, plugin status
+    //   - api_retry      → attempt count + retry delay + error category
+    //   - plugin_install → install status (started / installed / failed / completed)
+    //   - compact_boundary → conversation history was compacted
+    // Anything else falls back to printing the subtype.
     const subtype = typeof evt.subtype === 'string' ? evt.subtype : '';
+    if (subtype === 'init') {
+      const model = typeof evt.model === 'string' ? evt.model : '';
+      const tools = Array.isArray(evt.tools) ? evt.tools.length : 0;
+      const plugins = Array.isArray(evt.plugins) ? evt.plugins.length : 0;
+      const errs = Array.isArray(evt.plugin_errors) ? evt.plugin_errors.length : 0;
+      const parts = [
+        model || 'init',
+        tools ? `${tools} tools` : '',
+        plugins ? `${plugins} plugins` : '',
+        errs ? `${errs} plugin errors` : '',
+      ].filter(Boolean);
+      process.stdout.write(`[system] ${parts.join(' • ')}\n`);
+      return;
+    }
+    if (subtype === 'api_retry') {
+      const attempt = typeof evt.attempt === 'number' ? evt.attempt : 0;
+      const maxRetries = typeof evt.max_retries === 'number' ? evt.max_retries : 0;
+      const delayMs = typeof evt.retry_delay_ms === 'number' ? evt.retry_delay_ms : 0;
+      const error = typeof evt.error === 'string' ? evt.error : '';
+      const status = typeof evt.error_status === 'number' ? evt.error_status : '';
+      const detail =
+        [error, status ? `HTTP ${status}` : ''].filter(Boolean).join(' ') || 'unknown';
+      process.stdout.write(
+        `[system] retry ${attempt}/${maxRetries} in ${delayMs}ms (${detail})\n`,
+      );
+      return;
+    }
+    if (subtype === 'plugin_install') {
+      const status = typeof evt.status === 'string' ? evt.status : 'unknown';
+      const name = typeof evt.name === 'string' ? evt.name : '';
+      const error = typeof evt.error === 'string' ? evt.error : '';
+      const tail = [name, error].filter(Boolean).join(': ');
+      process.stdout.write(`[system] plugin_install ${status}${tail ? ` (${tail})` : ''}\n`);
+      return;
+    }
     process.stdout.write(`[system] ${subtype || compact(trimmed, 160)}\n`);
     return;
   }

@@ -181,6 +181,76 @@ describe('formatClaudeSegment', () => {
     expect(out.join('')).toBe('plain old log line\n');
   });
 
+  it('formats Glob with the standard `pattern` input field', () => {
+    formatClaudeSegment(
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'tool_use', name: 'Glob', input: { pattern: '**/*.ts', path: '/workspace/src' } },
+          ],
+        },
+      }),
+      'agent',
+    );
+    expect(out.join('')).toBe('[agent] Glob(**/*.ts in /workspace/src)\n');
+  });
+
+  it('formats system/init with model + tool/plugin counts', () => {
+    formatClaudeSegment(
+      JSON.stringify({
+        type: 'system',
+        subtype: 'init',
+        model: 'claude-sonnet-4-6',
+        tools: ['Read', 'Edit', 'Bash', 'Grep'],
+        plugins: [{ name: 'p1', path: '/p1' }],
+        plugin_errors: [],
+      }),
+      'agent',
+    );
+    expect(out.join('')).toBe('[system] claude-sonnet-4-6 • 4 tools • 1 plugins\n');
+  });
+
+  it('formats system/api_retry with attempt + delay + reason', () => {
+    formatClaudeSegment(
+      JSON.stringify({
+        type: 'system',
+        subtype: 'api_retry',
+        attempt: 2,
+        max_retries: 5,
+        retry_delay_ms: 1500,
+        error: 'rate_limit',
+        error_status: 429,
+      }),
+      'agent',
+    );
+    expect(out.join('')).toBe('[system] retry 2/5 in 1500ms (rate_limit HTTP 429)\n');
+  });
+
+  it('formats system/plugin_install with status + name', () => {
+    formatClaudeSegment(
+      JSON.stringify({
+        type: 'system',
+        subtype: 'plugin_install',
+        status: 'installed',
+        name: 'foo-plugin',
+      }),
+      'agent',
+    );
+    expect(out.join('')).toBe('[system] plugin_install installed (foo-plugin)\n');
+  });
+
+  it('falls back to plain subtype for unknown system events', () => {
+    formatClaudeSegment(
+      JSON.stringify({
+        type: 'system',
+        subtype: 'compact_boundary',
+      }),
+      'agent',
+    );
+    expect(out.join('')).toBe('[system] compact_boundary\n');
+  });
+
   it('uses [inspect] tag when linePrefix is inspect', () => {
     formatClaudeSegment(
       JSON.stringify({
