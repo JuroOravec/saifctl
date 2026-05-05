@@ -22,6 +22,11 @@ import { join, resolve } from 'node:path';
 import { cancel, confirm, intro, isCancel, outro, text } from '@clack/prompts';
 import { type CommandDef, defineCommand, runMain } from 'citty';
 
+import { resolveAgentProfile } from '../../agent-profiles/index.js';
+import {
+  recordProfileOptionsFromArgs,
+  validateProfileOptions,
+} from '../../agent-profiles/options-bridge.js';
 import { loadSaifctlConfig } from '../../config/load.js';
 import { type SaifctlConfig } from '../../config/schema.js';
 import { defaultCedarPolicyPath } from '../../constants.js';
@@ -752,6 +757,15 @@ const runCommand = defineCommand({
   },
   args: featRunArgs,
   async run({ args }) {
+    // Capture profile-specific options (--<id>-<name>) into the in-process
+    // env-var protocol read by the orchestrator. Validate before parseRunArgs
+    // so config/feature-prompt errors don't mask a bad --claude-credentials
+    // path etc.
+    if (typeof args.agent === 'string' && args.agent.trim()) {
+      const profile = resolveAgentProfile(args.agent.trim());
+      recordProfileOptionsFromArgs(profile, args as Record<string, unknown>);
+      await validateProfileOptions(profile);
+    }
     const runArgs = await parseRunArgs(args);
     const result = await runStart({
       ...runArgs,

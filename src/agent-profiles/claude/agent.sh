@@ -58,13 +58,25 @@ echo "[agent/claude] Starting agent claude in agent.sh..."
 source /saifctl/saifctl-agent-helpers.sh
 saifctl_drop_privs_init
 
-# Resolve the API key once, then forward it via env to the unprivileged shell.
-# Read the task file as root (it lives under /workspace/.saifctl/, which is
-# typically writable by everyone but we don't depend on that here).
-_API_KEY="${ANTHROPIC_API_KEY:-${LLM_API_KEY:-}}"
-if [[ -z "$_API_KEY" ]]; then
-  echo "[agent/claude] ERROR: neither ANTHROPIC_API_KEY nor LLM_API_KEY is set." >&2
-  exit 1
+# Resolve auth path: OAuth (Claude Max plan) vs. API key.
+#
+# OAuth mode is signalled by SAIFCTL_CLAUDE_AUTH_MODE=oauth, set by saifctl's
+# claude profile prepareAgentEnv hook when --claude-max or --claude-credentials
+# was passed. In OAuth mode the credentials file is staged at
+# $HOME/.claude/.credentials.json (mode 600, owned by SAIFCTL_UNPRIV_USER),
+# and we explicitly do NOT export ANTHROPIC_API_KEY — claude precedence
+# rules let API_KEY override OAuth tokens, so a stale env var from the
+# orchestrator side would silently route the run via the API account
+# instead of the user's Max plan.
+_API_KEY=""
+if [[ "${SAIFCTL_CLAUDE_AUTH_MODE:-apikey}" = "oauth" ]]; then
+  echo "[agent/claude] Auth mode: OAuth (Claude Max). Credentials at \$HOME/.claude/.credentials.json"
+else
+  _API_KEY="${ANTHROPIC_API_KEY:-${LLM_API_KEY:-}}"
+  if [[ -z "$_API_KEY" ]]; then
+    echo "[agent/claude] ERROR: neither ANTHROPIC_API_KEY/LLM_API_KEY is set, nor was --claude-max/--claude-credentials passed." >&2
+    exit 1
+  fi
 fi
 _TASK_CONTENT="$(cat "$SAIFCTL_TASK_PATH")"
 
@@ -89,10 +101,28 @@ _agent_exit=0
 # prompt quoting hazards). LLM_MODEL_ID — not LLM_MODEL — is what Claude's
 # CLI accepts; LLM_MODEL is the prefixed form (`anthropic/claude-haiku-4-5`)
 # the LiteLLM-style agents need.
+# In OAuth mode, claude reads OAuth tokens from $HOME/.claude/.credentials.json,
+# but any *_API_KEY env var present takes precedence and bypasses OAuth. The
+# runuser whitelist (saifctl_unpriv_env_whitelist) lists ANTHROPIC_API_KEY,
+# LLM_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, etc. —
+# `runuser --whitelist-environment` lets matching names through if they're
+# set in the parent. So we must EXPLICITLY unset them here in OAuth mode
+# before invoking runuser, otherwise an env var inherited from saifctl's
+# orchestrator side would silently route via the API instead of the Max plan.
+if [[ "${SAIFCTL_CLAUDE_AUTH_MODE:-apikey}" = "oauth" ]]; then
+  # Strip every *_API_KEY env var name from the whitelist via env -u, so
+  # whatever the orchestrator forwarded won't reach claude.
+  _SAIFCTL_RUNUSER='env -u ANTHROPIC_API_KEY -u ANTHROPIC_BASE_URL -u LLM_API_KEY -u OPENAI_API_KEY -u OPENAI_API_BASE -u OPENAI_BASE_URL -u OPENROUTER_API_KEY -u GEMINI_API_KEY -u DASHSCOPE_API_KEY runuser'
+  _SAIFCTL_API_KEY_ENV=''
+else
+  _SAIFCTL_RUNUSER='runuser'
+  _SAIFCTL_API_KEY_ENV="ANTHROPIC_API_KEY=$_API_KEY"
+fi
+
 SAIFCTL_TASK_CONTENT="$_TASK_CONTENT" \
-  ANTHROPIC_API_KEY="$_API_KEY" \
+  ${_SAIFCTL_API_KEY_ENV} \
   SAIFCTL_UNPRIV_NPM_PREFIX="$SAIFCTL_UNPRIV_NPM_PREFIX" \
-  runuser -l "$SAIFCTL_UNPRIV_USER" \
+  ${_SAIFCTL_RUNUSER} -l "$SAIFCTL_UNPRIV_USER" \
     --whitelist-environment="$(saifctl_unpriv_env_whitelist),SAIFCTL_TASK_CONTENT" \
     -c '
       export PATH="$SAIFCTL_UNPRIV_NPM_PREFIX/bin:$PATH"

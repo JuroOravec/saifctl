@@ -341,6 +341,24 @@ main() {
   bash "$SAIFCTL_STARTUP_SCRIPT"
   echo "[coder-start] Startup script completed."
 
+  # Apply files staged by the agent profile's prepareAgentEnv hook.
+  # Saifctl writes profile-supplied files to <saifctl>/.stage/<idx> on the
+  # host (bind-mounted at /saifctl/.stage inside the container) + a generated
+  # /saifctl/.stage/apply.sh that copies each entry to its final dst with
+  # the right mode and owner. Apply runs after startup-script (workspace
+  # is provisioned) and before agent-install (install scripts can rely on
+  # staged credentials being in place).
+  #
+  # We use a generated bash script (rather than a JSON manifest + parser) to
+  # avoid requiring jq in every coder image — the script is short, generated
+  # by saifctl with shell-quoted paths, and runs as root so it can chown to
+  # the unprivileged user.
+  if [ -f /saifctl/.stage/apply.sh ]; then
+    echo "[coder-start] Applying staged files from /saifctl/.stage/apply.sh"
+    bash /saifctl/.stage/apply.sh
+    echo "[coder-start] Staged files applied."
+  fi
+
   if [ -n "${SAIFCTL_AGENT_INSTALL_SCRIPT:-}" ]; then
     if [ ! -f "$SAIFCTL_AGENT_INSTALL_SCRIPT" ]; then
       echo "[coder-start] ERROR: agent install script not found: $SAIFCTL_AGENT_INSTALL_SCRIPT" >&2

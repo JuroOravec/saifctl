@@ -12,6 +12,11 @@ import { isAbsolute, join, resolve } from 'node:path';
 
 import { defineCommand, runMain } from 'citty';
 
+import { resolveAgentProfile } from '../../agent-profiles/index.js';
+import {
+  recordProfileOptionsFromArgs,
+  validateProfileOptions,
+} from '../../agent-profiles/options-bridge.js';
 import { loadSaifctlConfig } from '../../config/load.js';
 import { getSaifctlRoot } from '../../constants.js';
 import { consola, setVerboseLogging } from '../../logger.js';
@@ -87,6 +92,14 @@ const sandboxCommand = defineCommand({
   },
   args: sandboxArgs,
   async run({ args }) {
+    // Capture profile-specific options (--<id>-<name>) for the orchestrator
+    // and run their validators before any sandbox-specific arg parsing.
+    if (typeof args.agent === 'string' && args.agent.trim()) {
+      const profile = resolveAgentProfile(args.agent.trim());
+      recordProfileOptionsFromArgs(profile, args as Record<string, unknown>);
+      await validateProfileOptions(profile);
+    }
+
     const interactive = args.interactive === true;
     const taskInline = typeof args.task === 'string' ? args.task.trim() : '';
     const taskFile = typeof args['task-file'] === 'string' ? args['task-file'].trim() : '';

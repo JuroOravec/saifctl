@@ -8,6 +8,7 @@ learning_outcomes:
   - The `--cedar` override surface and the three bundled policies (default, sandbox, deny-network).
   - The `dangerousNoLeash` mode — what it disables, when it's appropriate (orchestrator debug, perf profiling, narrowing a Cedar policy), when it isn't (anything with secrets, CI, unattended runs, runs whose diff will be committed without careful review).
   - "Auditability: Leash dashboard pointer."
+  - "Profile-injected credentials (e.g. `--claude-max` staging the user's Claude Max OAuth tokens into the coder container as a 0600 file owned by the unpriv user). Trade-offs vs an API key: API key is workspace-scoped + revocable per-project; OAuth is tied to the user's personal account and shares rate limits with their interactive use. A compromised agent in OAuth mode has Max plan access until manually revoked. Use API keys for CI / shared / unattended runs; reserve `--claude-max` for personal/local development."
 analogies:
   - filesystem isolation is the lock; network is the open window
   - threat model as a contract — what the contract covers and what it doesn't

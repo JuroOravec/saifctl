@@ -57,6 +57,79 @@
 
 import type { AgentStdoutStrategy } from '../orchestrator/logs.js';
 
+/**
+ * One profile-specific option that becomes a CLI flag (`--<agent-id>-<name>`).
+ *
+ * The agent-id prefix is mandatory and saifctl prepends it; the `name` here is
+ * just the suffix. e.g. `name: 'max'` for the `claude` profile produces the
+ * CLI flag `--claude-max`. This namespacing is the conflict-prevention
+ * mechanism — profile options can't collide with global flags or with each
+ * other.
+ *
+ * Future: same `options` array also drives config-file resolution at
+ * `agents.<id>.<name>` (CLI overrides config). Not yet wired.
+ */
+export interface AgentProfileOption {
+  /** Suffix only — saifctl prepends `<agent-id>-`. Must be kebab-case. */
+  name: string;
+  type: 'boolean' | 'string' | 'number';
+  description: string;
+  default?: boolean | string | number;
+  /**
+   * When true, the resolved value is treated as a secret: kept out of run
+   * storage, redacted in logs (only the option name appears, not the value).
+   * Use for credentials / tokens / paths to credential files. The hook's
+   * resulting `env` entry will route through `secretEnv` automatically.
+   */
+  secret?: boolean;
+  /**
+   * Optional pre-flight validation. Throw to surface a CLI error before
+   * the container starts. Runs synchronously after CLI parsing, before
+   * `prepareAgentEnv`.
+   */
+  validate?: (value: unknown) => void | Promise<void>;
+}
+
+/** Context passed to `prepareAgentEnv`. Saifctl populates this from the run's resolved state. */
+export interface AgentPrepareContext {
+  /** Parsed option values, keyed by option `name` (without the agent-id prefix). */
+  options: Record<string, boolean | string | number | undefined>;
+  /** Project root on the host. */
+  projectDir: string;
+  /** The unprivileged user the agent runs as inside the container (matches `SAIFCTL_UNPRIV_USER`). */
+  unprivUser: string;
+  /** `$HOME` of the unprivileged user inside the container (used to resolve `~` in `dst`). */
+  unprivHome: string;
+}
+
+/**
+ * One file to stage into the coder container before agent-install.sh runs.
+ *
+ * Saifctl's current bind-mount-based engine implements staging by writing the
+ * file into a per-run host tmpdir, bind-mounting that tmpdir into the
+ * container at a fixed path, and having `staging-start.sh` (or equivalent)
+ * copy each entry to its `dst` with the requested mode/owner. RO mount on
+ * the host side; RW copy inside the container so refresh-tokens-style
+ * write-back doesn't fail mid-run.
+ */
+export interface StagedFile {
+  src: { kind: 'file'; path: string } | { kind: 'inline'; content: string | Buffer };
+  /** Container path. Tokens `~/` and `$HOME/` resolve to `unprivHome`. */
+  dst: string;
+  mode?: number; // default 0o600
+  owner?: 'unpriv' | 'root'; // default 'unpriv'
+}
+
+/** Return value of `prepareAgentEnv`. All fields optional; saifctl merges into the run's container env. */
+export interface AgentPrepareResult {
+  /** Public env vars; visible in logs and persisted in run storage. */
+  env?: Record<string, string>;
+  /** Secret env vars; redacted in logs, kept out of run storage. */
+  secrets?: Record<string, string>;
+  /** Files to stage into the container before agent-install.sh runs. */
+  stageFiles?: StagedFile[];
+}
+
 /** Describes a coding agent and its runtime requirements (id, display name, stdout strategy). */
 export interface AgentProfile {
   /**
@@ -73,6 +146,31 @@ export interface AgentProfile {
    * Use `null` when the agent emits plain line-oriented output (line-wise events + `[prefix]` formatting).
    */
   stdoutStrategy: AgentStdoutStrategy | null;
+
+  /**
+   * Profile-specific CLI options. Each becomes `--<id>-<option.name>`. Saifctl
+   * pre-parses `--agent` from argv, looks up the profile, and dynamically
+   * extends the citty command with these options before final parsing —
+   * the help text for `saifctl feat run --agent <id> --help` includes them.
+   *
+   * Names must be kebab-case and must NOT collide with any global flag
+   * (`--name`, `--model`, `--storage`, etc.); the namespacing prefix prevents
+   * most collisions but a startup-time guard catches edge cases.
+   */
+  options?: AgentProfileOption[];
+
+  /**
+   * Hook called after CLI parsing and before the coder container starts.
+   * Returns artifacts saifctl applies to the run: env vars (public + secret)
+   * and files staged into the container at known paths.
+   *
+   * Pure / no side-effects expected — saifctl may call this twice
+   * (preflight validation + actual run).
+   *
+   * Only invoked when the profile is the active `--agent`. Profiles with no
+   * options or no per-run state to inject can omit this.
+   */
+  prepareAgentEnv?: (ctx: AgentPrepareContext) => Promise<AgentPrepareResult>;
 }
 
 /** Tuple of all agent profile ids accepted by the `--agent` CLI flag. */
