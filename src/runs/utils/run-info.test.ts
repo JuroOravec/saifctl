@@ -36,6 +36,8 @@ const minimalArtifact: RunArtifact = {
     projectName: 'proj',
     testImage: 'img',
     resolveAmbiguity: 'ai',
+    runTimeoutMs: null,
+    subtaskTimeoutMs: 60 * 60 * 1000,
     dangerousNoLeash: false,
     cedarPolicyPath: '',
     cedarScript: 'CEDAR BODY',

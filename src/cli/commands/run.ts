@@ -591,8 +591,9 @@ const resumeCommand = defineCommand({
 
     consola.log(`\n${result.message}`);
     if (result.runId) {
-      consola.log(`\nResume again with:`);
-      consola.log(`  saifctl run resume ${result.runId}`);
+      const paused = result.status === 'paused';
+      consola.log(`\n${paused ? 'Resume' : 'Start'} again with:`);
+      consola.log(`  saifctl run ${paused ? 'resume' : 'start'} ${result.runId}`);
     }
     if (result.status === 'failed') process.exit(1);
   },
@@ -634,8 +635,9 @@ const startCommand = defineCommand({
 
     consola.log(`\n${result.message}`);
     if (result.runId) {
-      consola.log(`\nStart again with:`);
-      consola.log(`  saifctl run start ${result.runId}`);
+      const paused = result.status === 'paused';
+      consola.log(`\n${paused ? 'Resume' : 'Start'} again with:`);
+      consola.log(`  saifctl run ${paused ? 'resume' : 'start'} ${result.runId}`);
     }
     if (result.status !== 'success' && result.status !== 'stopped') process.exit(1);
   },

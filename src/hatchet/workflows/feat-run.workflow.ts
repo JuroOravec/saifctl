@@ -465,7 +465,16 @@ export function createFeatRunWorkflow() {
     },
   });
 
-  // Step 2: convergence-loop — iterates, spawning child workflows
+  // Step 2: convergence-loop — iterates, spawning child workflows.
+  //
+  // executionTimeout is the Hatchet-side upper bound. The orchestrator's
+  // own run-timeout (`--run-timeout` / `defaults.timeouts.run`, see
+  // src/orchestrator/timeouts.ts) is the per-run cap; it can be tighter
+  // than 24h (typical case) or `null`/unbounded (long-running phases-and-
+  // critics features). When unbounded, this 24h Hatchet bound becomes
+  // the effective ceiling — users who need longer should bump this
+  // value too. Hatchet's executionTimeout is a static string at task
+  // definition time, so it can't be adapted per-trigger.
   const convergenceTask = workflow.task({
     name: 'convergence-loop',
     executionTimeout: '24h',

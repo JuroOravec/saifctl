@@ -9,6 +9,7 @@ learning_outcomes:
   - "`--max-runs` is per-subtask, not per-run."
   - "`run start` is for failed/interrupted runs; reconstructs workspace from git + saved commits. Not for paused runs."
   - "`run resume` is for paused runs; reuses the cached sandbox + Docker network when present, falls back to `start` semantics if cache is gone."
+  - "Timeout-triggered failures (`--run-timeout` total wall-clock or `--subtask-timeout` per-subtask wall-clock) save the run artifact like an in-container error and end up in `failed`; resume with `saifctl run start <id>`. CLI flag overrides `defaults.timeouts.{run,subtask}` from the config file."
 analogies:
   - process lifecycle (running, paused, killed)
   - git rebase --continue vs git stash apply

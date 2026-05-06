@@ -64,6 +64,10 @@ export type SerializedLoopOpts = {
   projectName: string;
   testImage: string;
   resolveAmbiguity: 'off' | 'prompt' | 'ai';
+  /** Total wall-clock budget for the run, ms; `null` = unbounded. */
+  runTimeoutMs: number | null;
+  /** Per-subtask wall-clock budget, ms; `null` = disabled. */
+  subtaskTimeoutMs: number | null;
   dangerousNoLeash: boolean;
   cedarPolicyPath: string;
   cedarScript: string;
@@ -206,6 +210,19 @@ export function deserializeArtifactConfig(serialized: DeserializeArtifactConfigI
     ...rest
   } = serialized;
 
+  // Pre-timeouts artifacts won't have runTimeoutMs / subtaskTimeoutMs.
+  // Backfill with the defaults: unbounded run / 1h subtask. Resuming an
+  // older run keeps the same loose-bound semantics it had before this
+  // patch landed (no AGENT_TIMEOUT_MS hardcap anymore).
+  const runTimeoutMs =
+    typeof serialized.runTimeoutMs === 'number' || serialized.runTimeoutMs === null
+      ? serialized.runTimeoutMs
+      : null;
+  const subtaskTimeoutMs =
+    typeof serialized.subtaskTimeoutMs === 'number' || serialized.subtaskTimeoutMs === null
+      ? serialized.subtaskTimeoutMs
+      : 60 * 60 * 1000;
+
   return {
     ...rest,
     featureRelativePath,
@@ -220,6 +237,8 @@ export function deserializeArtifactConfig(serialized: DeserializeArtifactConfigI
         : { type: 'glob' as const, pattern: rule.pattern },
     ),
     maxRuns,
+    runTimeoutMs,
+    subtaskTimeoutMs,
     subtasks,
   };
 }

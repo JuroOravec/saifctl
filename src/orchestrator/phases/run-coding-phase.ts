@@ -36,6 +36,7 @@ import {
   type RunSubtask,
   SAIFCTL_ENGINE_EXITED_REASON,
   SAIFCTL_PAUSE_ABORT_REASON,
+  SAIFCTL_RUN_TIMEOUT_ABORT_REASON,
   SAIFCTL_STOP_ABORT_REASON,
 } from '../../runs/types.js';
 import type { CleanupRegistry } from '../../utils/cleanup.js';
@@ -449,7 +450,16 @@ export async function runCodingPhase(input: RunCodingPhaseOpts): Promise<CodingP
   }
 
   // User issued `saifctl run stop`; infra has been torn down.
-  if (abortReason === SAIFCTL_STOP_ABORT_REASON) {
+  // The run-timeout / subtask-timeout abort is treated identically here
+  // (run state saved, infra torn down) — the loop layer formats the
+  // failure message from the captured `timeoutCause`. This matches the
+  // user's stated intent: "treat it similarly to as if an error happened
+  // inside the container, meaning that we should save the run so the
+  // resume works".
+  if (
+    abortReason === SAIFCTL_STOP_ABORT_REASON ||
+    abortReason === SAIFCTL_RUN_TIMEOUT_ABORT_REASON
+  ) {
     return { outcome: 'stopped', commits: await commitsAfterControlAbort() };
   }
 

@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { SANDBOX_CEDAR_POLICY_BASENAME } from '../constants.js';
-import { leashManagerContainerName, leashTargetContainerName } from '../engines/docker/index.js';
+import { leashTargetContainerName } from '../engines/docker/index.js';
 import { resolveFeature } from '../specs/discover.js';
 import { git, gitAdd, gitCommit, gitInit } from '../utils/git.js';
 import { pathExists, readUtf8, writeUtf8 } from '../utils/io.js';
@@ -44,11 +44,14 @@ index 111aaaa..222bbbb 100644
 `;
 
 describe('Leash container naming (pause/resume / stale cleanup)', () => {
-  it('manager name is target name with -leash suffix (matches leash runner)', () => {
+  it('target name is deterministic from sandboxBasePath (set via TARGET_CONTAINER env)', () => {
     const base = '/tmp/saifctl/sandboxes/saifctl-dummy-abc12';
-    const target = leashTargetContainerName(base);
-    expect(leashManagerContainerName(base)).toBe(`${target}-leash`);
+    expect(leashTargetContainerName(base)).toMatch(/^leash-target-/);
   });
+  // The Leash *manager* container name is NOT predictable from saifctl's side: Leash derives it
+  // from its CLI cwd basename (e.g. `code-leash`) plus a counter for parallel runs. Cleanup
+  // discovers it via the target's network-namespace ref instead — see
+  // removeLeashTargetWithDependents in engines/docker/index.ts.
 });
 
 describe('sandboxFromPausedBasePath', () => {

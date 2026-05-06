@@ -75,6 +75,9 @@ importers:
       '@eslint/js':
         specifier: ^9
         version: 9.39.3
+      '@safe-ai-factory/saifdocs':
+        specifier: 0.3.1
+        version: 0.3.1
       '@tktco/node-actionlint':
         specifier: ^1.6.0
         version: 1.6.0
@@ -1146,6 +1149,11 @@ packages:
 
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
+
+  '@safe-ai-factory/saifdocs@0.3.1':
+    resolution: {integrity: sha512-FfmpFxojX2opOt8SWuDbkXqT4u2F1xH3R9NEgRW0wJ8oWhGrMh8pi4ItM8ZWlRyE5liTV8A4WdvDFkXPLn8wpA==}
+    engines: {node: '>=22.0.0'}
+    hasBin: true
 
   '@sindresorhus/slugify@2.2.1':
     resolution: {integrity: sha512-MkngSCRZ8JdSOCHRaYd+D01XhvU3Hjy6MGl06zhOk614hp9EOAp5gIkBeQg7wtmxpitU6eAL4kdiRMcJa2dlrw==}
@@ -4965,6 +4973,14 @@ snapshots:
     optional: true
 
   '@rtsao/scc@1.1.0': {}
+
+  '@safe-ai-factory/saifdocs@0.3.1':
+    dependencies:
+      citty: 0.2.1
+      consola: 3.4.2
+      gray-matter: 4.0.3
+      js-yaml: 4.1.1
+      zod: 3.25.76
 
   '@sindresorhus/slugify@2.2.1':
     dependencies:

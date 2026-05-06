@@ -35,6 +35,8 @@ const baseArtifact: RunArtifact = {
     projectName: 'p',
     testImage: 't',
     resolveAmbiguity: 'ai',
+    runTimeoutMs: null,
+    subtaskTimeoutMs: 60 * 60 * 1000,
     dangerousNoLeash: false,
     cedarPolicyPath: '',
     cedarScript: '',

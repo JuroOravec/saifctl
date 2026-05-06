@@ -114,6 +114,8 @@ async function buildPocCliOverrides(): Promise<OrchestratorCliInput> {
     projectName: undefined,
     testImage: undefined,
     resolveAmbiguity: undefined,
+    runTimeoutMs: undefined,
+    subtaskTimeoutMs: undefined,
     testRetries: undefined,
     dangerousNoLeash: undefined,
     coderImage: undefined,

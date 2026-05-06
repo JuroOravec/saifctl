@@ -120,6 +120,32 @@ const saifctlConfigDefaultsSchema = z.object({
   maxRuns: z.number().int().positive().optional(),
   testRetries: z.number().int().positive().optional(),
   resolveAmbiguity: z.enum(['off', 'prompt', 'ai']).optional(),
+  /**
+   * Wall-clock timeout budgets. Both fields accept the same shape:
+   *   - a number (milliseconds, e.g. `60 * 60 * 1000`)
+   *   - a duration string (`'1h'`, `'90m'`, `'30s'`, `'1h30m'`, or numeric ms `'3600000'`)
+   *   - the literal string `'none'` or `null` to disable
+   *
+   * `run`: total wall-clock budget for the entire run (CLI: `--run-timeout`).
+   *        Default: unbounded.
+   *
+   * `subtask`: per-subtask wall-clock budget (CLI: `--subtask-timeout`).
+   *            Resets when each subtask becomes active. Default: 1 hour.
+   *
+   * Either timeout firing aborts the run with the same save-artifact-and-
+   * resume semantics as an in-container error. Resume with
+   * `saifctl run start <id>`.
+   */
+  timeouts: z
+    .object({
+      run: z
+        .union([z.number().int().nonnegative(), z.string(), z.null()])
+        .optional(),
+      subtask: z
+        .union([z.number().int().nonnegative(), z.string(), z.null()])
+        .optional(),
+    })
+    .optional(),
   /** Skip Leash; run the coder image with `docker run` (same mounts/env as Leash, no Cedar/eBPF). */
   dangerousNoLeash: z.boolean().optional(),
   cedarPolicyPath: z.string().optional(),

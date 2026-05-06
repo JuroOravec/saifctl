@@ -50,6 +50,16 @@ export const SAIFCTL_PAUSE_ABORT_REASON = 'saifctl-pause';
 export const SAIFCTL_STOP_ABORT_REASON = 'saifctl-stop';
 
 /**
+ * Passed to `AbortController.abort()` when either the run-timeout or the
+ * per-subtask timeout fires. Distinct reason so the catch-site knows to
+ * format the failure as a timeout (with budget vs. elapsed) rather than a
+ * generic abort. The actual timeout details (kind, budget, elapsed,
+ * subtask) live in the loop's `timeoutCause` variable — see
+ * `runIterativeLoop`.
+ */
+export const SAIFCTL_RUN_TIMEOUT_ABORT_REASON = 'saifctl-run-timeout';
+
+/**
  * Passed to `AbortController.abort()` when the coder engine container exited
  * before the host driver received a `subtask-done` signal — i.e. the shell
  * died (silent `set -e`, OOM-kill, signal) without writing the protocol's

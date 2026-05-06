@@ -48,6 +48,8 @@ function makeSourceArtifact(runId: string): RunArtifact {
       projectName: 'proj',
       testImage: 'test:latest',
       resolveAmbiguity: 'ai',
+      runTimeoutMs: null,
+      subtaskTimeoutMs: 60 * 60 * 1000,
       dangerousNoLeash: false,
       cedarPolicyPath: '',
       cedarScript: '',

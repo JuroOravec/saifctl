@@ -218,17 +218,13 @@ export class DockerEngine implements Engine {
     // See {@link EngineSetupOpts.sandboxBasePath}: register the leash / no-leash coder container
     // name on live infra as soon as setup finishes so signal handlers and teardown see it even if
     // runAgent() never returns (spawn failure, SIGINT after container create, etc.).
-    // Both the Leash target AND the Leash manager (`<target>-leash`) are pre-registered so that
-    // teardown() removes both even when runAgent() is interrupted before it can update infra.
-    // For --dangerous-no-leash runs there is no manager container; removeDockerContainerForce is
-    // force/best-effort so a spurious removal attempt is harmless.
+    // Only the Leash target name is predictable (we set it via `TARGET_CONTAINER`). The Leash
+    // *manager* is named by Leash from its cwd basename (e.g. `code-leash`) with a counter for
+    // parallel runs — we cannot predict it. teardown() discovers it via the target's network
+    // namespace ref instead. See removeLeashTargetWithDependents.
     let outInfra: DockerLiveInfra = infra;
     if (opts.sandboxBasePath) {
       outInfra = dockerInfraWithContainer(outInfra, leashTargetContainerName(opts.sandboxBasePath));
-      outInfra = dockerInfraWithContainer(
-        outInfra,
-        leashManagerContainerName(opts.sandboxBasePath),
-      );
     }
 
     return { infra: outInfra };
@@ -563,7 +559,6 @@ export class DockerEngine implements Engine {
             onAgentStdout,
             onAgentStdoutEnd,
             onLog,
-            timeoutMs: AGENT_TIMEOUT_MS,
           }).catch((err: unknown) => {
             const msg = err instanceof Error ? err.message : String(err);
             consola.error(`[agent-runner] Process error: ${msg}`);
@@ -869,8 +864,11 @@ export class DockerEngine implements Engine {
     }
 
     // ── normal agent run ─────────────────────────────────────────────────────
-    const timeoutMs = AGENT_TIMEOUT_MS;
-
+    // Wall-clock timeouts (run-wide and per-subtask) are owned by the
+    // orchestrator's `runIterativeLoop` (see src/orchestrator/timeouts.ts).
+    // The engine just inherits the abort signal; on timeout the orchestrator
+    // calls `signal.abort(SAIFCTL_RUN_TIMEOUT_ABORT_REASON)` and the
+    // `onAbort` handler below tears down the same way as user-initiated stop.
     const { exitCode, output } = await new Promise<{ exitCode: number; output: string }>(
       (resolve, reject) => {
         const child = spawn(cmd, args, {
@@ -894,15 +892,8 @@ export class DockerEngine implements Engine {
           collected += text;
         });
 
-        const timer = setTimeout(() => {
-          child.kill();
-          removeDirectDockerContainer();
-          reject(new Error(`Agent timed out after ${timeoutMs / 1000}s`));
-        }, timeoutMs);
-
         const onAbort = () => {
           child.kill();
-          clearTimeout(timer);
           networkAttach?.cancel();
           const pause = signal?.reason === SAIFCTL_PAUSE_ABORT_REASON;
           if (!pause) {
@@ -921,7 +912,6 @@ export class DockerEngine implements Engine {
         }
 
         child.on('error', (err) => {
-          clearTimeout(timer);
           signal?.removeEventListener('abort', onAbort);
           networkAttach?.cancel();
           removeDirectDockerContainer();
@@ -930,7 +920,6 @@ export class DockerEngine implements Engine {
         });
 
         child.on('close', (code) => {
-          clearTimeout(timer);
           signal?.removeEventListener('abort', onAbort);
           networkAttach?.cancel();
           const pauseKeep =
@@ -973,10 +962,7 @@ export class DockerEngine implements Engine {
 
     // Remove Leash target + manager containers so resume always re-runs Leash (docker start
     // cannot revive Leash targets: no CMD, command comes from the Leash parent + /leash volume).
-    const targetName = leashTargetContainerName(sandboxBasePath);
-    const managerName = leashManagerContainerName(sandboxBasePath);
-    await removeDockerContainerForce(managerName);
-    await removeDockerContainerForce(targetName);
+    await removeLeashTargetWithDependents(leashTargetContainerName(sandboxBasePath));
 
     consola.log(
       '[docker] Paused coding infra (coder container removed; compose paused if configured; file changes preserved).',
@@ -1039,9 +1025,15 @@ export class DockerEngine implements Engine {
     }
     const infra = assertDockerInfra(infraIn);
 
-    // Remove containers and staging images
+    // Remove containers and staging images.
+    // Leash-target containers must be torn down via the netns-aware helper so the Leash *manager*
+    // (which pins the target's netns and would otherwise block its removal) is killed first.
     for (const name of infra.containers) {
-      await removeDockerContainerForce(name);
+      if (name.startsWith('leash-target-')) {
+        await removeLeashTargetWithDependents(name);
+      } else {
+        await removeDockerContainerForce(name);
+      }
     }
 
     for (const tag of infra.stagingImages) {
@@ -1106,8 +1098,6 @@ export class DockerEngine implements Engine {
 // Coding container/image
 // ---------------------------------------------------------------------------
 
-const AGENT_TIMEOUT_MS = 20 * 60 * 1000;
-
 /**
  * Re-attach to a stopped coder container after `run pause` (`docker start -a -i`).
  */
@@ -1117,9 +1107,12 @@ async function runDockerStartAttachCoderContainer(opts: {
   onAgentStdout: (chunk: string) => void;
   onAgentStdoutEnd?: () => void;
   onLog: EngineOnLog;
-  timeoutMs: number;
 }): Promise<{ exitCode: number; output: string }> {
-  const { containerName, signal, onAgentStdout, onAgentStdoutEnd, onLog, timeoutMs } = opts;
+  // Wall-clock timeouts (run-wide and per-subtask) are owned by the
+  // orchestrator's `runIterativeLoop`. The leash variant just inherits the
+  // abort signal; on timeout the orchestrator aborts and the `onAbort`
+  // handler tears down identically to user-initiated stop.
+  const { containerName, signal, onAgentStdout, onAgentStdoutEnd, onLog } = opts;
   return await new Promise<{ exitCode: number; output: string }>((resolve, reject) => {
     const child = spawn('docker', ['start', '-a', '-i', containerName], {
       cwd: process.cwd(),
@@ -1141,14 +1134,8 @@ async function runDockerStartAttachCoderContainer(opts: {
       collected += text;
     });
 
-    const timer = setTimeout(() => {
-      child.kill();
-      reject(new Error(`Agent timed out after ${timeoutMs / 1000}s`));
-    }, timeoutMs);
-
     const onAbort = () => {
       child.kill();
-      clearTimeout(timer);
       if (signal?.reason !== SAIFCTL_PAUSE_ABORT_REASON) {
         void removeDockerContainerForce(containerName);
       }
@@ -1165,14 +1152,12 @@ async function runDockerStartAttachCoderContainer(opts: {
     }
 
     child.on('error', (err) => {
-      clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);
       endAgentStdout();
       reject(err);
     });
 
     child.on('close', (code) => {
-      clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);
       endAgentStdout();
       const pauseKeep = signal?.aborted === true && signal.reason === SAIFCTL_PAUSE_ABORT_REASON;
@@ -1253,28 +1238,9 @@ export function leashTargetContainerName(sandboxBasePath: string): string {
   return `leash-target-${leashWorkspaceId(sandboxBasePath)}`;
 }
 
-/**
- * Leash manager container name (`defaultContainerBaseNames` in leash: `{target}-leash`).
- * Shares the target's network namespace (`--network container:<target>`).
- */
-export function leashManagerContainerName(sandboxBasePath: string): string {
-  return `${leashTargetContainerName(sandboxBasePath)}-leash`;
-}
-
-/** Best-effort: remove Leash manager + coder target containers for a sandbox path. */
+/** Best-effort: remove the Leash coder target container plus its netns-attached manager. */
 async function killSandboxCoderContainerBestEffort(sandboxBasePath: string): Promise<void> {
-  const manager = leashManagerContainerName(sandboxBasePath);
-  const target = leashTargetContainerName(sandboxBasePath);
-  try {
-    await docker.getContainer(manager).remove({ force: true });
-  } catch {
-    /* absent or Docker unavailable */
-  }
-  try {
-    await docker.getContainer(target).remove({ force: true });
-  } catch {
-    /* absent or Docker unavailable */
-  }
+  await removeLeashTargetWithDependents(leashTargetContainerName(sandboxBasePath));
 }
 
 /**
@@ -1372,13 +1338,64 @@ async function resolveDockerNetworkByName(networkName: string) {
 // Utility: Containers
 // ---------------------------------------------------------------------------
 
-/** Best-effort `docker rm -f` equivalent (ignores missing container / races). */
+/**
+ * `docker rm -f` equivalent. Silently treats 404 (already gone) as success — that's the
+ * goal anyway. Any other error is logged so we don't silently leak containers when Docker
+ * refuses removal (e.g. another container shares the netns via `--network container:<id>`).
+ */
 async function removeDockerContainerForce(nameOrId: string): Promise<void> {
   try {
     await docker.getContainer(nameOrId).remove({ force: true });
-  } catch {
-    /* absent, --rm race, etc. */
+  } catch (err: unknown) {
+    if (isDockerNotFoundError(err)) return;
+    consola.warn(`[docker] Failed to remove container "${nameOrId}": ${String(err)}`);
   }
+}
+
+/**
+ * Remove a Leash target container along with any container that shares its network namespace
+ * (`--network container:<target-id>` — i.e. the Leash *manager*). Discovering the manager via
+ * the netns ref is robust to whatever name Leash chose: it derives the manager basename from the
+ * Leash CLI's cwd (e.g. `code-leash`, `code1-leash`, …) plus a counter to disambiguate parallel
+ * runs, so we cannot predict it from the saifctl-controlled `TARGET_CONTAINER` name.
+ *
+ * Order matters: the manager pins the target's netns and Docker refuses to remove the target
+ * (even with `--force`) while a dependent is attached. We remove dependents first, then target.
+ */
+async function removeLeashTargetWithDependents(targetName: string): Promise<void> {
+  let targetId: string;
+  try {
+    const inf = await docker.getContainer(targetName).inspect();
+    targetId = inf.Id;
+  } catch (err: unknown) {
+    if (isDockerNotFoundError(err)) return;
+    consola.warn(`[docker] Failed to inspect "${targetName}" before removal: ${String(err)}`);
+    // Fall back to a direct removal attempt — without the id we can't find dependents.
+    await removeDockerContainerForce(targetName);
+    return;
+  }
+
+  const netnsRef = `container:${targetId}`;
+  let all: Docker.ContainerInfo[];
+  try {
+    all = await docker.listContainers({ all: true });
+  } catch (err) {
+    consola.warn(`[docker] Failed to list containers while removing "${targetName}": ${String(err)}`);
+    await removeDockerContainerForce(targetName);
+    return;
+  }
+
+  const dependents = all.filter((c) => c.HostConfig?.NetworkMode === netnsRef);
+  for (const dep of dependents) {
+    const depName = dep.Names?.[0]?.replace(/^\//, '') ?? dep.Id;
+    await removeDockerContainerForce(depName);
+  }
+
+  await removeDockerContainerForce(targetName);
+}
+
+function isDockerNotFoundError(err: unknown): boolean {
+  return (err as { statusCode?: number } | null)?.statusCode === 404;
 }
 
 async function isDockerContainerRunning(nameOrId: string): Promise<boolean> {

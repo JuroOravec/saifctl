@@ -8,6 +8,7 @@ learning_outcomes:
   - Phased features (with a `phases/` dir) repeat the loop per phase — each phase has its own spec, tests, and critics, and a phase's gate must pass before the next starts.
   - Critic rounds run after the phase's gate passes; each critic adds two extra subtasks (discover + fix) before the phase is considered done.
   - "Per-subtask test scope: tests run from the cumulative `phases/<id>/tests/**` PLUS feature-level `tests/**`, so later phases never break earlier ones."
+  - "Two wall-clock timeouts bound the loop: `--run-timeout` (default unbounded — total budget across all subtasks) and `--subtask-timeout` (default 1h — resets per subtask). Either firing aborts the run with the same save-artifact-and-resume semantics as an in-container error; resume with `saifctl run start <id>`."
 analogies:
   - compiler error loop (write, compile, fix, repeat)
   - CI red/green cycle

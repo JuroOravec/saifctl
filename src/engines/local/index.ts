@@ -118,8 +118,11 @@ export class LocalEngine implements Engine {
       ...containerEnv.secretEnv,
     };
 
-    const timeoutMs = 20 * 60 * 1000;
-
+    // Wall-clock timeouts (run-wide and per-subtask) are owned by
+    // `runIterativeLoop` (see src/orchestrator/timeouts.ts). The local
+    // engine just inherits the abort signal; on timeout the orchestrator
+    // aborts and the `onAbort` handler tears down the same way as a
+    // user-initiated stop.
     const { exitCode, output } = await new Promise<{ exitCode: number; output: string }>(
       (resolve, reject) => {
         const child = spawn(cmd, args, {
@@ -143,14 +146,8 @@ export class LocalEngine implements Engine {
           collected += text;
         });
 
-        const timer = setTimeout(() => {
-          child.kill();
-          reject(new Error(`Agent timed out after ${timeoutMs / 1000}s`));
-        }, timeoutMs);
-
         const onAbort = () => {
           child.kill();
-          clearTimeout(timer);
           const abortReason = signal?.reason != null ? ` (reason: ${String(signal.reason)})` : '';
           reject(new Error(`Agent step cancelled via abort signal${abortReason}`));
         };
@@ -164,14 +161,12 @@ export class LocalEngine implements Engine {
         }
 
         child.on('error', (err) => {
-          clearTimeout(timer);
           signal?.removeEventListener('abort', onAbort);
           endAgentStdout();
           reject(err);
         });
 
         child.on('close', (code) => {
-          clearTimeout(timer);
           signal?.removeEventListener('abort', onAbort);
           endAgentStdout();
           resolve({ exitCode: code ?? 1, output: collected });

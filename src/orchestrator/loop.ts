@@ -44,6 +44,7 @@ import {
   type RunSubtask,
   type RunSubtaskInput,
   SAIFCTL_PAUSE_ABORT_REASON,
+  SAIFCTL_RUN_TIMEOUT_ABORT_REASON,
   SAIFCTL_STOP_ABORT_REASON,
   StaleArtifactError,
 } from '../runs/types.js';
@@ -83,6 +84,7 @@ import {
   resolveSubtaskTestScope,
   synthesizeMergedTestsDir,
 } from './test-scope.js';
+import { formatDurationMs } from './timeouts.js';
 
 /**
  * Builds `extractPatch` exclude rules: fixed guardrails plus optional caller rules.
@@ -299,6 +301,22 @@ export interface IterativeLoopOpts {
    * Default: 1 (run once; no retries).
    */
   testRetries: number;
+  /**
+   * Total wall-clock budget for the entire run (incl. resumes). `null` =
+   * unbounded. CLI: `--run-timeout`. Default: `null`. On expiry the run is
+   * aborted and the artifact is saved (resume with `saifctl run start <id>`).
+   *
+   * See `src/orchestrator/timeouts.ts` for parsing/formatting helpers.
+   */
+  runTimeoutMs: number | null;
+  /**
+   * Per-subtask wall-clock budget. Resets when each new subtask becomes
+   * active. `null` disables the per-subtask timer entirely. CLI:
+   * `--subtask-timeout`. Default: 1 hour. On expiry the active agent process
+   * is killed, the run is aborted and the artifact is saved (the offending
+   * subtask is named in the failure message).
+   */
+  subtaskTimeoutMs: number | null;
   /**
    * Additional file sections to strip from the extracted patch before it is
    * applied to the host repo. The saifctlDir/ glob is always prepended
@@ -642,6 +660,40 @@ export interface RunStorageContext {
 }
 
 /**
+ * Captured details for a wall-clock-timeout abort. Either the run-wide budget
+ * or the per-subtask budget exceeded; the kind discriminator selects which.
+ * Held in a closure variable inside `runIterativeLoop` so the formatter can
+ * surface a focused failure message AFTER the engine teardown returns.
+ */
+type LoopTimeoutCause =
+  | { kind: 'run'; budgetMs: number; elapsedMs: number }
+  | {
+      kind: 'subtask';
+      budgetMs: number;
+      elapsedMs: number;
+      subtaskIndex: number;
+      subtaskTitle: string;
+    };
+
+/**
+ * Build the user-visible failure message for a timeout-driven abort. The
+ * message names the budget, the elapsed time, and the resume command — same
+ * shape regardless of which timer fired.
+ */
+function formatTimeoutFailureMessage(cause: LoopTimeoutCause, runId: string): string {
+  const budget = formatDurationMs(cause.budgetMs);
+  const elapsed = formatDurationMs(cause.elapsedMs);
+  const resumeHint = `Resume with \`saifctl run start ${runId}\`.`;
+  if (cause.kind === 'run') {
+    return `Run wall-clock timeout exceeded (set: ${budget}, elapsed: ${elapsed}). ${resumeHint}`;
+  }
+  return (
+    `Subtask ${cause.subtaskIndex + 1} ('${cause.subtaskTitle}') exceeded subtask timeout ` +
+    `(set: ${budget}, elapsed: ${elapsed}). ${resumeHint}`
+  );
+}
+
+/**
  * The shared inner orchestration loop used by `start` and `fromArtifact` modes.
  * Drives outer attempts: run the coding agent, extract the patch, run staging
  * tests (with vague-specs handling), then either apply to the host or feed
@@ -703,9 +755,66 @@ export async function runIterativeLoop(
     loopRunSubtasks,
     loopCurrentSubtaskIndex,
     gateScript: runGateScriptContent,
+    runTimeoutMs,
+    subtaskTimeoutMs,
   } = opts;
 
   const runId = sandbox.runId;
+
+  //////////////////////////////////////////////////
+  // Timeouts (run-wide + per-subtask)
+  //////////////////////////////////////////////////
+  // Both timeouts share a single top-level AbortController. When either timer
+  // fires, we record the cause (run vs. subtask + which subtask was active)
+  // BEFORE aborting, so the catch-site can format a focused error message.
+  // Timer cleanup happens once on every exit path via `disposeTimeouts()`.
+
+  const runStartedAt = Date.now();
+  const runWideAbort = new AbortController();
+  let timeoutCause: LoopTimeoutCause | null = null;
+
+  const runTimer: NodeJS.Timeout | null =
+    runTimeoutMs !== null
+      ? setTimeout(() => {
+          timeoutCause = {
+            kind: 'run',
+            budgetMs: runTimeoutMs,
+            elapsedMs: Date.now() - runStartedAt,
+          };
+          runWideAbort.abort(SAIFCTL_RUN_TIMEOUT_ABORT_REASON);
+        }, runTimeoutMs)
+      : null;
+  // Per-subtask timer is rearmed at each subtask transition; see `armSubtaskTimer`.
+  let subtaskTimer: NodeJS.Timeout | null = null;
+  let subtaskTimerStartedAt: number | null = null;
+
+  /** Arm the per-subtask timer for the given subtask index. No-op when subtask timeout is disabled. */
+  const armSubtaskTimer = (subtaskIndex: number): void => {
+    if (subtaskTimer !== null) {
+      clearTimeout(subtaskTimer);
+      subtaskTimer = null;
+    }
+    if (subtaskTimeoutMs === null) return;
+    subtaskTimerStartedAt = Date.now();
+    const budgetMs = subtaskTimeoutMs;
+    subtaskTimer = setTimeout(() => {
+      const row = loopRunSubtasks[subtaskIndex];
+      timeoutCause = {
+        kind: 'subtask',
+        budgetMs,
+        elapsedMs: Date.now() - (subtaskTimerStartedAt ?? Date.now()),
+        subtaskIndex,
+        subtaskTitle: row?.title ?? `subtask ${subtaskIndex + 1}`,
+      };
+      runWideAbort.abort(SAIFCTL_RUN_TIMEOUT_ABORT_REASON);
+    }, budgetMs);
+  };
+
+  const disposeTimeouts = (): void => {
+    if (runTimer) clearTimeout(runTimer);
+    if (subtaskTimer) clearTimeout(subtaskTimer);
+    subtaskTimer = null;
+  };
 
   // Block 8 (§9): resolve per-phase spec filename overrides ONCE at loop init.
   // Most projects use the built-in default (`spec.md`), but a project that
@@ -924,6 +1033,10 @@ export async function runIterativeLoop(
       resultStatus = result.status;
       return result;
     } finally {
+      // Always cancel timers — handles success, controlled stop/pause, and
+      // any thrown error. Without this an outstanding setTimeout would hold
+      // the event loop open past run completion.
+      disposeTimeouts();
       if (resultStatus === 'paused') {
         await savePausedArtifact();
       } else {
@@ -1088,6 +1201,23 @@ export async function runIterativeLoop(
     /** Holder so TS sees assignments from `onSubtaskComplete` (async callback) as observable after `await`. */
     const runTerminal: { result: OrchestratorResult | null } = { result: null };
     const codingAbort = new AbortController();
+
+    // Forward run-wide aborts (run-timeout / subtask-timeout) into this
+    // subtask's coding abort so the engine kills its child processes and
+    // unwinds the same way it does for stop / pause.
+    if (runWideAbort.signal.aborted) {
+      codingAbort.abort(runWideAbort.signal.reason);
+    } else {
+      runWideAbort.signal.addEventListener(
+        'abort',
+        () => codingAbort.abort(runWideAbort.signal.reason),
+        { once: true },
+      );
+    }
+
+    // Arm the per-subtask wall-clock timer (no-op when subtask timeout is
+    // null). Each subtask iteration rearms with a fresh budget.
+    armSubtaskTimer(subtaskCursorIndex);
 
     /**
      * Block 4: capture the git rev-parse HEAD at the start of each phase's
@@ -1514,6 +1644,8 @@ export async function runIterativeLoop(
         const nextIdx = subtaskIndex + 1;
         if (nextIdx < loopRunSubtasks.length) {
           subtaskCursorIndex = nextIdx;
+          // Subtask completed within budget — rearm for the next one.
+          armSubtaskTimer(subtaskCursorIndex);
           const nextSt = loopRunSubtasks[nextIdx];
           if (!nextSt) {
             runTerminal.result = controlResult(
@@ -1603,6 +1735,7 @@ export async function runIterativeLoop(
         const nextIdx = subtaskIndex + 1;
         if (nextIdx < loopRunSubtasks.length) {
           subtaskCursorIndex = nextIdx;
+          armSubtaskTimer(subtaskCursorIndex);
           const nextSt = loopRunSubtasks[nextIdx];
           if (!nextSt) {
             runTerminal.result = controlResult(
@@ -1873,6 +2006,12 @@ export async function runIterativeLoop(
       case 'stopped': {
         const { commits } = codingResult;
         runCommitsAccum = [...runCommitsAccum, ...commits];
+        // Distinguish a user-initiated `run stop` from a timeout-driven
+        // teardown: both reach this branch, but the failure message and
+        // resume hint should reflect what actually happened.
+        if (timeoutCause) {
+          return controlResult('failed', formatTimeoutFailureMessage(timeoutCause, runId));
+        }
         return controlResult('stopped', 'Run stopped by request.');
       }
       case 'paused': {

@@ -810,8 +810,9 @@ const runCommand = defineCommand({
 
     consola.log(`\n${result.message}`);
     if (result.runId && runArgs.runStorage && result.status !== 'success') {
-      consola.log(`\nStart again with:`);
-      consola.log(`  saifctl run start ${result.runId}`);
+      const paused = result.status === 'paused';
+      consola.log(`\n${paused ? 'Resume' : 'Start'} again with:`);
+      consola.log(`  saifctl run ${paused ? 'resume' : 'start'} ${result.runId}`);
     }
     // User-driven pause/stop are not CLI failures: exit 0 like success; only true run failures exit 1.
     if (result.status === 'failed') process.exit(1);

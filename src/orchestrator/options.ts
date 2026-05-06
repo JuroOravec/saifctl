@@ -52,6 +52,7 @@ import { mergeAgentSecretKeysFromReads } from './agent-env.js';
 import type { OrchestratorOpts } from './modes.js';
 import { loadSubtasksFromFile, resolveSubtasks } from './resolve-subtasks.js';
 import { DEFAULT_SANDBOX_BASE_DIR } from './sandbox.js';
+import { resolveTimeouts } from './timeouts.js';
 
 // ---------------------------------------------------------------------------
 // LLM overrides: config baseline → artifact → CLI delta
@@ -188,6 +189,8 @@ const ORCHESTRATOR_MERGE_KEYS = [
   'projectName',
   'testImage',
   'resolveAmbiguity',
+  'runTimeoutMs',
+  'subtaskTimeoutMs',
   'testRetries',
   'dangerousNoLeash',
   'cedarPolicyPath',
@@ -321,6 +324,10 @@ async function applyOrchestratorBaseline(
   const testProfile = pickTestProfile(noCli, config);
   const testImage = resolveTestImageTag(noCli, testProfile.id, config);
   const resolveAmbiguity = config?.defaults?.resolveAmbiguity ?? DEFAULT_RESOLVE_AMBIGUITY;
+  const { runMs: runTimeoutMs, subtaskMs: subtaskTimeoutMs } = resolveTimeouts({
+    configRun: config?.defaults?.timeouts?.run ?? undefined,
+    configSubtask: config?.defaults?.timeouts?.subtask ?? undefined,
+  });
   const testRetries = config?.defaults?.testRetries ?? DEFAULT_ORCHESTRATOR_TEST_RETRIES;
   const dangerousNoLeash = config?.defaults?.dangerousNoLeash ?? DEFAULT_DANGEROUS_NO_LEASH;
   const cedarPolicyPath = config?.defaults?.cedarPolicyPath ?? defaultCedarPolicyPath();
@@ -422,6 +429,8 @@ async function applyOrchestratorBaseline(
     projectName,
     testImage,
     resolveAmbiguity,
+    runTimeoutMs,
+    subtaskTimeoutMs,
     testRetries,
     dangerousNoLeash,
     cedarPolicyPath,

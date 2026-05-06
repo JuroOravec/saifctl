@@ -26,6 +26,7 @@ import {
   pickAgentInstallScript,
   pickAgentScript,
 } from '../orchestrator/options.js';
+import { parseDuration } from '../orchestrator/timeouts.js';
 import { createRunStorage, type RunStorage } from '../runs/storage.js';
 import {
   readSandboxGateScript,
@@ -166,6 +167,10 @@ export interface FeatRunArgs extends OrchestratorArgs {
   'sandbox-base-dir'?: string;
   project?: string;
   'resolve-ambiguity'?: string;
+  /** Total wall-clock budget for the run; duration string, ms integer, or "none". */
+  'run-timeout'?: string;
+  /** Per-subtask wall-clock budget; duration string, ms integer, or "none". */
+  'subtask-timeout'?: string;
   'dangerous-no-leash'?: boolean;
   cedar?: string;
   'coder-image'?: string;
@@ -1079,6 +1084,32 @@ export async function buildOrchestratorCliInputFromFeatArgs(
     resolveAmbiguity = undefined;
   }
 
+  // Timeouts: parse at the CLI boundary so invalid input fails fast with a
+  // clear error message. `undefined` here means "flag not set"; the
+  // resolver in options.ts then falls through to config / built-in default.
+  let runTimeoutMs: number | null | undefined;
+  let subtaskTimeoutMs: number | null | undefined;
+  const runTimeoutRaw = runArgs['run-timeout'];
+  if (typeof runTimeoutRaw === 'string' && runTimeoutRaw.trim() !== '') {
+    try {
+      runTimeoutMs = parseDuration(runTimeoutRaw.trim(), '--run-timeout');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      consola.error(`Error: ${msg}`);
+      process.exit(1);
+    }
+  }
+  const subtaskTimeoutRaw = runArgs['subtask-timeout'];
+  if (typeof subtaskTimeoutRaw === 'string' && subtaskTimeoutRaw.trim() !== '') {
+    try {
+      subtaskTimeoutMs = parseDuration(subtaskTimeoutRaw.trim(), '--subtask-timeout');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      consola.error(`Error: ${msg}`);
+      process.exit(1);
+    }
+  }
+
   const dangerousNoLeash = runArgs['dangerous-no-leash'] === true ? true : undefined;
 
   const cedarPolicyPath =
@@ -1280,6 +1311,8 @@ export async function buildOrchestratorCliInputFromFeatArgs(
     projectName,
     testImage: testImageCli,
     resolveAmbiguity,
+    runTimeoutMs,
+    subtaskTimeoutMs,
     testRetries,
     dangerousNoLeash,
     cedarPolicyPath,

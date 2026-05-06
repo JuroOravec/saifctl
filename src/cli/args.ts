@@ -182,6 +182,16 @@ export const runTestArgs = {
     description:
       'How to handle test failures caused by ambiguous specs failures. "ai" (use AI for clarification) | "prompt" (ask human for clarification) | "off" (all failures treated as genuine) (default: ai).',
   },
+  'run-timeout': {
+    type: 'string' as const,
+    description:
+      'Total wall-clock budget for the entire run (incl. resumes). Accepts duration ("1h", "90m", "30s", "1h30m"), millisecond integer ("3600000"), or "none". Default: none (unbounded). On expiry, the run is aborted and saved; resume with `saifctl run start <id>`.',
+  },
+  'subtask-timeout': {
+    type: 'string' as const,
+    description:
+      'Per-subtask wall-clock budget. Resets each time a new subtask becomes active. Same value grammar as --run-timeout. Default: 1h. Set to "none" to disable. On expiry, the run is aborted and saved with the offending subtask in the log.',
+  },
   'no-reviewer': {
     type: 'boolean' as const,
     description:

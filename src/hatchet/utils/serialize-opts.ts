@@ -44,6 +44,10 @@ export interface SerializedOrchestratorOpts extends Record<string, unknown> {
   projectName: string;
   testImage: string;
   resolveAmbiguity: 'off' | 'prompt' | 'ai';
+  /** Total wall-clock budget for the run, ms; `null` = unbounded. */
+  runTimeoutMs: number | null;
+  /** Per-subtask wall-clock budget, ms; `null` = disabled. */
+  subtaskTimeoutMs: number | null;
   dangerousNoLeash?: boolean;
   cedarPolicyPath: string;
   cedarScript: string;
@@ -205,6 +209,8 @@ export function deserializeOrchestratorOpts(serialized: Record<string, unknown>)
     projectName: s.projectName,
     testImage: s.testImage,
     resolveAmbiguity: s.resolveAmbiguity,
+    runTimeoutMs: s.runTimeoutMs,
+    subtaskTimeoutMs: s.subtaskTimeoutMs,
     dangerousNoLeash: s.dangerousNoLeash ?? false,
     cedarPolicyPath: s.cedarPolicyPath,
     cedarScript: s.cedarScript,

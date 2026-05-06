@@ -4,7 +4,17 @@ export default defineConfig({
   test: {
     globals: true,
     include: ['src/**/*.test.ts', 'saifctl/**/tests/**/*.spec.ts'],
-    exclude: ['node_modules/**', 'dist/**', 'test/integration/**'],
+    // Per-phase spec files emitted by feature compilers (saifdocs, custom
+    // designers, etc.) live under saifctl/features/<id>/phases/.../tests/
+    // and are meant to run inside the saifctl test-runner container against
+    // the staging sidecar — not on the host. Vitest's default glob would
+    // otherwise sweep them up and fail with ECONNREFUSED on localhost:8080.
+    exclude: [
+      'node_modules/**',
+      'dist/**',
+      'test/integration/**',
+      'saifctl/features/*/phases/**',
+    ],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts', 'scripts/**/*.ts'],
