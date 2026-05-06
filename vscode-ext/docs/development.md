@@ -49,16 +49,16 @@ Use `pnpm run watch:tsup` in a terminal for incremental builds while developing.
 
 ## Scripts
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm run build` | Bundle `src/` → `dist/extension.js` (tsup) |
-| `pnpm run vsix` | Package a `.vsix` for distribution |
-| `pnpm run check-types` | TypeScript `--noEmit` |
-| `pnpm run lint` | ESLint |
-| `pnpm run compile` | check-types + lint + build |
-| `pnpm run test` | Extension integration tests (Mocha; needs build + `compile-tests`) |
-| `pnpm run test:unit` | Vitest unit tests |
-| `pnpm run format` | Prettier write |
+| Command                | Purpose                                                            |
+| ---------------------- | ------------------------------------------------------------------ |
+| `pnpm run build`       | Bundle `src/` → `dist/extension.js` (tsup)                         |
+| `pnpm run vsix`        | Package a `.vsix` for distribution                                 |
+| `pnpm run check-types` | TypeScript `--noEmit`                                              |
+| `pnpm run lint`        | ESLint                                                             |
+| `pnpm run compile`     | check-types + lint + build                                         |
+| `pnpm run test`        | Extension integration tests (Mocha; needs build + `compile-tests`) |
+| `pnpm run test:unit`   | Vitest unit tests                                                  |
+| `pnpm run format`      | Prettier write                                                     |
 
 ## Mock runs
 

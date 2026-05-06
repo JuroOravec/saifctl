@@ -1,0 +1,16 @@
+dist/
+out/
+node_modules/
+coverage/
+.vscode-test/
+
+# Lockfiles — managed by package manager
+pnpm-lock.yaml
+
+# Held for human review per VSX-01 (release-readiness spec)
+README.md
+README_bacup.md
+README_v2.md
+
+# Test workspace fixtures — authored as-is for the integration suite
+saifctl-test-workspace/

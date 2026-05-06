@@ -1,11 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "ignore": [
-    ".vscode-test.mjs",
-    "src/test/**"
-  ],
+  "ignore": ["src/test/**", "saifctl-test-workspace/**"],
   "ignoreDependencies": [
     "@types/mocha",
-    "@vscode/test-electron"
+    "@vitest/coverage-v8",
+    "@vscode/test-electron",
+    "glob",
+    "mocha"
   ]
 }

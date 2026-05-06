@@ -1,0 +1,56 @@
+name: Extension CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        working-directory: vscode-ext
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        working-directory: vscode-ext
+        run: pnpm run check-types
+
+      - name: Lint
+        working-directory: vscode-ext
+        run: pnpm run lint
+
+      - name: Dead code (knip)
+        working-directory: vscode-ext
+        run: pnpm run knip
+
+      - name: Format check
+        working-directory: vscode-ext
+        run: pnpm run format:check
+
+      - name: Unit tests
+        working-directory: vscode-ext
+        run: pnpm run test:unit
+
+      - name: Build
+        working-directory: vscode-ext
+        run: pnpm run build
+
+      - name: Integration tests (VS Code Extension Host)
+        # xvfb-run creates a virtual X server display so the VS Code Extension Host can launch
+        working-directory: vscode-ext
+        run: xvfb-run -a pnpm run test

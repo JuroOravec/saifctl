@@ -43,16 +43,16 @@ executeCommand('remote-containers.attachToRunningContainer', { containerId: '<na
 
 ### Identity & packaging
 
-|                          | Microsoft                                          | Cursor                          |
-| ------------------------ | -------------------------------------------------- | ------------------------------- |
-| **Publisher**            | `ms-vscode-remote`                                 | `anysphere`                     |
-| **Version (verified)**   | 0.452.0                                            | 1.0.32                          |
-| **Display name**         | Localized (`%displayName%`)                        | `Remote Containers`             |
-| **Main entry**           | `./dist/extension/extension.js` (VSIX layout)      | `./dist/main.js`                |
-| **Repository**           | `vscode-remote-release`                            | `getcursor/cursor`              |
-| **`extensionKind`**      | `["ui"]`                                           | `["ui"]`                        |
-| **`engines.vscode`**     | `^1.101.0`                                         | `^1.75.0`                       |
-| **Extra API proposals**  | (see MS `package.json`)                            | includes `cursorTracing`        |
+|                         | Microsoft                                     | Cursor                   |
+| ----------------------- | --------------------------------------------- | ------------------------ |
+| **Publisher**           | `ms-vscode-remote`                            | `anysphere`              |
+| **Version (verified)**  | 0.452.0                                       | 1.0.32                   |
+| **Display name**        | Localized (`%displayName%`)                   | `Remote Containers`      |
+| **Main entry**          | `./dist/extension/extension.js` (VSIX layout) | `./dist/main.js`         |
+| **Repository**          | `vscode-remote-release`                       | `getcursor/cursor`       |
+| **`extensionKind`**     | `["ui"]`                                      | `["ui"]`                 |
+| **`engines.vscode`**    | `^1.101.0`                                    | `^1.75.0`                |
+| **Extra API proposals** | (see MS `package.json`)                       | includes `cursorTracing` |
 
 ### Activation events
 
@@ -90,7 +90,6 @@ Shared core set includes `attachToRunningContainer`, `attachToRunningContainerFr
 1. In Cursor: **Extensions** → open **Dev Containers** (publisher Anysphere) → use **Open Extension Folder** / **Reveal in Finder** (wording varies by version), **or** find the folder manually.
 
 2. Typical locations (pick what exists on your machine):
-
    - **macOS:** `~/.cursor/extensions/` — folder name like `anysphere.remote-containers-*` or `ms-vscode-remote.remote-containers-*` (Cursor sometimes keeps the Microsoft-style id with a forked build).
    - Copy that folder's **`package.json`** somewhere convenient (e.g. `/tmp/cursor-dev-containers.package.json`).
 

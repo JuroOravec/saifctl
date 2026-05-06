@@ -13,7 +13,7 @@ Both modes share the same kernel: ephemeral Docker container, Cedar policies enf
 
 ## Run OpenClaw safely
 
-You want to run OpenClaw without risking your machine. The sandbox puts openclaw in a container; your project is copied in, not mounted. The agent cannot touch the host until you say so.
+You want to run OpenClaw without risking your machine. The sandbox puts openclaw in a container; your project is copied in. The agent cannot touch the host until you say so.
 
 | What you want to do | Where to go |
 |---|---|
