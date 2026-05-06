@@ -14,4 +14,4 @@ analogies:
   - test directory structure where tests/ mirrors src/
 ---
 
-Body intent: explain features as the saifctl unit of work; absorb the content of the legacy docs_old/specs.md into a single concept page covering both "what a feature is" and "the spec-driven layout". Cross-link the `tutorial spec-driven-development` (DOC-08) for the step-by-step walkthrough.
+Body intent: explain features as the saifctl unit of work; cover both "what a feature is" and "the spec-driven layout" in one concept page. Cross-link the `tutorial spec-driven-development` (DOC-08) for the step-by-step walkthrough.

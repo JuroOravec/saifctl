@@ -2,7 +2,7 @@
 
 This document describes how the factory records **inner loop** outcomes (agent → gate → optional semantic reviewer) so the **host orchestrator** can attach structured history to each **outer** coding attempt.
 
-For the inner gate loop itself, see [v0/swf-inner-loop.md](./v0/swf-inner-loop.md).
+For the inner gate loop itself, see [`architecture/gate-and-reviewer.md`](./architecture/gate-and-reviewer.md). Outer-loop integration: [`architecture/orchestrator.md`](./architecture/orchestrator.md).
 
 ## Why this exists
 

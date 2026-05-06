@@ -58,10 +58,11 @@ forbid (
 // diff `BASE_COMMIT..HEAD` regardless of whether the agent committed itself.
 //
 // Background: the original blanket forbid on `Dir::"/workspace/.git/"` was
-// noted in the design-time security audit (architecture-history/security_assessment.md
-// items #2 and #6) and broke the reviewer's commit step inside the container.
-// Narrowing to the two specifically-dangerous paths keeps the sandbox-escape
-// mitigation intact without over-restricting normal git plumbing.
+// noted in the design-time security audit (docs/contributing/architecture/
+// security-threats.md, findings #2 and #6) and broke the reviewer's commit
+// step inside the container. Narrowing to the two specifically-dangerous
+// paths keeps the sandbox-escape mitigation intact without over-restricting
+// normal git plumbing.
 forbid (
     principal,
     action == Action::"FileOpenReadWrite",

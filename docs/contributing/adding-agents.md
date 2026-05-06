@@ -1,97 +1,133 @@
 # Agent profiles
 
-## Overview
+Practical how-to for adding a new coding-agent CLI integration. For the broader profile-system context (extension points, contract rationale), see [`architecture/extension-points.md`](./architecture/extension-points.md). For the script lifecycles, see [`architecture/installation-scripts.md`](./architecture/installation-scripts.md).
 
-When you run `saifctl feat run`, the factory:
+## What an integration ships
 
-1. Creates a sandbox (container with a copy of your repo)
-2. Runs a **startup script** once (e.g. `pnpm install`)
-3. Runs an **agent setup script** once (e.g. `pipx install aider-chat`)
-4. Enters the **work loop**: run the agent → check results → retry on fail
-5. Extracts the changes on success.
+Every agent profile dir at `src/agent-profiles/<id>/` contains:
 
-**Agent integrations provide** the scripts in steps 3 and 4:
+| File | Role |
+|---|---|
+| `profile.ts` | Registers id, displayName, `stdoutStrategy`, drop-privileges classification. |
+| `agent-install.sh` | Installs the agent CLI in the coder container. Runs once at container start. |
+| `agent.sh` | Runs the agent for one inner round. Reads `$SAIFCTL_TASK_PATH`, exits when done. |
 
-- `agent-install.sh` - one-time install
-- `agent.sh` - actual agent work
+`--agent <id>` picks a built-in profile. `--agent-script <path>` overrides just `agent.sh` for one-off runs.
 
-You choose which integration to use via `--agent <id>` or `--agent-script <path/to/script.sh>`.
+## `agent.sh` contract
 
----
+Every `agent.sh` must:
 
-## What Integrations Offer
+| Requirement | Detail |
+|---|---|
+| Read task from file | Task is at `$SAIFCTL_TASK_PATH` before each invocation. **Don't** read from CLI args (escaping + arg-length limits). |
+| Work in the workspace | Leash mode: `/workspace`. `--engine local`: current directory (sandbox `code/`). Use `${SAIFCTL_WORKSPACE_BASE:-/workspace}`. |
+| Exit on completion | Any exit code. The gate is the authoritative success signal, not the agent's exit code. |
+| Headless / non-interactive | Agent must run without prompts (`--yes`, `--headless`, `--always-approve`, `--yolo`, etc.). |
+| No auto-commits | Most CLIs commit by default; the factory extracts diffs itself. Pass `--no-auto-commits` etc. to disable. |
+| Source drop-privileges helpers | Run as `$SAIFCTL_UNPRIV_USER`, not root. **Mandatory** — see below. |
 
-### 1. Agent script (`agent.sh`)
+### Drop-privileges contract (mandatory)
 
-**Contract every integration must honour:**
+Every `agent.sh` **must** source `/saifctl/saifctl-agent-helpers.sh` and call `saifctl_drop_privs_init` before invoking the agent CLI. Even with `--dangerousNoLeash`, the agent runs as a non-root user inside its container.
 
-| Requirement                | Description                                                                                                |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Read task from file        | Task is written to `$SAIFCTL_TASK_PATH` before each invocation. Use that path, not CLI args.               |
-| Work in the workspace      | In Leash mode: `/workspace`. With `--engine local`: current directory (sandbox `code/`). |
-| Exit on completion         | Exit 0 when done, non-zero on failure. The gate runs after the agent exits.                                |
-| Headless / non-interactive | Agent must run without prompts (e.g. `--yes`, `--headless`, `--always-approve`).                           |
-| No auto-commits            | Agent must not commit; the factory extracts the diff via `git diff`. Some agents need `--no-auto-commits`. |
+Enforced by [`src/agent-profiles/drop-privileges-contract.test.ts`](../../src/agent-profiles/drop-privileges-contract.test.ts) — a structural test that fails if any profile's `agent.sh` skips it. Rationale: [`architecture/security-threats.md` Drop-privileges contract](./architecture/security-threats.md#additional-hardening-mechanisms).
 
-### 2. Agent install script (`agent-install.sh`)
+### Minimal `agent.sh` example (Aider)
 
-- Runs once, after the project startup script, before the agent loop.
-- Typically installs the agent CLI (pipx, uv, npm, etc.).
-- Must be idempotent (skip if already installed).
-- Optional: OpenHands and some others have it; agents baked into the image may have an empty script.
+```bash
+#!/bin/bash
+set -euo pipefail
+source /saifctl/saifctl-agent-helpers.sh
+saifctl_drop_privs_init
 
-### 3. Agent logging
+cd "${SAIFCTL_WORKSPACE_BASE:-/workspace}"
+aider --message-file "$SAIFCTL_TASK_PATH" --yes --no-auto-commits
+```
 
-Some agents emit logs in formats which are not easy to read for human. For example OpenHands prints structured JSON events, whereas Aider emits a line-wise output.
+## `agent-install.sh` contract
 
-Thus we need to 1) handle logs per-agent, and 2) have ability to transform the agent's logs into human-friendly format. This is defined on every **agent profile** as a required **`stdoutStrategy`** field: either a strategy object or **`null`**.
+- Runs once at container start, after `startup.sh`, before the agent loop.
+- Installs the agent CLI (pipx, uv, npm, curl, etc.).
+- **Idempotent** — skip if already installed (the saifctl-published image may bake the CLI in).
 
-For example, OpenHands sets a strategy that detects the start and end of its JSON events. JSON events are then turned e.g. into `[think]`, etc, segments, while the rest is logged as-is.
+Examples in [`architecture/installation-scripts.md` agent-install.sh](./architecture/installation-scripts.md#agent-installsh--agent-cli-setup).
 
-Profiles with **`stdoutStrategy: null`** get line-wise `[agent]`-prefixed output inside the `[SAIFCTL:AGENT_*]` window.
+## `profile.ts`: `stdoutStrategy` field
 
-This is not configurable via CLI or `saifctl.config`.
+Some agents emit structured JSON (OpenHands), others print plain lines (Aider). Profiles declare a `stdoutStrategy`:
 
-## Adding agents integrations
+- **Object strategy** — detect agent-specific event boundaries and reformat. OpenHands turns JSON events into `[think]`, `[agent]`, `[inspect]` segments.
+- **`null`** — passthrough; line-wise output prefixed with `[agent]` inside the `[SAIFCTL:AGENT_*]` window.
 
-When adding new agent CLI integrations (agent profiles), I used following approach:
+Required in `profile.ts`. Not configurable via CLI or `saifctl.config`.
 
-### Step 1 - Smart model to fetch info and code
+## Concrete examples
 
-Model: Sonnet 4.6 or better
+The 15 shipping profiles at [`src/agent-profiles/`](../../src/agent-profiles/) are the canonical examples. Notable variants:
 
-Prompt:
+| Profile | Pattern |
+|---|---|
+| `claude` | npm-installed CLI; OAuth token-staging via `--claude-max` (per-agent option) |
+| `aider` | pipx-installed; reads task from `--message-file`; explicit `--no-auto-commits` |
+| `openhands` | Pre-installed in the published image; structured-JSON `stdoutStrategy` |
+| `cursor` | `curl | bash` install; OAuth via `--cursor-api-key` per-agent option |
+| `debug` | No-op; no LLM call. Used in integration tests |
+
+## Adding a new agent — workflow
+
+### Step 1 — scaffold + integrate (Sonnet 4.6 or better)
 
 ```txt
 Let's add new agent profile: mini-swe-agent - https://github.com/SWE-agent/mini-swe-agent
 
-Do the integration in 5 distinct steps:
-1. write the scaffolding, profile.ts, register it in index.ts and types.ts
-2. check docs online for installation requiremens and write agent-install.sh
-3. check docs online for how to pass text to the CLI and pass the task text to it in yolo / autonomous mode
-4. check docs online for all the flags / options the CLI accepts, and configure it.
-5. check docs for configuring API keys, model, provider, and base url, and update it
+Do the integration in 5 steps:
+1. write profile.ts, register in index.ts and types.ts (SUPPORTED_AGENT_PROFILE_IDS).
+2. check upstream docs for install requirements; write agent-install.sh (idempotent).
+3. check upstream docs for how to pass text to the CLI; pass $SAIFCTL_TASK_PATH content
+   to it in yolo/autonomous mode in agent.sh. Source /saifctl/saifctl-agent-helpers.sh
+   and call saifctl_drop_privs_init before invoking the CLI.
+4. check upstream docs for all the flags/options the CLI accepts; configure them.
+5. check upstream docs for API key / model / provider / base-url config; wire LLM_* env.
 ```
 
-**Things to look out for:**
+Things to verify after the model produces a draft:
 
-1. Is the task prompt being passed to the CLI?
-2. Is `LLM_MODEL` being passed to the CLI?
-3. If supported, is `LLM_PROVIDER` or `LLM_BASE_URL` passed on?
-4. Are API keys passed on? Either specific like `OPENAI_API_KEY`, or generic `LLM_API_KEY`.
-5. Is the CLI configured to run in yolo / autonomous mode?
-6. Is the agent's profile registered in `index.ts` and `types.ts`?
+- Task prompt reaches the CLI (`$SAIFCTL_TASK_PATH` content).
+- `LLM_MODEL`, `LLM_PROVIDER`, `LLM_BASE_URL` forwarded if supported.
+- API keys forwarded (provider-specific like `OPENAI_API_KEY` or generic `LLM_API_KEY`).
+- CLI runs in yolo / autonomous / headless mode (no prompts).
+- Profile registered in `src/agent-profiles/index.ts` + `SUPPORTED_AGENT_PROFILE_IDS` in `types.ts`.
+- `drop-privileges-contract.test.ts` passes.
 
-### Step 2 - Fast model to update docs
+### Step 2 — author the user-facing reference
 
-Model: Cursor Composer 1.5
+Create `docspec/references/agents/<id>.md`:
 
-Prompt:
+```yaml
+---
+source: src/agent-profiles/<id>/agent.sh
+type: cli-command
+---
+
+[Brief description of the upstream tool]. Notable env vars / flags / install caveats. Saifctl invokes it as `saifctl feat run --agent <id>`.
+```
+
+### Step 3 — sweep references
+
+Find all places mentioning agent CLIs (CLI help text, READMEs, sample configs) and add the new id. Prompt for a fast model:
 
 ```txt
-ok, now check for all the places where we mention all the agentic CLI integrations, and add our new integration there
+Check for places where we mention all agentic CLI integrations and add our new <id> there.
 ```
 
 ## Agent benchmarks
 
 - https://www.tbench.ai/leaderboard/terminal-bench/2.0
+
+## See also
+
+- [`architecture/extension-points.md`](./architecture/extension-points.md#agent-profiles) — profile-system rationale, how `--agent <id>` resolves.
+- [`architecture/installation-scripts.md`](./architecture/installation-scripts.md) — `agent-install.sh` + `agent.sh` lifecycles, env-var contract.
+- [`architecture/security-threats.md` Drop-privileges contract](./architecture/security-threats.md#additional-hardening-mechanisms) — why the unprivileged-user requirement.
+- [`docspec/references/agents/`](../../docspec/references/agents/) — user-facing per-agent reference pages.

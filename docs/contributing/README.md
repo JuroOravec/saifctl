@@ -17,11 +17,9 @@ Pick the topic you're touching:
 | **The inner loop's `stats.jsonl`** — how round-by-round outcomes get recorded for the orchestrator | [inner-round-stats.md](./inner-round-stats.md) |
 | **Naming, voice, marketing copy** — product/CLI/brand-name conventions | [branding.md](./branding.md) |
 
-## Architecture history
+## Architecture deep-dives
 
-[`architecture-history/`](./architecture-history/) — design notes from the early SWF days. Useful for "why does this look the way it does?" archeology, but **most files are out of date** and have not been reviewed against current code. Treat as historical context, not authoritative.
-
-When you find a stale claim and update the corresponding current doc, please drop a one-line note at the top of the history file ("Superseded by `<current-doc>.md`, 2026-MM-DD") so the next reader doesn't get misled. Better yet, delete the history file once its content is fully captured in current docs.
+[`architecture/`](./architecture/) — eleven focused docs covering each saifctl subsystem: orchestrator, sandbox isolation, gate/reviewer, test runner, spec pipeline, extension points, git/patches, services + IaC, installation scripts, security threats, Cedar + Leash. Each anchors into `src/` with file:line references so claims stay verifiable. See [`architecture/README.md`](./architecture/README.md) for the index + reading paths.
 
 ## Day-to-day dev loop
 

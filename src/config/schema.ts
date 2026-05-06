@@ -6,7 +6,8 @@
  * as object instead of comma-separated strings).
  *
  * The `environments` block defines service topology for the coding and staging phases.
- * See docs/services.md (user guide) and docs/development/v0/swf-services.md (design).
+ * See docspec/products/saifctl/concepts/services.md (user-facing) and
+ * docs/contributing/architecture/services-and-iac.md (contributor design doc).
  */
 
 import { z } from 'zod';

@@ -54,21 +54,26 @@ references. The audit critic should specifically check:
 - `README.md` — three-stage guarantee mention should clarify it
   applies per-phase; sandbox-vs-phases distinction.
 
-### Legacy docs (`docs_old/` — update if still authoritative)
+### Docspec entries (post-migration successors of legacy `docs_old/`)
 
-- `docs_old/usage.md` — directory structure adds phases/critics;
-  feature- vs phase-level tests.
-- `docs_old/specs.md` — phases section; cumulative test scoping.
-  **YAML examples must use the object shape `{ id: <name> }`** — bare
-  strings (`critics: [paranoid]`) fail Zod validation.
-- `docs_old/commands/feat-run.md` — phase compilation; subtasks now
-  derived. Don't link to a `feat-phases.md` that doesn't exist; use
-  inline-code references and point at the new `docspec/` content.
-- `docs_old/features.md` — note `feature.yml` / `phase.yml` are
-  feature-scoped configs distinct from project-level `saifctl/config.*`.
-- `docs_old/guides/feature-lifecycle.md` — multi-phase lifecycle
-  section.
-- `docs_old/guides/run-lifecycle.md` — pause/resume work per-phase.
+The legacy `docs_old/` tree was migrated into `docspec/` during DOC-09 (see
+[`saifctl/features/release-readiness/specification.md` §3.4.1](../../../release-readiness/specification.md)).
+Update the docspec successors below; saifdocs regenerates the user-facing
+`docs/` from these.
+
+- `docspec/products/saifctl/concepts/features.md` — directory structure adds
+  phases/critics; feature- vs phase-level tests; **YAML examples must use the
+  object shape `{ id: <name> }`** (bare strings `critics: [paranoid]` fail
+  Zod validation).
+- `docspec/references/commands/feat.md` — phase compilation; subtasks now
+  derived. Don't link to `feat-phases.md` user pages that don't exist;
+  cross-reference the new `docspec/` content directly.
+- `docspec/references/commands/feat-phases.md` — covers the `feat phases
+  list / validate / compile` subcommands explicitly.
+- `docspec/products/saifctl/concepts/feature-lifecycle.md` — multi-phase
+  lifecycle section.
+- `docspec/products/saifctl/concepts/run-lifecycle.md` — pause/resume work
+  per-phase.
 
 ### CLI help text
 
