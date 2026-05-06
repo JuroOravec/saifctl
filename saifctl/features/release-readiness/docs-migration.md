@@ -223,7 +223,7 @@ Historical SWF design notes — kept as `docs/contributing/architecture-history/
 
 ## Resolved 2026-05-05 (final)
 
-10. ✅ **`docs/contributing/` location**: `safe-ai-factory/docs/contributing/` (co-located). Gated on **SDR-10** — patch `saifdocs clear` to be manifest-aware (only delete files the manifest claims to own). **SDR-10 must ship before DOC-09.2 starts.**
+10. ✅ **`docs/contributing/` location**: `safe-ai-factory/docs/contributing/` (co-located). Gated on **SDR-10** — patch `saifdocs clear` to only delete files the manifest claims to own. **SDR-10 must ship before DOC-09.2 starts.**
 11. ✅ **First-class asset support**: deferred. Filed as **SDR-11**. DOC-09.2 uses the body-instruction approach (`docspec/assets/<file>` + agent-embeds-via-markdown), accepting the brittleness as a known limitation.
 
 DOC-09.2 is now unblocked once SDR-10 ships.
