@@ -376,6 +376,7 @@ export async function runCodingPhase(input: RunCodingPhaseOpts): Promise<CodingP
         resumedCodingInfra,
         registry,
         signal: input.signal ?? controlAbort.signal,
+        subtaskTotal: subtasks.length,
         preparePendingRules: true,
         onInfraReady,
         onFinally: async ({ abortSignal }) => {
@@ -395,6 +396,7 @@ export async function runCodingPhase(input: RunCodingPhaseOpts): Promise<CodingP
         resumedCodingInfra,
         registry,
         signal: input.signal ?? controlAbort.signal,
+        subtaskTotal: subtasks.length,
         preparePendingRules: true,
         onInfraReady,
         onFinally: async ({ abortSignal }) => {

@@ -71,6 +71,12 @@ export interface RunEngineAttemptOpts {
   }) => Promise<'pause' | 'teardown'>;
   /** Abort signal from the caller (Hatchet cancellation or `controlAbort` from the loop). */
   signal: AbortSignal | null;
+  /**
+   * Total subtasks the container will run in this engine session. Forwarded as
+   * `SAIFCTL_SUBTASK_TOTAL` so the in-shell `Subtask X/Y` banner mirrors `Round X/Y`.
+   * Per-session value (the slice this engine attempt sees), not run-wide.
+   */
+  subtaskTotal: number;
   opts: Pick<
     IterativeLoopOpts,
     | 'llm'
@@ -126,6 +132,7 @@ export async function runEngineAttempt(
     resumedCodingInfra: initialResumedInfra,
     registry,
     signal,
+    subtaskTotal,
     opts,
     preparePendingRules,
     onInfraReady,
@@ -253,6 +260,7 @@ export async function runEngineAttempt(
       gateRetries,
       runId,
       enableSubtaskSequence,
+      subtaskTotal,
       sandboxInteractive: !!sandboxInteractive,
     });
 

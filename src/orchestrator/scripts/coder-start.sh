@@ -58,6 +58,9 @@
 #   SAIFCTL_SUBTASK_RETRIES_PATH — (optional) path the host writes a positive integer to override
 #                                 SAIFCTL_GATE_RETRIES for the next subtask only. Consumed on read.
 #                                 default: subtask-retries next to task.md.
+#   SAIFCTL_SUBTASK_TOTAL      — (optional) total number of subtasks for this engine session.
+#                                 When set, banners render `Subtask X/Y` (mirrors `Round X/Y`).
+#                                 When unset, falls back to `Subtask X` for backward compat.
 #
 # Agent stdout boundaries (for host log formatting): one line each, echoed by this script only —
 #   [SAIFCTL:AGENT_START]  — before bash "$AGENT_SCRIPT" (streams live via tee)
@@ -383,7 +386,7 @@ main() {
     subtask_exit=1
 
     subtask_num=$((subtask_num + 1))
-    subtask_label="Subtask $subtask_num"
+    subtask_label="Subtask $subtask_num${SAIFCTL_SUBTASK_TOTAL:+/$SAIFCTL_SUBTASK_TOTAL}"
     echo "[coder-start] ===== $subtask_label ====="
 
     effective_retries="$GATE_RETRIES"
@@ -435,7 +438,7 @@ main() {
 
     current_task="$(cat "$NEXT_SUBTASK_PATH")"
     mv "$NEXT_SUBTASK_PATH" "${NEXT_SUBTASK_PATH}.consumed.${subtask_num}"
-    echo "[coder-start] Received subtask $((subtask_num + 1)) prompt."
+    echo "[coder-start] Received subtask $((subtask_num + 1))${SAIFCTL_SUBTASK_TOTAL:+/$SAIFCTL_SUBTASK_TOTAL} prompt."
   done
 }
 

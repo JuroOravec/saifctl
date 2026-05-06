@@ -184,6 +184,7 @@ describe('buildCoderContainerEnv + agentSecretKeys', () => {
       gateRetries: 1,
       runId: 'r',
       enableSubtaskSequence: false,
+      subtaskTotal: 1,
     });
     expect(c.env).not.toHaveProperty('LLM_MODEL', 'user-override');
     expect(c.env.LLM_MODEL).toBe('anthropic/m');
@@ -216,6 +217,7 @@ describe('buildCoderContainerEnv + agentSecretKeys', () => {
       gateRetries: 1,
       runId: 'r',
       enableSubtaskSequence: false,
+      subtaskTotal: 1,
     });
     expect(c.env.UV_NATIVE_TLS).toBe('1');
     expect(warn).toHaveBeenCalled();
@@ -241,6 +243,7 @@ describe('buildCoderContainerEnv + agentSecretKeys', () => {
       gateRetries: 1,
       runId: 'r',
       enableSubtaskSequence: false,
+      subtaskTotal: 1,
     });
     expect(c.env.SSL_CERT_FILE).toBe('/etc/ssl/certs/ca-certificates.crt');
     expect(c.env.NODE_EXTRA_CA_CERTS).toBe('/etc/ssl/certs/ca-certificates.crt');
@@ -272,6 +275,7 @@ describe('buildCoderContainerEnv + agentSecretKeys', () => {
         gateRetries: 1,
         runId: 'r',
         enableSubtaskSequence: false,
+        subtaskTotal: 1,
       });
       expect(c.secretEnv[key]).toBe('from-host');
     } finally {
@@ -302,6 +306,7 @@ describe('buildCoderContainerEnv + agentSecretKeys', () => {
         gateRetries: 1,
         runId: 'r',
         enableSubtaskSequence: false,
+        subtaskTotal: 1,
       });
       expect(c.secretEnv[key]).toBe('from-host');
     } finally {
@@ -328,12 +333,14 @@ describe('buildCoderContainerEnv + agentSecretKeys', () => {
       gateRetries: 1,
       runId: 'r',
       enableSubtaskSequence: true,
+      subtaskTotal: 5,
     });
     expect(c.env.SAIFCTL_ENABLE_SUBTASK_SEQUENCE).toBe('1');
     expect(c.env.SAIFCTL_SUBTASK_DONE_PATH).toBe('/workspace/.saifctl/subtask-done');
     expect(c.env.SAIFCTL_NEXT_SUBTASK_PATH).toBe('/workspace/.saifctl/subtask-next.md');
     expect(c.env.SAIFCTL_SUBTASK_EXIT_PATH).toBe('/workspace/.saifctl/subtask-exit');
     expect(c.env.SAIFCTL_SUBTASK_RETRIES_PATH).toBe('/workspace/.saifctl/subtask-retries');
+    expect(c.env.SAIFCTL_SUBTASK_TOTAL).toBe('5');
   });
 
   it('omits SAIFCTL_ENABLE_SUBTASK_SEQUENCE when enableSubtaskSequence is false', async () => {
@@ -354,8 +361,12 @@ describe('buildCoderContainerEnv + agentSecretKeys', () => {
       gateRetries: 1,
       runId: 'r',
       enableSubtaskSequence: false,
+      subtaskTotal: 1,
     });
     expect(c.env.SAIFCTL_ENABLE_SUBTASK_SEQUENCE).toBeUndefined();
+    // Single-subtask runs still set SAIFCTL_SUBTASK_TOTAL so coder-start.sh can render
+    // the same `Subtask 1/1` banner format and stay symmetric with multi-subtask runs.
+    expect(c.env.SAIFCTL_SUBTASK_TOTAL).toBe('1');
   });
 
   it('omits task, gate, and subtask env when sandboxInteractive is true (container mode)', async () => {
@@ -376,6 +387,7 @@ describe('buildCoderContainerEnv + agentSecretKeys', () => {
       gateRetries: 99,
       runId: 'r',
       enableSubtaskSequence: true,
+      subtaskTotal: 3,
       sandboxInteractive: true,
     });
     expect(c.env.SAIFCTL_INITIAL_TASK).toBeUndefined();
@@ -383,6 +395,7 @@ describe('buildCoderContainerEnv + agentSecretKeys', () => {
     expect(c.env.SAIFCTL_AGENT_SCRIPT).toBeUndefined();
     expect(c.env.SAIFCTL_SUBTASK_DONE_PATH).toBeUndefined();
     expect(c.env.SAIFCTL_ENABLE_SUBTASK_SEQUENCE).toBeUndefined();
+    expect(c.env.SAIFCTL_SUBTASK_TOTAL).toBeUndefined();
     expect(c.env.SAIFCTL_RUN_ID).toBe('r');
     expect(c.env.LLM_MODEL).toBe('anthropic/m');
     expect(c.env.SAIFCTL_STARTUP_SCRIPT).toBe('/saifctl/startup.sh');

@@ -121,6 +121,8 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
     resumedCodingInfra: null,
     registry,
     signal: signal ?? null,
+    // Hatchet steps run a single coding pass per step (no inner subtask sequencing).
+    subtaskTotal: 1,
     preparePendingRules: false,
     // Hatchet steps always tear down — no pause/stop routing needed.
     onFinally: async () => 'teardown',

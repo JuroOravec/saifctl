@@ -4,7 +4,7 @@ explains: what saifctl protects against, what it doesn't, and the design rationa
 learning_outcomes:
   - The five protections saifctl gives you (host filesystem, agent process integrity via /workspace/saifctl/ write-deny, host secrets, host-hook .git escape, ephemeral container teardown).
   - What saifctl does NOT protect against (network exfiltration by default, kernel exploits, agent CLI supply-chain compromise, malicious LLM-induced typosquats).
-  - Why filesystem-as-boundary is the design choice — and why network-default-permit follows from it (preventing all egress would break npm, pip, pnpm, cargo, etc., making the sandbox unusable).
+  - "Why network is permit-by-default — pragmatic, not principled. A maintainable allowlist covering LLM APIs, npm/PyPI/crates.io/Go-module-proxy/apt registries, GitHub, container registries, doc hosts, plus arbitrary project-specific dependencies is intractable to define for arbitrary user projects. Filesystem isolation does the actual blast-radius containment; the network is a known unmitigated exfiltration channel by default. Users who *can* enumerate their allowlist opt in via `--cedar` or the bundled `deny-network.cedar`. Per Decision D-06."
   - The `--cedar` override surface and the three bundled policies (default, sandbox, deny-network).
   - The `dangerousNoLeash` mode — what it disables, when it's appropriate (orchestrator debug, perf profiling, narrowing a Cedar policy), when it isn't (anything with secrets, CI, unattended runs, runs whose diff will be committed without careful review).
   - "Auditability: Leash dashboard pointer."

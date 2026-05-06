@@ -85,9 +85,18 @@ permit (
 // ── Network ─────────────────────────────────────────────────────────────────
 
 // Allow all outbound network connections.
-// The agent needs to reach LLM APIs, npm/PyPI/apt registries, GitHub, and
-// arbitrary tool CDNs. Restricting network adds friction without meaningful
-// security benefit given the filesystem sandbox already contains the blast radius.
+// Rationale (per Decision D-06 in the release-readiness specification): the
+// surface of network domains an agent legitimately needs (LLM APIs, npm/PyPI/
+// crates.io/Go-module-proxy/apt registries, GitHub clone + releases, container
+// registries, doc hosts, plus arbitrary project-specific dependencies) is
+// intractable to allowlist for arbitrary user projects. A default-deny
+// allowlist would either break first-run UX (`npm install` fails) or be so
+// loose it doesn't actually contain exfiltration. We choose practicality:
+// network is a known unmitigated exfiltration channel by default; filesystem
+// isolation (`/workspace/` is a copy, not a mount; secrets/.git/hidden tests
+// are never staged in) is what contains the blast radius. Users who can
+// enumerate their own allowlist opt in via `--cedar <custom-policy>` or the
+// bundled `deny-network.cedar`.
 permit (
     principal,
     action == Action::"NetworkConnect",

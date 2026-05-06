@@ -39,6 +39,7 @@ const RESERVED_ENV_KEYS = new Set([
   'SAIFCTL_SUBTASK_DONE_PATH',
   'SAIFCTL_SUBTASK_EXIT_PATH',
   'SAIFCTL_SUBTASK_RETRIES_PATH',
+  'SAIFCTL_SUBTASK_TOTAL',
   /** Factory-enforced: uv must use OS TLS (corporate MITM / Leash CA in trust store). */
   'UV_NATIVE_TLS',
   /** Factory-enforced: LiteLLM/httpx/requests use OS CA bundle (not certifi-only) for MITM proxies. */
@@ -322,6 +323,13 @@ export async function buildCoderContainerEnv(opts: {
    */
   enableSubtaskSequence: boolean;
   /**
+   * Total number of subtasks the container will run in this engine session. Forwarded as
+   * `SAIFCTL_SUBTASK_TOTAL` so `coder-start.sh` can render `Subtask X/Y` banners (mirrors
+   * `Round X/Y` from `SAIFCTL_GATE_RETRIES`). Per-session: on resume the new container only
+   * sees the remaining slice, so this value matches the shell's `subtask_num` upper bound.
+   */
+  subtaskTotal: number;
+  /**
    * When true, omits task/gate/subtask-specific env vars (SAIFCTL_INITIAL_TASK, SAIFCTL_GATE_RETRIES,
    * SAIFCTL_ENABLE_SUBTASK_SEQUENCE, and subtask signal paths). Used by `sandbox --interactive` which
    * runs sandbox-start.sh instead of coder-start.sh and has no task or gate loop.
@@ -340,6 +348,7 @@ export async function buildCoderContainerEnv(opts: {
     gateRetries,
     runId,
     enableSubtaskSequence,
+    subtaskTotal,
     sandboxInteractive,
   } = opts;
 
@@ -380,6 +389,7 @@ export async function buildCoderContainerEnv(opts: {
             ? { REVIEWER_LLM_BASE_URL: reviewer.llmConfig.baseURL }
             : {}),
           ...(enableSubtaskSequence ? { SAIFCTL_ENABLE_SUBTASK_SEQUENCE: '1' } : {}),
+          SAIFCTL_SUBTASK_TOTAL: String(subtaskTotal),
         }
       : {}),
   };
