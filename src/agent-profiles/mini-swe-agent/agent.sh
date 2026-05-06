@@ -37,7 +37,7 @@ echo "[agent/mini-swe-agent] About to run (as ${SAIFCTL_UNPRIV_USER}): mini -t \
 
 _agent_exit=0
 runuser -l "$SAIFCTL_UNPRIV_USER" \
-  --whitelist-environment="$(saifctl_unpriv_env_whitelist),MSWEA_COST_TRACKING" \
+  --whitelist-environment="$(saifctl_unpriv_env_whitelist),MSWEA_COST_TRACKING,MSWEA_MODEL_NAME" \
   -c '
     set -euo pipefail
     export PATH="$HOME/.local/bin:$SAIFCTL_UNPRIV_NPM_PREFIX/bin:$PATH"
