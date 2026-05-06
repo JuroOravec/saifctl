@@ -1,10 +1,12 @@
 # Orchestrator
 
-How `saifctl feat run` (and its siblings) drive an agent through the convergence loop. This is the central state-machine doc; the *what each gate checks* details live in [`gate-and-reviewer.md`](./gate-and-reviewer.md).
+The state machine `saifctl feat run` runs through. Lives in [`src/orchestrator/`](../../../src/orchestrator/), entry at [`modes.ts`](../../../src/orchestrator/modes.ts), convergence loop at [`loop.ts:703`](../../../src/orchestrator/loop.ts#L703).
 
-> The word **"phases"** means two different things in saifctl. Both senses appear here; pay attention to context:
-> - **Orchestrator modes** — five top-level entry points (`fail2pass`, `start`, `fromArtifact`, `test`, `inspect`). One per CLI mode.
-> - **Feature phases** — user-defined `phases/<id>/` subdirs in a phased feature. These compile to **subtasks** that the orchestrator's convergence loop dispatches one at a time.
+The *what each gate checks* details live in [`gate-and-reviewer.md`](./gate-and-reviewer.md); this page is "what runs in what order, where".
+
+> **"Phases" is overloaded.** Two senses, both appear below:
+> - **Orchestrator modes** — `fail2pass | start | fromArtifact | test | inspect`. CLI dispatch.
+> - **Feature phases** — `phases/<id>/` subdirs in a phased feature. Compile to **subtasks** that the convergence loop dispatches one at a time.
 
 ## Top-level modes — `src/orchestrator/modes.ts`
 
@@ -49,44 +51,45 @@ return { status: 'success' }
 
 ## Subtasks: where they come from
 
-A `RunSubtaskInput` is the dispatch unit. It's a `{ content: string }` (plus optional metadata). The orchestrator processes one at a time; the iterative loop above runs once per subtask.
+A `RunSubtaskInput` is the dispatch unit (`{ content: string }` + optional metadata). The iterative loop runs once per subtask.
 
-[`src/orchestrator/resolve-subtasks.ts`](../../../src/orchestrator/resolve-subtasks.ts) picks the subtask source via three paths:
+Three resolution paths in [`resolve-subtasks.ts`](../../../src/orchestrator/resolve-subtasks.ts):
 
-1. **Explicit manifest** — `--subtasks <path>` to a JSON file. Each row becomes a subtask. Used by tests and advanced consumers.
-2. **Non-phased feature** — synthesized from the feature's `specification.md` + `plan.md`. One subtask per feature ([`buildSubtasksFromSpec`](../../../src/orchestrator/resolve-subtasks.ts#L137)).
-3. **Phased feature** — compiled from the feature's `phases/` directory by [`compilePhasesToSubtasks`](../../../src/specs/phases/compile.ts) (in `src/specs/phases/compile.ts`).
+| Source | When | Output |
+|---|---|---|
+| `--subtasks <path>` (JSON) | Tests, advanced consumers | One subtask per row |
+| Non-phased feature | Default `feat run` | One subtask synthesized from `specification.md` + `plan.md` ([`buildSubtasksFromSpec`](../../../src/orchestrator/resolve-subtasks.ts#L137)) |
+| Phased feature | Feature has a `phases/` dir | N subtasks compiled by [`compilePhasesToSubtasks`](../../../src/specs/phases/compile.ts) |
 
-For phased features (path 3), each phase contributes:
-- **1 implementer subtask** — runs the agent against the phase's `spec.md`, gated by the cumulative test scope (project-level + feature-level + earlier phases' tests + this phase's tests).
-- **2 subtasks per critic per phase** — discover (writes findings to `.saifctl/critic-findings/<phase>--<critic>--r<n>.md`) + fix (consumes findings, rewrites implementation). Critics declared in `feature.yml`.
+Phased features contribute per phase:
 
-Phase numbering uses zero-padded width (`01..NN`) so lex order = run order. Phase-and-critic orchestration logic lives entirely in the compile step; the iterative loop just sees a flat subtask list.
+- **1 implementer subtask** — agent runs against the phase's `spec.md`. Cumulative test scope: project + feature + earlier phases' + this phase's.
+- **2 subtasks per critic per phase** — discover (writes `.saifctl/critic-findings/<phase>--<critic>--r<n>.md`) + fix. Critics declared in `feature.yml`.
+
+Phase numbering is zero-padded (`01..NN`) so lex order = run order. The iterative loop sees a flat subtask list; phase/critic orchestration lives entirely in compile.
 
 ## Phased-feature compilation — `feat phases compile / list / validate`
 
-[`src/cli/commands/feat-phases.ts`](../../../src/cli/commands/feat-phases.ts) exposes three subcommands so users can inspect the compile output without starting a run:
+[`src/cli/commands/feat-phases.ts`](../../../src/cli/commands/feat-phases.ts) — three subcommands for inspecting the compile output without starting a run:
 
-- **`feat phases list <feature>`** — list discovered phases + critics.
-- **`feat phases validate <feature>`** — schema validation, file-existence checks, mutability resolution; print errors and warnings, do not write anything. Exit 1 on errors. (Same checks `feat run` does at start, but standalone — useful in CI / pre-commit.)
-- **`feat phases compile <feature>`** — write the deterministic `RunSubtaskInput[]` the loop *would* see, to `.saifctl/features/<feat>/phases.compiled.json`. Diff-friendly + reviewable; lets the user see what gets dispatched without invoking an agent.
+- `feat phases list <feature>` — list discovered phases + critics.
+- `feat phases validate <feature>` — schema + file-existence + mutability checks, no writes. Same as `feat run`'s pre-flight; useful in CI / pre-commit. Exit 1 on errors.
+- `feat phases compile <feature>` — write the deterministic `RunSubtaskInput[]` to `.saifctl/features/<feat>/phases.compiled.json`. Diff-friendly preview of what `feat run` would dispatch.
 
-All three rely on `validatePhasedFeature` for the load + cross-check so error reporting is consistent across the CLI and the `feat run` pre-flight.
+All three call `validatePhasedFeature` for consistent error reporting with the live pre-flight.
 
 ## Mutability gate
 
-Test files are **immutable** by default — the agent cannot edit them mid-run. After every round, the orchestrator inspects the per-round diff via [`src/orchestrator/mutability-check.ts`](../../../src/orchestrator/mutability-check.ts) and rolls back the round if any immutable file was touched. The violation is fed back as error feedback so the agent learns; the round doesn't count as a `maxRuns` consumption (it's lost work, not lost budget).
+Test files are **immutable** by default. After every round, [`mutability-check.ts`](../../../src/orchestrator/mutability-check.ts) inspects the per-round diff and rolls back if any immutable file was touched. The violation is fed back as error feedback; the round **doesn't consume a `maxRuns` slot** (lost work, not lost budget).
 
-`--strict` / `--no-strict` flips the project-wide default. The two layers of mutability:
+| Layer | Mutability |
+|---|---|
+| `<feature>/tests/` and `<phases>/<id>/tests/` | Immutable with `--strict` (default); editable with `--no-strict`. |
+| `saifctl/tests/` (project-wide) | **Always** immutable. |
 
-- **Phase-/feature-level test files** under `<feature>/tests/` and `<phases>/<id>/tests/` — immutable when `--strict` (default); editable when `--no-strict`.
-- **`saifctl/tests/`** — the project-wide test set — **always immutable**, regardless of `--strict`.
+Per-feature override: `feature.yml` `tests.mutable: true`. Per-test override: file annotations.
 
-Per-feature override available via `feature.yml`'s `tests.mutable` field. Per-test override via individual file annotations (see [`mutability-check.ts`](../../../src/orchestrator/mutability-check.ts)).
-
-## Pause / Stop / Resume / Start — the run-lifecycle entry points
-
-The orchestrator exposes lifecycle hooks that interact with run storage:
+## Pause / Stop / Resume / Start — run lifecycle
 
 | CLI | Mode | What changes |
 |---|---|---|
@@ -101,31 +104,33 @@ The orchestrator exposes lifecycle hooks that interact with run storage:
 
 ## The outer loop ↔ inner loop split
 
-Each agent round has two layers:
+| Loop | Where | Owns |
+|---|---|---|
+| **Outer** (this doc) | saifctl host process | Sandbox provisioning, patch extraction, mutability check, test-runner orchestration, run-storage updates, `maxRuns` budget. |
+| **Inner** ([`gate-and-reviewer.md`](./gate-and-reviewer.md)) | coder container | Agent's coding round; gate (`gate.sh`); optional reviewer (Argus). Failures loop back to the agent in the same outer round. |
 
-- **Outer loop** (this doc): `runIterativeLoop` runs in the saifctl host process. It owns sandbox provisioning, patch extraction, mutability check, test-runner orchestration, run-storage updates, and the maxRuns budget.
-- **Inner loop** (see [`gate-and-reviewer.md`](./gate-and-reviewer.md)): runs *inside the coder container*. The agent makes changes, the gate script (lint/typecheck/static) runs, the optional reviewer (Argus) checks the diff against the spec. Failures here loop back to the agent within the *same* outer round — the inner loop can't progress to the next outer round until the gate clears. The outer loop only sees the final committed result of all inner-round attempts.
-
-The split is intentional: deterministic gate/reviewer checks happen close to the agent (low latency, low IPC overhead) while the expensive bits (test runner, holdout) happen in separate containers under host-side coordination. See [`comp-e: orchestrator state machine`](#) for the original framing of this split.
+The split puts deterministic gate/reviewer checks close to the agent (low latency) and pushes the expensive containerized test runner to the outer loop. Outer sees only the final committed result of all inner-round attempts.
 
 ## Vague Specs Checker invocation
 
-When the test runner reports a failure (outer loop), saifctl optionally runs the [Vague Specs Checker](./spec-pipeline.md#vague-specs-checker) before re-dispatching the agent. The hook is at [`src/orchestrator/loop.ts:2079`](../../../src/orchestrator/loop.ts#L2079) (`runVagueSpecsCheckerForFailure`); behaviour is controlled by `--resolve-ambiguity off|prompt|ai`. Default `off`. See [`spec-pipeline.md`](./spec-pipeline.md) for the full mechanism — this section just notes the orchestrator integration point.
+On test-runner failure, saifctl optionally runs the [Vague Specs Checker](./spec-pipeline.md#vague-specs-checker) before re-dispatching. Hook: [`runVagueSpecsCheckerForFailure`](../../../src/orchestrator/loop.ts#L2079). Behaviour: `--resolve-ambiguity off | prompt | ai`. Default `off`. See [`spec-pipeline.md`](./spec-pipeline.md) for the full mechanism.
 
-## Patch handling: between agent rounds
+## Patch handling between agent rounds
 
-After each round, the orchestrator extracts the agent's commits as an incremental patch ([`src/orchestrator/loop.ts:111`](../../../src/orchestrator/loop.ts#L111) `buildPatchExcludeRules`, plus `extractIncrementalRoundPatch()`). Two security-relevant filters apply:
+[`extractIncrementalRoundPatch()`](../../../src/orchestrator/sandbox.ts#L1045) reads the per-round commits; [`buildPatchExcludeRules()`](../../../src/orchestrator/loop.ts#L111) configures two safety filters:
 
-1. **`patchExclude`** — by default excludes `.git/hooks/**`, `saifctl/tests/**` (project-immutable), and other paths that should never reach the host. Stripped before the diff is recorded.
-2. **`assertRunCommitsSafeForHost`** — final guard before host-side `git apply`; throws hard on any `.git/hooks/` path that slipped through.
+1. **`patchExclude`** strips `.git/hooks/**`, `saifctl/tests/**`, etc. before the diff is recorded.
+2. **`assertRunCommitsSafeForHost`** is a final guard before host-side `git apply`; throws on any `.git/hooks/` path that slipped through both layers.
 
-Both filters are documented in detail under [`security-threats.md`](./security-threats.md) findings #2.
+Detail in [`security-threats.md` finding #2](./security-threats.md#2-arbitrary-code-execution-via-malicious-patch-githooks-injection).
 
 ## Hatchet integration
 
-When `HATCHET_CLIENT_TOKEN` is set *and* `SAIFCTL_EXPERIMENTAL_HATCHET=1`, the orchestrator dispatches via Hatchet instead of running in-process. The state machine itself doesn't change — Hatchet wraps `runIterativeLoop` as a workflow ([`src/hatchet/workflows/feat-run.workflow.ts`](../../../src/hatchet/workflows/feat-run.workflow.ts)) and gives you durability + the dashboard. **Status in v0.1**: experimental, gated. See [`docs/contributing/hatchet.md`](../hatchet.md) and Decision **D-04** in the release-readiness specification for the full status.
+`HATCHET_CLIENT_TOKEN` set + `SAIFCTL_EXPERIMENTAL_HATCHET=1` → orchestrator dispatches via Hatchet instead of in-process. The state machine doesn't change — Hatchet wraps `runIterativeLoop` as a workflow ([`src/hatchet/workflows/feat-run.workflow.ts`](../../../src/hatchet/workflows/feat-run.workflow.ts)) for durability + dashboard.
 
-For local mode (no Hatchet token), the workflow runs in-process via [`src/hatchet/utils/local.ts`](../../../src/hatchet/utils/local.ts) — the in-process mock client. This keeps a single code path for both local and remote Hatchet, so DAG ordering and `parentOutput` / `runChild` / `onFailure` behaviour stay tested even without a real Hatchet server.
+Local mode (no token): same workflow runs in-process via the mock client at [`src/hatchet/utils/local.ts`](../../../src/hatchet/utils/local.ts). Single code path for both; DAG ordering, `parentOutput`, `runChild`, `onFailure` stay tested without a real Hatchet server.
+
+**v0.1 status**: experimental, gated. See [`docs/contributing/hatchet.md`](../hatchet.md) and Decision **D-04**.
 
 ## Why a custom orchestrator at all
 

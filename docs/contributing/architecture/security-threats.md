@@ -1,41 +1,41 @@
 # Threat model — design-time findings & mitigations
 
-This page is the contributor view of saifctl's security posture: the **specific threats** that drove **specific code paths**, with file:line anchors so you can verify the mitigation is still wired.
+Specific threats that drove specific code paths, with file:line anchors so you can verify the mitigation is still wired.
 
-> **User-facing companion**: [`docspec/products/saifctl/concepts/security.md`](../../../docspec/products/saifctl/concepts/security.md) (the threat-model long-form). That page frames the boundaries; this one is the implementation audit trail.
+> User-facing companion: [`docspec/products/saifctl/concepts/security.md`](../../../docspec/products/saifctl/concepts/security.md). This page is the implementation audit trail.
 
-## Scope
+## Threat model in two sentences
 
-The orchestrator runs untrusted code (the agent's output). The agent runs untrusted code (whatever it pulls in via `npm install`, `pip install`, etc.). The threat model assumes both are hostile and asks: what can each one do to the **host machine running `saifctl`**?
+The agent (its CLI + anything it `pip install`s / `npm install`s) is hostile. The host process running saifctl is the target.
 
-The boundary is designed around two principles:
+Two design principles fall out:
 
-1. **The agent never controls what the host process executes.** Anything the agent writes that the host then *honours* (git config, hooks, patches, raw stderr fed back into shell) is a potential escape vector. The findings below are all variations on this theme.
-2. **Network egress is intentionally permitted by default — for practicality, not security.** A maintainable allowlist that covers npm, PyPI, crates.io, Go's module proxy, GitHub, container registries, LLM providers, plus arbitrary documentation hosts the agent might fetch from, plus arbitrary CDNs the language toolchains pull from, plus whatever each user project's dependencies need is **intractable to define for arbitrary user projects** (per **Decision D-06** in the release-readiness specification). Saifctl ships `default.cedar` with `permit ... NetworkConnect` and a `deny-network.cedar` opt-in for users who can enumerate their own allowlist. **Filesystem isolation is what actually contains the blast radius**; the network is a known unmitigated exfiltration channel by default. The user-facing security concept is explicit about this trade-off.
+1. **The agent never controls what the host executes.** Anything the agent writes that the host then *honours* — git config, hooks, patches, stderr piped into a shell — is an escape vector. All seven findings below are variations on this.
+2. **Network egress is permitted by default — pragmatic, not principled.** A network allowlist for arbitrary user projects (npm, PyPI, crates, GitHub, doc hosts, per-project deps, …) is intractable. Filesystem isolation is what actually contains the blast radius; the network is a known unmitigated exfiltration channel. Per Decision D-06 in the release-readiness specification.
 
 ## Defense-in-depth layers
 
-The **website's saifctl page** ([`web/src/app/saifctl/page.tsx`](../../../web/src/app/saifctl/page.tsx) `SECURITY_ROWS`) presents these as five independent layers; from the contributor's POV they map to specific code paths:
+Five independent layers (defeating one does not defeat the others). Each maps to specific code paths:
 
-1. **Container + policy enforcement.** The agent runs inside a Docker container; Leash (a Cedar-aware syscall interceptor) wraps the agent process with a default-deny policy. See [`cedar-and-leash.md`](./cedar-and-leash.md).
-2. **Copy-not-mount workspace.** The agent receives a *copy* of the project tree at `/workspace/`, not a mount of the host's working directory. Host secrets, `~/.aws`, SSH keys, the host's `.git/`, and hidden test files (under `<feature>/tests/hidden/`) are **never staged into the copy** ([`src/orchestrator/sandbox.ts:16`](../../../src/orchestrator/sandbox.ts#L16): `tests.json ← test catalog (public cases only; hidden/ dir stripped)`). The agent's container can't see the host filesystem at all.
-3. **Patch as plain-text git diff.** The agent's output reaches the host as a *string*, not a process. After every round, [`extractIncrementalRoundPatch`](../../../src/orchestrator/sandbox.ts#L1045) reads the per-round diff from the sandbox repo, applies the `patchExclude` rules ([`filterPatchHunks`](../../../src/orchestrator/sandbox.ts#L1194)) to strip dangerous file sections (e.g. `.git/hooks/**`, `saifctl/tests/**`), and stores the result as a `RunCommit`. The host orchestrator never `exec`s anything written by the agent — the only host-side action on the patch is `git apply`, gated by [`assertRunCommitsSafeForHost`](../../../src/orchestrator/phases/apply-patch.ts#L75).
-4. **Per-iteration container teardown.** The coder container, the staging container, and any ephemeral services are destroyed at the end of each iteration. There is no latent process or in-memory state that can carry over to the next round; if the agent installs a daemon, opens a socket, or seeds `cron`, it disappears. Resource bookkeeping lives in [`LiveInfra`](../infra.md) so teardown is deterministic even when a run crashes mid-setup.
-5. **Two-container test architecture.** The test runner does *not* run inside the agent's container. It lives in a **separate** container that talks to the staging container (where the agent's code is deployed) over **HTTP only**, via a Go sidecar at [`src/orchestrator/sidecars/cli-over-http/main.go`](../../../src/orchestrator/sidecars/cli-over-http/main.go). The sidecar accepts `POST /exec { cmd, args, env, timeout }` and returns `{ stdout, stderr, exitCode }` as JSON. The test runner asserts on those JSON strings — there is **no shared memory, no Docker socket access, and no inter-process trust** between the agent's environment and the test runner. See [`test-runner.md`](./test-runner.md) for the full sidecar protocol.
+1. **Container + policy enforcement** — agent runs in Docker; Leash wraps the process with a default-deny Cedar policy. See [`cedar-and-leash.md`](./cedar-and-leash.md).
+2. **Copy-not-mount workspace** — `/workspace/` is a copy of the project tree, not a host bind-mount. Host secrets, `~/.aws`, SSH keys, the host's `.git/`, and `<feature>/tests/hidden/` files are never staged in ([`src/orchestrator/sandbox.ts:16`](../../../src/orchestrator/sandbox.ts#L16)).
+3. **Patch as plain-text git diff** — agent output reaches the host as a string, not a process. [`extractIncrementalRoundPatch`](../../../src/orchestrator/sandbox.ts#L1045) extracts → [`filterPatchHunks`](../../../src/orchestrator/sandbox.ts#L1194) strips `.git/hooks/**` + `saifctl/tests/**` → `RunCommit` storage. The only host-side action on a patch is `git apply`, gated by [`assertRunCommitsSafeForHost`](../../../src/orchestrator/phases/apply-patch.ts#L75).
+4. **Per-iteration container teardown** — coder, staging, ephemeral services destroyed each iteration. Latent processes can't carry over. [`LiveInfra`](../infra.md) tracks every resource for deterministic teardown even on crash.
+5. **Two-container test architecture** — test runner is a separate container, talks to staging over HTTP only via the Go sidecar at [`src/orchestrator/sidecars/cli-over-http/main.go`](../../../src/orchestrator/sidecars/cli-over-http/main.go) (`POST /exec {cmd, args, env, timeout}` → `{stdout, stderr, exitCode}`). No shared memory, no Docker socket. See [`test-runner.md`](./test-runner.md).
 
-These five layers are independent: defeating any one of them does not defeat the others.
+The user-facing version of these five lives at [`web/src/app/saifctl/page.tsx`](../../../web/src/app/saifctl/page.tsx) `SECURITY_ROWS`.
 
 ## Additional hardening mechanisms
 
-Beyond the five layers, several specific mechanisms harden particular paths:
-
-- **Saifctl env-var stripping** ([`src/orchestrator/loop.ts:268`](../../../src/orchestrator/loop.ts#L268)). `SAIFCTL_*`, `LLM_*`, and `REVIEWER_LLM_*` env vars are stripped from the agent's env before invocation. The agent can't read saifctl's own LLM credentials or run-internal coordination vars, even though it inherits other host env (which is the trade-off — see #4 below).
-- **Secret-env redaction** (same code path). Vars listed via `--agent-secret KEY` (or `config.defaults.agentSecretKeys`) are passed to the agent but never logged as values and never persisted to run storage. Used for passing API keys without baking them into the run record.
-- **Drop-privileges contract** ([`src/orchestrator/scripts/saifctl-agent-helpers.sh`](../../../src/orchestrator/scripts/saifctl-agent-helpers.sh), [`drop-privileges-contract.test.ts`](../../../src/agent-profiles/drop-privileges-contract.test.ts)). Each agent profile's `agent.sh` invokes `saifctl_drop_privs_init` then runs the agent CLI as `$SAIFCTL_UNPRIV_USER` (uid != 0). Even with `--dangerousNoLeash`, the agent's CLI doesn't have root inside its own container.
-- **Prompt-injection isolation.** The agent's output (code changes, test failures) is **never forwarded** to saifctl's internal AI agents (vague-specs-checker, design agents). Test runner output reaches the orchestrator as raw JSON which never gets concatenated into another agent's prompt. The only AI that reads agent-controlled bytes is the **Reviewer** (Argus), which lives inside the agent's own container and whose verdict is one of three independent checks (gate, reviewer, holdout — see [`gate-and-reviewer.md`](./gate-and-reviewer.md)). Bypassing the Reviewer doesn't pass the holdout tests.
-- **Reward-hacking via test/spec edits.** Cedar `forbid` rules block writes under `/workspace/saifctl/` (the dir holding `specification.md` + visible tests) — see #6 + the user-facing `concepts/leash-access-control.md` page. Agent-written test files would also be stripped from the patch via `patchExclude` even if the Cedar layer were bypassed.
-- **Hidden tests are hidden.** Files under `<feature>/tests/hidden/` are kept in the host's authoritative tree and not staged into the sandbox copy ([`sandbox.ts:16`](../../../src/orchestrator/sandbox.ts#L16)). The agent has no observation of what the hidden tests check.
-- **Agent identity in commits.** Every commit produced by `feat run` is signed with a dedicated git-author identity (`saifctl-agent[<run-id>]`), so the agent's commits are distinguishable from human commits in `git log`. Audit-trail benefit; documented in the website's `RELIABILITY_ROWS`.
+| Mechanism | Where | What it blocks |
+|---|---|---|
+| Saifctl env-var stripping | [`src/orchestrator/loop.ts:268`](../../../src/orchestrator/loop.ts#L268) | Agent can't read `SAIFCTL_*` / `LLM_*` / `REVIEWER_LLM_*` vars (saifctl's own credentials, coordination state). |
+| Secret-env redaction | same | `--agent-secret KEY` env vars are forwarded but never logged as values, never persisted to run storage. |
+| Drop-privileges contract | [`src/orchestrator/scripts/saifctl-agent-helpers.sh`](../../../src/orchestrator/scripts/saifctl-agent-helpers.sh) + [`drop-privileges-contract.test.ts`](../../../src/agent-profiles/drop-privileges-contract.test.ts) | Each agent profile's `agent.sh` runs the CLI as `$SAIFCTL_UNPRIV_USER` (uid != 0). Even `--dangerousNoLeash` keeps non-root. |
+| Prompt-injection isolation | (design invariant; no single file) | Agent output never reaches saifctl's internal AI agents (vague-specs-checker, design agents). Only Argus reads agent bytes; bypassing it doesn't pass holdout tests — three independent gates. See [`gate-and-reviewer.md`](./gate-and-reviewer.md). |
+| Reward-hacking forbid | `default.cedar` + patchExclude | Cedar forbids writes under `/workspace/saifctl/`; even if bypassed, the patch filter strips agent-written test files before storage. See #6 below. |
+| Hidden tests physically absent | [`sandbox.ts:16`](../../../src/orchestrator/sandbox.ts#L16) | `<feature>/tests/hidden/` is not staged into the sandbox copy. The agent has no observation of what hidden tests check. |
+| Agent-identity commits | git author signing | Every `feat run` commit signed `saifctl-agent[<run-id>]`. Distinguishable from human commits in `git log`. Audit trail. |
 
 ## Original design-time findings
 

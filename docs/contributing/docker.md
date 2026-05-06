@@ -1,6 +1,8 @@
 # Docker Images
 
-The factory uses several Docker images for the sandbox, coder agent, and test runners. **Pre-built images are published to GHCR** — use them directly; building locally is only needed for development or offline use.
+Image inventory + build / publish / pull operations. For the architectural picture (why three containers, sidecar HTTP protocol, copy-not-mount workspace), see [`architecture/sandbox-isolation.md`](./architecture/sandbox-isolation.md) and [`architecture/test-runner.md`](./architecture/test-runner.md).
+
+**Pre-built images are published to GHCR** — use them directly; build locally only for development or offline use.
 
 ## Images
 
@@ -119,3 +121,10 @@ export DOCKER_HOST=unix://$HOME/.colima/default/docker.sock
 ```
 
 For symptoms and step-by-step setup, see [Troubleshooting](../troubleshooting.md).
+
+## See also
+
+- [`architecture/sandbox-isolation.md`](./architecture/sandbox-isolation.md) — the three-container architecture, copy-not-mount workspace, why no Docker socket.
+- [`architecture/test-runner.md`](./architecture/test-runner.md) — test-runner contract, HTTP sidecar protocol, JUnit XML output.
+- [`architecture/installation-scripts.md`](./architecture/installation-scripts.md) — `Dockerfile.coder` per profile; `startup.sh` / `stage.sh` / `gate.sh` lifecycles.
+- [`architecture/extension-points.md`](./architecture/extension-points.md#sandbox-profiles) — sandbox profiles + test profiles in the broader profile system.
