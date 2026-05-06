@@ -94,7 +94,9 @@ export function useMascotFSM(options?: {
   isNearFloor?: () => boolean;
 }) {
   const isNearFloorRef = useRef(options?.isNearFloor ?? (() => false));
-  isNearFloorRef.current = options?.isNearFloor ?? (() => false);
+  useEffect(() => {
+    isNearFloorRef.current = options?.isNearFloor ?? (() => false);
+  });
   const [animationKey, setAnimationKey] = useState<AnimationKey>('walk');
   const [jumpSeq, setJumpSeq] = useState(0);
   const stateRef = useRef<MascotState>('WALKING_RIGHT');
@@ -118,7 +120,13 @@ export function useMascotFSM(options?: {
     setAnimationKey(anim);
   }, []);
 
-  /** After a delay, pick a new behaviour if still in a timer-eligible state; chain if result stays eligible. */
+  /**
+   * After a delay, pick a new behaviour if still in a timer-eligible state; chain if result stays eligible.
+   *
+   * Self-recursion uses a ref to avoid the temporal-dead-zone reference (`scheduleAutonomous`
+   * inside its own `useCallback` body).
+   */
+  const scheduleAutonomousRef = useRef<() => void>(() => {});
   const scheduleAutonomous = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     const s = stateRef.current;
@@ -130,10 +138,13 @@ export function useMascotFSM(options?: {
       enterState(pickNextState(cur));
       const next = stateRef.current;
       if (TIMER_STATES.has(next as TimerEligibleState)) {
-        scheduleAutonomous();
+        scheduleAutonomousRef.current();
       }
     }, randomInterval());
   }, [enterState]);
+  useEffect(() => {
+    scheduleAutonomousRef.current = scheduleAutonomous;
+  });
 
   /** Fired by the sprite renderer when a non-looping clip finishes. */
   const onAnimationComplete = useCallback(() => {
@@ -164,7 +175,7 @@ export function useMascotFSM(options?: {
       const next = stateRef.current;
       if (TIMER_STATES.has(next as TimerEligibleState)) scheduleAutonomous();
     }
-  }, [enterState, scheduleAutonomous]);
+  }, [enterState, scheduleAutonomous, enterLandTransition]);
 
   /** Physics clamped at viewport edge: flip walk direction and reset the autonomous timer. */
   const onWallHit = useCallback(
@@ -261,13 +272,14 @@ export function useMascotFSM(options?: {
   }, [enterState]);
 
   useEffect(() => {
-    // Initial walk + first scheduled decision; cleanup clears pending timeouts (e.g. Strict Mode).
-    enterState('WALKING_RIGHT');
+    // First scheduled decision; cleanup clears pending timeouts (e.g. Strict Mode).
+    // Initial state ('WALKING_RIGHT'/'walk') is set via the useState/useRef initializers above,
+    // so no enterState() call is needed at mount — that would be a redundant set-state-in-effect.
     scheduleAutonomous();
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [enterState, scheduleAutonomous]);
+  }, [scheduleAutonomous]);
 
   return {
     stateRef,

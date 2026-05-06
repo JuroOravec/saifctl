@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 
 import { GITHUB_REPO, VSCODE_MARKETPLACE_URL } from '../constants';
@@ -16,9 +17,11 @@ export function Nav() {
     <nav className="fixed top-0 w-full z-50 border-b border-border bg-bg/80 backdrop-blur-md">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-          <img
+          <Image
             src="/logo/saif_512_circ_color.svg"
             alt="Safe AI Factory"
+            width={64}
+            height={64}
             className="w-16 h-16 shrink-0"
           />
           <span className="font-mono font-bold tracking-tight text-fg">
@@ -28,9 +31,6 @@ export function Nav() {
         <div className="hidden md:flex items-center gap-6">
           <Link href="/saifctl" className={navLinkClass}>
             saifctl
-          </Link>
-          <Link href="/saifbox" className={navLinkClass}>
-            saifbox
           </Link>
           <Link href="/saifdocs" className={navLinkClass}>
             saifdocs

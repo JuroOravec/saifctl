@@ -9,11 +9,11 @@ export const CHAR_W = 96;
 export const CHAR_H = 96;
 
 /** Horizontal delta per animation frame (~60fps); tuned for "Game Boy pace", not real m/s. */
-export const WALK_SPEED = 1.5;
+const WALK_SPEED = 1.5;
 /** Upward kick on jump: negative vy because screen Y grows downward. */
-export const JUMP_STRENGTH = 12;
+const JUMP_STRENGTH = 12;
 /** Added to vy each frame while airborne; with ~60fps rAF this approximates a fall curve. */
-export const GRAVITY = 0.5;
+const GRAVITY = 0.5;
 /**
  * How many px above the real floor the landing animation is triggered.
  * The character keeps falling physically during the animation; only the FSM event fires early.
@@ -47,11 +47,13 @@ export function useMascotPhysics(options: {
   onLand: () => void;
 }): UseMascotPhysicsResult {
   const { stateRef } = options;
-  // Latest wall callback without putting it in the effect deps (avoids restarting rAF).
+  // Latest wall/land callbacks without putting them in the effect deps (avoids restarting rAF).
   const onWallHitRef = useRef(options.onWallHit);
-  onWallHitRef.current = options.onWallHit;
   const onLandRef = useRef(options.onLand);
-  onLandRef.current = options.onLand;
+  useEffect(() => {
+    onWallHitRef.current = options.onWallHit;
+    onLandRef.current = options.onLand;
+  });
 
   const physicsRef = useRef<PhysicsState>({
     x: 200,

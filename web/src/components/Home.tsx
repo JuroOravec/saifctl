@@ -12,18 +12,10 @@ const PRODUCTS = [
   {
     href: '/saifctl',
     name: 'saifctl',
-    tagline: 'Software Factory',
+    tagline: 'Sandbox + Software Factory',
     description:
-      'Write feature specs, and let containerized agents iterate until your tests pass. SaifCTL is the verification engine — language-agnostic, agent-agnostic, safe by design.',
+      'Two modes, one tool. Run any agent CLI safely in a Docker sandbox in one command — or write feature specs and let containerized agents iterate through gate, reviewer, and hidden tests until they pass. Language-agnostic, agent-agnostic, safe by design.',
     cta: 'Explore saifctl',
-  },
-  {
-    href: '/saifbox',
-    name: 'saifbox',
-    tagline: 'Safe Agent Sandbox',
-    description:
-      'Run any agent CLI — OpenClaw, Claude Code, anything — inside an ephemeral Docker sandbox. One command. Any agent. Any language. No host access.',
-    cta: 'Explore saifbox',
   },
   {
     href: '/saifdocs',

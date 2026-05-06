@@ -10,7 +10,10 @@ describe('dummy.md Negative Cases (hidden)', () => {
       'ls -1 | grep -i "^dummy\\.md$" || true',
     ]);
     expect(exitCode).toBe(0);
-    const matches = stdout.split('\n').map((s) => s.trim()).filter(Boolean);
+    const matches = stdout
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
     expect(matches, `expected exactly one entry, got: ${matches.join(', ')}`).toHaveLength(1);
     expect(matches[0]).toBe('dummy.md');
   });

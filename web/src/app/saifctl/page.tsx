@@ -58,6 +58,7 @@ function useSectionTracking(sectionIds: SectionId[]) {
 
     return () => observer.disconnect();
     // sectionIds is a stable constant at every call site — empty deps array is intentional
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }
 
@@ -109,6 +110,7 @@ export default function SaifctlPage() {
   const [selectedPipelineNode, setSelectedPipelineNode] = useState(0);
 
   useSectionTracking([
+    'modes',
     'gauntlet',
     'guarantee',
     'prove_it',
@@ -138,11 +140,6 @@ export default function SaifctlPage() {
               <span className="text-xs font-mono text-fg-muted">Alpha Available Soon</span>
             </div>
 
-            {/* # TODO - Mention 'saifctl sandbox' as core concept
-                       - Expand the narrative to be two-tier:
-                         - sandboxing autonomous agents (openclaw)
-                         - orchestration and software factory (what we have now)
-             */}
             {/* # TODO - Rename as "Safest Open Source AI Agent Orchestration"? NO! Simplify more!
                          - See eracle/OpenOutreach as good example for writing simple copy.
             */}
@@ -156,7 +153,7 @@ export default function SaifctlPage() {
                          -> Share with Linear
             */}
             <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-fg mb-6 leading-tight">
-              Safest open source harness for autonomous AI agents.
+              Workflows for agentic CLIs.
               <br />
               Agents can't{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-600">
@@ -205,6 +202,66 @@ export default function SaifctlPage() {
               </div>
             </div>
           </motion.div>
+        </section>
+
+        {/* ─── BLOCK 1.5: TWO MODES ───────────────────────────────────────── */}
+        <section id="modes" className="max-w-6xl mx-auto px-6 mb-32">
+          <SectionLabel label="Two modes, one tool" center />
+          <h2 className="text-3xl md:text-4xl font-bold text-fg mb-4 max-w-3xl mx-auto text-center">
+            Run an agent. Or build a feature.
+          </h2>
+          <p className="text-fg-muted max-w-2xl mx-auto mb-12 leading-relaxed text-center">
+            Same container either way.
+          </p>
+
+          <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+            {/* SANDBOX */}
+            <div className="p-8 border border-border rounded-xl bg-surface flex flex-col">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="text-3xl">🐳</div>
+                <h3 className="text-2xl font-bold text-fg">Sandbox</h3>
+              </div>
+              <p className="text-fg-muted leading-relaxed mb-6 flex-1">
+                Any agent CLI — Claude Code, Cursor Agent, OpenHands — runs without touching your
+                host. Your project gets copied in. Nothing leaks back unless you pass{' '}
+                <code className="text-accent font-mono text-sm">--extract</code>.
+              </p>
+              <div className="bg-bg border border-border rounded-md p-4 font-mono text-xs text-accent mb-6 overflow-x-auto">
+                <span className="text-fg-subtle">$ </span>saifctl sandbox --agent claude --task
+                &quot;Add docstrings to src/api/&quot;
+              </div>
+              <Link
+                href="/product/saifctl/tutorials/first-sandbox-run"
+                className="text-link hover:text-link-hover hover:underline transition-colors text-sm font-medium flex items-center gap-1"
+                onClick={() => track('cta_click', { destination: 'sandbox_tutorial' })}
+              >
+                Walk through your first run <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            {/* FACTORY */}
+            <div className="p-8 border border-border rounded-xl bg-surface flex flex-col">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="text-3xl">🏭</div>
+                <h3 className="text-2xl font-bold text-fg">Factory</h3>
+              </div>
+              <p className="text-fg-muted leading-relaxed mb-6 flex-1">
+                Write a spec. saifctl drives the agent through gate, reviewer, and hidden tests
+                until everything passes. For big features, split into phases — each gets its own
+                gauntlet.
+              </p>
+              <div className="bg-bg border border-border rounded-md p-4 font-mono text-xs text-accent mb-6 overflow-x-auto">
+                <span className="text-fg-subtle">$ </span>saifctl feat new{' && '}saifctl feat run
+              </div>
+              <Link
+                href="/product/saifctl/tutorials/spec-driven-development"
+                className="text-link hover:text-link-hover hover:underline transition-colors text-sm font-medium flex items-center gap-1"
+                onClick={() => track('cta_click', { destination: 'factory_tutorial' })}
+              >
+                Read the spec-driven tutorial <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
         </section>
 
         {/* ─── BLOCK 2: THE GAUNTLET ──────────────────────────────────────── */}

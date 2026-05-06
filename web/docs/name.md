@@ -38,7 +38,7 @@ We also explored "SAIFER" (pronounced _safer_).
 - **The Pro:** It literally sounds like the word "safer," aligning with our value prop.
 - **The Fatal Flaw:** Fidelity Investments launched a well-funded RegTech/AI compliance company called **Saifr** (`saifr.ai`). Because they operate in the AI risk and compliance space, using an identical-sounding name would lead to immediate trademark conflicts and brand confusion.
 
-### Why not verb-heavy domains (e.g. get* brands) or saif.ac?
+### Why not verb-heavy domains (e.g. get\* brands) or saif.ac?
 
 When looking for domains:
 

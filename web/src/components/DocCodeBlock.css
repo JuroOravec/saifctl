@@ -33,7 +33,9 @@
   height: 0.55rem;
   border-radius: 50%;
   background: #ff5f57;
-  box-shadow: 1.1rem 0 0 #febc2e, 2.2rem 0 0 #28c840;
+  box-shadow:
+    1.1rem 0 0 #febc2e,
+    2.2rem 0 0 #28c840;
 }
 
 /* ─── Language label ──────────────────────────────────────────────────────── */
@@ -69,7 +71,9 @@
   border: 1px solid var(--c-border);
   border-radius: 0.2rem;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
   z-index: 10;
 }
 

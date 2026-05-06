@@ -7,7 +7,7 @@ import remarkGfm from 'remark-gfm';
 
 import { DocCodeBlock } from '../components/DocCodeBlock';
 
-export const DOC_PRODUCTS = ['saifctl', 'saifbox', 'saifdocs'] as const;
+export const DOC_PRODUCTS = ['saifctl', 'saifdocs'] as const;
 export type DocProductId = (typeof DOC_PRODUCTS)[number];
 
 export type NavJson = {
@@ -121,15 +121,3 @@ export async function renderIndexFallback(
 
   return { title: `${product} documentation`, content };
 }
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-// Re-export for any callers that still reference the old HTML-based API.
-// Remove once all pages are migrated.
-export { escapeHtml };

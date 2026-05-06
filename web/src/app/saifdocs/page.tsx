@@ -1,6 +1,7 @@
 'use client';
 
 import { ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 
 import { Footer } from '../../components/Footer';
 import { Nav } from '../../components/Nav';
@@ -66,12 +67,12 @@ export default function SaifdocsPage() {
             >
               ★ Star on GitHub
             </a>
-            <a
+            <Link
               href="/product/saifdocs"
               className="px-6 py-3 text-link hover:text-link-hover hover:underline text-sm font-medium flex items-center gap-1 transition-colors"
             >
               View docs <ChevronRight className="w-4 h-4" />
-            </a>
+            </Link>
           </div>
         </section>
 
@@ -99,12 +100,12 @@ export default function SaifdocsPage() {
             >
               Join Waitlist
             </button>
-            <a
+            <Link
               href="/product/saifdocs"
               className="text-link hover:text-link-hover hover:underline text-sm font-medium flex items-center gap-1 transition-colors"
             >
               View saifdocs docs <ChevronRight className="w-4 h-4" />
-            </a>
+            </Link>
           </div>
         </section>
       </main>

@@ -5,27 +5,28 @@ module.exports = {
     extend: {
       colors: {
         // Surfaces
-        bg:        'var(--c-bg)',
-        surface:   'var(--c-surface)',
+        bg: 'var(--c-bg)',
+        surface: 'var(--c-surface)',
         'surface-2': 'var(--c-surface-2)',
         'surface-3': 'var(--c-surface-3)',
         // Borders
-        border:        'var(--c-border)',
+        border: 'var(--c-border)',
         'border-subtle': 'var(--c-border-subtle)',
         // Text
-        fg:        'var(--c-fg)',
-        'fg-muted':  'var(--c-fg-muted)',
+        fg: 'var(--c-fg)',
+        'fg-muted': 'var(--c-fg-muted)',
         'fg-subtle': 'var(--c-fg-subtle)',
         // Accent — gold
-        accent:       'var(--c-accent)',
+        accent: 'var(--c-accent)',
         'accent-hover': 'var(--c-accent-hover)',
-        'accent-dim':   'var(--c-accent-dim)',
+        'accent-dim': 'var(--c-accent-dim)',
         // Link / secondary — steel blue
-        link:         'var(--c-link)',
+        link: 'var(--c-link)',
         'link-hover': 'var(--c-link-hover)',
-        'link-dim':   'var(--c-link-dim)',
+        'link-dim': 'var(--c-link-dim)',
       },
     },
   },
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Tailwind config is CJS; require() is the supported plugin-loading API.
   plugins: [require('@tailwindcss/typography')],
 };

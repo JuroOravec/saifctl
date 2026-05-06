@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 
 import { GITHUB_REPO } from '../constants';
@@ -15,9 +16,11 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <img
+              <Image
                 src="/logo/saif_512_circ_color.svg"
                 alt="Safe AI Factory"
+                width={64}
+                height={64}
                 className="w-16 h-16 shrink-0"
               />
               <span className="font-mono font-bold text-fg">
@@ -43,11 +46,6 @@ export function Footer() {
               <li>
                 <Link href="/saifctl" className="hover:text-fg transition-colors">
                   saifctl
-                </Link>
-              </li>
-              <li>
-                <Link href="/saifbox" className="hover:text-fg transition-colors">
-                  saifbox
                 </Link>
               </li>
               <li>

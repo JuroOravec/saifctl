@@ -7,8 +7,11 @@ export type AnalyticsEvents = {
   waitlist_submit: never;
   github_star_click: never;
 
-  // Outbound link clicks
+  // Outbound link clicks (external URLs)
   outbound_click: { destination: OutboundDestination };
+
+  // Internal CTA clicks (in-app navigation to tutorials, marketing pages, etc.)
+  cta_click: { destination: CtaDestination };
 
   // Section engagement (fires once per session per section)
   section_view: { section: SectionId };
@@ -30,7 +33,10 @@ export type OutboundDestination =
   | 'leash'
   | 'cedar_policy';
 
+export type CtaDestination = 'sandbox_tutorial' | 'factory_tutorial';
+
 export type SectionId =
+  | 'modes'
   | 'gauntlet'
   | 'guarantee'
   | 'prove_it'

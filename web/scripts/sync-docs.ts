@@ -34,7 +34,7 @@ type Manifest = {
   entries: ManifestEntry[];
 };
 
-type ProductId = 'saifctl' | 'saifbox' | 'saifdocs';
+type ProductId = 'saifctl' | 'saifdocs';
 
 type DocSource = {
   product: ProductId;
@@ -66,11 +66,6 @@ const SOURCES: DocSource[] = [
     product: 'saifctl',
     manifestPath: path.resolve(REPO_ROOT, 'docspec/.manifest.json'),
     docsRoot: path.resolve(REPO_ROOT, 'docs'),
-  },
-  {
-    product: 'saifbox',
-    manifestPath: path.resolve(REPO_ROOT, 'vendor/saifbox/docs/.manifest.json'),
-    docsRoot: path.resolve(REPO_ROOT, 'vendor/saifbox/docs'),
   },
   {
     product: 'saifdocs',
@@ -113,6 +108,15 @@ function transformCodeBlocks(content: string): string {
     const langAttr = safeLang ? ` lang="${safeLang}"` : '';
     return `<DocCodeBlock${langAttr} code="${b64}" />`;
   });
+}
+
+// Rewrite HTML comments (<!-- ... -->) into MDX comments ({slash-star ... star-slash}).
+// MDX's parser rejects HTML comments — the leading `<!` triggers a name-start
+// error. Saifdocs-generated markdown sometimes contains placeholder HTML
+// comments (e.g. "<!-- forthcoming -->"); convert them so the build doesn't
+// break. Both forms render as nothing in the final output.
+function transformHtmlComments(content: string): string {
+  return content.replace(/<!--([\s\S]*?)-->/g, (_, body: string) => `{/*${body}*/}`);
 }
 
 // next-mdx-remote injects components via the `components` map at compile time,
@@ -202,13 +206,6 @@ function absPathToWebUrl(absMdPath: string): string | null {
       const slug = posix.replace(/^products\/saifctl\//, '');
       return `/product/saifctl/${slug}`;
     }
-    if (posix === 'products/saifbox/index') {
-      return '/product/saifbox';
-    }
-    if (posix.startsWith('products/saifbox/')) {
-      const slug = posix.replace(/^products\/saifbox\//, '');
-      return `/product/saifbox/${slug}`;
-    }
     if (posix.startsWith('references/')) {
       return `/product/saifctl/${posix}`;
     }
@@ -227,22 +224,6 @@ function absPathToWebUrl(absMdPath: string): string | null {
     }
     if (posix.startsWith('references/')) {
       return `/product/saifdocs/${posix}`;
-    }
-  }
-
-  const saifboxRoot = path.resolve(REPO_ROOT, 'vendor/saifbox/docs');
-  r = path.relative(saifboxRoot, withoutMd);
-  if (!r.startsWith('..') && r !== '') {
-    const posix = toPosix(r);
-    if (posix === 'products/saifbox/index') {
-      return '/product/saifbox';
-    }
-    if (posix.startsWith('products/saifbox/')) {
-      const slug = posix.replace(/^products\/saifbox\//, '');
-      return `/product/saifbox/${slug}`;
-    }
-    if (posix.startsWith('references/')) {
-      return `/product/saifbox/${posix}`;
     }
   }
 
@@ -276,9 +257,6 @@ function filterEntriesForProduct(entries: ManifestEntry[], product: ProductId): 
   return entries.filter((e) => {
     if (product === 'saifctl') {
       return e.productId === 'saifctl' || (e.type === 'references' && e.productId === null);
-    }
-    if (product === 'saifbox') {
-      return e.productId === 'saifbox';
     }
     return e.productId === 'saifdocs' || (e.type === 'references' && e.productId === null);
   });
@@ -341,7 +319,7 @@ function syncProduct(source: DocSource): WrittenPage[] {
     ensureDir(path.dirname(destAbs));
 
     const linkedContent = rewriteLinks(raw, resolvedAbs);
-    const mdxContent = MDX_IMPORT + transformCodeBlocks(linkedContent);
+    const mdxContent = MDX_IMPORT + transformHtmlComments(transformCodeBlocks(linkedContent));
     fs.writeFileSync(destAbs, mdxContent, 'utf8');
 
     const slug = slugFromDestRelative(destRel);

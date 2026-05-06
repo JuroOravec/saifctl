@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import manifestJson from './mascot-manifest.json';
 import type { MascotManifest } from './types';
@@ -28,6 +28,66 @@ const DRAG_ANCHOR_RELATIVE = {
 const DESTROY_CLICK_COUNT = 5;
 const DESTROY_WINDOW_MS = 1500;
 
+/**
+ * Subscribes to footer visibility via IntersectionObserver and exposes both the React-state
+ * value (for re-render-driven JSX) and a stable ref (for imperative reads inside event
+ * handlers/animation loops). Re-targets the footer on each pathname change.
+ *
+ * Uses `useSyncExternalStore` so the observer's event-driven updates flow into React state
+ * without a synchronous setState-in-effect (which the React Compiler flags as cascading-render
+ * risk).
+ */
+function useFooterVisible(opts: { pathname: string; isDraggingRef: React.RefObject<boolean> }): {
+  visible: boolean;
+  visibleRef: React.RefObject<boolean>;
+} {
+  const { pathname, isDraggingRef } = opts;
+
+  // Mutable snapshot + listener set kept in refs so subscribe/getSnapshot stay stable.
+  const visibleRef = useRef(false);
+  const listenersRef = useRef(new Set<() => void>());
+
+  const subscribe = useCallback((cb: () => void) => {
+    listenersRef.current.add(cb);
+    return () => {
+      listenersRef.current.delete(cb);
+    };
+  }, []);
+  const getSnapshot = useCallback(() => visibleRef.current, []);
+  const getServerSnapshot = useCallback(() => false, []);
+
+  // Re-target the footer on every route change.
+  useEffect(() => {
+    const setVisible = (next: boolean) => {
+      if (visibleRef.current === next) return;
+      visibleRef.current = next;
+      listenersRef.current.forEach((cb) => cb());
+    };
+
+    const footer = document.querySelector('footer');
+    if (!footer) {
+      setVisible(false);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const next = entry.isIntersecting;
+        // Don't hide while the user is dragging the mascot.
+        if (!next && isDraggingRef.current) return;
+        setVisible(next);
+      },
+      { threshold: 0.05 },
+    );
+
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, [pathname, isDraggingRef]);
+
+  const visible = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return { visible, visibleRef };
+}
+
 function isTypingTarget(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
   const tag = el.tagName;
@@ -52,8 +112,6 @@ export function Mascot() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [hintVisible, setHintVisible] = useState(false);
-  const [footerVisible, setFooterVisible] = useState(false);
-  const footerVisibleRef = useRef(false);
 
   const isDraggingRef = useRef(false);
   const lastMousePosRef = useRef({ x: 0, y: 0 });
@@ -61,6 +119,11 @@ export function Mascot() {
   const removeDocDragListenersRef = useRef<(() => void) | null>(null);
   const clickCountRef = useRef(0);
   const lastClickTimeRef = useRef(0);
+
+  const { visible: footerVisible, visibleRef: footerVisibleRef } = useFooterVisible({
+    pathname,
+    isDraggingRef,
+  });
 
   useEffect(() => {
     const img = new Image();
@@ -70,30 +133,6 @@ export function Mascot() {
       img.onload = null;
     };
   }, []);
-
-  useEffect(() => {
-    // Re-query the footer on every route change so the observer always
-    // targets the current page's footer element after client-side navigation.
-    const footer = document.querySelector('footer');
-    if (!footer) {
-      footerVisibleRef.current = false;
-      setFooterVisible(false);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        // Don't hide while the user is dragging the mascot.
-        if (!entry.isIntersecting && isDraggingRef.current) return;
-        footerVisibleRef.current = entry.isIntersecting;
-        setFooterVisible(entry.isIntersecting);
-      },
-      { threshold: 0.05 },
-    );
-
-    observer.observe(footer);
-    return () => observer.disconnect();
-  }, [pathname]);
 
   // Stable getter ref: populated after physicsRef exists, read lazily by the FSM.
   const isNearFloorRef = useRef<() => boolean>(() => false);
@@ -115,11 +154,14 @@ export function Mascot() {
 
   const { physicsRef, jumpRef, dragRef } = useMascotPhysics({ stateRef, onWallHit, onLand });
 
-  // Now physicsRef exists — wire the real implementation into the ref.
-  isNearFloorRef.current = () => {
-    const floor = window.innerHeight - CHAR_H;
-    return physicsRef.current.y >= floor - LAND_TRIGGER_OFFSET;
-  };
+  // Now physicsRef exists — wire the real implementation into the ref (in an effect so
+  // the assignment happens after render, not during).
+  useEffect(() => {
+    isNearFloorRef.current = () => {
+      const floor = window.innerHeight - CHAR_H;
+      return physicsRef.current.y >= floor - LAND_TRIGGER_OFFSET;
+    };
+  });
 
   const handleJump = useCallback(() => {
     if (isDraggingRef.current) return;
@@ -139,16 +181,18 @@ export function Mascot() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleJump]);
+  }, [handleJump, footerVisibleRef]);
 
   const onGrabRef = useRef(onGrab);
   const onDragSwingRef = useRef(onDragSwing);
   const onDragCalmRef = useRef(onDragCalm);
   const onReleaseRef = useRef(onRelease);
-  onGrabRef.current = onGrab;
-  onDragSwingRef.current = onDragSwing;
-  onDragCalmRef.current = onDragCalm;
-  onReleaseRef.current = onRelease;
+  useEffect(() => {
+    onGrabRef.current = onGrab;
+    onDragSwingRef.current = onDragSwing;
+    onDragCalmRef.current = onDragCalm;
+    onReleaseRef.current = onRelease;
+  });
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {

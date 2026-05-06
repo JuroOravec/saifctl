@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
@@ -23,9 +24,11 @@ export default async function PrivacyPage() {
       <header className="fixed top-0 w-full z-50 border-b border-border bg-bg/80 backdrop-blur-md">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-            <img
+            <Image
               src="/logo/saif_512_circ_color.svg"
               alt="Safe AI Factory"
+              width={64}
+              height={64}
               className="w-16 h-16 shrink-0"
             />
             <span className="font-mono font-bold tracking-tight text-fg">

@@ -10,20 +10,12 @@
  *   import { track } from '@/lib/analytics';
  *   track('waitlist_submit');
  *   track('outbound_click', { destination: 'install_cli' });
- *
- * To hook up a new provider, implement the `AnalyticsAdapter` interface and
- * register it via `setAnalyticsAdapter()`.
  */
 
 import { plausibleAdapter } from './adaptors/plausible';
 import { type AnalyticsAdapter, type AnalyticsEvents } from './types';
 
-let _adapter: AnalyticsAdapter = plausibleAdapter;
-
-/** Register a different analytics backend. Call once at app boot if swapping providers. */
-export function setAnalyticsAdapter(adapter: AnalyticsAdapter): void {
-  _adapter = adapter;
-}
+const _adapter: AnalyticsAdapter = plausibleAdapter;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
