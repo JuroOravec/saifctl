@@ -71,7 +71,7 @@ export SAIFCTL_EXPERIMENTAL_HATCHET=1
 unset HATCHET_CLIENT_TOKEN
 ```
 
-Per decision D-04, local mode is the default and fully supported; Hatchet is opt-in.
+Per decision release-readiness/D-04, local mode is the default and fully supported; Hatchet is opt-in.
 
 ---
 

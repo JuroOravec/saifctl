@@ -4,7 +4,7 @@ explains: when and why to opt into Hatchet (durable, distributed orchestration) 
 learning_outcomes:
   - 'Default mode (no `HATCHET_CLIENT_TOKEN`): saifctl runs in-process — no external services, no setup, fine for single-developer use.'
   - Setting `HATCHET_CLIENT_TOKEN` opts into Hatchet, adding durability (resume across crashes), distributed execution (multiple workers), a dashboard.
-  - '**Status in v0.1**: Hatchet integration is gated behind `SAIFCTL_EXPERIMENTAL_HATCHET=1`. Without that flag, setting `HATCHET_CLIENT_TOKEN` raises an error pointing here. Local mode is unaffected. (Per Decision D-04.)'
+  - '**Status in v0.1**: Hatchet integration is gated behind `SAIFCTL_EXPERIMENTAL_HATCHET=1`. Without that flag, setting `HATCHET_CLIENT_TOKEN` raises an error pointing here. Local mode is unaffected. (Per Decision release-readiness/D-04.)'
   - 'Trade-offs: durability + distribution vs. setup complexity (Hatchet server, gRPC connectivity, token management).'
 analogies:
   - the difference between `setTimeout` (in-process) and a job queue (distributed)

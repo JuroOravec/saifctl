@@ -4,7 +4,7 @@
 # YAML parse failures, and stale `source:` paths before merge.
 #
 # Currently uses `saifdocs gen --project-dir . --dry-run` (builds the
-# manifest, validates schema, resolves all source: paths). Once DOC-09.4
+# manifest, validates schema, resolves all source: paths). Once release-readiness/DOC-09.4
 # has run at least once and `docs/` is populated, this should be
 # replaced with `saifdocs validate` for actual staleness checks.
 
@@ -99,7 +99,7 @@ jobs:
             exit 1
           fi
 
-      # TODO (post-DOC-09.4): once `docs/` is populated by the first
+      # TODO (post-release-readiness/DOC-09.4): once `docs/` is populated by the first
       # saifdocs run, replace the dry-run validation with full staleness
       # checks. Runtime cost: zero LLM calls, single mtime sweep.
       #

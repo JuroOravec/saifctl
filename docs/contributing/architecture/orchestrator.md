@@ -131,7 +131,7 @@ Detail in [`security-threats.md` finding #2](./security-threats.md#2-arbitrary-c
 
 Local mode (no token): same workflow runs in-process via the mock client at [`src/hatchet/utils/local.ts`](../../../src/hatchet/utils/local.ts). Single code path for both; DAG ordering, `parentOutput`, `runChild`, `onFailure` stay tested without a real Hatchet server.
 
-**v0.1 status**: experimental, gated. See [`docs/contributing/hatchet.md`](../hatchet.md) and Decision **D-04**.
+**v0.1 status**: experimental, gated. See [`docs/contributing/hatchet.md`](../hatchet.md) and Decision **release-readiness/D-04**.
 
 ## Why a custom orchestrator at all
 

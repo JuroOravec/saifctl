@@ -11,7 +11,7 @@ The agent (its CLI + anything it `pip install`s / `npm install`s) is hostile. Th
 Two design principles fall out:
 
 1. **The agent never controls what the host executes.** Anything the agent writes that the host then _honours_ — git config, hooks, patches, stderr piped into a shell — is an escape vector. All seven findings below are variations on this.
-2. **Network egress is permitted by default — pragmatic, not principled.** A network allowlist for arbitrary user projects (npm, PyPI, crates, GitHub, doc hosts, per-project deps, …) is intractable. Filesystem isolation is what actually contains the blast radius; the network is a known unmitigated exfiltration channel. Per Decision D-06 in the release-readiness specification.
+2. **Network egress is permitted by default — pragmatic, not principled.** A network allowlist for arbitrary user projects (npm, PyPI, crates, GitHub, doc hosts, per-project deps, …) is intractable. Filesystem isolation is what actually contains the blast radius; the network is a known unmitigated exfiltration channel. Per Decision release-readiness/D-06 in the release-readiness specification.
 
 ## Defense-in-depth layers
 

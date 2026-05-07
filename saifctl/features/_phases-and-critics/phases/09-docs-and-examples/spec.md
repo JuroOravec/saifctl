@@ -56,7 +56,7 @@ references. The audit critic should specifically check:
 
 ### Docspec entries (post-migration successors of legacy `docs_old/`)
 
-The legacy `docs_old/` tree was migrated into `docspec/` during DOC-09 (see
+The legacy `docs_old/` tree was migrated into `docspec/` during release-readiness/DOC-09 (see
 [`saifctl/features/release-readiness/specification.md` §3.4.1](../../../release-readiness/specification.md)).
 Update the docspec successors below; saifdocs regenerates the user-facing
 `docs/` from these.

@@ -1,16 +1,16 @@
 # `docs_old/` → `docspec/` migration tracker
 
-Audit evidence for **NPM-18** / **DOC-09.2**. One row per file in `docs_old/`. As each file is migrated (or dropped, or moved to `docs/contributing/`), update the **Status** and the **Successor** column. When every row is `✅`, `docs_old/` can be deleted.
+Audit evidence for **release-readiness/NPM-18** / **release-readiness/DOC-09.2**. One row per file in `docs_old/`. As each file is migrated (or dropped, or moved to `docs/contributing/`), update the **Status** and the **Successor** column. When every row is `✅`, `docs_old/` can be deleted.
 
-## Status — DOC-09.2 COMPLETE (2026-05-05)
+## Status — release-readiness/DOC-09.2 COMPLETE (2026-05-05)
 
 All 112 files migrated. `docs_old/` deleted. End state:
 
 - `docs/contributing/` — 9 top-level handwritten internal docs + `architecture-history/` (25 historical SWF v0 files).
 - `docspec/` — fully populated with concepts, references (commands, agents, designers, indexers), how-tos, tutorials, personas, tasks, plus `assets/` (the 6 inspect-and-start screenshots, recovered from git).
-- `docs/` is empty apart from `docs/contributing/` — saifdocs will populate the rest in DOC-09.4.
+- `docs/` is empty apart from `docs/contributing/` — saifdocs will populate the rest in release-readiness/DOC-09.4.
 
-DOC-09.3 (audit saifctl surface vs. docspec for any remaining gaps + author DOC-08 spec-driven-development tutorial) is the next step.
+release-readiness/DOC-09.3 (audit saifctl surface vs. docspec for any remaining gaps + author release-readiness/DOC-08 spec-driven-development tutorial) is the next step.
 
 ## Buckets
 
@@ -34,27 +34,27 @@ DOC-09.3 (audit saifctl surface vs. docspec for any remaining gaps + author DOC-
 | ------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | `agent-environment.md`    | MIGRATE                | `docspec/references/agent-environment.md` (`source: src/orchestrator/agent-env.ts`)                      | ✅     | Env vars passed _into_ the agent container                                                                                        |
 | `config.md`               | MIGRATE                | `docspec/references/config.md` (`source: src/config/schema.ts`)                                          | ✅     |                                                                                                                                   |
-| `docker-images.md`        | MIGRATE                | `docspec/references/docker-images.md` (`source: scripts/docker.ts`)                                      | ✅     | DCK-01 content folded in                                                                                                          |
+| `docker-images.md`        | MIGRATE                | `docspec/references/docker-images.md` (`source: scripts/docker.ts`)                                      | ✅     | release-readiness/DCK-01 content folded in                                                                                                          |
 | `env-vars.md`             | MIGRATE                | `docspec/references/env-vars.md` (`source: src/constants.ts`)                                            | ✅     | Saifctl-side env vars                                                                                                             |
-| `features.md`             | MIGRATE                | `docspec/products/saifctl/concepts/features.md` (concept; absorbs `specs.md`)                            | ✅     | Tutorial-shape DOC-08 follow-up tracked separately under DOC-09.3                                                                 |
+| `features.md`             | MIGRATE                | `docspec/products/saifctl/concepts/features.md` (concept; absorbs `specs.md`)                            | ✅     | Tutorial-shape release-readiness/DOC-08 follow-up tracked separately under release-readiness/DOC-09.3                                                                 |
 | `gate.md`                 | MIGRATE                | merged into existing `concepts/gate-reviewer-holdout.md`                                                 | ✅     | Existing learning_outcomes already cover this content                                                                             |
-| `hatchet.md`              | MIGRATE                | `docspec/products/saifctl/concepts/hatchet.md`                                                           | ✅     | Per D-04, framed as "experimental in v0.1"                                                                                        |
+| `hatchet.md`              | MIGRATE                | `docspec/products/saifctl/concepts/hatchet.md`                                                           | ✅     | Per release-readiness/D-04, framed as "experimental in v0.1"                                                                                        |
 | `infra.md`                | MIGRATE + CONTRIBUTING | `docspec/products/saifctl/concepts/infra.md` (user-facing) **+** `docs/contributing/infra.md` (internal) | ✅     | Both kept per locked decision (top-level was simpler / user-facing; development/infra.md was internal detail)                     |
-| `leash-access-control.md` | MIGRATE                | `docspec/products/saifctl/concepts/leash-access-control.md`                                              | ✅     | DOC-05 content folded in                                                                                                          |
-| `models.md`               | MIGRATE                | `docspec/references/models.md` (`source: src/llm-config.ts`)                                             | ✅     | D-05 narrowed list captured                                                                                                       |
+| `leash-access-control.md` | MIGRATE                | `docspec/products/saifctl/concepts/leash-access-control.md`                                              | ✅     | release-readiness/DOC-05 content folded in                                                                                                          |
+| `models.md`               | MIGRATE                | `docspec/references/models.md` (`source: src/llm-config.ts`)                                             | ✅     | release-readiness/D-05 narrowed list captured                                                                                                       |
 | `reviewer.md`             | MIGRATE                | merged into existing `concepts/gate-reviewer-holdout.md`                                                 | ✅     |                                                                                                                                   |
 | `runs.md`                 | MIGRATE                | merged into existing `concepts/run-lifecycle.md`                                                         | ✅     | Existing run-lifecycle concept already covers this content                                                                        |
-| `sandbox.md`              | MIGRATE                | `docspec/products/saifctl/concepts/sandbox.md`                                                           | ✅     | Higher-level concept matching saifctl landing-page's Sandbox half (per D-20). Distinct from `docker-isolation` (mechanics layer). |
+| `sandbox.md`              | MIGRATE                | `docspec/products/saifctl/concepts/sandbox.md`                                                           | ✅     | Higher-level concept matching saifctl landing-page's Sandbox half (per release-readiness/D-20). Distinct from `docker-isolation` (mechanics layer). |
 | `sandbox-profiles.md`     | MIGRATE                | `docspec/references/sandbox-profiles.md` (`source: src/sandbox-profiles/index.ts`)                       | ✅     |                                                                                                                                   |
-| `security.md`             | MIGRATE                | `docspec/products/saifctl/concepts/security.md`                                                          | ✅     | DOC-04 threat-model long-form folded in                                                                                           |
+| `security.md`             | MIGRATE                | `docspec/products/saifctl/concepts/security.md`                                                          | ✅     | release-readiness/DOC-04 threat-model long-form folded in                                                                                           |
 | `services.md`             | MIGRATE                | `docspec/products/saifctl/concepts/services.md`                                                          | ✅     | Macro-Orchestrator + IaC concept                                                                                                  |
 | `source-control.md`       | MIGRATE                | `docspec/products/saifctl/concepts/source-control.md`                                                    | ✅     | Push/PR provider integrations                                                                                                     |
 | `specs.md`                | MIGRATE                | merged into `docspec/products/saifctl/concepts/features.md`                                              | ✅     | "What a feature looks like on disk" — folded into the features concept                                                            |
 | `storage.md`              | DROP                   | n/a                                                                                                      | ✅     | Empty file (0 lines). Future run-storage docs can be added under references when needed.                                          |
 | `test-profiles.md`        | MIGRATE                | `docspec/references/test-profiles.md` (`source: src/test-profiles/index.ts`)                             | ✅     |                                                                                                                                   |
 | `troubleshooting.md`      | MIGRATE                | `docspec/products/saifctl/how-tos/troubleshoot.md` + `personas/engineer/tasks/troubleshoot-setup.md`     | ✅     |                                                                                                                                   |
-| `usage.md`                | MIGRATE                | absorbed into existing tutorials + DOC-08 (spec-driven-development tutorial pending in DOC-09.3)         | ✅     | Top-level walkthrough — informs tutorials, not a standalone page                                                                  |
-| `usage.md`                | MIGRATE                | merged into existing tutorials + DOC-08                                                                  | 🟠     | Top-level walkthrough; informs tutorials, not a standalone page                                                                   |
+| `usage.md`                | MIGRATE                | absorbed into existing tutorials + release-readiness/DOC-08 (spec-driven-development tutorial pending in release-readiness/DOC-09.3)         | ✅     | Top-level walkthrough — informs tutorials, not a standalone page                                                                  |
+| `usage.md`                | MIGRATE                | merged into existing tutorials + release-readiness/DOC-08                                                                  | 🟠     | Top-level walkthrough; informs tutorials, not a standalone page                                                                   |
 
 ## Section B — Commands (29 files)
 
@@ -96,7 +96,7 @@ Every `docs_old/commands/<x>.md` maps to a `docspec/references/commands/<x>.md` 
 
 **Commands granularity (CONFIRMED)**: one `docspec/references/commands/<top>.md` stub per top-level TS file. `source:` points at e.g. `src/cli/commands/feat.ts` (one path string, resolved against `projectDir`). Subcommands appear as sections inside the generated page since the TS file contains all subcommand definitions inline. Consolidates ~30 docs_old command files into ~9 docspec stubs (cache, doctor, feat, feat-phases, init, run, run-rules, sandbox, version).
 
-**Missing-from-docs_old**: `feat-phases` is a current command (see [src/cli/commands/feat-phases.ts](safe-ai-factory/src/cli/commands/feat-phases.ts)) with no docs_old counterpart. **Confirmed**: add a fresh docspec entry as part of step 3 (DOC-09.3) — `docspec/references/commands/feat-phases.md` with `source: src/cli/commands/feat-phases.ts`.
+**Missing-from-docs_old**: `feat-phases` is a current command (see [src/cli/commands/feat-phases.ts](safe-ai-factory/src/cli/commands/feat-phases.ts)) with no docs_old counterpart. **Confirmed**: add a fresh docspec entry as part of step 3 (release-readiness/DOC-09.3) — `docspec/references/commands/feat-phases.md` with `source: src/cli/commands/feat-phases.ts`.
 
 ## Section C — Agents (16 files: 15 agents + README)
 
@@ -121,7 +121,7 @@ Per-agent profiles. **Location: `docspec/references/agents/<name>.md`**. Each en
 | `agents/qwen.md`           | MIGRATE | `docspec/references/agents/qwen.md`           | ✅     |                                         |
 | `agents/terminus.md`       | MIGRATE | `docspec/references/agents/terminus.md`       | ✅     |                                         |
 
-**Schema-fit observation**: saifdocs's `ReferencePointerFrontmatterSchema` validates `type: z.enum(['cli-command', 'api-method', 'config-schema'])`. Agent reference pages used `cli-command` since `agent.sh` is literally a CLI invocation pattern, but a dedicated `cli-agent` type would be more accurate. **Filed as a follow-up**: extend saifdocs schema with `cli-agent` (and possibly `cli-designer`, `cli-indexer` per Sections E/F). For v0.1 the `cli-command` workaround is acceptable; revisit after DOC-09.4 reveals whether the generated agent pages read sensibly.
+**Schema-fit observation**: saifdocs's `ReferencePointerFrontmatterSchema` validates `type: z.enum(['cli-command', 'api-method', 'config-schema'])`. Agent reference pages used `cli-command` since `agent.sh` is literally a CLI invocation pattern, but a dedicated `cli-agent` type would be more accurate. **Filed as a follow-up**: extend saifdocs schema with `cli-agent` (and possibly `cli-designer`, `cli-indexer` per Sections E/F). For v0.1 the `cli-command` workaround is acceptable; revisit after release-readiness/DOC-09.4 reveals whether the generated agent pages read sensibly.
 
 ## Section D — Guides (5 files)
 
@@ -135,7 +135,7 @@ Tutorial/how-to material. Maps to `docspec/products/saifctl/{how-tos,tutorials}/
 | `guides/providing-user-feedback.md` | MIGRATE | `docspec/products/saifctl/how-tos/provide-feedback.md` + `personas/engineer/tasks/steer-the-agent.md`     | ✅     | New how-to + new task entry created |
 | `guides/run-lifecycle.md`           | MIGRATE | `docspec/products/saifctl/concepts/run-lifecycle.md`                                                      | ✅     | New concept entry created           |
 
-`docs_old/guides/assets/*.png` (6 image files) — **recovered 2026-05-05** from `docs/guides/assets/` in commit `81f252e` (the `docs_old/` copies were untracked and lost on rm, but the `docs/` copies — same basenames — were git-tracked). Restored to `docspec/assets/inspect-and-start--*.png`. The how-to body at `docspec/products/saifctl/how-tos/inspect-and-start.md` instructs the agent to embed each at the matching step. WEB-06/PRE-01 still applies: these screenshots may be stale and need refreshing per the release plan. saifdocs has **no first-class asset support** (verified 2026-05-05 via [vendor/saifdocs/](safe-ai-factory/vendor/saifdocs/) source review — no `.png`/`.jpg`/`asset` handling in the docspec reader, compiler, or manifest builder). Convention: docspec body carries an explicit instruction to the agent like _"In this how-to, embed the screenshot from `docspec/assets/inspect-and-start--palette.png` as `![…](../../../assets/inspect-and-start--palette.png)`"_, with the relative path computed from the docspec output path. **Open**: whether to add first-class asset support to saifdocs (escape hatch) before relying on body-instruction. For now, body-instruction is the path.
+`docs_old/guides/assets/*.png` (6 image files) — **recovered 2026-05-05** from `docs/guides/assets/` in commit `81f252e` (the `docs_old/` copies were untracked and lost on rm, but the `docs/` copies — same basenames — were git-tracked). Restored to `docspec/assets/inspect-and-start--*.png`. The how-to body at `docspec/products/saifctl/how-tos/inspect-and-start.md` instructs the agent to embed each at the matching step. release-readiness/WEB-06/release-readiness/PRE-01 still applies: these screenshots may be stale and need refreshing per the release plan. saifdocs has **no first-class asset support** (verified 2026-05-05 via [vendor/saifdocs/](safe-ai-factory/vendor/saifdocs/) source review — no `.png`/`.jpg`/`asset` handling in the docspec reader, compiler, or manifest builder). Convention: docspec body carries an explicit instruction to the agent like _"In this how-to, embed the screenshot from `docspec/assets/inspect-and-start--palette.png` as `![…](../../../assets/inspect-and-start--palette.png)`"_, with the relative path computed from the docspec output path. **Open**: whether to add first-class asset support to saifdocs (escape hatch) before relying on body-instruction. For now, body-instruction is the path.
 
 ## Section E — Designers (3 files)
 
@@ -173,7 +173,7 @@ Internal/dev docs. Per user direction: clean up + move to `safe-ai-factory/docs/
 | `development/infra.md`             | CONTRIBUTING | `docs/contributing/infra.md`             | ✅     | Moved as the internal version; the user-facing simplified version is `docspec/products/saifctl/concepts/infra.md` (per locked decision: keep both since they differ in detail level)                                     |
 | `development/inner-round-stats.md` | CONTRIBUTING | `docs/contributing/inner-round-stats.md` | ✅     | Moved                                                                                                                                                                                                                    |
 | `development/logging.md`           | CONTRIBUTING | `docs/contributing/logging.md`           | ✅     | Moved                                                                                                                                                                                                                    |
-| `development/vscode-ext-compat.md` | DROP         | n/a                                      | ✅     | Superseded by [vscode-ext/docs/cursor-vs-vscode-remote-containers.md](safe-ai-factory/vscode-ext/docs/cursor-vs-vscode-remote-containers.md) per D-13. Verified covers same topic with current versioning info. Deleted. |
+| `development/vscode-ext-compat.md` | DROP         | n/a                                      | ✅     | Superseded by [vscode-ext/docs/cursor-vs-vscode-remote-containers.md](safe-ai-factory/vscode-ext/docs/cursor-vs-vscode-remote-containers.md) per release-readiness/D-13. Verified covers same topic with current versioning info. Deleted. |
 
 ### G.2 v0/ (25 files)
 
@@ -215,15 +215,15 @@ Historical SWF design notes — kept as `docs/contributing/architecture-history/
 2. ✅ **Agents/Designers/Indexers location**: `docspec/references/{agents,designers,indexers}/<name>.md`.
 3. ✅ **`v0/` naming**: `architecture-history/` (drops the v0 marker).
 4. ✅ **`gate.md` + `reviewer.md`**: consolidate into the existing `gate-reviewer-holdout` concept.
-5. ✅ **`sandbox.md`**: higher-level "sandbox" concept page corresponding to the saifctl landing page's Sandbox half (per D-20). Lives alongside the existing focused `docker-isolation` concept.
-6. ✅ **`feat-phases` command**: add fresh docspec entry in DOC-09.3.
-7. ✅ **`development/vscode-ext-compat.md`**: verify against [`vscode-ext/docs/cursor-vs-vscode-remote-containers.md`](safe-ai-factory/vscode-ext/docs/cursor-vs-vscode-remote-containers.md) per D-13 and DROP if covered.
-8. ✅ **`infra.md` (top-level vs. `development/infra.md`)**: read both during DOC-09.2; keep both if differing detail level (top-level user-facing → docspec concept; development/ internal → contributing); merge if duplicate.
+5. ✅ **`sandbox.md`**: higher-level "sandbox" concept page corresponding to the saifctl landing page's Sandbox half (per release-readiness/D-20). Lives alongside the existing focused `docker-isolation` concept.
+6. ✅ **`feat-phases` command**: add fresh docspec entry in release-readiness/DOC-09.3.
+7. ✅ **`development/vscode-ext-compat.md`**: verify against [`vscode-ext/docs/cursor-vs-vscode-remote-containers.md`](safe-ai-factory/vscode-ext/docs/cursor-vs-vscode-remote-containers.md) per release-readiness/D-13 and DROP if covered.
+8. ✅ **`infra.md` (top-level vs. `development/infra.md`)**: read both during release-readiness/DOC-09.2; keep both if differing detail level (top-level user-facing → docspec concept; development/ internal → contributing); merge if duplicate.
 9. ✅ **Assets**: `docspec/assets/<name>.{png,jpg,…}` + docspec body instructs the agent to embed via `![…](…)`. Saifdocs has no first-class asset support — this is a body-instruction workaround.
 
 ## Resolved 2026-05-05 (final)
 
-10. ✅ **`docs/contributing/` location**: `safe-ai-factory/docs/contributing/` (co-located). Gated on **SDR-10** — patch `saifdocs clear` to only delete files the manifest claims to own. **SDR-10 must ship before DOC-09.2 starts.**
-11. ✅ **First-class asset support**: deferred. Filed as **SDR-11**. DOC-09.2 uses the body-instruction approach (`docspec/assets/<file>` + agent-embeds-via-markdown), accepting the brittleness as a known limitation.
+10. ✅ **`docs/contributing/` location**: `safe-ai-factory/docs/contributing/` (co-located). Gated on **release-readiness/SDR-10** — patch `saifdocs clear` to only delete files the manifest claims to own. **release-readiness/SDR-10 must ship before release-readiness/DOC-09.2 starts.**
+11. ✅ **First-class asset support**: deferred. Filed as **release-readiness/SDR-11**. release-readiness/DOC-09.2 uses the body-instruction approach (`docspec/assets/<file>` + agent-embeds-via-markdown), accepting the brittleness as a known limitation.
 
-DOC-09.2 is now unblocked once SDR-10 ships.
+release-readiness/DOC-09.2 is now unblocked once release-readiness/SDR-10 ships.

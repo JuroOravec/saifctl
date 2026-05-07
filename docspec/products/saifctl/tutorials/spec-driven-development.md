@@ -50,4 +50,4 @@ Approximate structure (subject to refinement when the agent generates the page):
 
 **Cross-links to use**: `concepts/features.md` (the feature dir as a concept), `concepts/feat-run-loop.md` (what feat run does internally), `concepts/gate-reviewer-holdout.md` (the gauntlet), `references/commands/feat.md` (CLI surface), `how-tos/run-first-feature.md` (companion goal-oriented how-to).
 
-**Resolves DOC-08** (saifctl release-readiness specification §3.4). Was pending as a hand-written `docs/spec-driven-development.md`; routed through DOC-09 as a saifdocs-generated tutorial instead, per the locked DOC-09 plan.
+**Resolves release-readiness/DOC-08** (saifctl release-readiness specification §3.4). Was pending as a hand-written `docs/spec-driven-development.md`; routed through release-readiness/DOC-09 as a saifdocs-generated tutorial instead, per the locked release-readiness/DOC-09 plan.

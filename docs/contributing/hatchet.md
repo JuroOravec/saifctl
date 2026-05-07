@@ -3,7 +3,7 @@
 Two paths share a single code path:
 
 - **Local mode (default)** — in-process Hatchet mock client. No external services, no setup.
-- **Hatchet mode** — `HATCHET_CLIENT_TOKEN` set + `SAIFCTL_EXPERIMENTAL_HATCHET=1` (per Decision **D-04**). Real Hatchet server, durability, dashboard.
+- **Hatchet mode** — `HATCHET_CLIENT_TOKEN` set + `SAIFCTL_EXPERIMENTAL_HATCHET=1` (per Decision **release-readiness/D-04**). Real Hatchet server, durability, dashboard.
 
 Both run the same workflow at [`src/hatchet/workflows/feat-run.workflow.ts`](../../src/hatchet/workflows/feat-run.workflow.ts). User-facing setup (token, dashboard URL, env vars): [`docspec/products/saifctl/concepts/hatchet.md`](../../docspec/products/saifctl/concepts/hatchet.md). Architecture context: [`architecture/orchestrator.md` Hatchet integration](./architecture/orchestrator.md#hatchet-integration).
 
@@ -22,7 +22,7 @@ Not implemented vs real Hatchet (intentional): persistence, retries, distributed
 
 ## Distributed mode — phased rollout
 
-Per **Decision D-04** + spec section 3.5. Goal: durable, distributed `feat run` execution where saifctl drives runs across multiple worker machines, with a dashboard surfacing run state to operators.
+Per **Decision release-readiness/D-04** + spec section 3.5. Goal: durable, distributed `feat run` execution where saifctl drives runs across multiple worker machines, with a dashboard surfacing run state to operators.
 
 | Phase                                                               | Status                                                                                   | What it adds                                                                                                                                                                   |
 | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -31,7 +31,7 @@ Per **Decision D-04** + spec section 3.5. Goal: durable, distributed `feat run` 
 | **Phase 3 — Control plane server**                                  | ➡️ future                                                                                | A saifctl-specific REST API in front of Hatchet for project / feature / run / worker management. Multi-tenant.                                                                 |
 | **Phase 4 — GitHub App + webhook triggers**                         | ➡️ future                                                                                | `feat run` triggers from GitHub PR events; AI agents fix CI failures, propose changes, etc.                                                                                    |
 
-The full design (data schemas, control-plane REST API, worker-node provisioning, dashboard features, storage backends) is roadmap material for Phases 2-4. When those phases ship, this doc gets the detail. The earlier design draft is preserved in `git log` (commit before the DOC-09 architecture restructure).
+The full design (data schemas, control-plane REST API, worker-node provisioning, dashboard features, storage backends) is roadmap material for Phases 2-4. When those phases ship, this doc gets the detail. The earlier design draft is preserved in `git log` (commit before the release-readiness/DOC-09 architecture restructure).
 
 ## Phase 1 — local Hatchet quickstart (developer-only)
 
@@ -49,7 +49,7 @@ export SAIFCTL_EXPERIMENTAL_HATCHET=1
 saifctl feat run --feature my-feature
 ```
 
-Without `SAIFCTL_EXPERIMENTAL_HATCHET=1`, setting `HATCHET_CLIENT_TOKEN` triggers an explicit error with the gate message — see [`assertHatchetReady()`](../../src/orchestrator/modes.ts) and the spec's NPM-03 row.
+Without `SAIFCTL_EXPERIMENTAL_HATCHET=1`, setting `HATCHET_CLIENT_TOKEN` triggers an explicit error with the gate message — see [`assertHatchetReady()`](../../src/orchestrator/modes.ts) and the spec's release-readiness/NPM-03 row.
 
 `saifctl doctor` checks the Hatchet config in three states: token absent (local mode, warning only), token + flag (server mode, success), token without flag (gated, hard failure).
 
@@ -63,4 +63,4 @@ This is what `src/hatchet/utils/local.ts` is for: it's not a "Hatchet stub for t
 
 - [`architecture/orchestrator.md` Hatchet integration](./architecture/orchestrator.md#hatchet-integration) — where the convergence loop dispatches into Hatchet.
 - [`docspec/products/saifctl/concepts/hatchet.md`](../../docspec/products/saifctl/concepts/hatchet.md) — user-facing concept page.
-- Decision **D-04** in [`saifctl/features/release-readiness/specification.md`](../../saifctl/features/release-readiness/specification.md) — the experimental-flag rationale.
+- Decision **release-readiness/D-04** in [`saifctl/features/release-readiness/specification.md`](../../saifctl/features/release-readiness/specification.md) — the experimental-flag rationale.

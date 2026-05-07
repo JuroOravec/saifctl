@@ -44,7 +44,7 @@ For `--engine docker` (default), at [`src/engines/docker/index.ts`](../../../src
 2. Materializes the policy at `<saifctl>/<SANDBOX_CEDAR_POLICY_BASENAME>` (`policy.cedar`, [`src/constants.ts:144`](../../../src/constants.ts#L144)) inside the coder workspace.
 3. Launches the coder container via `leash run --policy <path> -- <agent command>`. Leash spawns the agent under the policy and acts as a network-attach proxy (workaround at `index.ts:701` — predictable `TARGET_CONTAINER` name lets Docker network-attach the staging container alongside the agent's namespace).
 
-Default Leash image: `ghcr.io/safe-ai-factory/leash:latest-h2patch` ([`src/constants.ts:131`](../../../src/constants.ts#L131)). The `h2patch` tag exists because upstream PR #71 hasn't shipped — see decision **D-16 / VND-02** in the release-readiness specification for the path to retire the fork.
+Default Leash image: `ghcr.io/safe-ai-factory/leash:latest-h2patch` ([`src/constants.ts:131`](../../../src/constants.ts#L131)). The `h2patch` tag exists because upstream PR #71 hasn't shipped — see decision **release-readiness/D-16 / release-readiness/VND-02** in the release-readiness specification for the path to retire the fork.
 
 ## Escape hatches
 
@@ -83,7 +83,7 @@ Loosening (e.g. allow writes outside `/workspace/`): edit the existing `permit` 
 
 ## Why the network is unrestricted by default
 
-Per **Decision D-06**: an allowlist covering LLM APIs + npm/PyPI/crates/Go-module-proxy/apt + GitHub clone/releases + container registries + doc hosts + per-project deps is intractable to maintain for arbitrary projects. Either too loose (permits exfiltration) or too tight (breaks `npm install`).
+Per **Decision release-readiness/D-06**: an allowlist covering LLM APIs + npm/PyPI/crates/Go-module-proxy/apt + GitHub clone/releases + container registries + doc hosts + per-project deps is intractable to maintain for arbitrary projects. Either too loose (permits exfiltration) or too tight (breaks `npm install`).
 
 Saifctl's trade-off: **filesystem isolation contains the blast radius; the network is a known unmitigated exfiltration channel by default.** Users who can enumerate their allowlist opt in via `--cedar` (custom) or bundled `deny-network.cedar`.
 

@@ -20,7 +20,7 @@ Think of the difference between running `vitest` locally and running the same te
 
 ## Status in v0.1: experimental
 
-Hatchet integration is gated behind the `SAIFCTL_EXPERIMENTAL_HATCHET=1` flag (Decision D-04).
+Hatchet integration is gated behind the `SAIFCTL_EXPERIMENTAL_HATCHET=1` flag (Decision release-readiness/D-04).
 
 - If you set `HATCHET_CLIENT_TOKEN` **without** `SAIFCTL_EXPERIMENTAL_HATCHET=1`, saifctl raises an error. To check your environment, run `saifctl doctor`. Local mode is unaffected.
 - If you set both, saifctl connects to the Hatchet server at startup. Ensure gRPC connectivity to the server before starting workers.
