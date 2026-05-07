@@ -1,5 +1,5 @@
 ---
-persona: openclaw_user
+persona: claude_user
 prereq_concepts: []
 learns_concepts:
   - docker-isolation

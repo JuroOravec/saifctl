@@ -4,7 +4,7 @@ prereq_concepts:
 arrival_context: docs-link
 search_terms:
   - saifctl extract changes
-  - apply openclaw output to project
+  - apply claude output to project
 user_stage: getting-started
 ---
 
