@@ -278,6 +278,13 @@ export class DockerEngine implements Engine {
       Image: imageTag,
       name: containerName,
       Cmd: ['/bin/sh', '/saifctl/staging-start.sh'],
+      // Run as the unprivileged `saifctl` user (pre-created in Dockerfile.coder).
+      // The agent container's `agent.sh` runs the agent as this user, so /workspace
+      // ends up owned by saifctl with mode 700. Staging used to default to root —
+      // fine on macOS Docker Desktop (UID translation) but on Linux runners root
+      // has CapDrop=ALL, so without DAC_OVERRIDE it cannot enter the 0700 dir.
+      // Tracked: release-readiness/X-08-P3.
+      User: 'saifctl',
       HostConfig: {
         NetworkMode: networkName,
         // Writable: putArchive injects sidecar into /saifctl before start.
