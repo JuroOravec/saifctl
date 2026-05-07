@@ -144,4 +144,27 @@ describe('loadSaifctlConfig', () => {
     exitSpy.mockRestore();
     consolaSpy.mockRestore();
   });
+
+  it('errors on an unknown key inside the agent block (strict-mode rejection)', async () => {
+    // Pin the fail-loud contract: an unknown key inside the `agent`
+    // block (e.g. a typo like `agent.reviewerEnabled` instead of
+    // `agent.reviewer`) errors at parse time rather than silently
+    // dropping the value and leaving the reviewer at its default.
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never);
+    const consolaSpy = vi.spyOn(consola, 'error').mockImplementation(() => {});
+    const saifctlDir = join(projectDir, 'saifctl');
+    await mkdir(saifctlDir, { recursive: true });
+    await writeUtf8(
+      join(saifctlDir, 'config.json'),
+      JSON.stringify({ defaults: { agent: { reviewerEnabled: false } } }),
+    );
+
+    await loadSaifctlConfig('saifctl', projectDir);
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(consolaSpy).toHaveBeenCalled();
+
+    exitSpy.mockRestore();
+    consolaSpy.mockRestore();
+  });
 });

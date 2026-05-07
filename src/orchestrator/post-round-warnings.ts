@@ -258,9 +258,10 @@ export async function surfaceModifiedPathsAfterRound(
  */
 export async function loadPhaseSpecFilenames(
   featureAbsolutePath: string,
+  projectDir: string,
 ): Promise<ReadonlyMap<string, string>> {
   try {
-    const { context } = await validatePhasedFeature({ featureAbsolutePath });
+    const { context } = await validatePhasedFeature({ featureAbsolutePath, projectDir });
     if (!context) return new Map();
     const out = new Map<string, string>();
     for (const phase of context.phases) {

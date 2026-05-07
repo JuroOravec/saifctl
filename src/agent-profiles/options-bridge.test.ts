@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  applyArtifactToProfileOptionsEnv,
   applyConfigToProfileOptionsEnv,
   assertNoGlobalCollisions,
   buildProfileCliFlags,
   envKeyFor,
   readProfileOptionsFromEnv,
   recordProfileOptionsFromArgs,
+  snapshotProfileOptionsFromEnv,
   validateProfileOptions,
 } from './options-bridge.js';
 import type { AgentProfile } from './types.js';
@@ -27,6 +29,8 @@ describe('options-bridge', () => {
   const trackedEnvKeys = [
     'SAIFCTL_AGENT_OPT_CLAUDE_MAX',
     'SAIFCTL_AGENT_OPT_CLAUDE_CREDENTIALS',
+    'SAIFCTL_AGENT_OPT_CLAUDE_UNSET',
+    'SAIFCTL_AGENT_OPT_CLAUDE_REMOVEDOPTION',
     'SAIFCTL_AGENT_OPT_DEMO_FLAG',
     'SAIFCTL_AGENT_OPT_DEMO_NUM',
   ];
@@ -199,6 +203,106 @@ describe('options-bridge', () => {
       });
       applyConfigToProfileOptionsEnv(numProfile, { num: 7 });
       expect(readProfileOptionsFromEnv(numProfile)).toEqual({ num: 7 });
+    });
+  });
+
+  describe('snapshotProfileOptionsFromEnv', () => {
+    const profile = stubProfile([
+      { name: 'max', type: 'boolean', description: 'x', default: false },
+      { name: 'credentials', type: 'string', description: 'x' },
+      { name: 'unset', type: 'string', description: 'x' },
+    ]);
+
+    it('captures CLI-set values and profile defaults; omits options with no env + no default', () => {
+      recordProfileOptionsFromArgs(profile, { 'claude-credentials': '/foo.json' });
+      const snap = snapshotProfileOptionsFromEnv(profile);
+      expect(snap).toEqual({ max: false, credentials: '/foo.json' });
+      expect(snap).not.toHaveProperty('unset');
+    });
+
+    it('captures values written by config-fill (post applyConfigToProfileOptionsEnv)', () => {
+      applyConfigToProfileOptionsEnv(profile, { max: true, credentials: '/cfg.json' });
+      const snap = snapshotProfileOptionsFromEnv(profile);
+      expect(snap).toEqual({ max: true, credentials: '/cfg.json' });
+    });
+
+    it('round-trips numeric type', () => {
+      const numProfile = stubProfile([{ name: 'num', type: 'number', description: 'x' }], {
+        id: 'demo' as AgentProfile['id'],
+      });
+      recordProfileOptionsFromArgs(numProfile, { 'demo-num': 7 });
+      expect(snapshotProfileOptionsFromEnv(numProfile)).toEqual({ num: 7 });
+    });
+
+    it('returns empty record when profile declares no options', () => {
+      expect(snapshotProfileOptionsFromEnv(stubProfile([]))).toEqual({});
+    });
+  });
+
+  describe('applyArtifactToProfileOptionsEnv (CLI > artifact > config precedence)', () => {
+    const profile = stubProfile([
+      { name: 'max', type: 'boolean', description: 'x', default: false },
+      { name: 'credentials', type: 'string', description: 'x' },
+    ]);
+
+    it('writes artifact values into env when nothing has set them yet', () => {
+      applyArtifactToProfileOptionsEnv(profile, { max: true, credentials: '/from/artifact.json' });
+      expect(readProfileOptionsFromEnv(profile)).toEqual({
+        max: true,
+        credentials: '/from/artifact.json',
+      });
+    });
+
+    it('CLI flags at replay time still win over the artifact snapshot', () => {
+      // Replay: --claude-credentials passed at run start
+      recordProfileOptionsFromArgs(profile, { 'claude-credentials': '/from/replay-cli.json' });
+      applyArtifactToProfileOptionsEnv(profile, {
+        credentials: '/from/artifact.json',
+        max: true,
+      });
+      expect(readProfileOptionsFromEnv(profile)).toMatchObject({
+        credentials: '/from/replay-cli.json',
+        max: true, // artifact filled, no CLI value
+      });
+    });
+
+    it('artifact wins over config.ts on replay (faithful replay semantics)', () => {
+      // No CLI args at replay.
+      applyArtifactToProfileOptionsEnv(profile, { credentials: '/from/artifact.json' });
+      // config.ts has a different value — should NOT overwrite the artifact.
+      applyConfigToProfileOptionsEnv(profile, { credentials: '/from/current-config.json' });
+      expect(readProfileOptionsFromEnv(profile)).toMatchObject({
+        credentials: '/from/artifact.json',
+      });
+    });
+
+    it('config.ts fills options the artifact did not record (forwards-compatible)', () => {
+      // Old artifact only persisted `max`. Newer profile added `credentials`,
+      // and the user has it in config.ts. Replay should use config for the
+      // unrecorded option.
+      applyArtifactToProfileOptionsEnv(profile, { max: true });
+      applyConfigToProfileOptionsEnv(profile, { credentials: '/from/current-config.json' });
+      expect(readProfileOptionsFromEnv(profile)).toEqual({
+        max: true,
+        credentials: '/from/current-config.json',
+      });
+    });
+
+    it('is a no-op when snapshot is undefined (pre-snapshot artifact)', () => {
+      applyArtifactToProfileOptionsEnv(profile, undefined);
+      expect(readProfileOptionsFromEnv(profile)).toEqual({
+        max: false, // profile default only
+        credentials: undefined,
+      });
+    });
+
+    it('silently ignores unknown keys in the snapshot (profile-evolution safe)', () => {
+      applyArtifactToProfileOptionsEnv(profile, {
+        max: true,
+        removedOption: 'value-from-old-version',
+      } as Record<string, string | number | boolean>);
+      expect(readProfileOptionsFromEnv(profile)).toMatchObject({ max: true });
+      expect(process.env.SAIFCTL_AGENT_OPT_CLAUDE_REMOVEDOPTION).toBeUndefined();
     });
   });
 

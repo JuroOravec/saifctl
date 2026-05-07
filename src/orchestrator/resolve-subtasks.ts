@@ -7,7 +7,12 @@ import { join, relative, resolve } from 'node:path';
 import { PLACEHOLDER_GATE_SCRIPT_MARKER } from '../constants.js';
 import { consola } from '../logger.js';
 import type { RunSubtaskInput } from '../runs/types.js';
-import { compilePhasesToSubtasks, PhaseCompileError } from '../specs/phases/compile.js';
+import {
+  compilePhasesToSubtasks,
+  PhaseCompileError,
+  type RunLevelLevel2Baseline,
+  type RunLevelLevel3Baseline,
+} from '../specs/phases/compile.js';
 import { pathExists, readUtf8 } from '../utils/io.js';
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -174,6 +179,25 @@ export async function synthesizePlanSpecSubtaskInputs(opts: {
   /** Run-level gate script; stored on the subtask row for manifest parity. */
   gateScript: string;
   /**
+   * Run-level agent script; stored on the subtask row for manifest parity.
+   * Per per-phase-config phase 7.2, every subtask carries an explicit
+   * `agentScript` so transitions between subtasks always fully restore
+   * the active script content (no stale leftover from a previous subtask).
+   * The non-phased path emits a single subtask, but we still mirror the
+   * convention so the manifest shape is uniform.
+   */
+  agentScript: string;
+  /**
+   * Run-level stage script. Optional — non-phased features have no
+   * per-phase `runner.stage-script` override mechanism, so the run-level
+   * `stage.sh` from `createSandbox` already covers the staging container.
+   * Accepted on the signature for caller-side parity with phased features
+   * (so the same synthesiser opts shape can be passed in either flow).
+   * When unset, no `stageScript` is emitted on the row — the run-level
+   * sandbox `stage.sh` is used at runtime.
+   */
+  stageScript?: string;
+  /**
    * Workspace-relative path to the feature dir (e.g. `saifctl/features/auth`).
    * Native or POSIX separators accepted; the synthesiser normalises to `/`
    * so the directive is portable across host OSes.
@@ -191,6 +215,7 @@ export async function synthesizePlanSpecSubtaskInputs(opts: {
     featureName,
     saifctlDir,
     gateScript,
+    agentScript,
     featureRelativePath,
     projectDir,
   } = opts;
@@ -251,6 +276,7 @@ export async function synthesizePlanSpecSubtaskInputs(opts: {
       title: featureName,
       content: parts.join('\n'),
       gateScript,
+      agentScript,
       testScope: {
         include: [join(featureAbsolutePath, 'tests'), join(projectDir, saifctlDir, 'tests')],
         cumulative: true,
@@ -280,10 +306,56 @@ export async function resolveSubtasks(opts: {
   featureName: string;
   saifctlDir: string;
   gateScript: string;
+  /**
+   * Run-level agent script content. Threaded through to the phase compiler
+   * as the per-subtask fallback when a phase has no `agent.script` override
+   * (per-phase-config phase 7.2). Required so multi-phase runs that mix
+   * overriding and non-overriding phases don't leak the previous phase's
+   * `agent.sh` across the boundary.
+   */
+  agentScript: string;
+  /**
+   * Run-level stage script content. Threaded through to the phase compiler
+   * as the per-subtask fallback when a phase has no `runner.stage-script`
+   * override (per-phase-config phase 7.3). Required for the same reason as
+   * `agentScript`: prevents a previous phase's override from leaking into
+   * the next phase's staging container via the `<sandbox>/saifctl/stage.sh`
+   * bind-mount.
+   */
+  stageScript: string;
+  /**
+   * Run-level Level-2 baseline (per-phase-config phase 7.5 first half).
+   * Threaded into the phase compiler so every emitted subtask carries the
+   * fully resolved Level-2 set (override OR fallback) — same idempotency
+   * rule as `agentScript` / `stageScript`. Optional only because non-phased
+   * features (`subtasks.json`, single-task synthesised path) don't run the
+   * phase compiler. When the phased path fires without a baseline, the
+   * compiler falls back to "emit only what the phase declares" (the
+   * pre-7.5 behaviour) — used by `feat phases compile` preview where no
+   * coder container is in scope.
+   */
+  level2Baseline?: RunLevelLevel2Baseline;
+  /**
+   * Run-level Level-3 baseline (per-phase-config phase 7.5b — level-3-mirror).
+   * Same idempotency rule as `level2Baseline` above; phase 7.5e reads
+   * these from the manifest at coder-container creation so the
+   * runtime never re-derives them from CLI / config.
+   */
+  level3Baseline?: RunLevelLevel3Baseline;
   projectDir: string;
 }): Promise<RunSubtaskInput[]> {
-  const { subtasksFlag, featureAbsolutePath, featureName, saifctlDir, gateScript, projectDir } =
-    opts;
+  const {
+    subtasksFlag,
+    featureAbsolutePath,
+    featureName,
+    saifctlDir,
+    gateScript,
+    agentScript,
+    stageScript,
+    level2Baseline,
+    level3Baseline,
+    projectDir,
+  } = opts;
 
   // 1. Explicit CLI escape hatch — overrides everything in the feature dir.
   if (subtasksFlag?.trim()) {
@@ -322,6 +394,10 @@ export async function resolveSubtasks(opts: {
         saifctlDir,
         projectDir,
         gateScript,
+        agentScript,
+        stageScript,
+        ...(level2Baseline !== undefined ? { runLevelLevel2Baseline: level2Baseline } : {}),
+        ...(level3Baseline !== undefined ? { runLevelLevel3Baseline: level3Baseline } : {}),
       });
     } catch (err) {
       if (err instanceof PhaseCompileError) {
@@ -347,6 +423,7 @@ export async function resolveSubtasks(opts: {
     featureName,
     saifctlDir,
     gateScript,
+    agentScript,
     featureRelativePath,
     projectDir,
   });

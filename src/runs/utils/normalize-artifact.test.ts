@@ -73,6 +73,8 @@ function baseLegacyArtifact(overrides: Partial<RunArtifact> = {}): RunArtifact {
     pausedSandboxBasePath: null,
     liveInfra: null,
     inspectSession: null,
+    transitionInProgress: null,
+    phaseAttemptCount: {},
     ...overrides,
   };
 }
@@ -144,6 +146,52 @@ describe('normalizeLoadedRunArtifact', () => {
       subtaskIndex: 0,
       subtaskAttempt: 2,
     });
+  });
+
+  // per-phase-config phase 7.5d — pre-7.5d artifacts have no
+  // `transitionInProgress` field at all. Loading must normalise to `null`
+  // so the loop's "is a transition in flight?" check reads a stable shape
+  // across upgrades. The reverse (artifact already had a transition
+  // snapshot) must round-trip the snapshot intact for crash recovery.
+  it('normalises a pre-7.5d artifact (no transitionInProgress field) to null', () => {
+    // Cast through `unknown` to drop the property — pre-7.5d artifacts on
+    // disk literally don't include the key, so the loader must default it
+    // to `null` rather than reading `undefined` and breaking pattern-match
+    // call sites.
+    const legacy = baseLegacyArtifact() as unknown as Record<string, unknown>;
+    delete legacy.transitionInProgress;
+    const a = normalizeLoadedRunArtifact(legacy as unknown as RunArtifact);
+    expect(a.transitionInProgress).toBeNull();
+  });
+
+  it('round-trips a transitionInProgress snapshot intact (crash recovery)', () => {
+    const snap = {
+      toSubtaskIndex: 3,
+      costClass: 'level-2' as const,
+      fields: ['agent.profile', 'container.startup'],
+      startedAt: '2026-05-07T12:34:56.000Z',
+    };
+    const a = normalizeLoadedRunArtifact(baseLegacyArtifact({ transitionInProgress: snap }));
+    expect(a.transitionInProgress).toEqual(snap);
+  });
+
+  // -------------------------------------------------------------------------
+  // per-phase-config phase 7.6 — `phaseAttemptCount` back-compat. Pre-7.6
+  // artifacts have no `phaseAttemptCount`; normaliser fills `{}` so the
+  // loop's resume-from-artifact path can read it as an empty map.
+  // -------------------------------------------------------------------------
+
+  it('normalises a missing phaseAttemptCount to {} for back-compat (phase 7.6)', () => {
+    const legacy = baseLegacyArtifact() as unknown as Record<string, unknown>;
+    delete legacy.phaseAttemptCount;
+    const a = normalizeLoadedRunArtifact(legacy as unknown as RunArtifact);
+    expect(a.phaseAttemptCount).toEqual({});
+  });
+
+  it('round-trips a phaseAttemptCount map intact (resume preserves the budget)', () => {
+    const counts = { 'phase-a': 2, 'phase-b': 1 };
+    const a = normalizeLoadedRunArtifact(baseLegacyArtifact({ phaseAttemptCount: counts }));
+    expect(a.phaseAttemptCount).toEqual(counts);
   });
 });
 

@@ -1,0 +1,18 @@
+# Per-phase-config v1 — the minimal `tests.none` shape.
+#
+# Level-4 routing (`tests.none: true`) bypasses the test runner for this
+# phase. The cumulative scope still folds in feature/project tests at
+# the run's last phase, but this is a single-phase feature with no
+# feature-level `tests/` dir on disk, so the runner is bypassed
+# end-to-end.
+#
+# Level-1 (`gate.script`) replaces the run-level gate with the phase's
+# own assertion. The bytes are read at compile time and bind-mounted
+# into the coder container; the inner loop runs the script after each
+# agent round, retrying on non-zero exit (up to `gate.retries`, default
+# 10).
+tests:
+  none: true
+
+gate:
+  script: assert-emitted.sh

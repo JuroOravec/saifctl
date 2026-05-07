@@ -5,6 +5,7 @@
  */
 
 import type { LiveInfra } from '../engines/types.js';
+import type { LlmOverrides } from '../llm-config.js';
 import type { SerializedLoopOpts } from './utils/serialize.js';
 
 export type { DockerLiveInfra, LiveInfra, LocalLiveInfra } from '../engines/types.js';
@@ -247,8 +248,42 @@ export interface RunSubtaskInput {
   gateScript?: string;
   agentScript?: string;
   gateRetries?: number;
+  /**
+   * Per-subtask reviewer toggle (per-phase-config phase 7.4 / Level 1.5).
+   * Sourced from the active phase's `agent.reviewer` field. Layered on top
+   * of the run-level `defaults.agent.reviewer` / `--no-reviewer` baseline
+   * via `<saifctlPath>/subtask-env.sh`, which `coder-start.sh` sources per
+   * inner round. There is only one reviewer in the system (Argus, run via
+   * `reviewer.sh` inside the coder container after the gate passes — see
+   * design §6.6). The TS type stays `reviewerEnabled` everywhere
+   * downstream; the YAML/JSON config-key name is `agent.reviewer`.
+   */
   reviewerEnabled?: boolean;
+  /**
+   * Per-subtask agent env vars (per-phase-config phase 7.4 / Level 1.5).
+   * Sourced from `agent.env`. Key/value pairs are written to
+   * `<saifctlPath>/subtask-env.sh` and re-exported by `coder-start.sh` on
+   * every inner round. Reserved factory keys (`SAIFCTL_*`, `LLM_*`, etc.)
+   * are filtered out at write time — same rules as run-level `--agent-env`.
+   */
   agentEnv?: Record<string, string>;
+  /**
+   * Per-subtask additive secret-env names (per-phase-config phase 7.4).
+   * Sourced from `agent.secrets`. The orchestrator reads `process.env[name]`
+   * at write time and includes the values in the subtask env file. Names
+   * not present in `process.env` are silently skipped (matches the run-level
+   * `agentSecretKeys` behavior). Names additive on top of the run-level set.
+   */
+  agentSecretKeys?: string[];
+  /**
+   * Per-subtask LLM override delta (per-phase-config phase 7.4).
+   * Sourced from `agent.model` + `agent.base-url`. At runtime the
+   * orchestrator merges this on top of the run-level `LlmOverrides`,
+   * resolves the coder agent's `LlmConfig`, and re-emits the
+   * `LLM_*` env vars in `subtask-env.sh`. When unset, the run-level
+   * values from `docker run -e` apply unchanged.
+   */
+  llmOverrides?: LlmOverrides;
   testScope?: RunSubtaskTestScope;
   /**
    * Phase id this subtask belongs to (Block 4). Set by the phase compiler on
@@ -267,6 +302,140 @@ export interface RunSubtaskInput {
    * legacy non-phased path).
    */
   criticPrompt?: RunSubtaskCriticPrompt;
+  // -------------------------------------------------------------------------
+  // per-phase-config v1 (phase 7.3 — Level-4 runner overrides) — see
+  // saifctl/features/per-phase-config/design.md §3.5 / §6.5(b).
+  // -------------------------------------------------------------------------
+  /** Per-subtask test profile id; resolved at runtime via `resolveTestProfile`. */
+  testProfile?: string;
+  /** Per-subtask Docker image tag for the test runner. */
+  testImage?: string;
+  /** Per-subtask test script content (compile-time-resolved file body). */
+  testScript?: string;
+  /** Per-subtask staging script content (compile-time-resolved file body). */
+  stageScript?: string;
+  /** Per-subtask resolve-ambiguity strategy. */
+  resolveAmbiguity?: 'off' | 'prompt' | 'ai';
+  /** Per-subtask test-retries count. */
+  testRetries?: number;
+  /**
+   * Persisted form of `tests.none: true` (per-phase-config design §6.5(b)).
+   * When `true`, the runner is bypassed for this subtask UNLESS its
+   * `testScope.include` is non-empty (last-phase rule: feature/project tests
+   * still gate even when the phase declares `tests.none`).
+   *
+   * The "last phase" branch of §6.5(b) is enforced entirely by the compiler:
+   * the last phase's `testScope.include` is populated with feature- and
+   * project-level test paths, so the runtime gate (`scope.sources.length === 0`)
+   * naturally distinguishes "non-last + noRunner" (empty include ⇒ skip)
+   * from "last + noRunner" (non-empty include ⇒ runner runs against those).
+   * No separate `lastPhaseInRun` flag is needed.
+   */
+  noRunner?: boolean;
+  // -------------------------------------------------------------------------
+  // per-phase-config v1 (phase 7.5 — Level-2 manifest threading).
+  // See saifctl/features/per-phase-config/design.md §3.2 / §7.5.
+  //
+  // Level-2 fields are bound at coder-container creation: changing them
+  // mid-run requires tearing down the coder container and recreating it
+  // against the existing sandbox dir with refreshed scripts. That
+  // orchestration (planned `phase-transition.ts:runLevel2Transition`)
+  // is **deferred to follow-up phase 7.5e**; the loop currently does
+  // NOT read these per-subtask fields nor honor
+  // {@link requiresLevel2RestartFromPrev} — instead, the validator
+  // (`checkLevel2TransitionGate`) errors when adjacent phases would
+  // require a transition, telling the user to split into separate
+  // `feat run` invocations. Phase 7.5 lands the manifest / round-trip
+  // / detection plumbing so 7.5e only has to wire the teardown-and-
+  // recreate side.
+  //
+  // Always-set on every subtask (idempotency rule from per-phase-config 7.2
+  // / 7.3 / 7.4): the compiler emits the resolved value (per-phase
+  // override OR run-level baseline) on every subtask, so 7.5e's per-
+  // attempt opts derivation can read these values without falling back
+  // through the prior phase's leftover state.
+  // -------------------------------------------------------------------------
+  /** Per-subtask agent profile id (`agent.profile`); fully resolved at compile (override OR run-level fallback). */
+  agentProfileId?: string;
+  /** Per-subtask agent-install script content (`agent.install` resolved + read OR run-level fallback). */
+  agentInstallScript?: string;
+  /** Per-subtask startup-script content (`container.startup` resolved + read OR run-level fallback). */
+  startupScript?: string;
+  /** Per-subtask Cedar-policy content (`container.cedar` resolved + read OR run-level fallback). */
+  cedarScript?: string;
+  /** Per-subtask `container.no-leash` toggle (override OR run-level fallback). */
+  dangerousNoLeash?: boolean;
+  /**
+   * Set by the compiler when the active subtask's resolved Level-2 config
+   * differs from the immediately-prior subtask's resolved Level-2 config.
+   *
+   * **Currently advisory only.** The runtime side (loop teardown +
+   * recreate against the existing sandbox dir) is deferred to phase
+   * 7.5e; until 7.5e lands the validator
+   * (`checkLevel2TransitionGate`) errors out when this flag would
+   * fire, so it never reaches the loop in practice. Persisted on the
+   * manifest so 7.5e can wire the loop-side check without a new
+   * round-trip. See §7.5.
+   *
+   * Always `false` (or absent) on the first subtask of a run — there's
+   * no prior subtask to compare against.
+   */
+  requiresLevel2RestartFromPrev?: boolean;
+  // -------------------------------------------------------------------------
+  // per-phase-config v1 (phase 7.5b — Level-3 manifest threading).
+  //
+  // Level-3 fields are bound at coder-container creation AND require an
+  // image pull / engine swap / compose-stack swap on top of the Level-2
+  // restart. The runtime side is deferred to phase 7.5e; this phase
+  // (7.5b, level-3-mirror) just lands the manifest plumbing so the
+  // runtime can read the values without a re-derivation step.
+  //
+  // Like the Level-2 fields above, these are emitted on every subtask
+  // (always-set rule from per-phase-config 7.2 / 7.3 / 7.4 / 7.5).
+  // -------------------------------------------------------------------------
+  /** Per-subtask container image (`container.image`); fully resolved at compile (override OR run-level fallback). */
+  containerImage?: string;
+  /** Per-subtask sandbox profile id (`container.sandbox-profile`); fully resolved at compile. */
+  containerSandboxProfileId?: string;
+  /** Per-subtask coding-engine kind (`container.engine`); fully resolved at compile. */
+  containerEngine?: 'docker' | 'helm' | 'local';
+  /** Per-subtask docker-compose path (`container.compose-file`); workspace-relative, fully resolved at compile. */
+  containerComposeFile?: string;
+  /**
+   * Set by the compiler when the active subtask's resolved Level-3 config
+   * differs from the immediately-prior subtask's resolved Level-3 config.
+   *
+   * **Currently advisory only.** Same shape as
+   * {@link requiresLevel2RestartFromPrev}; the validator
+   * (`checkLevel3TransitionGate`) errors out before the loop sees it.
+   * Persisted so phase 7.5e can branch on the cost class
+   * (Level-2 = script refresh; Level-3 = image pull / stack swap).
+   *
+   * Always `false` (or absent) on the first subtask of a run.
+   */
+  requiresLevel3RestartFromPrev?: boolean;
+  // -------------------------------------------------------------------------
+  // per-phase-config v1 (phase 7.6 — per-phase max-attempts).
+  // See saifctl/features/per-phase-config/design.md §7.6.
+  //
+  // The phase-level analogue of the run-level `maxRuns` (`--max-runs` /
+  // `maxAttemptsPerSubtask`): caps how many outer attempts the loop will
+  // spend on a given phase before failing the run. Distinct from
+  // `maxRuns` because a phase can span multiple subtasks (impl + critic
+  // rounds) and the user wants an orthogonal upper bound on phase-level
+  // attempts.
+  // -------------------------------------------------------------------------
+  /**
+   * Per-subtask cap on phase-level outer attempts (`limits.max-attempts`).
+   * Resolved from phase config at compile time and emitted on every
+   * subtask of the phase (impl + critics). The loop tracks attempts in
+   * {@link RunArtifact#phaseAttemptCount}, keyed by {@link phaseId}, and
+   * fail-fasts when the count exceeds this cap.
+   */
+  limits?: {
+    /** Maximum outer attempts on this phase before the run aborts. */
+    maxAttempts?: number;
+  };
 }
 
 /**
@@ -285,11 +454,55 @@ export interface RunSubtask {
   gateRetries?: number;
   reviewerEnabled?: boolean;
   agentEnv?: Record<string, string>;
+  /** See {@link RunSubtaskInput#agentSecretKeys}. Round-tripped through the manifest. */
+  agentSecretKeys?: string[];
+  /** See {@link RunSubtaskInput#llmOverrides}. Round-tripped through the manifest. */
+  llmOverrides?: LlmOverrides;
   testScope?: RunSubtaskTestScope;
   /** See {@link RunSubtaskInput#phaseId}. Round-tripped through the manifest. */
   phaseId?: string;
   /** See {@link RunSubtaskInput#criticPrompt}. Round-tripped through the manifest. */
   criticPrompt?: RunSubtaskCriticPrompt;
+  /** See {@link RunSubtaskInput#testProfile}. Round-tripped through the manifest. */
+  testProfile?: string;
+  /** See {@link RunSubtaskInput#testImage}. Round-tripped through the manifest. */
+  testImage?: string;
+  /** See {@link RunSubtaskInput#testScript}. Round-tripped through the manifest. */
+  testScript?: string;
+  /** See {@link RunSubtaskInput#stageScript}. Round-tripped through the manifest. */
+  stageScript?: string;
+  /** See {@link RunSubtaskInput#resolveAmbiguity}. Round-tripped through the manifest. */
+  resolveAmbiguity?: 'off' | 'prompt' | 'ai';
+  /** See {@link RunSubtaskInput#testRetries}. Round-tripped through the manifest. */
+  testRetries?: number;
+  /** See {@link RunSubtaskInput#noRunner}. Round-tripped through the manifest. */
+  noRunner?: boolean;
+  /** See {@link RunSubtaskInput#agentProfileId}. Round-tripped through the manifest. */
+  agentProfileId?: string;
+  /** See {@link RunSubtaskInput#agentInstallScript}. Round-tripped through the manifest. */
+  agentInstallScript?: string;
+  /** See {@link RunSubtaskInput#startupScript}. Round-tripped through the manifest. */
+  startupScript?: string;
+  /** See {@link RunSubtaskInput#cedarScript}. Round-tripped through the manifest. */
+  cedarScript?: string;
+  /** See {@link RunSubtaskInput#dangerousNoLeash}. Round-tripped through the manifest. */
+  dangerousNoLeash?: boolean;
+  /** See {@link RunSubtaskInput#requiresLevel2RestartFromPrev}. Round-tripped through the manifest. */
+  requiresLevel2RestartFromPrev?: boolean;
+  /** See {@link RunSubtaskInput#containerImage}. Round-tripped through the manifest. */
+  containerImage?: string;
+  /** See {@link RunSubtaskInput#containerSandboxProfileId}. Round-tripped through the manifest. */
+  containerSandboxProfileId?: string;
+  /** See {@link RunSubtaskInput#containerEngine}. Round-tripped through the manifest. */
+  containerEngine?: 'docker' | 'helm' | 'local';
+  /** See {@link RunSubtaskInput#containerComposeFile}. Round-tripped through the manifest. */
+  containerComposeFile?: string;
+  /** See {@link RunSubtaskInput#requiresLevel3RestartFromPrev}. Round-tripped through the manifest. */
+  requiresLevel3RestartFromPrev?: boolean;
+  /** See {@link RunSubtaskInput#limits}. Round-tripped through the manifest. */
+  limits?: {
+    maxAttempts?: number;
+  };
   /**
    * Block 4 runtime state — git rev at the start of this phase's impl
    * subtask. Captured by the loop the first time the impl subtask is
@@ -448,4 +661,75 @@ export interface RunArtifact {
    * Set only while {@link RunArtifact#status} is `"inspecting"`; otherwise `null`.
    */
   inspectSession: RunInspectSession | null;
+
+  /**
+   * Per-phase-config phase 7.5d: set to a {@link RunTransitionInProgress}
+   * snapshot while the orchestrator is tearing down the previous coder
+   * container and recreating it against the existing sandbox dir for a
+   * Level-2 or Level-3 transition (the loop integration that consumes this
+   * field ships in phase 7.5e). Written BEFORE teardown (so a crash
+   * mid-transition is recoverable) and cleared once the new container is
+   * ready.
+   *
+   * Crash recovery: when `run resume` reloads an artifact with
+   * `transitionInProgress: true`, the loop re-runs the controlled restart
+   * idempotently rather than activating the new subtask against a stale
+   * container that no longer exists. Folded into {@link RunStatus}
+   * `"running"` rather than introducing a `"transitioning"` status (per
+   * design.md §7.5: "lean: the latter, fewer status-machine edge cases").
+   *
+   * `null` when no transition is in flight.
+   */
+  transitionInProgress: RunTransitionInProgress | null;
+
+  /**
+   * per-phase-config phase 7.6: per-phase outer-attempt counter, keyed by
+   * `RunSubtask.phaseId`. Incremented once per outer attempt that runs
+   * against a phaseId-bearing subtask. The loop compares the count
+   * against the active subtask's `limits.maxAttempts` and fail-fasts the
+   * run when the budget is exhausted.
+   *
+   * **Monotone within a single Run identity:** the counter never
+   * decrements. When a phase's gate eventually passes and the loop
+   * advances, the next phase's counter starts at 0 (its key was never
+   * set). Re-entry via `run start <id>` after a crash continues from
+   * the last persisted count — the budget cannot be reset by retrying.
+   *
+   * Empty `{}` for runs with no phaseId-bearing subtasks (legacy /
+   * non-phased path).
+   */
+  phaseAttemptCount: Record<string, number>;
+}
+
+/**
+ * Snapshot of an in-flight Level-2/3 controlled restart, persisted on
+ * {@link RunArtifact#transitionInProgress} between teardown-start and
+ * recreate-complete. The cursor + cost class let `run resume` re-run the
+ * exact transition that crashed (idempotent — resume against the same
+ * subtask cursor and the same fresh-container target).
+ */
+export interface RunTransitionInProgress {
+  /**
+   * Subtask index the run was advancing to when the transition started.
+   * Equals {@link RunArtifact#currentSubtaskIndex} once the transition
+   * commits — written here BEFORE the cursor advances so a crash can
+   * reconstruct intent.
+   */
+  toSubtaskIndex: number;
+  /**
+   * Cost class of the restart, as detected by
+   * `phase-transition.ts:detectLevel2Transition` /
+   * `detectLevel3Transition`. `'level-2-3'` when both detectors fired
+   * for the same boundary.
+   */
+  costClass: 'level-2' | 'level-3' | 'level-2-3';
+  /**
+   * Field paths that triggered the transition (kebab-case YAML form,
+   * e.g. `agent.profile`, `container.image`). Stable order matches the
+   * detector helpers. Used in log / error messages on a crashed-transition
+   * resume so the user sees the same field set on retry.
+   */
+  fields: readonly string[];
+  /** ISO timestamp when teardown started (i.e. when this artifact field was set). */
+  startedAt: string;
 }

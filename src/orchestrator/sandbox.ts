@@ -43,6 +43,7 @@ import { git, gitAdd, gitCommit, gitDiff, gitInit } from '../utils/git.js';
 import { pathExists, readUtf8, spawnAsync, spawnWait, writeUtf8 } from '../utils/io.js';
 import { isErrnoCode, retryWithBackoff } from '../utils/retry.js';
 import { replayRunCommits, SAIFCTL_DEFAULT_AUTHOR } from './patch.js';
+import { type SubtaskEnvMap, writeSubtaskEnvFile } from './per-subtask-env.js';
 
 /** `fs.rm` can throw these while the agent or pnpm still touches a bind-mounted sandbox tree. */
 const RETRIABLE_RM_CODES = new Set(['ENOTEMPTY', 'EBUSY', 'EPERM', 'EAGAIN', 'EMFILE', 'ENFILE']);
@@ -304,7 +305,7 @@ export async function diffUntrackedFilesVersusDevNull(projectDir: string): Promi
   return chunks.join('');
 }
 
-interface RefreshSandboxScriptsOpts {
+export interface RefreshSandboxScriptsOpts {
   projectDir: string;
   copyWorkingTree: boolean;
   hostBasePatchPath: string;
@@ -325,6 +326,61 @@ interface RefreshSandboxScriptsOpts {
   cedarPolicyPath: string;
 }
 
+// ---------------------------------------------------------------------------
+// per-phase-config phase 7.5e — convenience wrapper that derives the script
+// paths from a {@link Sandbox} so callers (loop.ts) don't have to hand-build
+// the `gatePath` / `startupPath` / etc. set every time. Mirrors the path
+// derivation in `createSandbox`'s reuse branch so the two stay aligned by
+// construction.
+// ---------------------------------------------------------------------------
+
+/** Inputs to {@link refreshSandboxScriptsForSandbox}: the live sandbox + per-subtask script content + run-level state. */
+export interface RefreshSandboxScriptsForSandboxOpts {
+  sandbox: Sandbox;
+  projectDir: string;
+  copyWorkingTree: boolean;
+  feature: Feature;
+  gateScript: string;
+  startupScript: string;
+  agentInstallScript: string;
+  agentScript: string;
+  stageScript: string;
+  cedarScript: string;
+}
+
+/**
+ * Refresh the bind-mounted scripts in an existing sandbox dir using a
+ * {@link Sandbox} handle (path derivation handled internally). Thin
+ * wrapper around {@link refreshSandboxScripts} for callers that already
+ * hold a `Sandbox`.
+ */
+export async function refreshSandboxScriptsForSandbox(
+  opts: RefreshSandboxScriptsForSandboxOpts,
+): Promise<void> {
+  const { sandbox } = opts;
+  const saifctlPath = sandbox.saifctlPath;
+  await refreshSandboxScripts({
+    projectDir: opts.projectDir,
+    copyWorkingTree: opts.copyWorkingTree,
+    hostBasePatchPath: sandbox.hostBasePatchPath,
+    codePath: sandbox.codePath,
+    saifctlPath,
+    feature: opts.feature,
+    gateScript: opts.gateScript,
+    startupScript: opts.startupScript,
+    agentInstallScript: opts.agentInstallScript,
+    agentScript: opts.agentScript,
+    stageScript: opts.stageScript,
+    cedarScript: opts.cedarScript,
+    gatePath: join(saifctlPath, 'gate.sh'),
+    startupPath: join(saifctlPath, 'startup.sh'),
+    agentInstallPath: join(saifctlPath, 'agent-install.sh'),
+    agentPath: join(saifctlPath, 'agent.sh'),
+    stagePath: join(saifctlPath, 'stage.sh'),
+    cedarPolicyPath: join(saifctlPath, SANDBOX_CEDAR_POLICY_BASENAME),
+  });
+}
+
 /**
  * Refresh the mutable parts of an existing sandbox without touching the code tree or git history.
  *
@@ -337,9 +393,14 @@ interface RefreshSandboxScriptsOpts {
  *                         and the factory-provided coder-start.sh / staging-start.sh / reviewer.sh.
  *
  * This function is intentionally separate from `createSandbox` so the reuse branch remains easy to
- * reason about and test in isolation.
+ * reason about and test in isolation. Per-phase-config phase 7.5d exposes it (via the
+ * {@link refreshSandboxScriptsForSandbox} wrapper) so `loop.ts` can call it from
+ * `phase-transition.ts:completeControlledRestart` (the post-teardown half of a controlled
+ * Level-2/3 restart, plus the resume-recovery branch when an artifact loaded from disk
+ * carries `transitionInProgress`). Applies Level-2 script content from the new active
+ * subtask before the next outer attempt boots a fresh coder container.
  */
-async function refreshSandboxScripts(opts: RefreshSandboxScriptsOpts): Promise<void> {
+export async function refreshSandboxScripts(opts: RefreshSandboxScriptsOpts): Promise<void> {
   const {
     projectDir,
     copyWorkingTree,
@@ -424,6 +485,12 @@ async function refreshSandboxScripts(opts: RefreshSandboxScriptsOpts): Promise<v
   await writeUtf8(stagePath, stageScript);
   await chmod(stagePath, 0o755);
   await writeUtf8(cedarPolicyPath, cedarScript);
+  // per-phase-config phase 7.4: write an empty per-subtask env file at
+  // sandbox creation so the bind-mount has the file present from boot
+  // (avoids any "file appeared after boot" race in coder-start.sh's
+  // `[ -f ... ]` check). The first subtask transition rewrites it with
+  // any per-phase overrides.
+  await writeSubtaskEnvFile({ saifctlPath, env: {} });
   for (const name of [
     'coder-start.sh',
     'sandbox-start.sh',
@@ -540,8 +607,22 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
 
   // Case: Creating a new sandbox (start path from run).
   consola.log(`[sandbox] Creating isolated sandbox at ${sandboxBasePath}`);
-  await mkdir(codePath, { recursive: true });
-  await mkdir(saifctlPath, { recursive: true });
+  // Explicit 0o755 — Node's default `mkdir` mode is 0o777 minus process umask.
+  // GitHub Linux runners use umask 077 for the runner user (a deliberate
+  // hardening), which produces mode 0o700. The staging + test-runner
+  // containers run with the host owner UID (set in src/engines/docker/
+  // index.ts), so they don't need world-traverse, but defensively keeping
+  // these dirs at 0o755 avoids regressions if someone later wires up a
+  // container whose UID doesn't match the host (e.g. an image-baked
+  // saifctl-1000 vs runner-1001). Tracked: release-readiness/X-08-P9.
+  await mkdir(codePath, { recursive: true, mode: 0o755 });
+  await mkdir(saifctlPath, { recursive: true, mode: 0o755 });
+  // Recursive mkdir doesn't re-chmod existing parent dirs. The run-specific
+  // `sandboxBasePath` was just created by recursive mkdir above, so it's
+  // already 0o755; the chmod here is belt-and-braces in case sandboxBasePath
+  // pre-existed (reuse path) or a future caller passes a sandboxBaseDir that
+  // already exists with restrictive perms.
+  await chmod(sandboxBasePath, 0o755);
 
   // Capture any uncommitted host changes (staged + unstaged) before rsync so that
   // applyPatchToHost can reconstruct the exact host state the sandbox was based on,
@@ -710,6 +791,9 @@ export async function createSandbox(opts: CreateSandboxOpts): Promise<Sandbox> {
   await chmod(stagePath, 0o755);
   consola.log(`[sandbox] Stage script written to ${stagePath}`);
 
+  // per-phase-config phase 7.4: empty per-subtask env file (see createSandbox above).
+  await writeSubtaskEnvFile({ saifctlPath, env: {} });
+
   await writeUtf8(cedarPolicyPath, cedarScript);
   consola.log(`[sandbox] Cedar policy written to ${cedarPolicyPath}`);
 
@@ -811,39 +895,101 @@ export interface UpdateSandboxSubtaskScriptsOpts {
   gateScript: string;
   /**
    * Agent script content to write as saifctl/agent.sh.
-   * Only written when the subtask has an explicit agentScript override.
-   * When undefined, the existing agent.sh on disk is left unchanged.
+   *
+   * Always provided — the compile/runtime layer resolves the per-subtask
+   * value (per-phase `agent.script` override when set, else run-level
+   * fallback) before reaching this function. Always-write means a
+   * transition from a phase that overrode `agent.script` to a phase that
+   * didn't correctly restores the run-level script, instead of leaking
+   * the previous phase's content. See per-phase-config phase 7.2.
    */
-  agentScript?: string;
+  agentScript: string;
+  /**
+   * Stage script content to write as saifctl/stage.sh.
+   *
+   * Always provided — the compile/runtime layer resolves the per-subtask
+   * value (per-phase `runner.stage-script` override when set, else
+   * run-level fallback) before reaching this function. Always-write means
+   * a transition from a phase that overrode `runner.stage-script` to a
+   * phase that didn't correctly restores the run-level script, instead of
+   * leaking the previous phase's content. The staging container reads
+   * `stage.sh` from the bind-mount fresh each `runStagingTestVerification`
+   * call (per subtask, not per outer attempt), so the file MUST hold the
+   * right content per subtask. See per-phase-config phase 7.3.
+   */
+  stageScript: string;
+  /**
+   * Per-subtask env file content to write as saifctl/subtask-env.sh
+   * (per-phase-config phase 7.4 — Level 1.5 fast path).
+   *
+   * Optional. When omitted, the on-disk file (if any) is left in place
+   * — back-compat for legacy callers and the inspect / sandbox-only
+   * paths that don't have phased subtasks.
+   *
+   * Resolved per-subtask {@link import('./per-subtask-env.js').SubtaskEnvMap}.
+   *
+   * **Always provided** — the caller must compute the full resolved env
+   * (run-level baseline + active overrides + `unset` directives for
+   * shadow keys not in the active subtask) via `computeSubtaskEnv`
+   * with a shadow-keys set built from the whole run. The host always
+   * rewrites the file; the runtime guarantee depends on the file being
+   * an authoritative snapshot of the active subtask's env, not just
+   * the per-phase delta. Without this, phase-only-added env keys
+   * silently leak across phase boundaries (per-phase-config 7.4
+   * review F-A).
+   *
+   * Mode is `0o600` (may contain secret values from `agent.secrets`);
+   * callers don't need to chmod separately.
+   */
+  subtaskEnv: SubtaskEnvMap;
 }
 
 /**
  * Overwrites per-subtask scripts in the sandbox saifctl directory between subtasks.
  *
- * gate.sh is always updated (caller provides either the subtask override or the run-level
- * default). agent.sh is only overwritten when the subtask specifies an explicit override —
- * leaving it unchanged preserves the run-level agent.sh from createSandbox.
+ * `gate.sh`, `agent.sh`, and `stage.sh` are always updated; callers must pass
+ * the resolved per-subtask value (override-or-run-level) for each. Always-write
+ * makes phase boundaries idempotent — a phase that doesn't override a script
+ * gets the run-level fallback baked into the subtask, so transitions never
+ * leave the wrong content on disk.
  *
- * The /saifctl/ bind-mount is a directory mount (:ro from the container's perspective),
- * so the running container sees the new file contents on the next read without any
- * restart or remount.
+ * `stage.sh` matters for the same reason as `gate.sh` / `agent.sh`: the
+ * staging container reads it fresh from the bind-mount each
+ * `runStagingTestVerification` call (per subtask, not per outer attempt).
+ * A previous phase's override would otherwise persist into a non-overriding
+ * phase's staging tests — that bug was caught in the per-phase-config 7.3
+ * review.
+ *
+ * The /saifctl/ bind-mount is a directory mount (:ro from the container's
+ * perspective), so the running container sees the new file contents on the
+ * next read without any restart or remount.
  */
 export async function updateSandboxSubtaskScripts(
   opts: UpdateSandboxSubtaskScriptsOpts,
 ): Promise<void> {
-  const { saifctlPath, gateScript, agentScript } = opts;
+  const { saifctlPath, gateScript, agentScript, stageScript, subtaskEnv } = opts;
 
   const gatePath = join(saifctlPath, 'gate.sh');
   await writeUtf8(gatePath, gateScript);
   await chmod(gatePath, 0o755);
   consola.log(`[sandbox] gate.sh updated for next subtask (${gateScript.length} bytes)`);
 
-  if (agentScript !== undefined) {
-    const agentPath = join(saifctlPath, 'agent.sh');
-    await writeUtf8(agentPath, agentScript);
-    await chmod(agentPath, 0o755);
-    consola.log(`[sandbox] agent.sh updated for next subtask (${agentScript.length} bytes)`);
-  }
+  const agentPath = join(saifctlPath, 'agent.sh');
+  await writeUtf8(agentPath, agentScript);
+  await chmod(agentPath, 0o755);
+  consola.log(`[sandbox] agent.sh updated for next subtask (${agentScript.length} bytes)`);
+
+  const stagePath = join(saifctlPath, 'stage.sh');
+  await writeUtf8(stagePath, stageScript);
+  await chmod(stagePath, 0o755);
+  consola.log(`[sandbox] stage.sh updated for next subtask (${stageScript.length} bytes)`);
+
+  // per-phase-config phase 7.4 — Level 1.5 fast path. Per-subtask env
+  // file is sourced by `coder-start.sh` on every inner round. Always
+  // written (the type makes it required) so phase boundaries are
+  // idempotent regardless of source order — see per-phase-config 7.4
+  // review F-A. The writer takes care of mode `0o600` + atomic swap.
+  await writeSubtaskEnvFile({ saifctlPath, env: subtaskEnv });
 }
 
 /**
@@ -1028,6 +1174,39 @@ export interface ExtractIncrementalRoundPatchOpts extends ExtractPatchOpts {
   message?: string;
   /** Override default {@link SAIFCTL_DEFAULT_AUTHOR}. */
   author?: string;
+  /**
+   * Snapshot of {@link listIgnoredOtherFiles} taken before the agent ran (or
+   * at the start of the coding session). When supplied, the returned
+   * `silentlyIgnored` is the set difference (current minus baseline) — i.e.,
+   * paths the agent wrote that `.gitignore` excluded so `git add .` skipped
+   * them. When omitted, `silentlyIgnored` is always empty (feature off).
+   */
+  baselineIgnored?: ReadonlySet<string>;
+}
+
+/**
+ * Lists working-tree paths excluded from version control by `.gitignore` (or
+ * any `core.excludesFile` / `info/exclude`). Fully-ignored directories collapse
+ * to a single trailing-slash entry via `--directory`, so `node_modules/` does
+ * not expand into every file inside it.
+ *
+ * Use as a snapshot taken before/after an agent round to detect writes the
+ * orchestrator silently dropped because the agent's output path was
+ * gitignored.
+ */
+export async function listIgnoredOtherFiles(
+  codePath: string,
+  env?: NodeJS.ProcessEnv,
+): Promise<string[]> {
+  const out = await git({
+    cwd: codePath,
+    env,
+    args: ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory'],
+  });
+  return out
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
 }
 
 /**
@@ -1045,7 +1224,18 @@ export interface ExtractIncrementalRoundPatchOpts extends ExtractPatchOpts {
 export async function extractIncrementalRoundPatch(
   codePath: string,
   opts: ExtractIncrementalRoundPatchOpts,
-): Promise<{ patch: string; patchPath: string; commits: RunCommit[] }> {
+): Promise<{
+  patch: string;
+  patchPath: string;
+  commits: RunCommit[];
+  /**
+   * Paths that appeared in the working tree this session but were excluded by
+   * `.gitignore` so `git add .` ignored them. Computed as
+   * (current ignored entries) − (`baselineIgnored`). Empty when
+   * `baselineIgnored` was not supplied.
+   */
+  silentlyIgnored: string[];
+}> {
   const sandboxBasePath = join(codePath, '..');
   const patchPath = join(sandboxBasePath, 'patch.diff');
   const gitEnv = {
@@ -1153,7 +1343,16 @@ export async function extractIncrementalRoundPatch(
     commits.length > 0 ? `${commits.map((c) => c.diff.replace(/\n+$/, '')).join('\n')}\n` : '';
   await writeUtf8(patchPath, combinedPatch);
 
-  return { patch: combinedPatch, patchPath, commits };
+  // Surface paths the agent wrote that `git add` skipped because of `.gitignore`.
+  // Without a baseline we can't tell agent-created entries apart from preexisting
+  // ignores (node_modules/, dist/, …), so the feature only fires when the caller
+  // opted in by passing `baselineIgnored`.
+  const baseline = opts.baselineIgnored;
+  const silentlyIgnored = baseline
+    ? (await listIgnoredOtherFiles(codePath, gitEnv)).filter((p) => !baseline.has(p))
+    : [];
+
+  return { patch: combinedPatch, patchPath, commits, silentlyIgnored };
 }
 
 /**

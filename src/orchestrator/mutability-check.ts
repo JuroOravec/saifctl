@@ -128,7 +128,7 @@ export async function inspectImmutableTestChanges(
     featureConfig = opts.preLoadedConfig.featureConfig;
     phaseConfigs = opts.preLoadedConfig.phaseConfigs;
   } else {
-    const { context } = await validatePhasedFeature({ featureAbsolutePath });
+    const { context } = await validatePhasedFeature({ featureAbsolutePath, projectDir });
     if (context) {
       featureConfig = context.featureConfig;
       phaseConfigs = context.phaseConfigs;

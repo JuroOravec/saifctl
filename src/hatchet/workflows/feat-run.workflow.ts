@@ -53,6 +53,11 @@ import {
   sandboxHasCommitsBeyondInitialImport,
 } from '../../orchestrator/loop.js';
 import { getSandboxSourceDir } from '../../orchestrator/modes.js';
+import {
+  buildSubtaskEnvShadowKeys,
+  computeSubtaskEnv,
+  type SubtaskEnvBaseline,
+} from '../../orchestrator/per-subtask-env.js';
 import { applyPatchToHost } from '../../orchestrator/phases/apply-patch.js';
 import { runAgentPhase } from '../../orchestrator/phases/run-agent-phase.js';
 import { runTestPhase } from '../../orchestrator/phases/run-test-phase.js';
@@ -571,6 +576,22 @@ export function createFeatRunWorkflow() {
 
       let globalAttempt = 0;
 
+      // Per-phase-config phase 7.4 — run-level baseline + cross-subtask
+      // shadow-keys for the per-subtask env file. Computed once across
+      // the whole workflow so subtasks that don't override a key the
+      // workflow has touched elsewhere can emit `unset KEY` cleanly.
+      // See per-phase-config 7.4 review F-A.
+      const subtaskEnvBaseline: SubtaskEnvBaseline = {
+        agentEnv: opts.agentEnv,
+        agentSecretKeys: opts.agentSecretKeys,
+        llm: opts.llm,
+        reviewerEnabled: opts.reviewerEnabled,
+      };
+      const subtaskEnvShadowKeys = buildSubtaskEnvShadowKeys({
+        baseline: subtaskEnvBaseline,
+        subtasks: hatchetSubtasks,
+      });
+
       for (let subtaskIdx = startSubtaskIndex; subtaskIdx < hatchetSubtasks.length; subtaskIdx++) {
         const activeIn = hatchetSubtasks[subtaskIdx];
         if (!activeIn) {
@@ -578,11 +599,19 @@ export function createFeatRunWorkflow() {
         }
 
         // Each Hatchet child workflow starts a fresh coder container; sync /saifctl scripts
-        // from the active subtask before its attempts (per-subtask gate / agent overrides).
+        // from the active subtask before its attempts (per-subtask gate / agent / stage /
+        // env overrides). Per-phase-config phase 7.2 (gate / agent), 7.3 (stage),
+        // and 7.4 (Level-1.5 env file).
         await updateSandboxSubtaskScripts({
           saifctlPath: sandboxRaw.saifctlPath,
           gateScript: activeIn.gateScript ?? opts.gateScript,
-          agentScript: activeIn.agentScript,
+          agentScript: activeIn.agentScript ?? opts.agentScript,
+          stageScript: activeIn.stageScript ?? opts.stageScript,
+          subtaskEnv: computeSubtaskEnv({
+            active: activeIn,
+            baseline: subtaskEnvBaseline,
+            shadowKeys: subtaskEnvShadowKeys,
+          }),
         });
 
         const effectiveGateRetries = activeIn.gateRetries ?? opts.gateRetries;

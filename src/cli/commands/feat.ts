@@ -31,7 +31,6 @@ import {
 } from '../../agent-profiles/options-bridge.js';
 import { loadSaifctlConfig } from '../../config/load.js';
 import { type SaifctlConfig } from '../../config/schema.js';
-import { defaultCedarPolicyPath } from '../../constants.js';
 import { runDiscovery } from '../../design-discovery/run.js';
 import { runDesignTests } from '../../design-tests/design.js';
 import { generateTests } from '../../design-tests/write.js';
@@ -47,13 +46,16 @@ import {
   pickAgentInstallScript,
   pickAgentProfile,
   pickAgentScript,
+  pickCedarPolicyPath,
   pickGateScript,
   pickSandboxProfile,
   pickStageScript,
   pickStartupScript,
   pickTestProfile,
   pickTestScript,
+  resolveFeatureLevelScriptPaths,
   resolveOrchestratorOpts,
+  resolveSaifctlGlobalCedarPath,
   resolveSandboxBaseDir,
   resolveStagingEnvironment,
   resolveTestImageTag,
@@ -64,10 +66,10 @@ import { pathExists, readUtf8, writeUtf8 } from '../../utils/io.js';
 import {
   featRunArgs,
   featTestsArgs,
+  featureArg,
   forceArg,
   indexerArg,
   modelOverrideArgs,
-  nameArg,
   projectArg,
   projectDirArg,
   saifctlDirArg,
@@ -123,7 +125,7 @@ type CommandArgs<T extends CommandDef<any>> = Parameters<NonNullable<T['run']>>[
 const yesArg = {
   type: 'boolean' as const,
   alias: 'y' as const,
-  description: 'Non-interactive mode. Requires --name/-n.',
+  description: 'Non-interactive mode. Requires --feature/-e.',
 };
 const designerArg = {
   type: 'string' as const,
@@ -140,8 +142,8 @@ const newCommand = defineCommand({
     description: 'Create scaffolding for a new feature',
   },
   args: {
-    name: {
-      ...nameArg,
+    feature: {
+      ...featureArg,
       description: 'Feature name (kebab-case, e.g. add-greeting-cmd)',
     },
     yes: yesArg,
@@ -160,7 +162,7 @@ const newCommand = defineCommand({
     const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
 
     if (nonInteractive && !namePreFill) {
-      consola.error('Error: --name/-n is required when using --yes/-y');
+      consola.error('Error: --feature/-e is required when using --yes/-y');
       process.exit(1);
     }
 
@@ -224,11 +226,11 @@ const newCommand = defineCommand({
 });
 
 const designSpecsArgs = {
-  name: nameArg,
+  feature: featureArg,
   yes: {
     ...yesArg,
     description:
-      'Non-interactive mode. Requires --name/-n. Skips confirm when designer output exists; assumes redo.',
+      'Non-interactive mode. Requires --feature/-e. Skips confirm when designer output exists; assumes redo.',
   },
   force: {
     ...forceArg,
@@ -241,7 +243,7 @@ const designSpecsArgs = {
 };
 
 const designDiscoveryArgs = {
-  name: nameArg,
+  feature: featureArg,
   'saifctl-dir': saifctlDirArg,
   'project-dir': projectDirArg,
   ...modelOverrideArgs,
@@ -266,7 +268,7 @@ const designDiscoveryArgs = {
 };
 
 async function _runDesignDiscovery(args: {
-  name?: string;
+  feature?: string;
   'saifctl-dir'?: string;
   'project-dir'?: string;
   model?: string;
@@ -304,7 +306,7 @@ async function _runDesignDiscovery(args: {
 }
 
 async function _runDesignSpecs(args: {
-  name?: string;
+  feature?: string;
   yes?: boolean;
   force?: boolean;
   model?: string;
@@ -320,7 +322,7 @@ async function _runDesignSpecs(args: {
   const nonInteractive = args.yes === true;
   const force = args.force === true;
   if (nonInteractive && !getFeatNameFromArgs(args)) {
-    consola.error('Error: --name/-n is required when using --yes/-y');
+    consola.error('Error: --feature/-e is required when using --yes/-y');
     process.exit(1);
   }
   const feature = await getFeatOrPrompt(args, projectDir);
@@ -416,7 +418,7 @@ const designDiscoveryCommand = defineCommand({
 });
 
 const designTestsArgs = {
-  name: nameArg,
+  feature: featureArg,
   'saifctl-dir': saifctlDirArg,
   'project-dir': projectDirArg,
   'test-profile': testProfileArg,
@@ -549,7 +551,7 @@ const designTestsCommand = defineCommand({
 // ---------------------------------------------------------------------------
 
 const designFail2passArgs = {
-  name: nameArg,
+  feature: featureArg,
   'saifctl-dir': saifctlDirArg,
   'project-dir': projectDirArg,
   project: projectArg,
@@ -601,14 +603,38 @@ async function _runDesignFail2pass(opts: {
   const sandboxBaseDir = readSandboxBaseDirFromCli(args) ?? resolveSandboxBaseDir(config);
 
   const projectName = await resolveProjectName({ project: args.project, projectDir, config });
-  const sandboxProfile = pickSandboxProfile(readSandboxProfileIdFromCli(args), config);
+  // per-phase-config phase 7.5c review H3 — design-fail2pass must thread
+  // featureConfig into the eight Level-2/3 pickers, same as `feat run`'s
+  // `applyOrchestratorBaseline`. Without this, a user with
+  // `feature.yml: agent: profile: claude` would run `feat run` with claude
+  // but `feat design-fail2pass` with the package default — and the
+  // test-writing container could differ from the implementation
+  // container by exactly the bits the user expressed.
+  const featureScriptAbs = await resolveFeatureLevelScriptPaths({
+    featureConfig: featureCfg ?? null,
+    featureAbsolutePath: feature.absolutePath,
+    projectDir,
+  });
+  const sandboxProfile = pickSandboxProfile(
+    readSandboxProfileIdFromCli(args),
+    config,
+    featureCfg ?? null,
+  );
   const testProfile = pickTestProfile(readTestProfileIdFromCli(args), config);
   const testImage = resolveTestImageTag(readTestImageTagFromCli(args), testProfile.id, config);
 
-  const startupPick = pickStartupScript(readStartupScriptPathFromCli(args), config);
+  const startupPick = pickStartupScript(
+    readStartupScriptPathFromCli(args),
+    config,
+    featureScriptAbs.startup,
+  );
   const gatePick = pickGateScript(readGateScriptPathFromCli(args), config);
   const stagePick = pickStageScript(readStageScriptPathFromCli(args), config);
-  const agentProfile = pickAgentProfile(readAgentProfileIdFromCli(args), config);
+  const agentProfile = pickAgentProfile(
+    readAgentProfileIdFromCli(args),
+    config,
+    featureCfg ?? null,
+  );
 
   const [gateR, startupR, stageR, agentR, testR] = await Promise.all([
     loadGateScriptFromPick({
@@ -627,8 +653,12 @@ async function _runDesignFail2pass(opts: {
       projectDir,
     }),
     loadAgentScriptsFromPicks({
-      installPick: pickAgentInstallScript(readAgentInstallScriptPathFromCli(args)),
-      scriptPick: pickAgentScript(readAgentScriptPathFromCli(args)),
+      installPick: pickAgentInstallScript(
+        readAgentInstallScriptPathFromCli(args),
+        config,
+        featureScriptAbs.install,
+      ),
+      scriptPick: pickAgentScript(readAgentScriptPathFromCli(args), config),
       agentProfileId: agentProfile.id,
       projectDir,
     }),
@@ -644,7 +674,20 @@ async function _runDesignFail2pass(opts: {
   const { agentInstallScript, agentScript } = agentR;
   const testScript = testR.testScript;
 
-  const cedarPolicyPath = config?.defaults?.cedarPolicyPath ?? defaultCedarPolicyPath();
+  // Pre-resolve the saifctl-global `defaults.cedarPolicyPath` value with
+  // the same containment guard the per-feature path uses (review N5)
+  // before handing the resolved absolute path to the picker. The picker
+  // signature only accepts pre-resolved absolute paths — the raw config
+  // value is silently fallthrough-trap-prone (resolves relative to
+  // process cwd otherwise).
+  const saifctlGlobalCedarResolvedAbs = await resolveSaifctlGlobalCedarPath({
+    rawValue: config?.defaults?.cedarPolicyPath,
+    projectDir,
+  });
+  const cedarPolicyPath = pickCedarPolicyPath({
+    featureValueResolvedAbs: featureScriptAbs.cedar,
+    saifctlGlobalResolvedAbs: saifctlGlobalCedarResolvedAbs,
+  });
   const cedarScript = await readUtf8(cedarPolicyPath);
 
   const stagingEnvironment = resolveStagingEnvironment(config);
@@ -846,6 +889,7 @@ export const parseRunArgs = async (args: CommandArgs<typeof runCommand>) => {
       const ok = await runValidationAndPrint({
         featureAbsolutePath: feature.absolutePath,
         featureName: feature.name,
+        projectDir,
       });
       if (!ok) process.exit(1);
     }

@@ -1,0 +1,20 @@
+# Per-phase-config phase 7.4 — Level-1.5 fast path. Both fields land on
+# the per-subtask env file (`<saifctlPath>/subtask-env.sh`) which the
+# long-lived coder container sources each inner round; switching them
+# between phases is free per round (no restart).
+agent:
+  # Cheaper model for a tightening / verification step. Same shape as
+  # the run-level `--model` flag: a single bare value (LiteLLM-style
+  # `provider/model[/sub]` form), or a comma-separated `agent=value`
+  # list (`coder=foo/bar,critic=baz/qux`) for per-agent overrides.
+  model: 'openai/gpt-4o-mini'
+
+  # Disable the semantic reviewer (Argus) for this phase. The previous
+  # phases' critics have already flagged anything substantive; the
+  # reviewer would mostly emit noise on a tightening pass.
+  reviewer: false
+
+# Trim the inherited critic list (same rationale as phase 03 — keeps the
+# compiled sequence small and readable).
+critics:
+  - { id: strict, rounds: 1 }

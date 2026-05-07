@@ -13,6 +13,7 @@ import type {
   RunRule,
   RunStatus,
   RunSubtask,
+  RunTransitionInProgress,
 } from '../types.js';
 import { syncConfigSubtasksFromArtifact } from './normalize-artifact.js';
 import { type PersistedScriptBundle, serializeArtifactConfig } from './serialize.js';
@@ -46,6 +47,19 @@ export interface BuildRunArtifactParams {
   liveInfra: RunLiveInfra | null;
   /** Omit or `null` for normal runs; only set when persisting an active inspect session. */
   inspectSession?: RunInspectSession | null;
+  /**
+   * per-phase-config phase 7.5d — set to a {@link RunTransitionInProgress}
+   * snapshot while a Level-2/3 controlled coder-container restart is in
+   * flight. `null` for runs that aren't transitioning. See
+   * {@link RunArtifact#transitionInProgress}.
+   */
+  transitionInProgress?: RunTransitionInProgress | null;
+  /**
+   * per-phase-config phase 7.6 — per-phase outer-attempt counter. Empty
+   * `{}` for fresh runs and for non-phased subtasks. See
+   * {@link RunArtifact#phaseAttemptCount}.
+   */
+  phaseAttemptCount?: Record<string, number>;
 }
 
 /**
@@ -74,6 +88,8 @@ export function buildRunArtifact(params: BuildRunArtifactParams): RunArtifact {
     pausedSandboxBasePath: params.pausedSandboxBasePath ?? null,
     liveInfra: params.liveInfra ?? null,
     inspectSession: params.inspectSession ?? null,
+    transitionInProgress: params.transitionInProgress ?? null,
+    phaseAttemptCount: params.phaseAttemptCount ?? {},
   };
   return syncConfigSubtasksFromArtifact(art);
 }

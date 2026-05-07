@@ -177,6 +177,58 @@ describe('saifctl run info', () => {
     });
   });
 
+  // -------------------------------------------------------------------------
+  // Per-phase-config phase 7.6 review L2 — `phaseAttemptCount` visibility.
+  //
+  // The artifact's per-phase counter is a debugging-relevant field
+  // ("why did my run abort after the 4th critic round?") and MUST be
+  // surfaced to users via `run info` so they can introspect the budget
+  // state without reaching into the raw JSON storage path. The
+  // `Omit<RunArtifact, 'basePatchDiff' | 'runCommits'>` projection in
+  // `toRunInfoJson` already preserves the field; this test pins the
+  // contract so a future projection that drops `phaseAttemptCount`
+  // (e.g., as part of a "trim heavy artifact fields" refactor) is
+  // caught.
+  // -------------------------------------------------------------------------
+  it('includes phaseAttemptCount in the JSON output (per-phase budget visibility)', async () => {
+    await withTempProject(async (projectDir) => {
+      const dir = join(projectDir, '.saifctl', 'runs');
+      await mkdir(dir, { recursive: true });
+      // Reuse the standard fixture and merge in a non-empty
+      // phaseAttemptCount + a subtask with `limits.maxAttempts` so the
+      // shape mirrors a real phased-feature artifact mid-run.
+      await writeRunJson(projectDir, 'phb1');
+      const path = join(dir, 'phb1.json');
+      const raw = JSON.parse(
+        await (await import('node:fs/promises')).readFile(path, 'utf8'),
+      ) as Record<string, unknown>;
+      raw.phaseAttemptCount = { 'phase-a': 2, 'phase-b': 1 };
+      const subtasks = raw.subtasks as Array<Record<string, unknown>>;
+      subtasks[0]!.phaseId = 'phase-a';
+      subtasks[0]!.limits = { maxAttempts: 3 };
+      await writeFile(path, JSON.stringify(raw), 'utf8');
+
+      const { logs, errors, exitCode } = await runRunSubcommand([
+        'info',
+        'phb1',
+        '--project-dir',
+        projectDir,
+      ]);
+
+      expect(errors).toEqual([]);
+      expect(exitCode).toBeUndefined();
+      const parsed = JSON.parse(logs[0]!) as {
+        phaseAttemptCount: Record<string, number>;
+        subtasks: Array<{ phaseId?: string; limits?: { maxAttempts?: number } }>;
+      };
+      expect(parsed.phaseAttemptCount).toEqual({ 'phase-a': 2, 'phase-b': 1 });
+      // The per-subtask cap is round-tripped through the same path so the
+      // user can correlate "phase-a is at 2/3" from a single command.
+      expect(parsed.subtasks[0]?.phaseId).toBe('phase-a');
+      expect(parsed.subtasks[0]?.limits?.maxAttempts).toBe(3);
+    });
+  });
+
   it('prints single-line JSON with --no-pretty', async () => {
     await withTempProject(async (projectDir) => {
       await writeRunJson(projectDir, 'ins2');

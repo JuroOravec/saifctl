@@ -90,6 +90,8 @@ function baseArtifact(
     pausedSandboxBasePath: overrides.pausedSandboxBasePath ?? null,
     liveInfra: overrides.liveInfra ?? null,
     inspectSession: overrides.inspectSession ?? null,
+    transitionInProgress: overrides.transitionInProgress ?? null,
+    phaseAttemptCount: overrides.phaseAttemptCount ?? {},
     artifactRevision: overrides.artifactRevision,
   };
 }

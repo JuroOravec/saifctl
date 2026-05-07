@@ -28,7 +28,7 @@ import type { RunSubtaskInput } from '../../runs/types.js';
 import { compilePhasesToSubtasks, PhaseCompileError } from '../../specs/phases/compile.js';
 import { validatePhasedFeature } from '../../specs/phases/validate.js';
 import { pathExists, readUtf8, writeUtf8 } from '../../utils/io.js';
-import { nameArg, projectDirArg, saifctlDirArg } from '../args.js';
+import { featureArg, projectDirArg, saifctlDirArg } from '../args.js';
 import {
   getFeatOrPrompt,
   readProjectDirFromCli,
@@ -53,7 +53,7 @@ export function compiledPhasesOutputPath(opts: {
 }
 
 const phasesArgs = {
-  name: nameArg,
+  feature: featureArg,
   'saifctl-dir': saifctlDirArg,
   'project-dir': projectDirArg,
 };
@@ -83,6 +83,8 @@ const validateCommand = defineCommand({
     const ok = await runValidationAndPrint({
       featureAbsolutePath: feature.absolutePath,
       featureName: feature.name,
+      projectDir,
+      printInfos: true,
     });
     if (ok) {
       consola.log(`Validation passed for feature '${feature.name}'.`);
@@ -118,6 +120,26 @@ const compileCommand = defineCommand({
       description:
         '(optional) Path to a gate script whose content should be embedded on every emitted subtask. When omitted, gateScript is set to a fail-loud placeholder marker — the compiled JSON is review-only and not intended to be passed to `feat run --subtasks`.',
     },
+    'agent-script': {
+      type: 'string' as const,
+      // Same review-only semantics as `--gate-script`: when omitted we emit
+      // a fail-loud placeholder. `feat run` always passes the real run-level
+      // agent script via `resolveSubtasks`; this CLI flag exists only so a
+      // user inspecting the artifact can bake in a known agent script.
+      // Misuse via `--subtasks <compiled.json>` is already caught by the
+      // gate placeholder marker; the agent placeholder is just informational.
+      description:
+        '(optional) Path to an agent script whose content should be embedded on every emitted subtask as the run-level fallback. When omitted, agentScript is set to a fail-loud placeholder — the compiled JSON is review-only.',
+    },
+    'stage-script': {
+      type: 'string' as const,
+      // Same review-only semantics as `--agent-script`. Per-phase-config
+      // phase 7.3: every emitted subtask carries a stage script (override
+      // or run-level fallback) so phase boundaries don't leak the previous
+      // phase's `stage.sh` into the next phase's staging container.
+      description:
+        '(optional) Path to a staging script whose content should be embedded on every emitted subtask as the run-level fallback. When omitted, stageScript is set to a fail-loud placeholder — the compiled JSON is review-only.',
+    },
   },
   async run({ args }) {
     const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
@@ -135,10 +157,14 @@ const compileCommand = defineCommand({
     const ok = await runValidationAndPrint({
       featureAbsolutePath: feature.absolutePath,
       featureName: feature.name,
+      projectDir,
+      printInfos: true,
     });
     if (!ok) process.exit(1);
 
     const gateScript = await readOptionalGateScript(args['gate-script'], projectDir);
+    const agentScript = await readOptionalAgentScript(args['agent-script'], projectDir);
+    const stageScript = await readOptionalStageScript(args['stage-script'], projectDir);
 
     let subtasks;
     try {
@@ -148,6 +174,8 @@ const compileCommand = defineCommand({
         saifctlDir,
         projectDir,
         gateScript,
+        agentScript,
+        stageScript,
       });
     } catch (err) {
       // Validation already ran above, so this should be unreachable in the
@@ -215,12 +243,29 @@ function normalizeSubtaskForArtifact(
  *
  * Exposed so the `feat run` pre-flight can call into the same printing path
  * — a single source of truth for what a validation message looks like.
+ *
+ * `printInfos` controls whether `report.infos` (per-phase-config §6.9.6 /
+ * §6.9.7 advisory messages, e.g. "this phase boundary triggers a coder-
+ * container restart") are surfaced. `feat phases compile` and
+ * `feat phases validate` set it to `true`; the `feat run` pre-flight leaves
+ * it `false` because infos are too noisy mid-run (per design §6.9 severity
+ * policy).
  */
 export async function runValidationAndPrint(opts: {
   featureAbsolutePath: string;
   featureName: string;
+  projectDir: string;
+  printInfos?: boolean;
 }): Promise<boolean> {
-  const { report } = await validatePhasedFeature({ featureAbsolutePath: opts.featureAbsolutePath });
+  const { report } = await validatePhasedFeature({
+    featureAbsolutePath: opts.featureAbsolutePath,
+    projectDir: opts.projectDir,
+  });
+
+  if (opts.printInfos && report.infos && report.infos.length > 0) {
+    consola.info(`Validation notes for feature '${opts.featureName}':`);
+    for (const i of report.infos) consola.info(`  - ${i}`);
+  }
 
   if (report.warnings.length > 0) {
     consola.warn(`Validation warnings for feature '${opts.featureName}':`);
@@ -286,6 +331,81 @@ async function readOptionalGateScript(
   const resolved = resolve(projectDir, trimmed);
   if (!(await pathExists(resolved))) {
     consola.error(`Error: --gate-script file not found: ${resolved}`);
+    process.exit(1);
+  }
+  return await readUtf8(resolved);
+}
+
+/**
+ * Fail-loud placeholder used by `feat phases compile` when no `--agent-script`
+ * is supplied. Same review-only semantics as the gate placeholder; agent.sh
+ * is not consumed by `feat run --subtasks` (only `gate.sh` is verified
+ * against `PLACEHOLDER_GATE_SCRIPT_MARKER` there), so this script is purely
+ * advisory — it explains the artifact's review-only status if anyone copies
+ * it out and runs it directly.
+ */
+const PLACEHOLDER_AGENT_SCRIPT = [
+  '#!/usr/bin/env bash',
+  '#',
+  '# This placeholder ships in the output of `saifctl feat phases compile`.',
+  '# The compiled JSON is a REVIEW artifact — it documents what the loop',
+  '# will see, but is NOT intended to be fed back via `feat run --subtasks`.',
+  '#',
+  '# `feat run` (without `--subtasks`) resolves the real agent script per',
+  '# profile / CLI flag. To compile with a real agent script baked in, pass',
+  '# `--agent-script <path>` to `feat phases compile`.',
+  '#',
+  "echo 'saifctl: refusing to invoke an agent script placeholder from feat phases compile.' >&2",
+  'exit 1',
+  '',
+].join('\n');
+
+async function readOptionalAgentScript(
+  cliPath: string | undefined,
+  projectDir: string,
+): Promise<string> {
+  const trimmed = cliPath?.trim();
+  if (!trimmed) return PLACEHOLDER_AGENT_SCRIPT;
+  const resolved = resolve(projectDir, trimmed);
+  if (!(await pathExists(resolved))) {
+    consola.error(`Error: --agent-script file not found: ${resolved}`);
+    process.exit(1);
+  }
+  return await readUtf8(resolved);
+}
+
+/**
+ * Fail-loud placeholder used by `feat phases compile` when no `--stage-script`
+ * is supplied. Same review-only semantics as the gate / agent placeholders;
+ * stage.sh is consumed by the staging container, which a `feat run` call
+ * spins up with the real run-level stage script — this placeholder only
+ * appears in the compiled artifact, never in an actual run.
+ */
+const PLACEHOLDER_STAGE_SCRIPT = [
+  '#!/usr/bin/env bash',
+  '#',
+  '# This placeholder ships in the output of `saifctl feat phases compile`.',
+  '# The compiled JSON is a REVIEW artifact — it documents what the loop',
+  '# will see, but is NOT intended to be fed back via `feat run --subtasks`.',
+  '#',
+  '# `feat run` (without `--subtasks`) resolves the real stage script per',
+  '# profile / CLI flag. To compile with a real stage script baked in, pass',
+  '# `--stage-script <path>` to `feat phases compile`.',
+  '#',
+  "echo 'saifctl: refusing to invoke a stage script placeholder from feat phases compile.' >&2",
+  'exit 1',
+  '',
+].join('\n');
+
+async function readOptionalStageScript(
+  cliPath: string | undefined,
+  projectDir: string,
+): Promise<string> {
+  const trimmed = cliPath?.trim();
+  if (!trimmed) return PLACEHOLDER_STAGE_SCRIPT;
+  const resolved = resolve(projectDir, trimmed);
+  if (!(await pathExists(resolved))) {
+    consola.error(`Error: --stage-script file not found: ${resolved}`);
     process.exit(1);
   }
   return await readUtf8(resolved);

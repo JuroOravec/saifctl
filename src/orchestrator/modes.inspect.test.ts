@@ -165,6 +165,8 @@ const baseArtifact: RunArtifact = {
   pausedSandboxBasePath: null,
   liveInfra: null,
   inspectSession: null,
+  transitionInProgress: null,
+  phaseAttemptCount: {},
 };
 
 const sandbox: Sandbox = {
@@ -392,6 +394,8 @@ describe('runInspect', () => {
     let art: RunArtifact = {
       ...initial,
       inspectSession: initial.inspectSession ?? null,
+      transitionInProgress: initial.transitionInProgress ?? null,
+      phaseAttemptCount: initial.phaseAttemptCount ?? {},
     };
 
     const setStatusInspecting =

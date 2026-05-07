@@ -102,6 +102,15 @@ export function normalizeLoadedRunArtifact(artifact: RunArtifact): RunArtifact {
         ? artifact.sandboxHostAppliedCommitCount
         : 0,
     roundSummaries: normalizeRoundSummaries(artifact.roundSummaries),
+    // per-phase-config phase 7.5d — back-compat: artifacts written before
+    // the field landed don't include `transitionInProgress`. Normalise to
+    // `null` so callers can pattern-match on a stable shape.
+    transitionInProgress: artifact.transitionInProgress ?? null,
+    // per-phase-config phase 7.6 — back-compat: pre-7.6 artifacts have no
+    // `phaseAttemptCount`. Normalise to `{}` so the loop's resume-from-
+    // artifact path can read it as an empty map without an
+    // `?? {}` at every call site.
+    phaseAttemptCount: artifact.phaseAttemptCount ?? {},
   };
 }
 

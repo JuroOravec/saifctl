@@ -65,6 +65,17 @@ export async function forkStoredRun(opts: ForkStoredRunOpts): Promise<{ newRunId
   const { runStorage: _rs, fromArtifact: _fromArtifact, ...artifactLoopOpts } = mergedOpts;
   const newRunId = await allocateUnusedRunId(runStorage);
 
+  // Fork creates a NEW Run identity with a fresh runId. Per-phase-config
+  // 7.6 review N3: `phaseAttemptCount` is intentionally NOT carried over
+  // — design.md §7.6 says the counter is "monotone within a single Run
+  // identity," and a fork is a new identity. `buildRunArtifact` defaults
+  // `phaseAttemptCount` to `{}` when omitted, so the forked run starts
+  // with a fresh per-phase budget. This matches the semantic the user
+  // asked for: "give this work a clean retry from a known good state."
+  // Symmetric: `transitionInProgress` is also implicitly cleared
+  // (defaulted to null) — a fork from a crashed-mid-transition source
+  // boots without the recovery flag, since the new run's first
+  // runCodingPhase establishes its own container from scratch.
   const forked = buildRunArtifact({
     runId: newRunId,
     baseCommitSha: source.baseCommitSha,

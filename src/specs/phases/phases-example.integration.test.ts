@@ -24,19 +24,26 @@ const PROJECT_DIR = resolve(__dirname, '../../..');
 const FEATURE_DIR = resolve(PROJECT_DIR, 'saifctl/features/_phases-example');
 
 describe('_phases-example worked example', () => {
-  it('compiles to the documented subtask sequence (impl + discover/fix critic pairs, phase 02 paranoid×2)', async () => {
+  it('compiles to the documented subtask sequence (impl + discover/fix critic pairs, phase 02 paranoid×2, phases 03/04 trimmed critics)', async () => {
     const out = await compilePhasesToSubtasks({
       featureAbsolutePath: FEATURE_DIR,
       featureName: '_phases-example',
       saifctlDir: 'saifctl',
       projectDir: PROJECT_DIR,
       gateScript: '#!/bin/sh\nexit 0',
+      agentScript: '#!/bin/sh\necho agent',
+      stageScript: '#!/bin/sh\necho stage',
     });
 
     // Per §6 — each critic round = (discover, fix) pair of subtasks.
-    // Note: `audit` runs on phase 01 only. Phase 02's `phase.yml` overrides
-    // the inherited critic list and intentionally omits `audit`, demoing the
-    // §5.3 "override replaces, does not merge" semantics.
+    // Note: `audit` runs on phase 01 only. Phases 02/03/04's `phase.yml`
+    // each override the inherited critic list and intentionally omit
+    // `audit`, demoing the §5.3 "override replaces, does not merge"
+    // semantics. Phases 03 and 04 also trim down to a single critic to
+    // keep the compiled sequence small — they exist to demonstrate
+    // per-phase-config Level-4 (`tests.none`) and Level-1.5
+    // (`agent.model` / `agent.reviewer`) overrides, not the critic
+    // surface.
     expect(out.map((s) => s.title)).toEqual([
       'phase:01-validate-input impl',
       'phase:01-validate-input critic:strict round:1/1 discover',
@@ -52,7 +59,84 @@ describe('_phases-example worked example', () => {
       'phase:02-emit-output critic:paranoid round:1/2 fix',
       'phase:02-emit-output critic:paranoid round:2/2 discover',
       'phase:02-emit-output critic:paranoid round:2/2 fix',
+      'phase:03-codegen impl',
+      'phase:03-codegen critic:strict round:1/1 discover',
+      'phase:03-codegen critic:strict round:1/1 fix',
+      'phase:04-tighten impl',
+      'phase:04-tighten critic:strict round:1/1 discover',
+      'phase:04-tighten critic:strict round:1/1 fix',
     ]);
+  });
+
+  it('phase 02 carries the per-phase Level-1 gate.script override (stricter-gate.sh body), other phases inherit the run-level gate', async () => {
+    // Pin the per-phase-config phase 7.2 surface for the worked example:
+    // the compiler reads the bytes of `stricter-gate.sh` and threads them
+    // onto every subtask of phase 02 (impl + critic discover/fix). Phases
+    // 01/03/04 fall back to the run-level `gateScript` argument because
+    // they declare no override.
+    const out = await compilePhasesToSubtasks({
+      featureAbsolutePath: FEATURE_DIR,
+      featureName: '_phases-example',
+      saifctlDir: 'saifctl',
+      projectDir: PROJECT_DIR,
+      gateScript: '#!/bin/sh\necho run-level-gate',
+      agentScript: '#!/bin/sh\necho agent',
+      stageScript: '#!/bin/sh\necho stage',
+    });
+
+    const phase02 = out.filter((s) => s.phaseId === '02-emit-output');
+    expect(phase02.length).toBeGreaterThan(0);
+    for (const s of phase02) {
+      expect(s.gateScript).toContain('stricter-gate.sh: phase 02 placeholder');
+    }
+    const phase01 = out.filter((s) => s.phaseId === '01-validate-input');
+    for (const s of phase01) {
+      expect(s.gateScript).toBe('#!/bin/sh\necho run-level-gate');
+    }
+  });
+
+  it('phase 03 carries noRunner=true on every subtask (Level-4 tests.none demo)', async () => {
+    const out = await compilePhasesToSubtasks({
+      featureAbsolutePath: FEATURE_DIR,
+      featureName: '_phases-example',
+      saifctlDir: 'saifctl',
+      projectDir: PROJECT_DIR,
+      gateScript: '#!/bin/sh\nexit 0',
+      agentScript: '#!/bin/sh\necho agent',
+      stageScript: '#!/bin/sh\necho stage',
+    });
+    const phase03 = out.filter((s) => s.phaseId === '03-codegen');
+    expect(phase03.length).toBeGreaterThan(0);
+    for (const s of phase03) {
+      expect(s.noRunner).toBe(true);
+    }
+    // Sibling phases must NOT be flagged.
+    for (const s of out.filter((x) => x.phaseId !== '03-codegen')) {
+      expect(s.noRunner).toBeUndefined();
+    }
+  });
+
+  it('phase 04 carries the per-phase Level-1.5 agent.model + agent.reviewer overrides (round-tripped through the manifest)', async () => {
+    const out = await compilePhasesToSubtasks({
+      featureAbsolutePath: FEATURE_DIR,
+      featureName: '_phases-example',
+      saifctlDir: 'saifctl',
+      projectDir: PROJECT_DIR,
+      gateScript: '#!/bin/sh\nexit 0',
+      agentScript: '#!/bin/sh\necho agent',
+      stageScript: '#!/bin/sh\necho stage',
+    });
+    const phase04 = out.filter((s) => s.phaseId === '04-tighten');
+    expect(phase04.length).toBeGreaterThan(0);
+    for (const s of phase04) {
+      expect(s.llmOverrides?.globalModel).toBe('openai/gpt-4o-mini');
+      expect(s.reviewerEnabled).toBe(false);
+    }
+    // Sibling phases must NOT have the override leak in.
+    for (const s of out.filter((x) => x.phaseId !== '04-tighten')) {
+      expect(s.llmOverrides?.globalModel).toBeUndefined();
+      expect(s.reviewerEnabled).toBeUndefined();
+    }
   });
 
   it('every critic body (discover + fix) renders against the documented closed var set', async () => {
@@ -62,6 +146,8 @@ describe('_phases-example worked example', () => {
       saifctlDir: 'saifctl',
       projectDir: PROJECT_DIR,
       gateScript: '#!/bin/sh\nexit 0',
+      agentScript: '#!/bin/sh\necho agent',
+      stageScript: '#!/bin/sh\necho stage',
     });
 
     const critics = out.filter((s) => s.criticPrompt);
@@ -111,6 +197,8 @@ describe('_phases-example worked example', () => {
       saifctlDir: 'saifctl',
       projectDir: PROJECT_DIR,
       gateScript: '#!/bin/sh\nexit 0',
+      agentScript: '#!/bin/sh\necho agent',
+      stageScript: '#!/bin/sh\necho stage',
     });
 
     const r1d = out.find(

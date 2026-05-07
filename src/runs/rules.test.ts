@@ -295,6 +295,8 @@ describe('startRulesWatcher', () => {
         pausedSandboxBasePath: null,
         liveInfra: null,
         inspectSession: null,
+        transitionInProgress: null,
+        phaseAttemptCount: {},
       };
       const storage: Pick<RunStorage, 'getRun'> = {
         async getRun() {
@@ -398,6 +400,8 @@ describe('startRulesWatcher', () => {
         pausedSandboxBasePath: null,
         liveInfra: null,
         inspectSession: null,
+        transitionInProgress: null,
+        phaseAttemptCount: {},
       };
       const storage: Pick<RunStorage, 'getRun'> = {
         async getRun() {

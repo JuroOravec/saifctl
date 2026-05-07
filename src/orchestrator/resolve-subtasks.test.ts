@@ -133,6 +133,8 @@ describe('resolve-subtasks', () => {
       featureName: 'my-feat',
       saifctlDir: 'saifctl',
       gateScript: 'g',
+      agentScript: 'a',
+      stageScript: 's',
       featureRelativePath: 'saifctl/features/my-feat',
       projectDir: dir,
     });
@@ -165,6 +167,8 @@ describe('resolve-subtasks', () => {
       featureName: 'spec-only-feat',
       saifctlDir: 'saifctl',
       gateScript: 'g',
+      agentScript: 'a',
+      stageScript: 's',
       featureRelativePath: 'saifctl/features/spec-only-feat',
       projectDir: dir,
     });
@@ -182,6 +186,8 @@ describe('resolve-subtasks', () => {
       featureName: 'plan-only-feat',
       saifctlDir: 'saifctl',
       gateScript: 'g',
+      agentScript: 'a',
+      stageScript: 's',
       featureRelativePath: 'saifctl/features/plan-only-feat',
       projectDir: dir,
     });
@@ -198,6 +204,8 @@ describe('resolve-subtasks', () => {
       featureName: 'bare-feat',
       saifctlDir: 'saifctl',
       gateScript: 'g',
+      agentScript: 'a',
+      stageScript: 's',
       featureRelativePath: 'saifctl/features/bare-feat',
       projectDir: dir,
     });
@@ -222,6 +230,8 @@ describe('resolve-subtasks', () => {
       featureName: 'auto-f',
       saifctlDir: 'saifctl',
       gateScript: 'g',
+      agentScript: 'a',
+      stageScript: 's',
       projectDir: dir,
     });
     expect(rows).toEqual([{ content: 'from manifest' }]);
@@ -239,6 +249,8 @@ describe('resolve-subtasks', () => {
           featureName: 'f',
           saifctlDir: 'saifctl',
           gateScript: 'g',
+          agentScript: 'a',
+          stageScript: 's',
           projectDir: dir,
         }),
       ).rejects.toThrow('exit:1');
@@ -262,6 +274,8 @@ describe('resolve-subtasks', () => {
       featureName: 'norm-feat',
       saifctlDir: 'saifctl',
       gateScript: 'g',
+      agentScript: 'a',
+      stageScript: 's',
       projectDir: dir,
     });
     const content = rows[0]?.content ?? '';
@@ -282,6 +296,8 @@ describe('resolve-subtasks', () => {
       featureName: 'win-rel',
       saifctlDir: 'saifctl',
       gateScript: 'g',
+      agentScript: 'a',
+      stageScript: 's',
       featureRelativePath: 'saifctl\\features\\win-rel',
       projectDir: dir,
     });
@@ -297,12 +313,14 @@ describe('resolve-subtasks', () => {
       featureName: 'my-feat',
       saifctlDir: 'saifctl',
       gateScript: '#!/bin/bash\necho gate',
+      agentScript: '#!/bin/bash\necho agent',
       featureRelativePath: 'saifctl/features/my-feat',
       projectDir: dir,
     });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.title).toBe('my-feat');
     expect(rows[0]?.gateScript).toBe('#!/bin/bash\necho gate');
+    expect(rows[0]?.agentScript).toBe('#!/bin/bash\necho agent');
     expect(rows[0]?.content).toContain('my-feat');
     expect(rows[0]?.content).toContain('/saifctl/');
   });
@@ -321,6 +339,8 @@ describe('resolve-subtasks', () => {
       featureName: 'my-feat',
       saifctlDir: 'saifctl',
       gateScript: 'g',
+      agentScript: 'a',
+      stageScript: 's',
       featureRelativePath: 'saifctl/features/my-feat',
       projectDir: dir,
     });
@@ -346,6 +366,8 @@ describe('resolve-subtasks', () => {
       featureName: 'phased-f',
       saifctlDir: 'saifctl',
       gateScript: 'g',
+      agentScript: 'a',
+      stageScript: 's',
       projectDir: dir,
     });
 
@@ -378,6 +400,8 @@ describe('resolve-subtasks', () => {
           featureName: 'conflict-f',
           saifctlDir: 'saifctl',
           gateScript: 'g',
+          agentScript: 'a',
+          stageScript: 's',
           projectDir: dir,
         }),
       ).rejects.toThrow('exit:1');
@@ -411,6 +435,8 @@ describe('resolve-subtasks', () => {
       featureName: 'override-f',
       saifctlDir: 'saifctl',
       gateScript: 'g',
+      agentScript: 'a',
+      stageScript: 's',
       projectDir: dir,
     });
     expect(rows).toEqual([{ content: 'from --subtasks flag', title: 'override' }]);
@@ -433,6 +459,8 @@ describe('resolve-subtasks', () => {
           featureName: 'bad-phases',
           saifctlDir: 'saifctl',
           gateScript: 'g',
+          agentScript: 'a',
+          stageScript: 's',
           projectDir: dir,
         }),
       ).rejects.toThrow('exit:1');

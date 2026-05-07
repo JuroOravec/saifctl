@@ -138,13 +138,15 @@ export function readProfileOptionsFromEnv(
  *
  * Call sequence per CLI invocation:
  *
- *   1. {@link recordProfileOptionsFromArgs}(profile, args)   ← CLI flags win
- *   2. applyConfigToProfileOptionsEnv(profile, configMap)    ← config fills gaps
- *   3. {@link validateProfileOptions}(profile)               ← validate the merged result
+ *   1. {@link recordProfileOptionsFromArgs}(profile, args)         ← CLI flags win
+ *   2. {@link applyArtifactToProfileOptionsEnv}(profile, snapshot) ← only on replay
+ *      (`run start`/`resume`/`test`); no-op for `feat run` / `sandbox`
+ *   3. applyConfigToProfileOptionsEnv(profile, configMap)          ← config fills gaps
+ *   4. {@link validateProfileOptions}(profile)                     ← validate the merged result
  *
- * Precedence is CLI > config > profile.default. Step 1 only writes when CLI
- * provided a value; this step only writes when (a) CLI did not provide
- * (env var unset), AND (b) config provides one.
+ * Precedence is CLI > artifact (replay only) > config > profile.default.
+ * Each step only writes when the env var is still unset, so steps higher in
+ * the chain win.
  *
  * `configMap` is the per-agent record from `agents.<id>` in
  * `saifctl/config.{yaml,json,ts}` — i.e. the value of `agentOptions[profile.id]`.
@@ -167,6 +169,68 @@ export function applyConfigToProfileOptionsEnv(
     if (configValue === undefined) continue;
     process.env[envKey] = String(configValue);
   }
+}
+
+/**
+ * Apply a persisted artifact's profile-options snapshot to the env-var
+ * protocol, but ONLY for options that an earlier step did not already set
+ * (same "no-clobber" semantics as {@link applyConfigToProfileOptionsEnv}).
+ *
+ * Call this on `run start <id>` / `run resume <id>` / `run test <id>`
+ * AFTER {@link recordProfileOptionsFromArgs} (so any new CLI flags at
+ * replay time still win) and BEFORE {@link applyConfigToProfileOptionsEnv}
+ * (so the artifact wins over current `saifctl/config.ts` — faithful
+ * replay).
+ *
+ * `snapshot` is the per-id record persisted under
+ * {@link SerializedLoopOpts.agentOptions}, captured by
+ * {@link snapshotProfileOptionsFromEnv} when the run was first started.
+ * Pass `undefined` for runs whose artifact predates this field.
+ *
+ * Unknown keys in `snapshot` (options the profile no longer declares) are
+ * silently ignored — same forwards-compatibility as the config path.
+ */
+export function applyArtifactToProfileOptionsEnv(
+  profile: ProfileWithOptions,
+  snapshot: Record<string, string | number | boolean> | undefined,
+): void {
+  if (!snapshot) return;
+  for (const opt of profile.options ?? []) {
+    const envKey = envKeyFor(profile.id, opt.name);
+    if (process.env[envKey] !== undefined) continue; // earlier step already set it
+    const snapValue = snapshot[opt.name];
+    if (snapValue === undefined) continue;
+    process.env[envKey] = String(snapValue);
+  }
+}
+
+/**
+ * Snapshot the resolved profile options from the env-var protocol into a
+ * plain JSON-friendly map suitable for persisting in
+ * {@link SerializedLoopOpts.agentOptions}.
+ *
+ * Call this AT serialize time, after the full CLI > config > default
+ * pipeline has run. Captures every option the profile declares whose env
+ * var is set (i.e. CLI- or config-sourced). Profile defaults are also
+ * captured when set, so the snapshot is the complete picture of "what
+ * this run actually used" — replay reads this snapshot and re-applies the
+ * same values regardless of how `saifctl/config.ts` evolves later.
+ */
+export function snapshotProfileOptionsFromEnv(
+  profile: ProfileWithOptions,
+): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {};
+  for (const opt of profile.options ?? []) {
+    const raw = process.env[envKeyFor(profile.id, opt.name)];
+    if (raw !== undefined) {
+      out[opt.name] = parseValue(opt.type, raw);
+      continue;
+    }
+    if (opt.default !== undefined) {
+      out[opt.name] = opt.default;
+    }
+  }
+  return out;
 }
 
 /**

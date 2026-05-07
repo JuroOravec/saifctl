@@ -87,6 +87,8 @@ const dummyArtifact: RunArtifact = {
   pausedSandboxBasePath: null,
   liveInfra: null,
   inspectSession: null,
+  transitionInProgress: null,
+  phaseAttemptCount: {},
 };
 
 describe('createRunStorage', () => {

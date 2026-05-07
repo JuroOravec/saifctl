@@ -44,23 +44,28 @@ export async function gitAdd(opts: GitAddOpts): Promise<void> {
   });
 }
 
-/** Options for {@link gitApply} — `git apply -- <patchFile>`. */
+/** Options for {@link gitApply} — `git apply [--check] -- <patchFile>`. */
 export interface GitApplyOpts {
   cwd: string;
   /** Path to a unified diff file (absolute or relative to `cwd`). */
   patchFile: string;
+  /** When true, pass `--check` (verify the patch applies cleanly without modifying anything). */
+  check?: boolean;
   env?: NodeJS.ProcessEnv;
   stdio?: StdioOptions;
 }
 
 /** Run `git apply` for a patch file. Uses `--` so the path is never parsed as a flag. */
 export async function gitApply(opts: GitApplyOpts): Promise<void> {
+  const args = ['apply'];
+  if (opts.check === true) args.push('--check');
+  args.push('--', opts.patchFile);
   await spawnAsync({
     command: GIT,
     cwd: opts.cwd,
     env: opts.env,
     stdio: opts.stdio ?? 'inherit',
-    args: ['apply', '--', opts.patchFile],
+    args,
   });
 }
 
@@ -132,6 +137,8 @@ export interface GitCommitOpts {
    * When false or omitted, pass `-q` for quieter output.
    */
   verbose?: boolean;
+  /** When true, pass `--no-verify` to bypass pre-commit / commit-msg hooks. */
+  noVerify?: boolean;
   stdio?: StdioOptions;
 }
 
@@ -142,6 +149,9 @@ export async function gitCommit(opts: GitCommitOpts): Promise<void> {
   const args = ['commit'];
   if (opts.verbose !== true) {
     args.push('-q');
+  }
+  if (opts.noVerify === true) {
+    args.push('--no-verify');
   }
   args.push('-m', opts.message);
   if (opts.author?.trim()) {

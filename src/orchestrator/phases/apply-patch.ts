@@ -169,8 +169,10 @@ export async function pushHostApplyBranch(opts: PushHostApplyBranchOpts): Promis
     }
   } else {
     consola.log(
-      `[orchestrator] Branch "${branchName}" is ready locally. ` +
-        `Use --push <target> to push it upstream.`,
+      `[orchestrator] Branch "${branchName}" is ready locally. Next steps:\n` +
+        `  • Merge into your current branch:    saifctl run merge ${runId}\n` +
+        `  • Push branch upstream (and PR):     saifctl run apply ${runId} --push <target> [--pr]\n` +
+        `  • Export as a single .patch file:    saifctl run export ${runId}`,
     );
   }
 }

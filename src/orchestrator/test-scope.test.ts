@@ -128,6 +128,40 @@ describe('resolveSubtaskTestScope', () => {
     const r = resolveSubtaskTestScope({ subtasks, currentSubtaskIndex: 1 });
     expect(r.sources).toEqual(['/feat/phases/01/tests']);
   });
+
+  // Per-phase-config phase 7.3 review F-E: when an entire phase declares
+  // `tests.none: true`, the compiler emits empty `include: []` on every
+  // subtask of that phase. The cumulative resolver must walk past those
+  // empty contributions cleanly — no synthesized "whole feature" expansion,
+  // no leftover empty entries, just the intersection of phases that DO
+  // declare tests.
+  it('walks past an entire phase whose subtasks all declare empty include (tests.none on a non-last phase)', () => {
+    // Phase 01 has its own tests; phase 02 declares `tests.none: true` (so
+    // each subtask carries `include: []`); phase 03 has its own tests.
+    const subtasks: SubtaskWithTestScope[] = [
+      { testScope: { include: ['/feat/phases/01/tests'] } }, // phase 01 impl
+      { testScope: { include: [] } }, // phase 02 impl (tests.none)
+      { testScope: { include: [] } }, // phase 02 critic discover
+      { testScope: { include: [] } }, // phase 02 critic fix
+      { testScope: { include: ['/feat/phases/03/tests'] } }, // phase 03 impl
+    ];
+    const r = resolveSubtaskTestScope({ subtasks, currentSubtaskIndex: 4 });
+    expect(r.sources).toEqual(['/feat/phases/01/tests', '/feat/phases/03/tests']);
+  });
+
+  it('a noRunner subtask in the middle inherits the prior phase scope, never escalating to feature-wide', () => {
+    // The active subtask is the second subtask in an all-empty phase 02.
+    // Its cumulative scope must reflect ONLY phase 01 (the only contributor
+    // so far) — not include feature-wide test paths just because phase 02
+    // declared no own tests.
+    const subtasks: SubtaskWithTestScope[] = [
+      { testScope: { include: ['/feat/phases/01/tests'] } },
+      { testScope: { include: [] } },
+      { testScope: { include: [] } },
+    ];
+    const r = resolveSubtaskTestScope({ subtasks, currentSubtaskIndex: 2 });
+    expect(r.sources).toEqual(['/feat/phases/01/tests']);
+  });
 });
 
 // ---------------------------------------------------------------------------

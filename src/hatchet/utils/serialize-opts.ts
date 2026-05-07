@@ -20,6 +20,7 @@ import type {
   RunRule,
   RunSubtask,
   RunSubtaskInput,
+  RunTransitionInProgress,
 } from '../../runs/types.js';
 import type { SerializedPatchExcludeRule } from '../../runs/utils/serialize.js';
 import { resolveTestProfile } from '../../test-profiles/index.js';
@@ -94,6 +95,24 @@ export interface SerializedOrchestratorOpts extends Record<string, unknown> {
     seedSubtasks?: RunSubtask[];
     currentSubtaskIndex?: number;
     sandboxHostAppliedCommitCount: number;
+    /**
+     * per-phase-config phase 7.6 — per-phase outer-attempt counter seed.
+     * Distributed-mode `run start <id>` MUST carry this across the
+     * Hatchet wire so the worker re-seeds the loop's closure from the
+     * persisted artifact. Dropping it here lets the user reset the
+     * budget by re-running, which violates the design.md §7.6 monotone-
+     * within-Run-identity contract.
+     */
+    seedPhaseAttemptCount?: Record<string, number>;
+    /**
+     * per-phase-config phases 7.5d / 7.5e — crashed-mid-transition
+     * recovery seed. When set, the worker's first outer-iteration pass
+     * runs `completeControlledRestart` BEFORE booting the next coder
+     * container so a Hatchet-dispatched resume after a crashed transition
+     * recovers idempotently rather than activating the new active
+     * subtask against stale bind-mounted scripts.
+     */
+    transitionInProgress?: RunTransitionInProgress | null;
     runContext: {
       baseCommitSha: string;
       basePatchDiff?: string;
@@ -153,6 +172,16 @@ export function serializeOrchestratorOpts(opts: OrchestratorOpts): SerializedOrc
           seedSubtasks: fromArtifact.seedSubtasks,
           currentSubtaskIndex: fromArtifact.currentSubtaskIndex,
           sandboxHostAppliedCommitCount: fromArtifact.sandboxHostAppliedCommitCount,
+          // per-phase-config phase 7.6 review H1: thread the per-phase
+          // budget seed across the Hatchet wire. Without this, distributed-
+          // mode `run start <id>` resets the counter to `{}` and the
+          // user has bypassed `limits.max-attempts` by re-dispatching.
+          seedPhaseAttemptCount: fromArtifact.seedPhaseAttemptCount,
+          // per-phase-config 7.5d/7.5e — crashed-transition recovery
+          // seed (sister field to `transitionInProgress` on the artifact).
+          // Dropping this in distributed mode breaks crash recovery for
+          // Level-2/3 boundaries.
+          transitionInProgress: fromArtifact.transitionInProgress,
           runContext: {
             baseCommitSha: fromArtifact.runContext.baseCommitSha,
             basePatchDiff: fromArtifact.runContext.basePatchDiff,
@@ -258,6 +287,14 @@ export function deserializeOrchestratorOpts(serialized: Record<string, unknown>)
           seedSubtasks: s.fromArtifact.seedSubtasks,
           currentSubtaskIndex: s.fromArtifact.currentSubtaskIndex,
           sandboxHostAppliedCommitCount: s.fromArtifact.sandboxHostAppliedCommitCount ?? 0,
+          // per-phase-config phase 7.6 review H1: restore the per-phase
+          // budget seed on the worker side so the loop's closure starts
+          // from the persisted count rather than `{}`. Defaults to `{}`
+          // for back-compat with workers that received pre-7.6 wire forms.
+          seedPhaseAttemptCount: s.fromArtifact.seedPhaseAttemptCount ?? {},
+          // per-phase-config 7.5d/7.5e — restore the crashed-transition
+          // recovery seed. `null` is the "no transition in flight" state.
+          transitionInProgress: s.fromArtifact.transitionInProgress ?? null,
           runContext: {
             ...s.fromArtifact.runContext,
             rules: s.fromArtifact.runContext.rules ?? [],

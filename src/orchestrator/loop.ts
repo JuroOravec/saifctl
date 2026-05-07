@@ -43,6 +43,7 @@ import {
   type RunStatus,
   type RunSubtask,
   type RunSubtaskInput,
+  type RunTransitionInProgress,
   SAIFCTL_PAUSE_ABORT_REASON,
   SAIFCTL_RUN_TIMEOUT_ABORT_REASON,
   SAIFCTL_STOP_ABORT_REASON,
@@ -64,17 +65,38 @@ import { AGENT_WORKSPACE_CONTAINER, AGENT_WORKSPACE_HOST, buildTaskPrompt } from
 import { runVagueSpecsChecker } from './agents/vague-specs-check.js';
 import type { OrchestratorOpts } from './modes.js';
 import { formatImmutableViolations, inspectImmutableTestChanges } from './mutability-check.js';
+import {
+  buildSubtaskEnvShadowKeys,
+  computeSubtaskEnv,
+  type SubtaskEnvBaseline,
+  type SubtaskEnvMap,
+} from './per-subtask-env.js';
+import { bumpPhaseAttemptCount, phaseBudgetExhaustedMessage } from './phase-budget.js';
+import {
+  buildTransitionSnapshot,
+  completeControlledRestart,
+  enrichErrorWithTransitionContext,
+} from './phase-transition.js';
 import { applyPatchToHost } from './phases/apply-patch.js';
 import { runCodingPhase } from './phases/run-coding-phase.js';
 import { applySandboxExtractToHost, type SandboxExtractMode } from './phases/sandbox-extract.js';
 import type { SubtaskCodingResult, SubtaskDriverAction } from './phases/subtask-driver-types.js';
 import { loadPhaseSpecFilenames, surfaceModifiedPathsAfterRound } from './post-round-warnings.js';
 import {
+  pickActiveSandboxProfileId,
+  pickRunnerOptsForSubtask,
+  type ResolvedRunnerOpts,
+  type RunnerOptsBaseline,
+  shouldBypassRunner,
+} from './runner-overrides.js';
+import {
   destroySandbox,
   extractIncrementalRoundPatch,
   listFilePathsInUnifiedDiff,
+  listIgnoredOtherFiles,
   type PatchExcludeRule,
   prepareSubtaskSignalDir,
+  refreshSandboxScriptsForSandbox,
   type Sandbox,
   updateSandboxSubtaskScripts,
 } from './sandbox.js';
@@ -456,12 +478,33 @@ export type StagingTestVerificationResult =
 /**
  * Runs staging + tests with {@link OrchestratorOpts#testRetries} and optional vague-specs handling.
  * Does not apply the patch to the host — caller does that on `kind: 'passed'`.
+ *
+ * Per-phase-config phase 7.3 (Level 4): when {@link params.activeRunner} is
+ * provided (the resolved per-subtask + run-level merge), its values take
+ * precedence over {@link params.orchestratorOpts}. Also short-circuits to
+ * `kind: 'passed'` when the active subtask has `noRunner: true` AND the
+ * test scope has no sources (non-last phase, or last phase with no
+ * feature/project tests on disk) — the §6.5(b) bypass.
  */
 export async function runStagingTestVerification(params: {
   sandbox: Sandbox;
   orchestratorOpts: OrchestratorOpts;
   registry: CleanupRegistry | null;
   testRunnerOpts: Awaited<ReturnType<typeof prepareTestRunnerOpts>>;
+  /**
+   * Resolved per-subtask runner overrides + run-level fallback. When
+   * omitted (legacy callers), values are pulled from `orchestratorOpts`
+   * directly — same as before the per-phase-config refactor.
+   */
+  activeRunner?: ResolvedRunnerOpts;
+  /**
+   * Per-phase-config 7.5e — per-subtask `container.sandbox-profile`
+   * override resolved from the active subtask (`containerSandboxProfileId`)
+   * with the run-level baseline fallback. Drives the staging Dockerfile
+   * resolution (`Dockerfile.coder.<profile>`); when undefined, the
+   * run-level baseline from `orchestratorOpts` applies.
+   */
+  activeSandboxProfileId?: SupportedSandboxProfileId;
   /** Outer loop attempt index (1-based), used in test run IDs. */
   outerAttempt: number;
   /**
@@ -476,18 +519,7 @@ export async function runStagingTestVerification(params: {
    */
   onStagingTeardownComplete?: () => Promise<void>;
 }): Promise<StagingTestVerificationResult> {
-  const {
-    sandboxProfileId,
-    feature,
-    projectDir,
-    projectName,
-    testImage,
-    resolveAmbiguity,
-    testProfile,
-    llm,
-    testRetries,
-    stagingEnvironment,
-  } = params.orchestratorOpts;
+  const { feature, projectDir, projectName, llm, stagingEnvironment } = params.orchestratorOpts;
   const {
     sandbox,
     registry,
@@ -495,7 +527,17 @@ export async function runStagingTestVerification(params: {
     outerAttempt,
     onStagingInfraReady,
     onStagingTeardownComplete,
+    activeRunner,
   } = params;
+  // Effective per-subtask values — fall back to run-level when no active
+  // runner is provided (legacy / non-phased path).
+  const sandboxProfileId =
+    params.activeSandboxProfileId ?? params.orchestratorOpts.sandboxProfileId;
+  const testImage = activeRunner?.testImage ?? params.orchestratorOpts.testImage;
+  const resolveAmbiguity =
+    activeRunner?.resolveAmbiguity ?? params.orchestratorOpts.resolveAmbiguity;
+  const testProfile = activeRunner?.testProfile ?? params.orchestratorOpts.testProfile;
+  const testRetries = activeRunner?.testRetries ?? params.orchestratorOpts.testRetries;
 
   let testAttempts = 0;
   let lastRunId = '';
@@ -680,6 +722,46 @@ type LoopTimeoutCause =
  * message names the budget, the elapsed time, and the resume command — same
  * shape regardless of which timer fired.
  */
+/**
+ * per-phase-config phase 7.5e — derive the per-attempt
+ * `codingEnvironment` from the active subtask's manifest values, falling
+ * back to the run-level baseline when the subtask doesn't override.
+ *
+ * Mirrors `options.ts:resolveCodingEnvironment` (the run-level layering
+ * of `feature.yml` over saifctl-global config) — same engine
+ * discriminated-union shape rules: when feature-side fields don't
+ * override the engine kind, we keep the baseline shape (preserving
+ * `agentEnvironment` / `chart` / `namespacePrefix`); when they switch
+ * to a different engine kind, we emit a minimal `{ engine }` shape
+ * because the manifest doesn't carry helm `chart` / etc.
+ */
+function deriveActivePerAttemptCodingEnvironment(opts: {
+  activeSubtask: RunSubtask | undefined;
+  baseline: NormalizedCodingEnvironment;
+}): NormalizedCodingEnvironment {
+  const { activeSubtask, baseline } = opts;
+  const subtaskEngine = activeSubtask?.containerEngine;
+  const subtaskComposeFile = activeSubtask?.containerComposeFile;
+  if (subtaskEngine === undefined && subtaskComposeFile === undefined) {
+    return baseline;
+  }
+  const effectiveEngine = subtaskEngine ?? baseline.engine;
+  if (effectiveEngine === 'docker') {
+    const carryAgentEnv = baseline.engine === 'docker' ? baseline.agentEnvironment : undefined;
+    const file = subtaskComposeFile ?? (baseline.engine === 'docker' ? baseline.file : undefined);
+    return {
+      engine: 'docker' as const,
+      ...(file !== undefined ? { file } : {}),
+      ...(carryAgentEnv !== undefined ? { agentEnvironment: carryAgentEnv } : {}),
+    };
+  }
+  if (effectiveEngine === 'helm') {
+    return baseline.engine === 'helm' ? baseline : { engine: 'helm' as const };
+  }
+  // 'local'
+  return baseline.engine === 'local' ? baseline : { engine: 'local' as const };
+}
+
 function formatTimeoutFailureMessage(cause: LoopTimeoutCause, runId: string): string {
   const budget = formatDurationMs(cause.budgetMs);
   const elapsed = formatDurationMs(cause.elapsedMs);
@@ -711,6 +793,13 @@ export async function runIterativeLoop(
     loopRunSubtasks: RunSubtask[];
     /** 0-based index into {@link loopRunSubtasks} for the active subtask. */
     loopCurrentSubtaskIndex: number;
+    /**
+     * per-phase-config phase 7.6 — seed for the closure-captured per-phase
+     * outer-attempt counter. Empty `{}` when starting a new run; carries
+     * the persisted counter when resuming so `run resume` does not reset
+     * the budget.
+     */
+    seedPhaseAttemptCount: Record<string, number>;
   },
 ): Promise<OrchestratorResult> {
   const {
@@ -730,8 +819,12 @@ export async function runIterativeLoop(
     gateRetries,
     agentEnv,
     agentProfileId,
+    sandboxProfileId,
     testScript,
+    testImage,
     testProfile,
+    testRetries,
+    resolveAmbiguity,
     reviewerEnabled,
     codingEnvironment,
     runStorage,
@@ -754,7 +847,18 @@ export async function runIterativeLoop(
     strict,
     loopRunSubtasks,
     loopCurrentSubtaskIndex,
+    seedPhaseAttemptCount,
     gateScript: runGateScriptContent,
+    agentScript: runAgentScriptContent,
+    stageScript: runStageScriptContent,
+    // per-phase-config phase 7.5e: run-level baselines for the script
+    // content fields the active subtask may override on a Level-2/3
+    // restart. The transition's `refreshSandboxScriptsForSandbox` call
+    // reads from the active subtask first and falls back to these.
+    startupScript: startupScriptBaseline,
+    agentInstallScript: agentInstallScriptBaseline,
+    cedarScript: cedarScriptBaseline,
+    includeDirty,
     runTimeoutMs,
     subtaskTimeoutMs,
   } = opts;
@@ -823,7 +927,7 @@ export async function runIterativeLoop(
   // feature.yml + every phase.yml on a hot path; loading once amortises it.
   // Failures here are non-fatal — the worst case is the classifier falls back
   // to `'spec.md'`, which is the dominant case anyway.
-  const phaseSpecFilenames = await loadPhaseSpecFilenames(feature.absolutePath);
+  const phaseSpecFilenames = await loadPhaseSpecFilenames(feature.absolutePath, projectDir);
 
   //////////////////////////////////////////////////
   // Globals
@@ -880,8 +984,68 @@ export async function runIterativeLoop(
   /** Mutable cursor persisted on the artifact while the run progresses. */
   let subtaskCursorIndex = loopCurrentSubtaskIndex;
 
+  /**
+   * per-phase-config phase 7.5e: live snapshot of an in-flight Level-2/3
+   * controlled coder-container restart. Set by `onSubtaskComplete` when
+   * advancing into a subtask whose `requiresLevel2RestartFromPrev` /
+   * `requiresLevel3RestartFromPrev` flag is true; cleared by the outer
+   * iteration loop once the post-teardown script refresh succeeds.
+   * Persisted by every save through `persistArtifact` so a crash
+   * mid-transition leaves the flag on disk for `run resume` to act on.
+   *
+   * Seeded from `fromArtifact?.transitionInProgress` so a `run resume`
+   * picking up an artifact that was persisted between the persist and
+   * the post-teardown refresh enters the outer iteration with the flag
+   * already set. The first outer-iteration pass below detects the seed
+   * and calls `completeControlledRestart` against the new active
+   * subtask BEFORE booting a fresh coder container — so the recovered
+   * run never activates the new subtask against stale bind-mounted
+   * scripts.
+   */
+  let transitionInProgressLive: RunTransitionInProgress | null =
+    fromArtifact?.transitionInProgress ?? null;
+
+  /**
+   * per-phase-config phase 7.5e — review N2: snapshot of the most recently
+   * completed transition. Set when `completeControlledRestart` clears the
+   * flag (both on the normal post-teardown branch and the resume-recovery
+   * branch), cleared once the next `runCodingPhase` call returns
+   * successfully. When `runCodingPhase` throws, the wrapper at the call
+   * site uses this to enrich the error message with the phase id +
+   * field set that triggered the transition, so a user with a typo in
+   * `phase.yml` sees "phase 'X' (container.image): <docker error>"
+   * rather than just the raw Docker error.
+   */
+  let lastCompletedTransition: RunTransitionInProgress | null = null;
+
+  /**
+   * per-phase-config phase 7.6: live per-phase outer-attempt counter,
+   * keyed by `RunSubtask.phaseId`. Seeded from `seedPhaseAttemptCount`
+   * (empty for new runs, populated from `RunArtifact#phaseAttemptCount`
+   * on resume). Incremented once per outer attempt that runs against a
+   * phaseId-bearing subtask; checked against the active subtask's
+   * `limits.maxAttempts` in the failure branches below. Persisted by
+   * every save through `persistArtifact` so `run resume` cannot reset
+   * the budget.
+   */
+  const phaseAttemptCounts: Record<string, number> = { ...seedPhaseAttemptCount };
+
   const subtaskAttemptNumber = (subtaskIndex: number) =>
     1 + roundSummaries.filter((s) => s.subtaskIndex === subtaskIndex).length;
+
+  /**
+   * per-phase-config phase 7.6: closure shim over
+   * {@link phaseBudgetExhaustedMessage} that supplies the live counter
+   * and resolves the active subtask. Called BEFORE the per-subtask
+   * `subtaskAttemptNumber > maxRuns` check in each retry-or-fail
+   * branch so the phase-budget message wins when both conditions fire
+   * on the same attempt.
+   */
+  const checkPhaseBudgetExhausted = (subtaskIndex: number): string | null =>
+    phaseBudgetExhaustedMessage({
+      subtask: loopRunSubtasks[subtaskIndex],
+      phaseAttemptCount: phaseAttemptCounts,
+    });
 
   /**
    * Builds and saves a {@link RunArtifact} to storage with optimistic-locking revision tracking.
@@ -892,8 +1056,19 @@ export async function runIterativeLoop(
    * - updates `runContext.expectedArtifactRevision` so the next save uses the new revision
    * - swallows {@link StaleArtifactError} with a warning (another writer won the race; not fatal)
    *
+   * **Strict mode (per-phase-config phase 7.5e review H1).** The default
+   * swallow-and-warn behaviour is wrong for the transition snapshot
+   * persist: if that write doesn't reach disk, the artifact-write-before-
+   * teardown invariant is broken (a crash post-teardown would leave the
+   * run unrecoverable — `run resume` reads no `transitionInProgress`,
+   * skips the recovery branch, and activates the next subtask against
+   * stale bind-mounted scripts). Pass `options.throwOnError: true` to
+   * re-throw after logging, so callers like `tryStartTransition` can
+   * roll back the in-memory snapshot and abort the boundary.
+   *
    * @param overrides  Fields that differ between the three save paths (status, liveInfra, etc.)
    * @param failureContext  Human-readable label used in the warning log when an unexpected error occurs.
+   * @param options    Optional. `throwOnError: true` ⇒ re-throw caught errors instead of silently warning.
    */
   const persistArtifact = async (
     overrides: {
@@ -904,6 +1079,11 @@ export async function runIterativeLoop(
       lastFeedback?: string;
     },
     failureContext: string,
+    // 7.5e review H1: options bag is the documented contract;
+    // collapsing into `overrides` would confuse "what to write" with
+    // "how to handle errors writing it." Three params is intentional.
+    options: { throwOnError?: boolean } = {},
+    // eslint-disable-next-line max-params
   ): Promise<void> => {
     if (!runStorage || !runContext) return;
     try {
@@ -923,6 +1103,18 @@ export async function runIterativeLoop(
         pausedSandboxBasePath: overrides.pausedSandboxBasePath,
         liveInfra: overrides.liveInfra,
         inspectSession: null,
+        // per-phase-config phase 7.5e: persist the live transition snapshot
+        // (set by `onSubtaskComplete` when the next subtask requires a
+        // Level-2/3 controlled restart, cleared by the outer loop after
+        // the script refresh succeeds). Closure-captured so every save
+        // during a transition window writes the flag without each call
+        // site having to thread it explicitly.
+        transitionInProgress: transitionInProgressLive,
+        // per-phase-config phase 7.6: persist the live per-phase
+        // outer-attempt counter so a crash mid-run leaves the budget
+        // state on disk for `run resume` to rehydrate (resume cannot
+        // reset the counter — that would trivialise the budget).
+        phaseAttemptCount: { ...phaseAttemptCounts },
         opts: loopOpts as BuildRunArtifactOpts,
       });
       const expectedRev = runContext.expectedArtifactRevision;
@@ -938,6 +1130,9 @@ export async function runIterativeLoop(
       } else {
         consola.warn(`[orchestrator] Failed to save ${failureContext}:`, err);
       }
+      if (options?.throwOnError) {
+        throw err;
+      }
     }
   };
 
@@ -950,9 +1145,12 @@ export async function runIterativeLoop(
    *   an accurate resource list even before the round completes and `pauseSnapshotLiveInfra` is set.
    *   When omitted (calls outside a coding round) the stored value is preserved.
    */
+  // 7.5e review H1: same options-bag rationale as `persistArtifact`.
   const saveRunningArtifact = async (
     failureContext: string,
     currentLiveInfra?: RunLiveInfra | null,
+    options?: { throwOnError?: boolean },
+    // eslint-disable-next-line max-params
   ) => {
     if (!runStorage || !runContext) return;
     const latest = await runStorage.getRun(runId);
@@ -974,6 +1172,7 @@ export async function runIterativeLoop(
         lastFeedback: lastErrorFeedback || undefined,
       },
       failureContext,
+      options,
     );
   };
 
@@ -1066,6 +1265,71 @@ export async function runIterativeLoop(
     // features (Block 3) emit `testScope` on each subtask; we re-derive the
     // runner opts at every subtask transition so the gate sees only that
     // phase's cumulative test set.
+    // Run-level baseline for per-subtask runner-override resolution
+    // (per-phase-config phase 7.3, Level 4). Subtask values override these
+    // when set; otherwise the run-level baseline applies. The baseline is
+    // captured once outside the closure so every refresh sees the same
+    // run-level reference (subtask values are merged in below).
+    const runnerOptsBaseline: RunnerOptsBaseline = {
+      testProfile,
+      testImage,
+      testScript,
+      stageScript: runStageScriptContent,
+      resolveAmbiguity,
+      testRetries,
+    };
+    const resolveActiveRunnerOpts = (): ResolvedRunnerOpts =>
+      pickRunnerOptsForSubtask({
+        active: loopRunSubtasks[subtaskCursorIndex],
+        runLevel: runnerOptsBaseline,
+      });
+
+    /**
+     * Per-phase-config 7.5e: resolve the active subtask's
+     * `container.sandbox-profile` (Level-3 field), falling back to the
+     * run-level baseline. Drives the staging Dockerfile resolution
+     * (`Dockerfile.coder.<profile>`); changing it across phases fires a
+     * Level-3 controlled restart so the next staging container builds
+     * against the new profile.
+     */
+    const resolveActiveSandboxProfileId = (): SupportedSandboxProfileId =>
+      pickActiveSandboxProfileId({
+        active: loopRunSubtasks[subtaskCursorIndex],
+        runLevel: sandboxProfileId,
+      });
+
+    // Per-phase-config phase 7.4 (Level 1.5) — run-level baseline for
+    // the per-subtask env file. The active subtask's `agent.env` /
+    // `agent.secrets` / `llmOverrides` / `reviewerEnabled` overrides are
+    // merged on top via `computeSubtaskEnv` and written to
+    // `<saifctlPath>/subtask-env.sh` at every subtask transition.
+    // `coder-start.sh` sources the file on every inner round.
+    //
+    // The shadow-keys set is computed once across the whole run (every
+    // subtask's possible env keys) and passed to `computeSubtaskEnv`
+    // so a subtask without an override can emit `unset KEY` for any
+    // key a *different* subtask added — phase boundaries are then
+    // idempotent regardless of source order. See per-phase-config 7.4
+    // review F-A.
+    const subtaskEnvBaseline: SubtaskEnvBaseline = {
+      agentEnv,
+      agentSecretKeys,
+      llm,
+      reviewerEnabled,
+    };
+    const subtaskEnvShadowKeys = buildSubtaskEnvShadowKeys({
+      baseline: subtaskEnvBaseline,
+      subtasks: loopRunSubtasks,
+    });
+    const resolveActiveSubtaskEnv = (
+      active: (typeof loopRunSubtasks)[number] | undefined,
+    ): SubtaskEnvMap =>
+      computeSubtaskEnv({
+        active,
+        baseline: subtaskEnvBaseline,
+        shadowKeys: subtaskEnvShadowKeys,
+      });
+
     const refreshTestRunnerOpts = async (): Promise<
       Awaited<ReturnType<typeof prepareTestRunnerOpts>>
     > => {
@@ -1073,11 +1337,12 @@ export async function runIterativeLoop(
         subtasks: loopRunSubtasks,
         currentSubtaskIndex: subtaskCursorIndex,
       });
+      const active = resolveActiveRunnerOpts();
       return await prepareTestRunnerOpts({
         feature,
         sandboxBasePath: sandbox.sandboxBasePath,
-        testScript,
-        testProfile,
+        testScript: active.testScript,
+        testProfile: active.testProfile,
         testScope: scope.sources.length > 0 ? scope : null,
       });
     };
@@ -1112,6 +1377,8 @@ export async function runIterativeLoop(
         orchestratorOpts: opts,
         registry,
         testRunnerOpts,
+        activeRunner: resolveActiveRunnerOpts(),
+        activeSandboxProfileId: resolveActiveSandboxProfileId(),
         outerAttempt: 1,
         onStagingInfraReady: async (infra) => {
           await saveRunningArtifact('staging infra provisioned', { coding: null, staging: infra });
@@ -1187,6 +1454,14 @@ export async function runIterativeLoop(
     let perSubtaskPreRoundHead = (
       await git({ cwd: sandbox.codePath, args: ['rev-parse', 'HEAD'] })
     ).trim();
+    // Snapshot gitignored entries before the agent runs so empty-patch rounds
+    // can surface writes that landed in `.gitignore`'d paths (e.g. user has
+    // `docs/*` ignored but the spec writes the agent's output to `docs/...`).
+    // Without this, `git add .` silently drops them and the orchestrator just
+    // says "no changes" with no hint as to why.
+    const baselineIgnoredFiles: ReadonlySet<string> = new Set(
+      await listIgnoredOtherFiles(sandbox.codePath),
+    );
     /**
      * `git rev-parse HEAD` at coding session start — pause/stop commit extraction base.
      * For {@link runCodingPhase} — fixed at session start, not per subtask, so mid-run pause
@@ -1305,12 +1580,178 @@ export async function runIterativeLoop(
       });
     };
 
+    /**
+     * Per-phase-config phase 7.5d/7.5e: refresh the bind-mounted sandbox
+     * scripts to the active subtask's Level-2 content. Called by the
+     * post-teardown branch of `completeControlledRestart` (and the
+     * resume-recovery branch on a crashed-mid-transition resume).
+     */
+    const refreshActiveSandboxScriptsForCursor = async (): Promise<void> => {
+      const newActive = loopRunSubtasks[subtaskCursorIndex]!;
+      await refreshSandboxScriptsForSandbox({
+        sandbox,
+        projectDir,
+        copyWorkingTree: includeDirty,
+        feature,
+        gateScript: newActive.gateScript ?? runGateScriptContent,
+        startupScript: newActive.startupScript ?? startupScriptBaseline,
+        agentInstallScript: newActive.agentInstallScript ?? agentInstallScriptBaseline,
+        agentScript: newActive.agentScript ?? runAgentScriptContent,
+        stageScript: newActive.stageScript ?? runStageScriptContent,
+        cedarScript: newActive.cedarScript ?? cedarScriptBaseline,
+      });
+    };
+
+    /**
+     * Per-phase-config phase 7.5d/7.5e: shared detect+persist for the
+     * Level-2/3 controlled-restart boundary. Called from both subtask-
+     * advance paths (`sandbox_complete` and `tests_passed`) so the two
+     * paths share one detection rule + one cost-class derivation + one
+     * artifact-write contract. Returns the driver action when a transition
+     * fires, `null` when the next subtask can run in the live container.
+     *
+     * Persists `transitionInProgress` BEFORE returning so the engine
+     * teardown that `kind: 'transition'` triggers happens AFTER the
+     * artifact write — a crash anywhere from this persist through to the
+     * post-teardown refresh in the outer loop is recoverable by `run
+     * resume` (see the seeding branch around the outer iteration's
+     * resume-recovery call to `completeControlledRestart`).
+     */
+    const tryStartTransition = async (
+      prevSt: RunSubtask,
+      nextSt: RunSubtask,
+    ): Promise<{
+      kind: 'transition';
+      fields: readonly string[];
+      costClass: 'level-2' | 'level-3' | 'level-2-3';
+    } | null> => {
+      // Detection policy (per-phase-config design §7.5e clarification:
+      // "compiler-emitted flags are the source of truth"): the flags are
+      // checked first as the single gate. We then call
+      // `buildTransitionSnapshot` to derive `fields` + `costClass` for
+      // the persisted snapshot — that helper internally re-runs the
+      // detectors, but its result is used only to populate the snapshot,
+      // never as an authority over the flags. If the flags claim a
+      // transition but `buildTransitionSnapshot` returns null (stale
+      // manifest, hand-edited artifact, compiler bug), we still skip
+      // the transition: persisting an empty `fields` snapshot would
+      // surface a meaningless "level-?: ()" log line and resume
+      // recovery would re-run a no-op refresh. The skip is deliberate
+      // and documented here so future maintainers don't "fix" the
+      // double-check by trusting the flag unconditionally.
+      if (
+        nextSt.requiresLevel2RestartFromPrev !== true &&
+        nextSt.requiresLevel3RestartFromPrev !== true
+      ) {
+        return null;
+      }
+      const computation = buildTransitionSnapshot({
+        prev: prevSt,
+        next: nextSt,
+        toSubtaskIndex: subtaskCursorIndex,
+      });
+      if (!computation) return null;
+      transitionInProgressLive = computation.snapshot;
+      // Persist BEFORE the engine teardown that `kind:'transition'`
+      // triggers. A crash between this write and the post-teardown
+      // `completeControlledRestart` leaves `transitionInProgress` set on
+      // disk; `run resume` re-runs the completion idempotently from the
+      // seed.
+      //
+      // Per-phase-config phase 7.5e review H1: pass `throwOnError` so the
+      // persist is failure-loud. If the artifact write fails (storage
+      // outage, optimistic-locking race, etc.), roll back the in-memory
+      // snapshot and propagate the error — returning `kind: 'transition'`
+      // here while the on-disk artifact has no `transitionInProgress`
+      // would let the engine teardown proceed and break the artifact-
+      // write-before-teardown invariant: a subsequent crash (or just the
+      // missing recovery seed) would activate the next subtask against
+      // stale bind-mounted scripts. Fail the run instead — `saifctl run
+      // resume` will re-detect the boundary on the next attempt.
+      try {
+        await saveRunningArtifact('transition snapshot', undefined, { throwOnError: true });
+      } catch (err) {
+        transitionInProgressLive = null;
+        throw err;
+      }
+      consola.log(
+        `[orchestrator] Phase boundary requires controlled coder-container restart ` +
+          `(${computation.costClass}: ${computation.fields.map((f) => `\`${f}\``).join(', ')}). ` +
+          `Tearing down current container; the next outer attempt will boot a fresh one.`,
+      );
+      // Per-phase-config phase 7.5e review M3: Level-3 transitions
+      // (`container.image` / `container.engine` / `container.compose-file`)
+      // can stall for minutes inside the engine's setup step (image
+      // pull, compose stack pull-up, daemon swap). The engine layer
+      // doesn't surface a progress stream we can forward, but a
+      // pre-flight notice is enough to tell the user "this isn't
+      // hung." Tied to the cost class so cheap Level-2 boundaries
+      // (script refresh — seconds) don't get a misleading "may take
+      // minutes" message.
+      if (computation.costClass === 'level-3' || computation.costClass === 'level-2-3') {
+        const level3Fields = computation.fields.filter(
+          (f) =>
+            f === 'container.image' ||
+            f === 'container.engine' ||
+            f === 'container.compose-file' ||
+            f === 'container.sandbox-profile',
+        );
+        if (level3Fields.length > 0) {
+          consola.log(
+            `[orchestrator] Level-3 transition will pull / build / swap ` +
+              `${level3Fields.map((f) => `\`${f}\``).join(', ')} on the next outer attempt's engine setup. ` +
+              `This may take minutes for first-time image pulls.`,
+          );
+        }
+      }
+      // Security-relevant flip: when `container.no-leash` toggles ON
+      // (leashed → un-leashed) at a phase boundary, the next coder
+      // container will run WITHOUT the Leash sandbox enforcing outbound
+      // network policy. Log a separate, loud warning so the security-
+      // relevant transition is unmissable in the log stream — the
+      // generic transition log line above just names the field, which
+      // is easy to miss when the user is scanning for "what just
+      // happened." The reverse flip (un-leashed → leashed) is also
+      // worth logging since it changes the egress posture, but as an
+      // info rather than a warn.
+      if (
+        computation.fields.includes('container.no-leash') &&
+        prevSt.dangerousNoLeash !== nextSt.dangerousNoLeash
+      ) {
+        if (nextSt.dangerousNoLeash === true) {
+          consola.warn(
+            `[orchestrator] Phase boundary toggles \`container.no-leash: true\` ON: the next ` +
+              `coder container will run WITHOUT Leash. Outbound network policy enforcement is ` +
+              `disabled for this phase.`,
+          );
+        } else {
+          consola.log(
+            `[orchestrator] Phase boundary toggles \`container.no-leash\` OFF: the next coder ` +
+              `container will run under Leash again (outbound network policy re-enforced).`,
+          );
+        }
+      }
+      return { kind: 'transition', fields: computation.fields, costClass: computation.costClass };
+    };
+
     const onSubtaskComplete = async (
       completedSubtask: SubtaskCodingResult,
     ): Promise<SubtaskDriverAction> => {
       const { subtaskIndex, innerExitCode, innerRounds } = completedSubtask;
 
       attempts++;
+      // per-phase-config phase 7.6: bump the per-phase counter for this
+      // outer attempt. The active subtask's `phaseId` keys the map; the
+      // increment fires once per outer attempt regardless of which
+      // phase-bound subtask is active (impl + critic rounds all count
+      // toward the same phase budget). The fail-fast check happens in
+      // the failure branches below — a successful attempt that ticks
+      // the counter to exactly `limits.maxAttempts` is allowed to
+      // commit and advance to the next phase.
+      bumpPhaseAttemptCount({
+        subtask: loopRunSubtasks[subtaskIndex],
+        phaseAttemptCount: phaseAttemptCounts,
+      });
       const attemptStartedAt = new Date().toISOString();
       consola.log(
         `\n[orchestrator] ===== ATTEMPT ${attempts} (run ${runId}, subtask ${subtaskIndex + 1}/${loopRunSubtasks.length}, subtask attempt ${subtaskAttemptNumber(subtaskIndex)}) =====`,
@@ -1377,14 +1818,16 @@ export async function runIterativeLoop(
 
       // Extract incremental patch(es) for this round
       // (one RunCommit per sandbox commit + optional WIP).
-      const { patch: patchContent, commits: roundCommits } = await extractIncrementalRoundPatch(
-        sandbox.codePath,
-        {
-          preRoundHeadSha: perSubtaskPreRoundHead,
-          attempt: attempts,
-          exclude: patchExclude,
-        },
-      );
+      const {
+        patch: patchContent,
+        commits: roundCommits,
+        silentlyIgnored,
+      } = await extractIncrementalRoundPatch(sandbox.codePath, {
+        preRoundHeadSha: perSubtaskPreRoundHead,
+        attempt: attempts,
+        exclude: patchExclude,
+        baselineIgnored: baselineIgnoredFiles,
+      });
 
       // Block 7 (§5.6 / §9 "diff-inspection"): if the agent committed anything
       // this round, check whether they touched any test path that resolves as
@@ -1453,6 +1896,16 @@ export async function runIterativeLoop(
           await gitResetHard({ cwd: sandbox.codePath, ref: perSubtaskPreRoundHead });
           await gitClean({ cwd: sandbox.codePath });
 
+          // per-phase-config phase 7.6: check per-phase budget before
+          // the per-subtask budget so the phase-specific failure mode
+          // is named when both fire on the same attempt.
+          const phaseBudgetMsg = checkPhaseBudgetExhausted(subtaskIndex);
+          if (phaseBudgetMsg !== null) {
+            consola.error(`\n[orchestrator] ${phaseBudgetMsg}`);
+            runTerminal.result = controlResult('failed', `${phaseBudgetMsg}\nLast error: ${msg}`);
+            codingAbort.abort(SAIFCTL_STOP_ABORT_REASON);
+            return { kind: 'abort' };
+          }
           if (subtaskAttemptNumber(subtaskIndex) > maxRuns) {
             consola.error(
               `\n[orchestrator] Max attempts (${maxRuns}) reached for subtask ${subtaskIndex + 1}/${loopRunSubtasks.length} due to immutable-test violations.`,
@@ -1481,6 +1934,23 @@ export async function runIterativeLoop(
       // No changes whatsoever - no patch, no commits
       if (roundPatchEmpty && !hasPriorWorkInSandbox) {
         consola.warn('[orchestrator] Agent produced no changes (empty patch). Skipping tests.');
+
+        // High-signal misconfiguration hint: empty patch + the agent created
+        // entries in `.gitignore`'d paths means `git add .` silently dropped
+        // its real output. Loud-log the dropped paths so the user can fix the
+        // ignore rule (or the spec's target path) instead of burning all the
+        // retries chasing a phantom failure.
+        if (silentlyIgnored.length > 0) {
+          const previewLimit = 20;
+          const preview = silentlyIgnored.slice(0, previewLimit);
+          const more =
+            silentlyIgnored.length > previewLimit
+              ? `\n  … and ${silentlyIgnored.length - previewLimit} more`
+              : '';
+          consola.warn(
+            `[orchestrator] Agent wrote ${silentlyIgnored.length} path(s) excluded by .gitignore — these were dropped by \`git add\` and look like "no changes" to saifctl. Update .gitignore (or the spec's output path) to track them:\n  ${preview.join('\n  ')}${more}`,
+          );
+        }
 
         // Sandbox mode may make no changes in the container (e.g. user just needed
         // to run a non-coding agent in isolation).
@@ -1538,6 +2008,20 @@ export async function runIterativeLoop(
         ];
         await saveRoundProgress();
 
+        // per-phase-config phase 7.6: per-phase budget takes precedence
+        // over the per-subtask budget when both would fire.
+        {
+          const phaseBudgetMsg = checkPhaseBudgetExhausted(subtaskIndex);
+          if (phaseBudgetMsg !== null) {
+            consola.error(`\n[orchestrator] ${phaseBudgetMsg}`);
+            runTerminal.result = controlResult(
+              'failed',
+              `${phaseBudgetMsg}\nLast error: ${errorFeedback}`,
+            );
+            codingAbort.abort(SAIFCTL_STOP_ABORT_REASON);
+            return { kind: 'abort' };
+          }
+        }
         // Empty patch on this outer attempt: fail if budget for this subtask is exhausted; else retry.
         if (subtaskAttemptNumber(subtaskIndex) > maxRuns) {
           consola.error(
@@ -1661,10 +2145,23 @@ export async function runIterativeLoop(
           ).trim();
           recordPhaseBaseRefIfImpl(subtaskCursorIndex, perSubtaskPreRoundHead);
           pendingOnceIds = runContext ? activeOnceRuleIds(runContext.rules) : [];
+
+          // Per-phase-config phase 7.5e: when the next subtask flags a
+          // Level-2 / Level-3 controlled restart, the kind: 'next' fast
+          // path (which re-uses the live coder container) is wrong — the
+          // new subtask's `agent.profile` / `agent.install` /
+          // `container.startup` / `container.cedar` / `container.no-leash`
+          // / `container.image` / `container.engine` etc. are bound at
+          // container boot, so we need a fresh container.
+          const transition = await tryStartTransition(loopRunSubtasks[subtaskIndex]!, nextSt);
+          if (transition) return transition;
+
           return {
             kind: 'next',
             gateScript: nextSt.gateScript ?? runGateScriptContent,
-            agentScript: nextSt.agentScript,
+            agentScript: nextSt.agentScript ?? runAgentScriptContent,
+            stageScript: nextSt.stageScript ?? runStageScriptContent,
+            subtaskEnv: resolveActiveSubtaskEnv(nextSt),
             gateRetries: nextSt.gateRetries,
             prompt: await buildFullSubtaskPrompt(nextSt, ''),
           };
@@ -1687,22 +2184,59 @@ export async function runIterativeLoop(
       // Run tests
       //////////////////////////////////////////////////
 
-      // Mutual Verification (with test retries for flaky environments)
-      const verify = await runStagingTestVerification({
-        sandbox,
-        orchestratorOpts: opts,
-        registry,
-        testRunnerOpts,
-        outerAttempt: attempts,
-        onStagingInfraReady: async (infra) => {
-          // Coding infra is already torn down at this point; record only staging resources
-          // so crash recovery can clean up the live staging containers/network.
-          await saveRunningArtifact('staging infra provisioned', { coding: null, staging: infra });
-        },
-        onStagingTeardownComplete: async () => {
-          await saveRunningArtifact('staging infra torn down', { coding: null, staging: null });
-        },
-      });
+      const activeRunner = resolveActiveRunnerOpts();
+
+      // Per-phase-config phase 7.3 (Level 4) — `tests.none: true` bypass
+      // (design §6.5(b)). When the active subtask declared no own tests
+      // AND the resolved cumulative scope has no sources (non-last phase
+      // OR last phase with no feature/project tests on disk), short-
+      // circuit to a synthetic pass — the runner has nothing to gate.
+      // The last phase still spins up the runner when feature/project
+      // tests resolve (sources non-empty), so end-state contracts still
+      // gate the run regardless of the last phase's own `tests.none`.
+      const verify: StagingTestVerificationResult = await (async () => {
+        const scope = resolveSubtaskTestScope({
+          subtasks: loopRunSubtasks,
+          currentSubtaskIndex: subtaskCursorIndex,
+        });
+        if (
+          shouldBypassRunner({
+            noRunner: activeRunner.noRunner,
+            resolvedScopeSources: scope.sources,
+          })
+        ) {
+          const activeRow = loopRunSubtasks[subtaskCursorIndex];
+          const subtaskLabel =
+            activeRow?.title ??
+            (activeRow?.phaseId
+              ? `phase '${activeRow.phaseId}' (index ${subtaskCursorIndex})`
+              : `index ${subtaskCursorIndex}`);
+          consola.log(
+            `[orchestrator] Runner bypassed for subtask ${subtaskLabel} (\`tests.none: true\`; no feature/project tests in scope).`,
+          );
+          return { kind: 'passed' as const, lastRunId: `${sandbox.runId}-${attempts}-norun` };
+        }
+        return await runStagingTestVerification({
+          sandbox,
+          orchestratorOpts: opts,
+          registry,
+          testRunnerOpts,
+          activeRunner,
+          activeSandboxProfileId: resolveActiveSandboxProfileId(),
+          outerAttempt: attempts,
+          onStagingInfraReady: async (infra) => {
+            // Coding infra is already torn down at this point; record only staging resources
+            // so crash recovery can clean up the live staging containers/network.
+            await saveRunningArtifact('staging infra provisioned', {
+              coding: null,
+              staging: infra,
+            });
+          },
+          onStagingTeardownComplete: async () => {
+            await saveRunningArtifact('staging infra torn down', { coding: null, staging: null });
+          },
+        });
+      })();
 
       // Success path - apply patch to host as git branch (optionally open PR)
       if (verify.kind === 'passed') {
@@ -1753,10 +2287,21 @@ export async function runIterativeLoop(
           // Per-subtask test scope (Block 2): refresh testsDir for the next
           // subtask. Legacy / no-scope subtasks fall back to feature/tests/.
           testRunnerOpts = await refreshTestRunnerOpts();
+
+          // Per-phase-config phase 7.5e: same restart-detection branch
+          // as the sandbox-complete advance path above. The shared
+          // `tryStartTransition` helper enforces one detection rule, one
+          // cost-class derivation, and the artifact-before-teardown
+          // invariant for both call sites.
+          const transition = await tryStartTransition(loopRunSubtasks[subtaskIndex]!, nextSt);
+          if (transition) return transition;
+
           return {
             kind: 'next',
             gateScript: nextSt.gateScript ?? runGateScriptContent,
-            agentScript: nextSt.agentScript,
+            agentScript: nextSt.agentScript ?? runAgentScriptContent,
+            stageScript: nextSt.stageScript ?? runStageScriptContent,
+            subtaskEnv: resolveActiveSubtaskEnv(nextSt),
             gateRetries: nextSt.gateRetries,
             prompt: await buildFullSubtaskPrompt(nextSt, ''),
           };
@@ -1860,6 +2405,20 @@ export async function runIterativeLoop(
       await gitResetHard({ cwd: sandbox.codePath, ref: perSubtaskPreRoundHead });
       await gitClean({ cwd: sandbox.codePath });
 
+      // per-phase-config phase 7.6: per-phase budget takes precedence
+      // over the per-subtask budget when both would fire.
+      {
+        const phaseBudgetMsg = checkPhaseBudgetExhausted(subtaskIndex);
+        if (phaseBudgetMsg !== null) {
+          consola.error(`\n[orchestrator] ${phaseBudgetMsg}`);
+          runTerminal.result = controlResult(
+            'failed',
+            `${phaseBudgetMsg}\nLast error: ${errorFeedback}`,
+          );
+          codingAbort.abort(SAIFCTL_STOP_ABORT_REASON);
+          return { kind: 'abort' };
+        }
+      }
       // Staging failed after rollback: stop if per-subtask attempt budget is exhausted; else retry.
       if (subtaskAttemptNumber(subtaskIndex) > maxRuns) {
         consola.error(
@@ -1911,10 +2470,20 @@ export async function runIterativeLoop(
     }
 
     if (!inspectMode) {
+      // Per-phase-config phases 7.2 / 7.3: every script-bearing subtask
+      // field is set explicitly (override-or-run-level) so transitions
+      // between overriding and non-overriding phases never leave stale
+      // content on disk. See the false-comment fix in the 7.3 review.
       await updateSandboxSubtaskScripts({
         saifctlPath: sandbox.saifctlPath,
         gateScript: activeRow.gateScript ?? runGateScriptContent,
-        agentScript: activeRow.agentScript,
+        agentScript: activeRow.agentScript ?? runAgentScriptContent,
+        stageScript: activeRow.stageScript ?? runStageScriptContent,
+        // Per-phase-config phase 7.4: rewrite the per-subtask env file
+        // for this subtask. Empty map ⇒ empty file ⇒ no per-phase
+        // overrides; the run-level container env (set at `docker run`)
+        // stays in effect.
+        subtaskEnv: resolveActiveSubtaskEnv(activeRow),
       });
 
       await prepareSubtaskSignalDir(sandbox.sandboxBasePath);
@@ -1929,46 +2498,235 @@ export async function runIterativeLoop(
     // Run agent (fresh context every iteration — Ralph Wiggum)
     // The coding engine sets up its network + compose services, runs the coder agent,
     // then tears itself down (or pauses) depending on control signals.
-    const codingResult = await runCodingPhase({
-      sandbox,
-      attempt: attempts + 1,
-      errorFeedback,
-      task,
-      subtasks: loopRunSubtasks.slice(subtaskCursorIndex),
-      startSubtaskIndex: subtaskCursorIndex,
-      onSubtaskComplete: inspectMode ? async () => ({ kind: 'abort' as const }) : onSubtaskComplete,
-      resumedCodingInfra,
-      storage: runStorage && runContext ? { runStorage, runContext } : null,
-      registry: registry ?? null,
-      preRoundHeadSha: pausePreRoundHead,
-      patchExclude,
-      codingAbortController: codingAbort,
-      signal: codingAbort.signal,
-      onInfraReady: async (infra) => {
-        await saveRunningArtifact('coding infra provisioned', { coding: infra, staging: null });
-      },
-      opts: {
-        llm,
-        projectDir,
-        projectName,
-        feature,
-        dangerousNoLeash,
-        coderImage,
-        gateRetries,
-        agentEnv,
-        agentSecretKeys,
-        agentSecretFiles,
-        agentProfileId,
-        reviewerEnabled,
-        codingEnvironment,
-        saifctlDir,
-        inspectMode,
-        sandboxInteractive,
-        // Matches shell `SAIFCTL_ENABLE_SUBTASK_SEQUENCE`: driver + exit/next signaling whenever
-        // we run a real coding session (inspect uses an idle container, no subtask protocol).
-        enableSubtaskSequence: !inspectMode,
-      },
-    });
+    //
+    // Per-phase-config phase 7.5e: each iteration of this loop is one
+    // coder-container session. When `onSubtaskComplete` returns
+    // `kind: 'transition'`, runCodingPhase's `finally` tears down the
+    // current container and we receive `outcome: 'transitioned'`. The
+    // loop body then refreshes the bind-mounted scripts to the new
+    // active subtask's Level-2 content, clears `transitionInProgressLive`,
+    // and iterates — the next runCodingPhase call boots a fresh
+    // container against the same sandbox dir, with the new active
+    // subtask's Level-2/3 values driving the per-attempt opts
+    // derivation below.
+    //
+    // Per-phase-config phase 7.5d crash recovery: if
+    // `transitionInProgressLive` was seeded from `fromArtifact` (the
+    // resumed run crashed between the persist and the post-teardown
+    // refresh — see the `let transitionInProgressLive = ...` declaration
+    // above), run `completeControlledRestart` BEFORE booting the next
+    // coder container so the new active subtask never sees stale bind-
+    // mounted scripts. Refresh failure leaves the flag set and propagates,
+    // so `run resume` on a repeatedly-failing recovery surfaces the
+    // underlying error rather than masking it.
+    if (transitionInProgressLive) {
+      const seed = transitionInProgressLive;
+      consola.log(
+        `[orchestrator] Resuming a run that crashed mid-transition ` +
+          `(${seed.costClass}: ${seed.fields.map((f) => `\`${f}\``).join(', ')}, ` +
+          `started ${seed.startedAt}). Refreshing bind-mounted scripts before booting ` +
+          `the next coder container.`,
+      );
+      // Per-phase-config phase 7.5e review L1: orphan-container handling.
+      // The presence of `transitionInProgress` on disk implies the prior
+      // process died between `tryStartTransition`'s persist and the
+      // post-teardown refresh — most often because the engine's
+      // `finally`-block teardown never completed (SIGKILL, OOM, host
+      // reboot). The resume entry path in `modes.ts` may have observed
+      // the prior run's `liveInfra` as still alive and threaded it
+      // through as `resumedCodingInfra`, but reusing those containers
+      // here is wrong in two ways:
+      //   1. Correctness: the new active subtask has different Level-2/3
+      //      values; reusing the prior container ignores the whole reason
+      //      this transition was scheduled.
+      //   2. Safety: a Level-3 transition may have toggled `container.image`
+      //      / `container.engine` — the prior container is on the WRONG
+      //      image / engine for the new phase.
+      // Drop the resumed-infra reference so the next `runCodingPhase`
+      // calls `Engine.setup` for a fresh container against the post-
+      // refresh sandbox dir. The old container is abandoned (engine-
+      // level GC / `saifctl admin gc` cleans it later); we accept that
+      // rather than reusing a stale-opts container as the active one.
+      if (resumedCodingInfra) {
+        consola.warn(
+          `[orchestrator] Crashed-transition resume: dropping resumed coding infra ` +
+            `(prior container would run against stale Level-2/3 opts). The next outer ` +
+            `attempt will boot a fresh container; any orphan from the prior run will need ` +
+            `engine-level GC.`,
+        );
+        resumedCodingInfra = null;
+      }
+      // Per-phase-config phase 7.5e review L2: a refresh failure on the
+      // resume-recovery path is part of the same transition that crashed
+      // the prior run — wrap it with the seed's phase + field set so the
+      // user sees "phase 'X' (container.cedar): ENOENT" rather than the
+      // raw refresh error. The flag stays set on disk (helper contract)
+      // so a subsequent `run resume` re-enters this branch idempotently.
+      try {
+        await completeControlledRestart({
+          refreshSandboxScripts: () => refreshActiveSandboxScriptsForCursor(),
+          clearTransitionInProgress: async () => {
+            transitionInProgressLive = null;
+            lastCompletedTransition = seed;
+            await saveRunningArtifact('transition complete (resume recovery)');
+          },
+        });
+      } catch (err) {
+        throw enrichErrorWithTransitionContext({
+          err,
+          transition: seed,
+          activeSubtask: loopRunSubtasks[subtaskCursorIndex],
+        });
+      }
+    }
+
+    let codingResult: Awaited<ReturnType<typeof runCodingPhase>>;
+    while (true) {
+      // Per-attempt opts derivation: each fresh coder container reads
+      // Level-2/3 values from the active subtask manifest, falling
+      // back to the run-level baseline closure when the subtask doesn't
+      // override. Without this, a transition that advances the cursor
+      // into a subtask with `agent.profile: aider` would still boot
+      // the container with the run-level `agentProfileId` (the F-D
+      // / per-phase-config 7.5 closure-capture trap).
+      const activePerAttempt = loopRunSubtasks[subtaskCursorIndex];
+      // The compiler validates `agent.profile` against the supported set in
+      // `compile.ts:resolvePhaseLevel2Overrides`, so any value reaching this
+      // manifest field is a {@link SupportedAgentProfileId}; the cast just
+      // re-narrows from the broader `string` shape on `RunSubtask`.
+      const activeAgentProfileId: SupportedAgentProfileId =
+        (activePerAttempt?.agentProfileId as SupportedAgentProfileId | undefined) ?? agentProfileId;
+      const activeDangerousNoLeash = activePerAttempt?.dangerousNoLeash ?? dangerousNoLeash;
+      const activeCoderImage = activePerAttempt?.containerImage ?? coderImage;
+      // Level-3 engine + compose-file: when the active subtask sets
+      // `containerEngine`, we synthesise a fresh codingEnvironment shape
+      // (the discriminated union forces a new object). Compose-file
+      // applies only when engine is docker. Subtask-only override of
+      // compose-file (without engine override) layers onto the run-level
+      // engine; the same shape rule from `options.ts:resolveCodingEnvironment`
+      // applies here.
+      const activeCodingEnvironment: NormalizedCodingEnvironment =
+        deriveActivePerAttemptCodingEnvironment({
+          activeSubtask: activePerAttempt,
+          baseline: codingEnvironment,
+        });
+
+      try {
+        codingResult = await runCodingPhase({
+          sandbox,
+          attempt: attempts + 1,
+          errorFeedback,
+          task,
+          subtasks: loopRunSubtasks.slice(subtaskCursorIndex),
+          startSubtaskIndex: subtaskCursorIndex,
+          onSubtaskComplete: inspectMode
+            ? async () => ({ kind: 'abort' as const })
+            : onSubtaskComplete,
+          resumedCodingInfra,
+          storage: runStorage && runContext ? { runStorage, runContext } : null,
+          registry: registry ?? null,
+          preRoundHeadSha: pausePreRoundHead,
+          patchExclude,
+          codingAbortController: codingAbort,
+          signal: codingAbort.signal,
+          onInfraReady: async (infra) => {
+            await saveRunningArtifact('coding infra provisioned', { coding: infra, staging: null });
+          },
+          opts: {
+            llm,
+            projectDir,
+            projectName,
+            feature,
+            dangerousNoLeash: activeDangerousNoLeash,
+            coderImage: activeCoderImage,
+            gateRetries,
+            agentEnv,
+            agentSecretKeys,
+            agentSecretFiles,
+            agentProfileId: activeAgentProfileId,
+            reviewerEnabled,
+            codingEnvironment: activeCodingEnvironment,
+            saifctlDir,
+            inspectMode,
+            sandboxInteractive,
+            // Matches shell `SAIFCTL_ENABLE_SUBTASK_SEQUENCE`: driver + exit/next signaling whenever
+            // we run a real coding session (inspect uses an idle container, no subtask protocol).
+            enableSubtaskSequence: !inspectMode,
+          },
+        });
+      } catch (err) {
+        // Review N2: when the just-completed transition's new opts make
+        // engine setup fail (e.g., a phase declares an unreachable
+        // `container.image`, or a compose file with a missing service),
+        // enrich the raw Docker / compose error with the phase id +
+        // field set that triggered the transition so the user knows
+        // exactly which `phase.yml` line to fix and resume.
+        if (lastCompletedTransition) {
+          throw enrichErrorWithTransitionContext({
+            err,
+            transition: lastCompletedTransition,
+            activeSubtask: loopRunSubtasks[subtaskCursorIndex],
+          });
+        }
+        throw err;
+      }
+      // The just-booted runCodingPhase returned without throwing — the
+      // transition's opts work. Clear the post-transition wrap context
+      // so a later, unrelated runCodingPhase failure doesn't get
+      // misattributed to the long-past transition.
+      lastCompletedTransition = null;
+
+      // Per-phase-config phase 7.5e: a Level-2/3 transition fired. The
+      // engine's `finally` already tore down the previous coder + Leash
+      // containers; the sandbox dir is preserved. `completeControlledRestart`
+      // refreshes the bind-mounted scripts to the new active subtask's
+      // Level-2 content and clears the flag — same helper the resume-
+      // recovery branch above used, so refresh failure here leaves the
+      // flag set on disk for an idempotent `run resume` retry.
+      if (codingResult.outcome === 'transitioned') {
+        const justCompleted = transitionInProgressLive;
+        // Per-phase-config phase 7.5e review L2: a refresh failure here
+        // (e.g., the new active subtask's `container.cedar` references a
+        // missing file, or the bind-mount target is read-only) is part
+        // of the transition — surface it with the same phase + field
+        // wrapping the post-transition `runCodingPhase` failure gets,
+        // rather than the raw `refreshSandboxScripts` error. Without
+        // this wrap, the user sees "ENOENT: ./strict.cedar" with no
+        // hint that it's the just-completed transition's `container.cedar`
+        // value that's broken. The flag stays set on disk (the helper's
+        // contract) so `run resume` re-enters the recovery branch
+        // idempotently.
+        try {
+          await completeControlledRestart({
+            refreshSandboxScripts: () => refreshActiveSandboxScriptsForCursor(),
+            clearTransitionInProgress: async () => {
+              transitionInProgressLive = null;
+              // Review N2: enrich the next runCodingPhase failure with phase
+              // + field context (e.g., a typo in `container.image` surfaces
+              // as "phase '02-deploy' (container.image): <docker error>"
+              // rather than the raw "image not found" Docker error).
+              lastCompletedTransition = justCompleted;
+              await saveRunningArtifact('transition complete');
+            },
+          });
+        } catch (err) {
+          if (justCompleted) {
+            throw enrichErrorWithTransitionContext({
+              err,
+              transition: justCompleted,
+              activeSubtask: loopRunSubtasks[subtaskCursorIndex],
+            });
+          }
+          throw err;
+        }
+        resumedCodingInfra = null;
+        continue;
+      }
+
+      // Normal terminal / control-signal path — exit the inner loop
+      // and let the outer attempt drain.
+      break;
+    }
 
     resumedCodingInfra = null;
 

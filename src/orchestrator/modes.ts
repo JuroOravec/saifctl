@@ -11,6 +11,8 @@
 import { mkdir, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
+import { resolveAgentProfile } from '../agent-profiles/index.js';
+import { applyArtifactToProfileOptionsEnv } from '../agent-profiles/options-bridge.js';
 import type { SaifctlConfig } from '../config/schema.js';
 import { createEngine } from '../engines/index.js';
 import { defaultEngineLog } from '../engines/logs.js';
@@ -35,6 +37,7 @@ import {
   type RunCommit,
   type RunInspectSession,
   type RunSubtask,
+  type RunTransitionInProgress,
   StaleArtifactError,
 } from '../runs/types.js';
 import { buildRunArtifact, type BuildRunArtifactOpts } from '../runs/utils/artifact.js';
@@ -66,6 +69,7 @@ import {
   pushHostApplyBranch,
   resolveHostApplyBranchName,
 } from './phases/apply-patch.js';
+import { type MergeStrategy, runMergeIntoHost } from './phases/merge-into-host.js';
 import {
   createSandbox,
   destroySandbox,
@@ -212,6 +216,23 @@ export interface OrchestratorOpts extends IterativeLoopOpts {
     currentSubtaskIndex?: number;
     /** From {@link RunArtifact#sandboxHostAppliedCommitCount} (host extract cursor for resume). */
     sandboxHostAppliedCommitCount: number;
+    /**
+     * From {@link RunArtifact#phaseAttemptCount} — per-phase outer-attempt
+     * counter (per-phase-config phase 7.6). The loop seeds its closure
+     * variable from this so `run resume` does not reset the counter.
+     */
+    seedPhaseAttemptCount?: Record<string, number>;
+    /**
+     * From {@link RunArtifact#transitionInProgress} — per-phase-config
+     * phase 7.5d/7.5e crash-recovery seed. When non-null, the loop boots
+     * with `transitionInProgressLive` set and the first outer-iteration
+     * pass calls `completeControlledRestart` (refresh sandbox scripts +
+     * clear flag) BEFORE booting the next coder container, so a run that
+     * crashed between the persist and the post-teardown refresh recovers
+     * idempotently rather than activating the new active subtask against
+     * stale bind-mounted scripts.
+     */
+    transitionInProgress?: RunTransitionInProgress | null;
   } | null;
   /**
    * When true, append the semantic reviewer step to the gate script.
@@ -491,6 +512,37 @@ async function runFail2PassCore(
 // ---------------------------------------------------------------------------
 
 /** If `run stop` won the race during `starting` setup, mark `failed` and throw. */
+/**
+ * Seed the env-var protocol with agent profile options captured on the
+ * Run artifact at original run-start time. Call AFTER
+ * {@link deserializeArtifactConfig} on every code path that re-enters
+ * the orchestrator from a stored run (`run start`, `run resume`,
+ * `run inspect`).
+ *
+ * Precedence with the existing pipeline (see options-bridge.ts):
+ *   1. CLI flags at replay time     ← already in env (no-clobber semantics below)
+ *   2. Artifact snapshot            ← this call, source of truth for replay
+ *   3. config.ts agentOptions[id]   ← only fills if still unset
+ *
+ * No-op when the artifact is from before this field landed (artifact's
+ * `agentOptions` is undefined). The orchestrator then falls back to the
+ * pre-snapshot behavior of re-resolving from `saifctl/config.ts`.
+ */
+function seedAgentProfileOptionsFromArtifact(deserialized: {
+  agentProfileId: string;
+  agentOptions?: Record<string, Record<string, string | number | boolean>>;
+}): void {
+  const snap = deserialized.agentOptions?.[deserialized.agentProfileId];
+  if (!snap) return;
+  let profile;
+  try {
+    profile = resolveAgentProfile(deserialized.agentProfileId);
+  } catch {
+    return;
+  }
+  applyArtifactToProfileOptionsEnv(profile, snap);
+}
+
 async function abortRunStartIfStopRequested(runStorage: RunStorage, runId: string): Promise<void> {
   const cur = await runStorage.getRun(runId);
   if (!cur) return;
@@ -800,6 +852,9 @@ async function runStartCore(
       ? opts.fromArtifact.seedSubtasks.map((s) => ({ ...s }))
       : runArtifactSubtasks.map((s) => ({ ...s })),
     loopCurrentSubtaskIndex: opts.fromArtifact?.currentSubtaskIndex ?? runArtifactSubtaskIndex,
+    // per-phase-config phase 7.6: per-phase outer-attempt counter (resume
+    // path). Empty `{}` when starting a new run.
+    seedPhaseAttemptCount: opts.fromArtifact?.seedPhaseAttemptCount ?? {},
   });
 }
 
@@ -940,6 +995,7 @@ async function fromArtifactCore(
   }
 
   const deserialized = deserializeArtifactConfig(artifact.config);
+  seedAgentProfileOptionsFromArtifact(deserialized);
   const feature = await resolveFeature({
     input: deserialized.featureName,
     projectDir,
@@ -975,6 +1031,8 @@ async function fromArtifactCore(
     seedSubtasks: artifact.subtasks.map((s) => ({ ...s })),
     currentSubtaskIndex: artifact.currentSubtaskIndex,
     sandboxHostAppliedCommitCount: artifact.sandboxHostAppliedCommitCount,
+    seedPhaseAttemptCount: { ...artifact.phaseAttemptCount },
+    transitionInProgress: artifact.transitionInProgress,
   };
 
   try {
@@ -1018,6 +1076,7 @@ async function runResumeCore(
   consola.log(`\n[orchestrator] MODE: runResume — ${artifact.config.featureName} (run ${runId})`);
 
   const deserialized = deserializeArtifactConfig(artifact.config);
+  seedAgentProfileOptionsFromArtifact(deserialized);
   const feature = await resolveFeature({
     input: deserialized.featureName,
     projectDir,
@@ -1136,6 +1195,8 @@ async function runResumeCore(
     seedSubtasks: artifact.subtasks.map((s) => ({ ...s })),
     currentSubtaskIndex: artifact.currentSubtaskIndex,
     sandboxHostAppliedCommitCount: artifact.sandboxHostAppliedCommitCount,
+    seedPhaseAttemptCount: { ...artifact.phaseAttemptCount },
+    transitionInProgress: artifact.transitionInProgress,
   };
 
   return runStartCore(mergedOpts, registry);
@@ -1439,6 +1500,7 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
 
   // Resolve full orchestrator opts to check the engine type before entering the shared path.
   const deserialized = deserializeArtifactConfig(artifact.config);
+  seedAgentProfileOptionsFromArtifact(deserialized);
   const feature = await resolveFeature({
     input: deserialized.featureName,
     projectDir,
@@ -1585,6 +1647,8 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
     seedSubtasks: artifact.subtasks.map((s) => ({ ...s })),
     currentSubtaskIndex: artifact.currentSubtaskIndex,
     sandboxHostAppliedCommitCount: artifact.sandboxHostAppliedCommitCount,
+    seedPhaseAttemptCount: { ...artifact.phaseAttemptCount },
+    transitionInProgress: artifact.transitionInProgress,
   };
 
   // Use a bare CleanupRegistry (no SIGINT wiring — signal handling is done inside onReady).
@@ -1647,6 +1711,10 @@ export async function runInspect(opts: InspectOpts): Promise<void> {
         opts: artifactLoopOpts as BuildRunArtifactOpts,
         liveInfra: artifact.liveInfra ?? null,
         inspectSession: null,
+        // per-phase-config phase 7.6: preserve the per-phase attempt
+        // counter across inspect-session writes (inspect doesn't drive
+        // outer attempts, so the counter is unchanged).
+        phaseAttemptCount: { ...artifact.phaseAttemptCount },
       });
       try {
         await runStorage.saveRun(runId, newArtifact, { ifRevisionEquals: expectedRevision });
@@ -1876,6 +1944,91 @@ export async function runExport(opts: RunExportOpts): Promise<OrchestratorResult
     attempts: 1,
     runId,
     message,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Mode 3d: merge — apply a stored Run's commits into the user's current branch
+// ---------------------------------------------------------------------------
+
+/** Options for {@link runMerge}. */
+export interface RunMergeOpts {
+  runId: string;
+  runStorage: RunStorage;
+  /** Repo root (the user's working repo we merge into). */
+  projectDir: string;
+  /** How to land the commits (default: `cherry-pick`). */
+  strategy?: MergeStrategy;
+  /** Optional target branch. Default: current branch. */
+  intoBranch?: string;
+  /** Stash dirty state (incl. untracked) before merging; refuse otherwise (default: false). */
+  allowDirty?: boolean;
+  /** Custom commit message for `--strategy=squash`. */
+  squashMessage?: string;
+  /**
+   * Override author for `--strategy=squash` (`Name <email>`). Default: git config / env.
+   * No effect on cherry-pick (preserves each commit's author) or worktree (no commit).
+   */
+  squashAuthor?: string;
+  /** Skip git hooks via `--no-verify`. */
+  noVerify?: boolean;
+  /** Print the plan and exit without mutating state. */
+  dryRun?: boolean;
+}
+
+/**
+ * Apply a stored Run's commits to the user's current branch (or `--into <branch>`).
+ *
+ * Unlike {@link runApply} (which lays the commits on a fresh `saifctl/...` branch),
+ * `runMerge` brings them into HEAD safely — including when the working tree is dirty
+ * (with `--allow-dirty`) or has untracked files. Dirty state is stashed and restored
+ * via `git stash apply <sha>` (never `pop`), so the user's pre-merge state is always
+ * recoverable.
+ *
+ * The merge ignores the run's `basePatchDiff` (the user's pre-run uncommitted state)
+ * — that's why a plain `git merge <run-branch>` conflicts with the user's still-dirty
+ * tree, and why this command exists.
+ */
+export async function runMerge(opts: RunMergeOpts): Promise<OrchestratorResult> {
+  const { runId, runStorage, projectDir } = opts;
+  const artifact = await runStorage.getRun(runId);
+  if (!artifact) {
+    return {
+      status: 'failed',
+      attempts: 0,
+      runId,
+      message: `Run not found: ${runId}. List runs with: saifctl run ls`,
+    };
+  }
+
+  const commits = artifact.runCommits;
+  if (!commits.length) {
+    return {
+      status: 'failed',
+      attempts: 0,
+      runId,
+      message: `Run "${runId}" has no commits to merge.`,
+    };
+  }
+
+  const result = await runMergeIntoHost({
+    projectDir,
+    runId,
+    commits,
+    strategy: opts.strategy,
+    intoBranch: opts.intoBranch,
+    allowDirty: opts.allowDirty,
+    squashMessage: opts.squashMessage,
+    squashAuthor: opts.squashAuthor,
+    noVerify: opts.noVerify,
+    dryRun: opts.dryRun,
+  });
+
+  return {
+    status: result.success ? 'success' : 'failed',
+    attempts: 1,
+    runId,
+    message: result.message,
   };
 }
 

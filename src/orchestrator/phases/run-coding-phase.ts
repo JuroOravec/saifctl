@@ -143,6 +143,18 @@ export interface RunCodingPhaseOpts {
 // onSubtaskComplete. The callback returns exit / next / retry / abort; we write the matching
 // prompt, gate/agent script updates, retries override, or exit file so coder-start.sh can proceed.
 
+/**
+ * Per-phase-config phase 7.5e: filled when `onSubtaskComplete` returns
+ * `kind: 'transition'`. Mutated through a closure-captured ref so the
+ * outer `runCodingPhase` can pick the field set / cost class up after
+ * the driver returns and emit `outcome: 'transitioned'`. Stays `null`
+ * for ordinary coding phases.
+ */
+interface TransitionRequest {
+  fields: readonly string[];
+  costClass: 'level-2' | 'level-3' | 'level-2-3';
+}
+
 async function driveSubtasks(opts: {
   sandbox: Sandbox;
   subtasks: RunSubtask[];
@@ -151,6 +163,7 @@ async function driveSubtasks(opts: {
   enableSubtaskSequence: boolean;
   onSubtaskComplete: OnSubtaskComplete;
   subtaskResults: SubtaskCodingResult[];
+  transitionRequest: { current: TransitionRequest | null };
 }): Promise<void> {
   const {
     sandbox,
@@ -160,6 +173,7 @@ async function driveSubtasks(opts: {
     enableSubtaskSequence,
     onSubtaskComplete,
     subtaskResults,
+    transitionRequest,
   } = opts;
 
   let relativeIdx = 0;
@@ -212,6 +226,21 @@ async function driveSubtasks(opts: {
       case 'abort':
         // stop/max-attempts/etc. — engine abort already requested; driver just stops.
         return;
+      case 'transition':
+        // Per-phase-config phase 7.5e: clean inner shutdown (same shell
+        // protocol as `kind: 'exit'`), but record the transition request
+        // so `runCodingPhase` returns `outcome: 'transitioned'`. The
+        // outer iterative loop reads that outcome and continues to the
+        // next outer attempt — which boots a fresh coder container with
+        // the new active subtask's Level-2/3 values.
+        transitionRequest.current = {
+          fields: action.fields,
+          costClass: action.costClass,
+        };
+        if (enableSubtaskSequence) {
+          await writeSubtaskExitSignal(sandbox.sandboxBasePath);
+        }
+        return;
       case 'next': {
         relativeIdx += 1;
         // Last subtask done: same as exit for the shell protocol.
@@ -225,6 +254,8 @@ async function driveSubtasks(opts: {
           saifctlPath: sandbox.saifctlPath,
           gateScript: action.gateScript,
           agentScript: action.agentScript,
+          stageScript: action.stageScript,
+          subtaskEnv: action.subtaskEnv,
         });
         if (action.gateRetries !== undefined) {
           await writeSubtaskRetriesOverride(sandbox.sandboxBasePath, action.gateRetries);
@@ -363,6 +394,10 @@ export async function runCodingPhase(input: RunCodingPhaseOpts): Promise<CodingP
   // Filled by driveSubtasks for CodingPhaseResult when the phase completes normally.
   const subtaskResults: SubtaskCodingResult[] = [];
   const enableSubtaskSequence = opts.enableSubtaskSequence === true;
+  // Per-phase-config phase 7.5e: filled when the driver hits a
+  // `kind: 'transition'` boundary. Stays null otherwise. Drives the
+  // `outcome: 'transitioned'` return below.
+  const transitionRequest: { current: TransitionRequest | null } = { current: null };
 
   let result: Awaited<ReturnType<typeof runEngineAttempt>>;
   try {
@@ -414,6 +449,7 @@ export async function runCodingPhase(input: RunCodingPhaseOpts): Promise<CodingP
         enableSubtaskSequence,
         onSubtaskComplete,
         subtaskResults,
+        transitionRequest,
       });
 
       // Cross-link: when the engine resolves before the driver's last
@@ -487,6 +523,21 @@ export async function runCodingPhase(input: RunCodingPhaseOpts): Promise<CodingP
   // Inspect session completed — skip tests, git branch, and further iterations.
   if (opts.inspectMode) {
     return { outcome: 'inspected' };
+  }
+
+  // Per-phase-config phase 7.5e: the driver hit a `kind: 'transition'`
+  // boundary. The shell exited cleanly (same protocol as `kind: 'exit'`)
+  // and the engine `finally` tore down the coder + Leash containers; the
+  // sandbox dir is preserved. Return `'transitioned'` so the outer
+  // iterative loop continues to the next outer attempt instead of
+  // marking the run completed.
+  if (transitionRequest.current) {
+    return {
+      outcome: 'transitioned',
+      subtaskResults,
+      fields: transitionRequest.current.fields,
+      costClass: transitionRequest.current.costClass,
+    };
   }
 
   // Agent ran to completion (success or failure — caller checks the patch).

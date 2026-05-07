@@ -1,0 +1,18 @@
+# Per-phase-config phase 7.3 — Level-4 routing (`tests.none: true`).
+# Bypasses the test runner for this phase; the cumulative test scope at
+# the run's last phase still gates feature/project tests. The compiler
+# emits `noRunner: true` on every subtask of this phase, and the loop's
+# runner-bypass branch fires when the cumulative scope has no sources.
+#
+# A pure-output / codegen / docs / manifests phase has nothing meaningful
+# to assert against itself — its `gate.script` (Level 1) handles
+# "did the file get written" instead. See `how-to pure-output-phase`.
+tests:
+  none: true
+
+# Trim the inherited critic list to the cheapest single critic — keeps
+# the compiled subtask sequence small and readable in the integration
+# test. List-valued overrides REPLACE the inherited list (no key-level
+# merge); see `feature.yml`.
+critics:
+  - { id: strict, rounds: 1 }

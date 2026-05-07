@@ -89,6 +89,8 @@ function makeSourceArtifact(runId: string): RunArtifact {
     pausedSandboxBasePath: null,
     liveInfra: null,
     inspectSession: null,
+    transitionInProgress: null,
+    phaseAttemptCount: {},
   };
 }
 
@@ -131,6 +133,53 @@ describe('forkStoredRun', () => {
       expect(forked!.status).toBe('failed');
       expect(forked!.config.maxAttemptsPerSubtask).toBe(17);
       expect(forked!.config.featureName).toBe('my-feat');
+    } finally {
+      await rm(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  // Per-phase-config 7.6 review N3: the chosen fork semantic is
+  // "phaseAttemptCount resets" (a fork is a new Run identity, and the
+  // monotone-within-Run-identity contract from design.md §7.6 doesn't
+  // cross identity boundaries). Pin this so a future change to fork
+  // can't silently re-introduce a budget-bypass channel.
+  it('resets `phaseAttemptCount` to {} (fork creates a new Run identity, not a resume)', async () => {
+    const projectDir = await mkdtemp(join(tmpdir(), 'saifctl-fork-budget-'));
+    try {
+      await writeFile(join(projectDir, 'package.json'), JSON.stringify({ name: 'proj' }), 'utf8');
+      await mkdir(join(projectDir, 'saifctl', 'features', 'my-feat'), { recursive: true });
+
+      const storage = createRunStorage('local', projectDir)!;
+      const source = makeSourceArtifact('srcrun8');
+      // Source ran 5 attempts on phase-a (close to whatever cap was set).
+      source.phaseAttemptCount = { 'phase-a': 5 };
+      await storage.saveRun('srcrun8', source);
+
+      const config = await loadSaifctlConfig('saifctl', projectDir);
+      const cli = await buildOrchestratorCliInputFromFeatArgs({} as FeatRunArgs, {
+        projectDir,
+        saifctlDir: 'saifctl',
+        config,
+      });
+
+      const { newRunId } = await forkStoredRun({
+        runId: 'srcrun8',
+        projectDir,
+        saifctlDir: 'saifctl',
+        config,
+        runStorage: storage,
+        cli,
+        cliModelDelta: undefined,
+        engineCli: undefined,
+      });
+
+      const forked = await storage.getRun(newRunId);
+      expect(forked).not.toBeNull();
+      // Fresh budget: the new identity starts at 0 attempts on every phase.
+      expect(forked!.phaseAttemptCount).toEqual({});
+      // The source's counter is untouched (no cross-write).
+      const stillSource = await storage.getRun('srcrun8');
+      expect(stillSource!.phaseAttemptCount).toEqual({ 'phase-a': 5 });
     } finally {
       await rm(projectDir, { recursive: true, force: true });
     }

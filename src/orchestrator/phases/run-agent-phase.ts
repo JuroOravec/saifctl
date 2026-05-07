@@ -163,7 +163,10 @@ export async function runAgentPhase(input: RunAgentPhaseInput): Promise<RunAgent
           '\\',
           '/',
         );
-        const phaseSpecFilenames = await loadPhaseSpecFilenames(opts.feature.absolutePath);
+        const phaseSpecFilenames = await loadPhaseSpecFilenames(
+          opts.feature.absolutePath,
+          opts.projectDir,
+        );
         await surfaceModifiedPathsAfterRound({
           round: attempt,
           subtaskIndex: input.surfaceContext?.subtaskIndex ?? 0,

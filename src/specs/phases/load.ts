@@ -18,11 +18,16 @@ import { type ZodError } from 'zod';
 
 import { pathExists } from '../../utils/io.js';
 import {
+  type AgentConfig,
+  type ContainerConfig,
   type CriticEntry,
   type FeatureConfig,
   featureConfigSchema,
+  type GateConfig,
+  type LimitsConfig,
   type PhaseConfig,
   phaseConfigSchema,
+  type RunnerConfig,
   type TestsConfig,
 } from './schema.js';
 
@@ -151,6 +156,12 @@ export const BUILT_IN_DEFAULTS = {
  * Distinct shape from `PhaseConfig` so callers can rely on every field being
  * populated (no optionals) and on the "undefined critics" sentinel being
  * resolved to a concrete decision (run-all vs run-specified vs run-none).
+ *
+ * The five v1 groups (`gate`, `agent`, `container`, `runner`, `limits`) are
+ * surfaced here as `Resolved*` shapes whose fields are still optional —
+ * unset means "no per-phase override; fall back to run-level value at the
+ * threading site." Each Level's runtime threading (per per-phase-config
+ * design §7.2–7.6) reads from these fields when consuming a subtask.
  */
 export interface ResolvedPhaseConfig {
   /** Phase id (matches dir name under phases/). */
@@ -165,6 +176,16 @@ export interface ResolvedPhaseConfig {
    */
   critics: CriticEntry[] | null;
   tests: ResolvedTestsConfig;
+  /** Per-phase gate (Level 1) — `script` content threaded by 7.2; `retries` already runtime-supported. */
+  gate: ResolvedGateConfig;
+  /** Per-phase agent identity & behaviour (mixed Level 1.5 / Level 2). */
+  agent: ResolvedAgentConfig;
+  /** Per-phase coder container shape (Level 2 / Level 3). */
+  container: ResolvedContainerConfig;
+  /** Per-phase test runner overrides (Level 4). */
+  runner: ResolvedRunnerConfig;
+  /** Per-phase budgets (loop state). */
+  limits: ResolvedLimitsConfig;
 }
 
 /** Effective tests config for one scope after inheritance + the mutable/fail2pass cross-rule (§5.6). */
@@ -177,6 +198,84 @@ export interface ResolvedTestsConfig {
   fail2pass: boolean;
   enforce: 'diff-inspection' | 'read-only';
   immutableFiles: string[];
+  /**
+   * Per-phase-config v1 (§6.5 option b): when `true`, this phase has no own
+   * tests. Runner is bypassed for the phase's subtasks; feature/project
+   * tests still gate at the run's last phase. Threading lands in 7.3.
+   */
+  none: boolean;
+}
+
+/**
+ * Resolved gate config — sub-key by sub-key inheritance per design §4.2.
+ * Both fields stay optional: unset means "use run-level value" (matches
+ * the existing `RunSubtaskInput.gateScript ?? runGateScriptContent`
+ * pattern at [`loop.ts:1783`](../../orchestrator/loop.ts#L1783)).
+ */
+export interface ResolvedGateConfig {
+  script?: string;
+  retries?: number;
+}
+
+/**
+ * Resolved agent config — see {@link AgentConfig} for the YAML shape and
+ * each field's lifecycle level / target threading phase.
+ *
+ * `env` merges by key across the inheritance chain (most-specific entry
+ * wins per key). `secrets` REPLACES at the most-specific layer
+ * (list-valued; no key-level merge per design §4.2).
+ */
+export interface ResolvedAgentConfig {
+  profile?: string;
+  script?: string;
+  install?: string;
+  env?: Record<string, string>;
+  secrets?: string[];
+  model?: string;
+  baseUrl?: string;
+  reviewer?: boolean;
+}
+
+/**
+ * Resolved container config — see {@link ContainerConfig}. Every field
+ * Level-2 or Level-3; threading lands in 7.5.
+ */
+export interface ResolvedContainerConfig {
+  startup?: string;
+  cedar?: string;
+  noLeash?: boolean;
+  sandboxProfile?: string;
+  image?: string;
+  engine?: 'docker' | 'helm' | 'local';
+  composeFile?: string;
+}
+
+/**
+ * Resolved runner config — see {@link RunnerConfig}. All Level-4; threading
+ * lands in 7.3 (test runner is recreated per outer attempt, so per-phase
+ * is just routing).
+ */
+export interface ResolvedRunnerConfig {
+  testProfile?: string;
+  testImage?: string;
+  testScript?: string;
+  stageScript?: string;
+  resolveAmbiguity?: 'off' | 'prompt' | 'ai';
+  testRetries?: number;
+}
+
+/**
+ * Resolved limits config. `max-attempts` runtime support shipped in
+ * phase 7.6 (per-phase outer-attempt cap):
+ *   - Compile threads `limits.maxAttempts` onto every subtask of a phase
+ *     (`compile.ts:478`).
+ *   - Loop bumps the per-phase counter and fail-fasts via
+ *     `phase-budget.ts` (`loop.ts:1735` + the three retry-or-fail
+ *     branches in `onSubtaskComplete`).
+ *   - Resume preserves the counter via `RunArtifact#phaseAttemptCount`.
+ */
+export interface ResolvedLimitsConfig {
+  maxAttempts?: number;
 }
 
 /**
@@ -232,11 +331,49 @@ export function resolvePhaseConfig(opts: {
   const spec =
     firstDefined<string>(phaseConfig?.spec, inlinePhase?.spec, phaseDefaults?.spec) ?? 'spec.md';
 
+  // v1 groups — same inheritance chain as `tests`. Each group resolves
+  // sub-key by sub-key (most-specific defined wins per sub-key). The
+  // feature top-level admits the same groups per per-phase-config design
+  // §6.8, so they sit at the bottom of the chain alongside the existing
+  // `tests` rule.
+  const groupLayers = {
+    gate: [phaseConfig?.gate, inlinePhase?.gate, phaseDefaults?.gate, featureConfig?.gate] as const,
+    agent: [
+      phaseConfig?.agent,
+      inlinePhase?.agent,
+      phaseDefaults?.agent,
+      featureConfig?.agent,
+    ] as const,
+    container: [
+      phaseConfig?.container,
+      inlinePhase?.container,
+      phaseDefaults?.container,
+      featureConfig?.container,
+    ] as const,
+    runner: [
+      phaseConfig?.runner,
+      inlinePhase?.runner,
+      phaseDefaults?.runner,
+      featureConfig?.runner,
+    ] as const,
+    limits: [
+      phaseConfig?.limits,
+      inlinePhase?.limits,
+      phaseDefaults?.limits,
+      featureConfig?.limits,
+    ] as const,
+  };
+
   return {
     phaseId,
     spec,
     critics: critics ?? null,
     tests,
+    gate: resolveGate(groupLayers.gate),
+    agent: resolveAgent(groupLayers.agent),
+    container: resolveContainer(groupLayers.container),
+    runner: resolveRunner(groupLayers.runner),
+    limits: resolveLimits(groupLayers.limits),
   };
 }
 
@@ -281,6 +418,125 @@ function resolveTests(opts: {
   const fail2pass = explicitFail2pass ?? (mutable ? false : BUILT_IN_DEFAULTS.testsFail2pass);
   const enforce = get('enforce') ?? BUILT_IN_DEFAULTS.testsEnforce;
   const immutableFiles = get('immutable-files') ?? BUILT_IN_DEFAULTS.testsImmutableFiles;
+  const none = get('none') ?? false;
 
-  return { mutable, fail2pass, enforce, immutableFiles };
+  return { mutable, fail2pass, enforce, immutableFiles, none };
+}
+
+// ---------------------------------------------------------------------------
+// v1 group resolvers — `gate`, `agent`, `container`, `runner`, `limits`.
+//
+// Each resolver follows the same shape as `resolveTests`: walk the layer
+// list (most-specific first), pick the first defined value per sub-key.
+// Object-valued sub-keys merge sub-key by sub-key (matches `tests`); the
+// only list-valued sub-key in v1 is `agent.secrets`, which REPLACES at
+// the most-specific layer (no key-level merge for lists, per design §4.2).
+//
+// `agent.env` is map-valued (`Record<string, string>`); we merge it by
+// key across layers so a feature-level default (`AGENT_DEBUG: 1`) and a
+// phase-level addition (`AGENT_FAST: 1`) coexist. Most-specific layer
+// wins per key.
+//
+// All resolved fields stay optional. Unset means "no per-phase override;
+// the threading site falls back to the run-level value."
+// ---------------------------------------------------------------------------
+
+/** Pick the first defined value at `key` across `layers` (most-specific first). */
+function pick<L extends object, K extends keyof L>(
+  layers: readonly (L | undefined | null)[],
+  key: K,
+): L[K] | undefined {
+  for (const l of layers) {
+    if (l != null && l[key] !== undefined) return l[key];
+  }
+  return undefined;
+}
+
+function resolveGate(layers: readonly (GateConfig | undefined)[]): ResolvedGateConfig {
+  const out: ResolvedGateConfig = {};
+  const script = pick(layers, 'script');
+  if (script !== undefined) out.script = script;
+  const retries = pick(layers, 'retries');
+  if (retries !== undefined) out.retries = retries;
+  return out;
+}
+
+function resolveAgent(layers: readonly (AgentConfig | undefined)[]): ResolvedAgentConfig {
+  const out: ResolvedAgentConfig = {};
+  const profile = pick(layers, 'profile');
+  if (profile !== undefined) out.profile = profile;
+  const script = pick(layers, 'script');
+  if (script !== undefined) out.script = script;
+  const install = pick(layers, 'install');
+  if (install !== undefined) out.install = install;
+
+  // env: merge by key across layers (most-specific wins per key).
+  // Walk layers in REVERSE so least-specific writes first and is then
+  // overwritten by more-specific. Result: each key gets its most-specific
+  // value, but keys defined only at lower layers survive.
+  let envMerged: Record<string, string> | undefined;
+  for (let i = layers.length - 1; i >= 0; i--) {
+    const layerEnv = layers[i]?.env;
+    if (layerEnv === undefined) continue;
+    envMerged ??= {};
+    Object.assign(envMerged, layerEnv);
+  }
+  if (envMerged !== undefined) out.env = envMerged;
+
+  // secrets: list-valued, REPLACE at the most-specific layer.
+  const secrets = pick(layers, 'secrets');
+  if (secrets !== undefined) out.secrets = [...secrets];
+
+  const model = pick(layers, 'model');
+  if (model !== undefined) out.model = model;
+  const baseUrl = pick(layers, 'base-url');
+  if (baseUrl !== undefined) out.baseUrl = baseUrl;
+  const reviewer = pick(layers, 'reviewer');
+  if (reviewer !== undefined) out.reviewer = reviewer;
+  return out;
+}
+
+function resolveContainer(
+  layers: readonly (ContainerConfig | undefined)[],
+): ResolvedContainerConfig {
+  const out: ResolvedContainerConfig = {};
+  const startup = pick(layers, 'startup');
+  if (startup !== undefined) out.startup = startup;
+  const cedar = pick(layers, 'cedar');
+  if (cedar !== undefined) out.cedar = cedar;
+  const noLeash = pick(layers, 'no-leash');
+  if (noLeash !== undefined) out.noLeash = noLeash;
+  const sandboxProfile = pick(layers, 'sandbox-profile');
+  if (sandboxProfile !== undefined) out.sandboxProfile = sandboxProfile;
+  const image = pick(layers, 'image');
+  if (image !== undefined) out.image = image;
+  const engine = pick(layers, 'engine');
+  if (engine !== undefined) out.engine = engine;
+  const composeFile = pick(layers, 'compose-file');
+  if (composeFile !== undefined) out.composeFile = composeFile;
+  return out;
+}
+
+function resolveRunner(layers: readonly (RunnerConfig | undefined)[]): ResolvedRunnerConfig {
+  const out: ResolvedRunnerConfig = {};
+  const testProfile = pick(layers, 'test-profile');
+  if (testProfile !== undefined) out.testProfile = testProfile;
+  const testImage = pick(layers, 'test-image');
+  if (testImage !== undefined) out.testImage = testImage;
+  const testScript = pick(layers, 'test-script');
+  if (testScript !== undefined) out.testScript = testScript;
+  const stageScript = pick(layers, 'stage-script');
+  if (stageScript !== undefined) out.stageScript = stageScript;
+  const resolveAmbiguity = pick(layers, 'resolve-ambiguity');
+  if (resolveAmbiguity !== undefined) out.resolveAmbiguity = resolveAmbiguity;
+  const testRetries = pick(layers, 'test-retries');
+  if (testRetries !== undefined) out.testRetries = testRetries;
+  return out;
+}
+
+function resolveLimits(layers: readonly (LimitsConfig | undefined)[]): ResolvedLimitsConfig {
+  const out: ResolvedLimitsConfig = {};
+  const maxAttempts = pick(layers, 'max-attempts');
+  if (maxAttempts !== undefined) out.maxAttempts = maxAttempts;
+  return out;
 }

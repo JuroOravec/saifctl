@@ -145,8 +145,19 @@ export class RunStorage {
   async getRun(runId: string): Promise<RunArtifact | null> {
     const r = await this.storage.get(runId);
     if (!r) return null;
+    // Back-compat: pre-7.5d / pre-7.6 artifacts have these fields unset;
+    // normalise so the rest of the codebase doesn't have to thread
+    // `undefined` through every check.
     const withInspect = r.inspectSession === undefined ? { ...r, inspectSession: null } : r;
-    return normalizeLoadedRunArtifact(withInspect);
+    const withTransition =
+      withInspect.transitionInProgress === undefined
+        ? { ...withInspect, transitionInProgress: null }
+        : withInspect;
+    const withPhaseAttempts =
+      withTransition.phaseAttemptCount === undefined
+        ? { ...withTransition, phaseAttemptCount: {} }
+        : withTransition;
+    return normalizeLoadedRunArtifact(withPhaseAttempts);
   }
 
   async listRuns(filter?: { status?: RunStatus }): Promise<RunArtifact[]> {

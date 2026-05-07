@@ -31,34 +31,87 @@ describe('updateSandboxSubtaskScripts', () => {
     if (base) await rm(base, { recursive: true, force: true });
   });
 
-  it('writes gate.sh with chmod 0755 and leaves agent.sh untouched when agentScript omitted', async () => {
+  it('writes gate.sh + agent.sh + stage.sh with chmod 0755 from the per-subtask values', async () => {
     base = await mkdtemp(join(tmpdir(), 'saif-subtask-'));
     const saifctlPath = join(base, 'saifctl');
     await mkdir(saifctlPath, { recursive: true });
-    await writeFile(join(saifctlPath, 'agent.sh'), '#!/bin/bash\necho original', 'utf8');
 
     await updateSandboxSubtaskScripts({
       saifctlPath,
       gateScript: '#!/bin/bash\necho gate',
+      agentScript: '#!/bin/bash\necho agent',
+      stageScript: '#!/bin/bash\necho stage',
+      subtaskEnv: {},
     });
 
     expect(await readUtf8(join(saifctlPath, 'gate.sh'))).toBe('#!/bin/bash\necho gate');
-    expect(await readUtf8(join(saifctlPath, 'agent.sh'))).toBe('#!/bin/bash\necho original');
+    expect(await readUtf8(join(saifctlPath, 'agent.sh'))).toBe('#!/bin/bash\necho agent');
+    expect(await readUtf8(join(saifctlPath, 'stage.sh'))).toBe('#!/bin/bash\necho stage');
   });
 
-  it('writes both gate.sh and agent.sh when agentScript is provided', async () => {
+  // Per-phase-config phase 7.2: agent.sh must be rewritten on every transition,
+  // not only when a per-phase override exists. Otherwise transitioning from a
+  // phase that overrode `agent.script` to a phase that didn't would leak the
+  // previous phase's script across the boundary. The compile/runtime layer
+  // resolves the per-subtask value (override-or-run-level fallback) before
+  // it reaches this function, so always-write makes phase boundaries
+  // idempotent.
+  it('overwrites a previously-overridden agent.sh with the run-level fallback on the next transition', async () => {
+    base = await mkdtemp(join(tmpdir(), 'saif-subtask-'));
+    const saifctlPath = join(base, 'saifctl');
+    await mkdir(saifctlPath, { recursive: true });
+
+    // Simulate a phase A override having been written.
+    await updateSandboxSubtaskScripts({
+      saifctlPath,
+      gateScript: '#!/bin/bash\necho gate-a',
+      agentScript: '#!/bin/bash\necho phase-a-override',
+      stageScript: '#!/bin/bash\necho stage-a',
+      subtaskEnv: {},
+    });
+    expect(await readUtf8(join(saifctlPath, 'agent.sh'))).toBe(
+      '#!/bin/bash\necho phase-a-override',
+    );
+
+    // Transition to phase B that resolves to the run-level fallback.
+    await updateSandboxSubtaskScripts({
+      saifctlPath,
+      gateScript: '#!/bin/bash\necho gate-b',
+      agentScript: '#!/bin/bash\necho run-level',
+      stageScript: '#!/bin/bash\necho stage-b',
+      subtaskEnv: {},
+    });
+    expect(await readUtf8(join(saifctlPath, 'agent.sh'))).toBe('#!/bin/bash\necho run-level');
+  });
+
+  // Per-phase-config phase 7.3 (regression for the 7.3 review F-A finding):
+  // stage.sh must be rewritten on every transition for the same reason as
+  // agent.sh — the staging container reads it from the bind-mount fresh
+  // each `runStagingTestVerification` call (per subtask). A
+  // previously-overridden stage.sh would otherwise leak into a non-
+  // overriding phase's staging tests.
+  it('overwrites a previously-overridden stage.sh with the run-level fallback on the next transition', async () => {
     base = await mkdtemp(join(tmpdir(), 'saif-subtask-'));
     const saifctlPath = join(base, 'saifctl');
     await mkdir(saifctlPath, { recursive: true });
 
     await updateSandboxSubtaskScripts({
       saifctlPath,
-      gateScript: '#!/bin/bash\necho gate2',
-      agentScript: '#!/bin/bash\necho agent2',
+      gateScript: 'g',
+      agentScript: 'a',
+      stageScript: '#!/bin/bash\necho phase-a-stage',
+      subtaskEnv: {},
     });
+    expect(await readUtf8(join(saifctlPath, 'stage.sh'))).toBe('#!/bin/bash\necho phase-a-stage');
 
-    expect(await readUtf8(join(saifctlPath, 'gate.sh'))).toBe('#!/bin/bash\necho gate2');
-    expect(await readUtf8(join(saifctlPath, 'agent.sh'))).toBe('#!/bin/bash\necho agent2');
+    await updateSandboxSubtaskScripts({
+      saifctlPath,
+      gateScript: 'g',
+      agentScript: 'a',
+      stageScript: '#!/bin/bash\necho run-level-stage',
+      subtaskEnv: {},
+    });
+    expect(await readUtf8(join(saifctlPath, 'stage.sh'))).toBe('#!/bin/bash\necho run-level-stage');
   });
 });
 

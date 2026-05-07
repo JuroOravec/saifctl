@@ -1,0 +1,11 @@
+# Minimal `tests.none` walkthrough — see _README.md for context.
+#
+# Empty critic list: a single-output codegen phase has nothing for an
+# adversarial critic to find that the gate script doesn't already
+# enforce. The reviewer (Argus) is disabled at the run level for the
+# same reason — keeps the loop tight on what matters here, the gate
+# assertion on the emitted file.
+critics: []
+
+agent:
+  reviewer: false

@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { unlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { RunCommit } from '../runs/types.js';
@@ -15,21 +17,42 @@ export function resolveRunCommitAuthor(commit: RunCommit): string {
 
 /**
  * Applies one run commit's unified diff, stages (excluding `.saifctl/`), and commits with message + author.
+ *
+ * When `check` is true, only verifies the diff applies cleanly (no state change). When `noVerify`
+ * is true, passes `--no-verify` to `git commit` (skips pre-commit / commit-msg hooks).
+ *
+ * The patch file is written under `os.tmpdir()` (not `cwd`) so it never collides with user state
+ * or surfaces as dirty in `git status`.
  */
 export async function applyRunCommitInRepo(opts: {
   cwd: string;
   commit: RunCommit;
   gitEnv?: NodeJS.ProcessEnv;
   verbose?: boolean;
+  /** When true, only run `git apply --check` (verify cleanly, no state change). */
+  check?: boolean;
+  /** When true, pass `--no-verify` to `git commit`. */
+  noVerify?: boolean;
 }): Promise<void> {
-  const { cwd, commit, gitEnv = process.env, verbose = false } = opts;
+  const {
+    cwd,
+    commit,
+    gitEnv = process.env,
+    verbose = false,
+    check = false,
+    noVerify = false,
+  } = opts;
   if (!commit.diff.trim()) return;
 
-  const tmpPath = join(cwd, '.saifctl-commit.patch');
+  const tmpPath = join(tmpdir(), `saifctl-commit-${randomUUID()}.patch`);
   const safeDiff = commit.diff.endsWith('\n') ? commit.diff : `${commit.diff}\n`;
   await writeUtf8(tmpPath, safeDiff);
-  await gitApply({ cwd, env: gitEnv, patchFile: tmpPath });
-  await unlink(tmpPath).catch(() => {});
+  try {
+    await gitApply({ cwd, env: gitEnv, patchFile: tmpPath, check });
+    if (check) return;
+  } finally {
+    await unlink(tmpPath).catch(() => {});
+  }
 
   await gitAdd({ cwd, env: gitEnv });
   try {
@@ -49,6 +72,7 @@ export async function applyRunCommitInRepo(opts: {
     message: commit.message,
     author: resolveRunCommitAuthor(commit),
     verbose,
+    noVerify,
   });
 }
 

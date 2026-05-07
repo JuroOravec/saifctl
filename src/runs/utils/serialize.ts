@@ -5,6 +5,8 @@
  * to string/plain-object forms for persistence.
  */
 
+import { resolveAgentProfile } from '../../agent-profiles/index.js';
+import { snapshotProfileOptionsFromEnv } from '../../agent-profiles/options-bridge.js';
 import type { SupportedAgentProfileId } from '../../agent-profiles/types.js';
 import type {
   NormalizedCodingEnvironment,
@@ -113,6 +115,25 @@ export type SerializedLoopOpts = {
   codingEnvironment: NormalizedCodingEnvironment;
   /** When true, verbose logs are enabled. */
   verbose?: boolean;
+  /**
+   * Snapshot of the agent profile's resolved options
+   * (`--<id>-<name>` flags), captured at run-start time. Keyed by profile
+   * id so the same artifact can carry options for past agent profiles
+   * (e.g. after `run fork` switches `agentProfileId`). Each inner map's
+   * keys are the option names declared by the profile; values are the
+   * resolved scalars after applying the CLI > config > default chain.
+   *
+   * Used by `run start` / `run resume` / `run test` to replay the run
+   * with the exact same profile options, independent of how
+   * `saifctl/config.ts` has evolved since. CLI flags passed at replay
+   * time still take precedence (artifact wins over config, not over
+   * fresh CLI args).
+   *
+   * Optional for backwards compatibility: artifacts written before this
+   * field landed will replay using whatever `saifctl/config.ts` contains
+   * at replay time (the previous behavior).
+   */
+  agentOptions?: Record<string, Record<string, string | number | boolean>>;
 } & PersistedScriptBundle;
 
 /** Serializes loop options for persistence: drops ephemeral fields, replaces non-JSON values (gitProvider/testProfile/RegExp patches) with stable id/string forms. */
@@ -138,6 +159,12 @@ export function serializeArtifactConfig(
       ? optSubtasks
       : [{ content: `Implement feature: ${feature.name}`, title: feature.name }];
 
+  // Snapshot resolved profile options from the env-var protocol so the
+  // run replays with exactly the values it was started with. Agent
+  // profiles only — designer/indexer profiles run at design time, not
+  // run time, so they don't belong on the run artifact.
+  const agentOptions = snapshotAgentOptionsForArtifact(opts.agentProfileId);
+
   return {
     ...rest,
     featureName: feature.name,
@@ -150,7 +177,31 @@ export function serializeArtifactConfig(
       type: rule.type,
       pattern: rule.type === 'regex' ? (rule.pattern as RegExp).source : (rule.pattern as string),
     })),
+    ...(agentOptions ? { agentOptions } : {}),
   };
+}
+
+/**
+ * Snapshot the active agent profile's resolved options into the
+ * `agentOptions` map shape expected by {@link SerializedLoopOpts}.
+ * Returns `undefined` when the profile declares no options (so we don't
+ * persist an empty record), or when the profile id can't be resolved
+ * (defensive — should not happen in practice since the orchestrator
+ * has already used the profile by serialize time).
+ */
+function snapshotAgentOptionsForArtifact(
+  agentProfileId: SupportedAgentProfileId,
+): SerializedLoopOpts['agentOptions'] {
+  let profile;
+  try {
+    profile = resolveAgentProfile(agentProfileId);
+  } catch {
+    return undefined;
+  }
+  if (!profile.options || profile.options.length === 0) return undefined;
+  const snap = snapshotProfileOptionsFromEnv(profile);
+  if (Object.keys(snap).length === 0) return undefined;
+  return { [agentProfileId]: snap };
 }
 
 /**

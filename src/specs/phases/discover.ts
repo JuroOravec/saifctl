@@ -130,14 +130,19 @@ export async function discoverCritics(featureDir: string): Promise<{
  *
  * Errors must be fixed before running. Warnings are advisory — they do NOT
  * block compilation, but `feat phases validate` and the `feat run` pre-flight
- * print them so the user sees them. v1 has no warning sources yet (the
- * documented future use is glob-expansion empty-match warnings); the field
- * is still required on every report so callers can iterate it without
- * branching.
+ * print them so the user sees them.
+ *
+ * `infos` are always-on advisory messages emitted by per-phase-config
+ * validators (e.g. "this phase boundary triggers a coder-container
+ * restart"). Per per-phase-config design §6.9, infos are surfaced by
+ * `feat phases compile` and `feat phases validate` but **not** by the
+ * `feat run` pre-flight (too noisy). Optional for back-compat with
+ * existing call sites that build `ValidationReport` literals.
  */
 export interface ValidationReport {
   errors: string[];
   warnings: string[];
+  infos?: string[];
 }
 
 /** Inputs to {@link validatePhaseGraph}: pre-loaded configs + discovery output to cross-check. */

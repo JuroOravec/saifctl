@@ -278,13 +278,24 @@ export class DockerEngine implements Engine {
       Image: imageTag,
       name: containerName,
       Cmd: ['/bin/sh', '/saifctl/staging-start.sh'],
-      // Run as the unprivileged `saifctl` user (pre-created in Dockerfile.coder).
-      // The agent container's `agent.sh` runs the agent as this user, so /workspace
-      // ends up owned by saifctl with mode 700. Staging used to default to root —
-      // fine on macOS Docker Desktop (UID translation) but on Linux runners root
-      // has CapDrop=ALL, so without DAC_OVERRIDE it cannot enter the 0700 dir.
-      // Tracked: release-readiness/X-08-P3.
-      User: 'saifctl',
+      // Run as the host bind-mount owner so DAC checks on /workspace align
+      // naturally — without this, the container is root with CapDrop=ALL
+      // (no DAC_OVERRIDE) and cannot access a 0700 host dir.
+      //
+      // We pass the saifctl process's UID/GID rather than a named user
+      // (`'saifctl'`) because the image-baked `saifctl` user is at whatever
+      // UID `useradd` assigned (typically 1000), which on Linux runners
+      // doesn't match the host owner (typically 1001) — UID name resolution
+      // is image-side, perms are host-side, so name-based User is a footgun.
+      // The UID doesn't need to exist in /etc/passwd for the container to
+      // run; Linux Docker accepts any numeric UID. macOS Docker Desktop's
+      // UID translation makes both forms work locally; this difference only
+      // bites on Linux runners. Tracked: release-readiness/X-08-P9.
+      //
+      // Falls back to '0:0' on platforms where getuid/getgid are unavailable
+      // (Windows). On those platforms saifctl's Docker path is unsupported
+      // anyway, but the fallback keeps types/typecheck happy.
+      User: `${process.getuid?.() ?? 0}:${process.getgid?.() ?? 0}`,
       HostConfig: {
         NetworkMode: networkName,
         // Writable: putArchive injects sidecar into /saifctl before start.
@@ -304,6 +315,17 @@ export class DockerEngine implements Engine {
         `SAIFCTL_SIDECAR_PATH=${containerConfig.sidecarPath}`,
         `SAIFCTL_STARTUP_SCRIPT=/saifctl/startup.sh`,
         `SAIFCTL_STAGE_SCRIPT=/saifctl/stage.sh`,
+        // Numeric `User:` (host bind-mount owner UID, see above) has no
+        // `/etc/passwd` entry inside the container, so HOME resolves to
+        // `/` and tools that write under `$HOME/.local/share/...` (pnpm,
+        // pip, uv, npm, …) hit EACCES on the read-only root. Pin HOME
+        // (and the XDG vars that derive from it) at `/tmp` — world-
+        // writable, per-container ephemeral, exactly the lifetime
+        // pnpm's tool cache needs.
+        `HOME=/tmp`,
+        `XDG_DATA_HOME=/tmp/.local/share`,
+        `XDG_CACHE_HOME=/tmp/.cache`,
+        `XDG_CONFIG_HOME=/tmp/.config`,
       ],
       WorkingDir: '/workspace',
     });
@@ -411,6 +433,14 @@ export class DockerEngine implements Engine {
     const container = await docker.createContainer({
       Image: testImage,
       name: containerName,
+      // Match the staging container: run as the host bind-mount owner so DAC
+      // checks on /tests (ro) and /test-runner-output (rw) align naturally.
+      // Without this, the container is root with CapDrop=ALL, which on Linux
+      // runners cannot write the JUnit results file into a host dir owned
+      // by the runner user (UID 1001) and mode 0700. See the staging
+      // container above for the full reasoning. Tracked:
+      // release-readiness/X-08-P9.
+      User: `${process.getuid?.() ?? 0}:${process.getgid?.() ?? 0}`,
       HostConfig: {
         NetworkMode: networkName,
         Binds: [...binds, `${reportDir}:/test-runner-output:rw`],
@@ -423,6 +453,14 @@ export class DockerEngine implements Engine {
         `SAIFCTL_FEATURE_NAME=${feature.name}`,
         `SAIFCTL_TESTS_DIR=${containerTestsDir}`,
         `SAIFCTL_OUTPUT_FILE=${containerOutputFile}`,
+        // See the staging container above: numeric `User:` has no
+        // `/etc/passwd` entry, HOME defaults to `/`, and any tool that
+        // writes under `$HOME/...` (vitest's worker cache, pytest's
+        // .pytest_cache fallback, npm's .npm dir, …) hits EACCES.
+        `HOME=/tmp`,
+        `XDG_DATA_HOME=/tmp/.local/share`,
+        `XDG_CACHE_HOME=/tmp/.cache`,
+        `XDG_CONFIG_HOME=/tmp/.config`,
       ],
       WorkingDir: '/workspace',
     });
@@ -477,7 +515,14 @@ export class DockerEngine implements Engine {
 
     consola.log(`[docker] Test runner exit code: ${StatusCode}${aborted ? ' (aborted)' : ''}`);
     if (stdout) consola.log(`[docker] Test runner stdout:\n${stdout}`);
-    if (stderr) consola.error(`[docker] Test runner stderr:\n${stderr}`);
+    // Only render stderr through `consola.error` when the runner actually
+    // failed. Many CLIs (npm version-check notices, pip warnings, …) write to
+    // fd 2 on a clean exit; routing those through the red ERROR chip makes
+    // a successful run look like it failed.
+    if (stderr) {
+      const stderrLog = StatusCode === 0 && !aborted ? consola.log : consola.error;
+      stderrLog(`[docker] Test runner stderr:\n${stderr}`);
+    }
 
     try {
       await container.remove({ force: true });

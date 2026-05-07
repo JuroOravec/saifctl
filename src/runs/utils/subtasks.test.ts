@@ -122,4 +122,98 @@ describe('runSubtasksFromInputs / runSubtasksToInputs', () => {
     const back = runSubtasksToInputs(runtime);
     expect(back[0]).toEqual(input);
   });
+
+  // per-phase-config phase 7.5 — round-trip Level-2 fields + the
+  // `requiresLevel2RestartFromPrev` flag. These fields persist across
+  // `run resume` so a paused multi-phase run picks up the same Level-2
+  // values it had before pause.
+  it('round-trips per-phase-config v1 Level-2 fields (phase 7.5)', () => {
+    const input: RunSubtaskInput = {
+      title: 'phase:02-b impl',
+      content: 'implement b',
+      phaseId: '02-b',
+      agentProfileId: 'aider',
+      agentInstallScript: '#!/bin/sh\npipx install aider-chat',
+      startupScript: '#!/bin/sh\npnpm install',
+      cedarScript: 'permit(...)',
+      dangerousNoLeash: false,
+      requiresLevel2RestartFromPrev: true,
+    };
+    const runtime = runSubtasksFromInputs([input]);
+    expect(runtime[0]?.agentProfileId).toBe('aider');
+    expect(runtime[0]?.requiresLevel2RestartFromPrev).toBe(true);
+    const back = runSubtasksToInputs(runtime);
+    expect(back[0]).toEqual(input);
+  });
+
+  // per-phase-config phase 7.4 — round-trip the new Level-1.5 fields
+  // (`agentSecretKeys` for additive per-phase secret names; `llmOverrides`
+  // for per-phase model / base-url). The pre-existing `agentEnv` /
+  // `reviewerEnabled` round-trip is already covered above — phase 7.4
+  // wired the runtime-read site, but the manifest fields existed before.
+  it('round-trips per-phase-config v1 Level-1.5 fields (phase 7.4)', () => {
+    const input: RunSubtaskInput = {
+      title: 'phase:01-core impl',
+      content: 'implement core',
+      phaseId: '01-core',
+      agentSecretKeys: ['API_KEY', 'DATABASE_URL'],
+      llmOverrides: {
+        globalModel: 'openai/gpt-4o-mini',
+        globalBaseUrl: 'https://api.openai.com/v1',
+      },
+    };
+    const runtime = runSubtasksFromInputs([input]);
+    expect(runtime[0]?.agentSecretKeys).toEqual(['API_KEY', 'DATABASE_URL']);
+    expect(runtime[0]?.llmOverrides?.globalModel).toBe('openai/gpt-4o-mini');
+    const back = runSubtasksToInputs(runtime);
+    expect(back[0]).toEqual(input);
+  });
+
+  // per-phase-config phase 7.3 — round-trip every Level-4 field plus
+  // tests.none. Every field must survive `run resume`, so a regression in
+  // subtasks.ts would silently drop per-phase routing across resumes.
+  it('round-trips per-phase-config v1 Level-4 + bypass fields (phase 7.3)', () => {
+    const input: RunSubtaskInput = {
+      title: 'phase:01-core impl',
+      content: 'implement core',
+      phaseId: '01-core',
+      testProfile: 'pytest',
+      testImage: 'my-runner:v1',
+      testScript: '#!/bin/sh\nrun-tests',
+      stageScript: '#!/bin/sh\nstart-app',
+      resolveAmbiguity: 'ai',
+      testRetries: 3,
+      noRunner: true,
+    };
+    const runtime = runSubtasksFromInputs([input]);
+    expect(runtime[0]?.testProfile).toBe('pytest');
+    expect(runtime[0]?.noRunner).toBe(true);
+    const back = runSubtasksToInputs(runtime);
+    expect(back[0]).toEqual(input);
+  });
+
+  // per-phase-config phase 7.5b (level-3-mirror) — round-trip the four
+  // Level-3 fields (image / sandbox-profile / engine / compose-file) and
+  // the `requiresLevel3RestartFromPrev` flag. Same shape as the Level-2
+  // round-trip above; phase 7.5d reads these from the manifest at
+  // coder-container creation, so a paused multi-phase run picks up the
+  // same Level-3 values it had before pause.
+  it('round-trips per-phase-config v1 Level-3 fields (phase 7.5b — level-3-mirror)', () => {
+    const input: RunSubtaskInput = {
+      title: 'phase:02-b impl',
+      content: 'implement b',
+      phaseId: '02-b',
+      containerImage: 'my-coder:v2',
+      containerSandboxProfileId: 'node-pnpm-python',
+      containerEngine: 'docker',
+      containerComposeFile: 'docker-compose.gpu.yml',
+      requiresLevel3RestartFromPrev: true,
+    };
+    const runtime = runSubtasksFromInputs([input]);
+    expect(runtime[0]?.containerImage).toBe('my-coder:v2');
+    expect(runtime[0]?.containerEngine).toBe('docker');
+    expect(runtime[0]?.requiresLevel3RestartFromPrev).toBe(true);
+    const back = runSubtasksToInputs(runtime);
+    expect(back[0]).toEqual(input);
+  });
 });

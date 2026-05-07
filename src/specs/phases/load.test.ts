@@ -138,7 +138,17 @@ describe('resolvePhaseConfig — inheritance', () => {
       fail2pass: BUILT_IN_DEFAULTS.testsFail2pass,
       enforce: BUILT_IN_DEFAULTS.testsEnforce,
       immutableFiles: BUILT_IN_DEFAULTS.testsImmutableFiles,
+      // per-phase-config v1: `tests.none` defaults to false (the phase has its
+      // own tests; the runner spins up as usual).
+      none: false,
     });
+    // per-phase-config v1: when no phase-level overrides exist, every group
+    // resolves to an empty object — the threading site falls back to run-level.
+    expect(r.gate).toEqual({});
+    expect(r.agent).toEqual({});
+    expect(r.container).toEqual({});
+    expect(r.runner).toEqual({});
+    expect(r.limits).toEqual({});
   });
 
   it('projectDefaultStrict: false flips the unset-mutable floor to mutable', () => {
@@ -324,5 +334,175 @@ describe('resolvePhaseConfig — inheritance', () => {
       },
     });
     expect(r.tests.immutableFiles).toEqual(['phase-only.ts']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// per-phase-config v1: new group resolution
+// ---------------------------------------------------------------------------
+
+describe('resolvePhaseConfig — v1 group resolution', () => {
+  it('resolves gate sub-keys independently (sub-key by sub-key merge)', () => {
+    // feature-top-level provides script; phase.yml provides retries.
+    // Both should land on the resolved config.
+    const r = resolvePhaseConfig({
+      phaseId: 'p1',
+      phaseConfig: { gate: { retries: 7 } },
+      featureConfig: { gate: { script: 'shared/gate.sh' } },
+    });
+    expect(r.gate.script).toBe('shared/gate.sh');
+    expect(r.gate.retries).toBe(7);
+  });
+
+  it('phase.yml > inline > defaults > feature-top for the same group sub-key', () => {
+    const r = resolvePhaseConfig({
+      phaseId: 'p1',
+      phaseConfig: { gate: { script: 'phase.sh' } },
+      featureConfig: {
+        gate: { script: 'feat.sh' },
+        phases: {
+          defaults: { gate: { script: 'defaults.sh' } },
+          phases: { p1: { gate: { script: 'inline.sh' } } },
+        },
+      },
+    });
+    expect(r.gate.script).toBe('phase.sh');
+  });
+
+  it('inline phase config beats defaults beats feature top-level for groups', () => {
+    const r = resolvePhaseConfig({
+      phaseId: 'p1',
+      phaseConfig: null,
+      featureConfig: {
+        gate: { script: 'feat.sh' },
+        phases: {
+          defaults: { gate: { script: 'defaults.sh' } },
+          phases: { p1: { gate: { script: 'inline.sh' } } },
+        },
+      },
+    });
+    expect(r.gate.script).toBe('inline.sh');
+  });
+
+  it('falls back to feature top-level when nothing in the phases scope sets the group', () => {
+    const r = resolvePhaseConfig({
+      phaseId: 'p1',
+      phaseConfig: null,
+      featureConfig: { gate: { retries: 2 } },
+    });
+    expect(r.gate.retries).toBe(2);
+  });
+
+  it('agent.env merges by key across layers (most-specific wins per key)', () => {
+    const r = resolvePhaseConfig({
+      phaseId: 'p1',
+      phaseConfig: { agent: { env: { PHASE: '1', SHARED: 'phase-wins' } } },
+      featureConfig: {
+        agent: { env: { TOP: '1' } },
+        phases: {
+          defaults: { agent: { env: { DEFAULTS: '1', SHARED: 'defaults-loses' } } },
+        },
+      },
+    });
+    expect(r.agent.env).toEqual({
+      TOP: '1',
+      DEFAULTS: '1',
+      PHASE: '1',
+      SHARED: 'phase-wins',
+    });
+  });
+
+  it('agent.secrets is list-valued: most-specific layer REPLACES (no merge)', () => {
+    const r = resolvePhaseConfig({
+      phaseId: 'p1',
+      phaseConfig: { agent: { secrets: ['PHASE_KEY'] } },
+      featureConfig: {
+        phases: {
+          defaults: { agent: { secrets: ['DEFAULTS_KEY'] } },
+        },
+      },
+    });
+    expect(r.agent.secrets).toEqual(['PHASE_KEY']);
+  });
+
+  it('container kebab-case YAML keys land as camelCase on resolved config', () => {
+    const r = resolvePhaseConfig({
+      phaseId: 'p1',
+      phaseConfig: {
+        container: {
+          'no-leash': true,
+          'sandbox-profile': 'python-uv',
+          'compose-file': 'docker-compose.phase.yml',
+        },
+      },
+      featureConfig: null,
+    });
+    expect(r.container.noLeash).toBe(true);
+    expect(r.container.sandboxProfile).toBe('python-uv');
+    expect(r.container.composeFile).toBe('docker-compose.phase.yml');
+  });
+
+  it('runner kebab-case YAML keys land as camelCase on resolved config', () => {
+    const r = resolvePhaseConfig({
+      phaseId: 'p1',
+      phaseConfig: {
+        runner: {
+          'test-profile': 'pytest',
+          'resolve-ambiguity': 'ai',
+          'test-retries': 3,
+        },
+      },
+      featureConfig: null,
+    });
+    expect(r.runner.testProfile).toBe('pytest');
+    expect(r.runner.resolveAmbiguity).toBe('ai');
+    expect(r.runner.testRetries).toBe(3);
+  });
+
+  it('limits.max-attempts kebab → maxAttempts camel', () => {
+    const r = resolvePhaseConfig({
+      phaseId: 'p1',
+      phaseConfig: { limits: { 'max-attempts': 5 } },
+      featureConfig: null,
+    });
+    expect(r.limits.maxAttempts).toBe(5);
+  });
+
+  it('agent.base-url kebab → baseUrl camel', () => {
+    const r = resolvePhaseConfig({
+      phaseId: 'p1',
+      phaseConfig: { agent: { 'base-url': 'https://api.example.com' } },
+      featureConfig: null,
+    });
+    expect(r.agent.baseUrl).toBe('https://api.example.com');
+  });
+
+  it('groups with no settings anywhere resolve to empty objects', () => {
+    const r = resolvePhaseConfig({
+      phaseId: 'p1',
+      phaseConfig: null,
+      featureConfig: null,
+    });
+    expect(r.gate).toEqual({});
+    expect(r.agent).toEqual({});
+    expect(r.container).toEqual({});
+    expect(r.runner).toEqual({});
+    expect(r.limits).toEqual({});
+  });
+
+  it('tests.none defaults to false; explicit true is preserved', () => {
+    const r1 = resolvePhaseConfig({
+      phaseId: 'p1',
+      phaseConfig: null,
+      featureConfig: null,
+    });
+    expect(r1.tests.none).toBe(false);
+
+    const r2 = resolvePhaseConfig({
+      phaseId: 'p1',
+      phaseConfig: { tests: { none: true } },
+      featureConfig: null,
+    });
+    expect(r2.tests.none).toBe(true);
   });
 });

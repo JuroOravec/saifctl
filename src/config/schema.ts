@@ -148,7 +148,25 @@ const saifctlConfigDefaultsSchema = z.object({
   cedarPolicyPath: z.string().optional(),
   coderImage: z.string().optional(),
   gateRetries: z.number().int().positive().optional(),
-  reviewerEnabled: z.boolean().optional(),
+  /**
+   * Run-level baseline for {@link RunSubtaskInput#reviewerEnabled}.
+   * Mirrors the per-phase `agent.reviewer` shape so the saifctl-config
+   * and the schema documented in §6.6 use the same name. Per-phase
+   * overrides layer on top of this baseline via
+   * `<saifctlPath>/subtask-env.sh`.
+   *
+   * **Strict mode.** This block is `.strict()` so unknown keys (e.g.
+   * a typo like `agent.reviewerEnabled`) error at parse time rather
+   * than silently dropping the value and leaving the reviewer at its
+   * default. Mirrors the per-phase-level `agentConfigSchema` in
+   * `src/specs/phases/schema.ts`, which is also `.strict()`.
+   */
+  agent: z
+    .object({
+      reviewer: z.boolean().optional(),
+    })
+    .strict()
+    .optional(),
   /**
    * When true, the sandbox copy includes untracked and uncommitted files (rsync working tree).
    * When false (default), only files at `HEAD` are copied (`git archive`).

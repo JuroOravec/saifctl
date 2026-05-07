@@ -201,6 +201,22 @@ run_subtask() {
       echo "[coder-start] Applied pending human feedback (round $round)."
     fi
 
+    # Per-phase-config phase 7.4 (Level 1.5 fast path): source the
+    # per-subtask env file so phase-level overrides for `agent.env`,
+    # `agent.secrets`, `agent.model`, `agent.base-url`, and
+    # `agent.reviewer` take effect on this round's `agent.sh` invocation
+    # without a container restart. The host rewrites the file at each
+    # subtask transition; the file uses explicit `export VAR=...` and
+    # `unset VAR` directives, so a `set -a` wrapper would be redundant
+    # (and `set -a` doesn't propagate `unset` anyway). Missing file
+    # means no per-phase overrides → run-level container env (set at
+    # `docker run -e`) stays in effect (back-compat for older sandboxes
+    # that didn't write the file).
+    if [ -f /saifctl/subtask-env.sh ]; then
+      # shellcheck disable=SC1091  # bind-mounted at runtime, not in this repo
+      . /saifctl/subtask-env.sh
+    fi
+
     # Write the current task to SAIFCTL_TASK_PATH so the agent script can read it.
     # Agent scripts must consume the task from this file (not from env var or CLI args).
     export SAIFCTL_TASK_PATH="$TASK_PATH"
@@ -370,6 +386,27 @@ main() {
     echo "[coder-start] Running agent install script: $SAIFCTL_AGENT_INSTALL_SCRIPT"
     bash "$SAIFCTL_AGENT_INSTALL_SCRIPT"
     echo "[coder-start] Agent install script completed."
+  fi
+
+  # Normalise /workspace ownership to the host bind-mount owner.
+  #
+  # Why: startup.sh and agent-install.sh both run as root in this container
+  # (Leash bootstrap requires root; per-profile drop-privileges only happens
+  # in agent.sh). On Linux Docker the files they create (.pnpm-store/,
+  # node_modules/, …) end up root-owned on the host. The downstream
+  # consumers — the staging + test-runner containers (run as the host UID
+  # per src/engines/docker/index.ts) and the host-side cleanup (vitest
+  # harness running as the runner user) — both fail with EACCES on those
+  # files. macOS Docker Desktop's UID translation hides the issue; this
+  # chown is a no-op there because workspace owner == 0 on the macOS path.
+  # Tracked: release-readiness/X-08-P9.
+  if [ -d /workspace ]; then
+    ws_uid="$(stat -c %u /workspace 2>/dev/null || echo 0)"
+    ws_gid="$(stat -c %g /workspace 2>/dev/null || echo 0)"
+    if [ "$ws_uid" != "0" ]; then
+      echo "[coder-start] Normalising /workspace ownership → ${ws_uid}:${ws_gid} (was mixed root/host after startup)"
+      chown -R "${ws_uid}:${ws_gid}" /workspace 2>/dev/null || true
+    fi
   fi
 
   local current_task="$SAIFCTL_INITIAL_TASK"

@@ -30,9 +30,35 @@ export function runSubtasksFromInputs(
     gateRetries: input.gateRetries,
     reviewerEnabled: input.reviewerEnabled,
     agentEnv: input.agentEnv,
+    // per-phase-config v1 (phase 7.4 — Level-1.5)
+    agentSecretKeys: input.agentSecretKeys,
+    llmOverrides: input.llmOverrides,
     testScope: input.testScope,
     phaseId: input.phaseId,
     criticPrompt: input.criticPrompt,
+    // per-phase-config v1 (phase 7.3 — Level-4)
+    testProfile: input.testProfile,
+    testImage: input.testImage,
+    testScript: input.testScript,
+    stageScript: input.stageScript,
+    resolveAmbiguity: input.resolveAmbiguity,
+    testRetries: input.testRetries,
+    noRunner: input.noRunner,
+    // per-phase-config v1 (phase 7.5 — Level-2 controlled coder restart)
+    agentProfileId: input.agentProfileId,
+    agentInstallScript: input.agentInstallScript,
+    startupScript: input.startupScript,
+    cedarScript: input.cedarScript,
+    dangerousNoLeash: input.dangerousNoLeash,
+    requiresLevel2RestartFromPrev: input.requiresLevel2RestartFromPrev,
+    // per-phase-config v1 (phase 7.5b — Level-3 manifest threading)
+    containerImage: input.containerImage,
+    containerSandboxProfileId: input.containerSandboxProfileId,
+    containerEngine: input.containerEngine,
+    containerComposeFile: input.containerComposeFile,
+    requiresLevel3RestartFromPrev: input.requiresLevel3RestartFromPrev,
+    // per-phase-config v1 (phase 7.6 — per-phase max-attempts)
+    limits: input.limits,
   }));
 }
 
@@ -46,8 +72,34 @@ export function runSubtasksToInputs(subtasks: readonly RunSubtask[]): RunSubtask
     gateRetries: s.gateRetries,
     reviewerEnabled: s.reviewerEnabled,
     agentEnv: s.agentEnv,
+    // per-phase-config v1 (phase 7.4 — Level-1.5)
+    agentSecretKeys: s.agentSecretKeys,
+    llmOverrides: s.llmOverrides,
     testScope: s.testScope,
     phaseId: s.phaseId,
     criticPrompt: s.criticPrompt,
+    // per-phase-config v1 (phase 7.3 — Level-4)
+    testProfile: s.testProfile,
+    testImage: s.testImage,
+    testScript: s.testScript,
+    stageScript: s.stageScript,
+    resolveAmbiguity: s.resolveAmbiguity,
+    testRetries: s.testRetries,
+    noRunner: s.noRunner,
+    // per-phase-config v1 (phase 7.5 — Level-2 controlled coder restart)
+    agentProfileId: s.agentProfileId,
+    agentInstallScript: s.agentInstallScript,
+    startupScript: s.startupScript,
+    cedarScript: s.cedarScript,
+    dangerousNoLeash: s.dangerousNoLeash,
+    requiresLevel2RestartFromPrev: s.requiresLevel2RestartFromPrev,
+    // per-phase-config v1 (phase 7.5b — Level-3 manifest threading)
+    containerImage: s.containerImage,
+    containerSandboxProfileId: s.containerSandboxProfileId,
+    containerEngine: s.containerEngine,
+    containerComposeFile: s.containerComposeFile,
+    requiresLevel3RestartFromPrev: s.requiresLevel3RestartFromPrev,
+    // per-phase-config v1 (phase 7.6 — per-phase max-attempts)
+    limits: s.limits,
   }));
 }
