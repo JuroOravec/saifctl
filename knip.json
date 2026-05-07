@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": ["src/validation/validate/*.ts!"],
-  "ignoreDependencies": ["@strongdm/leash"],
+  "ignoreDependencies": ["@strongdm/leash", "@safe-ai-factory/saifdocs"],
   "ignoreBinaries": ["uv"],
   "ignoreFiles": [
     "npm-tombstones/**",
