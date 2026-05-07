@@ -81,7 +81,9 @@ export function parseDuration(input: TimeoutInput, fieldLabel: string): number |
   // String form. Strip + lowercase for unit parsing.
   const raw = input.trim();
   if (raw === '') {
-    throw new Error(`${fieldLabel}: empty string is not a valid duration (use 'none' for unbounded)`);
+    throw new Error(
+      `${fieldLabel}: empty string is not a valid duration (use 'none' for unbounded)`,
+    );
   }
   if (raw.toLowerCase() === 'none') return null;
 
@@ -106,9 +108,7 @@ export function parseDuration(input: TimeoutInput, fieldLabel: string): number |
   while ((match = re.exec(lower)) !== null) {
     const [whole, digits, unit] = match;
     if (seenUnits.has(unit)) {
-      throw new Error(
-        `${fieldLabel}: unit '${unit}' appears more than once in "${input}"`,
-      );
+      throw new Error(`${fieldLabel}: unit '${unit}' appears more than once in "${input}"`);
     }
     seenUnits.add(unit);
     const n = Number(digits);

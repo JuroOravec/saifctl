@@ -4,7 +4,7 @@ When you write code that talks to a database, a queue, or an external API, testi
 
 ## Why real services instead of mocks
 
-Mocks answer a different question than running code. A mock verifies that your code calls the right methods with the right arguments. A real service verifies that your code produces the right *effect* — that a row lands in the database, that a message is consumed off the queue, that a webhook actually fires.
+Mocks answer a different question than running code. A mock verifies that your code calls the right methods with the right arguments. A real service verifies that your code produces the right _effect_ — that a row lands in the database, that a message is consumed off the queue, that a webhook actually fires.
 
 For agent-generated code, the distinction matters more than it does for human-written code. An agent can learn to satisfy a mock without producing correct behaviour, because the mock rewards the shape of the call, not the outcome. Integration tests that run against real services catch this class of failure mechanically, before the code reaches your repository.
 
@@ -34,7 +34,7 @@ The `engine:` field in each environment block selects the infrastructure layer:
 - `local` — services are assumed to be already running on the host. No container boundary is enforced. Valid only in the `coding` environment block; the staging environment must use `docker` or `helm`. Use only for trusted code in fast inner-loop iteration.
 - `helm` — remote execution on Kubernetes (planned, not yet available).
 
-The engine controls *where* the phase runs; the service declarations control *what* is available when it runs. See [Execution infrastructure: engines and phases](./infra.md) for the full engine comparison.
+The engine controls _where_ the phase runs; the service declarations control _what_ is available when it runs. See [Execution infrastructure: engines and phases](./infra.md) for the full engine comparison.
 
 ## Trade-offs: fidelity vs. speed
 
@@ -42,12 +42,12 @@ Think of your service declarations as a test fixture topology rather than a stat
 
 Real services cost more than mocks:
 
-| | Real services | Mocks |
-|---|---|---|
-| Test fidelity | High — actual network I/O, real schema enforcement | Low to medium — depends on mock quality |
-| Startup time | Seconds to tens of seconds (container pull + health check) | Milliseconds |
-| Maintenance | Compose file + seed data | Mock implementation per dependency |
-| Agent over-fitting risk | Low | Higher — agent can game the mock |
+|                         | Real services                                              | Mocks                                   |
+| ----------------------- | ---------------------------------------------------------- | --------------------------------------- |
+| Test fidelity           | High — actual network I/O, real schema enforcement         | Low to medium — depends on mock quality |
+| Startup time            | Seconds to tens of seconds (container pull + health check) | Milliseconds                            |
+| Maintenance             | Compose file + seed data                                   | Mock implementation per dependency      |
+| Agent over-fitting risk | Low                                                        | Higher — agent can game the mock        |
 
 For integration and end-to-end tests, the fidelity gain is worth the startup cost. For unit tests that cover pure logic, mocks remain appropriate. saifctl does not force one approach — you declare services only where you need them, and the service block is optional in both environments.
 

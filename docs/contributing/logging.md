@@ -11,7 +11,7 @@ saifctl uses two distinct output paths:
 
 | Path                                                      | What it carries                                                                                            | How it works                                                   |
 | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| **Structured logger** (`consola`)                         | Application-level messages — progress, warnings, errors, debug info produced by saifctl's own code          | Level-filtered; respects `--verbose`, `CONSOLA_LEVEL`, `DEBUG` |
+| **Structured logger** (`consola`)                         | Application-level messages — progress, warnings, errors, debug info produced by saifctl's own code         | Level-filtered; respects `--verbose`, `CONSOLA_LEVEL`, `DEBUG` |
 | **Raw stream forwarding** (`process.stdout/stderr.write`) | Byte-for-byte output from external processes — Docker container logs, LLM thought tokens, agent tool calls | Not filtered; always printed immediately                       |
 
 These two paths are kept intentionally separate.

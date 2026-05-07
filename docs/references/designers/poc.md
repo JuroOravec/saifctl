@@ -23,32 +23,32 @@ saifctl feat design --designer poc
 
 All outputs land under `saifctl/features/<feature>/`.
 
-| File | Required | Description |
-|---|---|---|
-| `specification.md` | Yes | Precise behaviour contract for the feature |
-| `plan.md` | Yes | Implementation roadmap |
-| `poc-findings.md` | No | Freeform notes: edge cases, open questions, design decisions |
+| File               | Required | Description                                                  |
+| ------------------ | -------- | ------------------------------------------------------------ |
+| `specification.md` | Yes      | Precise behaviour contract for the feature                   |
+| `plan.md`          | Yes      | Implementation roadmap                                       |
+| `poc-findings.md`  | No       | Freeform notes: edge cases, open questions, design decisions |
 
 `hasRun()` returns `true` only when both `specification.md` and `plan.md` are present.
 
 ## Agent run settings
 
-| Setting | Value |
-|---|---|
-| Max runs | 1 |
-| Reviewer | Disabled |
-| `allowSaifctlInPatch` | `true` |
-| Extract mode | `host-apply-filtered` |
-| Extract include | `saifctl/features/` |
-| Extract exclude | `saifctl/features/<feature>-poc/` |
+| Setting               | Value                             |
+| --------------------- | --------------------------------- |
+| Max runs              | 1                                 |
+| Reviewer              | Disabled                          |
+| `allowSaifctlInPatch` | `true`                            |
+| Extract mode          | `host-apply-filtered`             |
+| Extract include       | `saifctl/features/`               |
+| Extract exclude       | `saifctl/features/<feature>-poc/` |
 
 ## Comparison with other designers
 
-| | POC Explorer (`poc`) | Shotgun (`shotgun`) |
-|---|---|---|
-| Approach | Runs a live coding agent | Static trace analysis |
-| Speed | Slower | Faster |
-| Live agent run | Yes | No |
+|                | POC Explorer (`poc`)     | Shotgun (`shotgun`)   |
+| -------------- | ------------------------ | --------------------- |
+| Approach       | Runs a live coding agent | Static trace analysis |
+| Speed          | Slower                   | Faster                |
+| Live agent run | Yes                      | No                    |
 
 ## See also
 

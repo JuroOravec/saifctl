@@ -12,20 +12,20 @@ Qwen Code supports four authentication protocols. The agent script provides `LLM
 
 **saifctl `LLM_*` fallbacks (DashScope and OpenAI-compatible)**
 
-| Variable | Maps to | Protocol |
-|---|---|---|
-| `LLM_API_KEY` | `DASHSCOPE_API_KEY` | Alibaba DashScope (native Qwen models) |
-| `LLM_API_KEY` | `OPENAI_API_KEY` | OpenAI-compatible (OpenRouter, proxies) |
-| `LLM_BASE_URL` | `OPENAI_BASE_URL` | Custom endpoint for OpenAI-compatible protocol |
+| Variable       | Maps to             | Protocol                                       |
+| -------------- | ------------------- | ---------------------------------------------- |
+| `LLM_API_KEY`  | `DASHSCOPE_API_KEY` | Alibaba DashScope (native Qwen models)         |
+| `LLM_API_KEY`  | `OPENAI_API_KEY`    | OpenAI-compatible (OpenRouter, proxies)        |
+| `LLM_BASE_URL` | `OPENAI_BASE_URL`   | Custom endpoint for OpenAI-compatible protocol |
 
 **All supported protocols (set directly to use Anthropic or Google GenAI)**
 
-| Variable | Protocol |
-|---|---|
-| `DASHSCOPE_API_KEY` | Alibaba DashScope |
-| `OPENAI_API_KEY` + `OPENAI_BASE_URL` | OpenAI-compatible |
-| `ANTHROPIC_API_KEY` + `ANTHROPIC_BASE_URL` | Anthropic (no `LLM_*` fallback) |
-| `GEMINI_API_KEY` | Google GenAI (no `LLM_*` fallback) |
+| Variable                                   | Protocol                           |
+| ------------------------------------------ | ---------------------------------- |
+| `DASHSCOPE_API_KEY`                        | Alibaba DashScope                  |
+| `OPENAI_API_KEY` + `OPENAI_BASE_URL`       | OpenAI-compatible                  |
+| `ANTHROPIC_API_KEY` + `ANTHROPIC_BASE_URL` | Anthropic (no `LLM_*` fallback)    |
+| `GEMINI_API_KEY`                           | Google GenAI (no `LLM_*` fallback) |
 
 See the [Qwen Code auth docs](https://qwenlm.github.io/qwen-code-docs/en/users/configuration/auth/) for full details.
 
@@ -47,12 +47,12 @@ qwen \
 
 ## Flags used by the agent script
 
-| Flag | Value | Purpose |
-|---|---|---|
-| `--prompt` / `-p` | task text | Headless mode; exits when done |
-| `--model` | `$LLM_MODEL_ID` | Override the model for the session |
-| `--yolo` / `-y` | — | Auto-approve all tool calls; required for headless use |
-| `--output-format` | `stream-json` | Newline-delimited JSON events; compatible with saifctl log parsing |
+| Flag              | Value           | Purpose                                                            |
+| ----------------- | --------------- | ------------------------------------------------------------------ |
+| `--prompt` / `-p` | task text       | Headless mode; exits when done                                     |
+| `--model`         | `$LLM_MODEL_ID` | Override the model for the session                                 |
+| `--yolo` / `-y`   | —               | Auto-approve all tool calls; required for headless use             |
+| `--output-format` | `stream-json`   | Newline-delimited JSON events; compatible with saifctl log parsing |
 
 ## Installation
 

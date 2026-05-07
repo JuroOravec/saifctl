@@ -9,12 +9,7 @@ export default defineConfig({
     // and are meant to run inside the saifctl test-runner container against
     // the staging sidecar — not on the host. Vitest's default glob would
     // otherwise sweep them up and fail with ECONNREFUSED on localhost:8080.
-    exclude: [
-      'node_modules/**',
-      'dist/**',
-      'test/integration/**',
-      'saifctl/features/*/phases/**',
-    ],
+    exclude: ['node_modules/**', 'dist/**', 'test/integration/**', 'saifctl/features/*/phases/**'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts', 'scripts/**/*.ts'],

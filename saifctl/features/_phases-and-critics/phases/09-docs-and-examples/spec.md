@@ -69,7 +69,7 @@ Update the docspec successors below; saifdocs regenerates the user-facing
   derived. Don't link to `feat-phases.md` user pages that don't exist;
   cross-reference the new `docspec/` content directly.
 - `docspec/references/commands/feat-phases.md` — covers the `feat phases
-  list / validate / compile` subcommands explicitly.
+list / validate / compile` subcommands explicitly.
 - `docspec/products/saifctl/concepts/feature-lifecycle.md` — multi-phase
   lifecycle section.
 - `docspec/products/saifctl/concepts/run-lifecycle.md` — pause/resume work

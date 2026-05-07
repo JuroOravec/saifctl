@@ -6,11 +6,11 @@ Practical how-to for adding a new coding-agent CLI integration. For the broader 
 
 Every agent profile dir at `src/agent-profiles/<id>/` contains:
 
-| File | Role |
-|---|---|
-| `profile.ts` | Registers id, displayName, `stdoutStrategy`, drop-privileges classification. |
-| `agent-install.sh` | Installs the agent CLI in the coder container. Runs once at container start. |
-| `agent.sh` | Runs the agent for one inner round. Reads `$SAIFCTL_TASK_PATH`, exits when done. |
+| File               | Role                                                                             |
+| ------------------ | -------------------------------------------------------------------------------- |
+| `profile.ts`       | Registers id, displayName, `stdoutStrategy`, drop-privileges classification.     |
+| `agent-install.sh` | Installs the agent CLI in the coder container. Runs once at container start.     |
+| `agent.sh`         | Runs the agent for one inner round. Reads `$SAIFCTL_TASK_PATH`, exits when done. |
 
 `--agent <id>` picks a built-in profile. `--agent-script <path>` overrides just `agent.sh` for one-off runs.
 
@@ -18,14 +18,14 @@ Every agent profile dir at `src/agent-profiles/<id>/` contains:
 
 Every `agent.sh` must:
 
-| Requirement | Detail |
-|---|---|
-| Read task from file | Task is at `$SAIFCTL_TASK_PATH` before each invocation. **Don't** read from CLI args (escaping + arg-length limits). |
-| Work in the workspace | Leash mode: `/workspace`. `--engine local`: current directory (sandbox `code/`). Use `${SAIFCTL_WORKSPACE_BASE:-/workspace}`. |
-| Exit on completion | Any exit code. The gate is the authoritative success signal, not the agent's exit code. |
-| Headless / non-interactive | Agent must run without prompts (`--yes`, `--headless`, `--always-approve`, `--yolo`, etc.). |
-| No auto-commits | Most CLIs commit by default; the factory extracts diffs itself. Pass `--no-auto-commits` etc. to disable. |
-| Source drop-privileges helpers | Run as `$SAIFCTL_UNPRIV_USER`, not root. **Mandatory** — see below. |
+| Requirement                    | Detail                                                                                                                        |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Read task from file            | Task is at `$SAIFCTL_TASK_PATH` before each invocation. **Don't** read from CLI args (escaping + arg-length limits).          |
+| Work in the workspace          | Leash mode: `/workspace`. `--engine local`: current directory (sandbox `code/`). Use `${SAIFCTL_WORKSPACE_BASE:-/workspace}`. |
+| Exit on completion             | Any exit code. The gate is the authoritative success signal, not the agent's exit code.                                       |
+| Headless / non-interactive     | Agent must run without prompts (`--yes`, `--headless`, `--always-approve`, `--yolo`, etc.).                                   |
+| No auto-commits                | Most CLIs commit by default; the factory extracts diffs itself. Pass `--no-auto-commits` etc. to disable.                     |
+| Source drop-privileges helpers | Run as `$SAIFCTL_UNPRIV_USER`, not root. **Mandatory** — see below.                                                           |
 
 ### Drop-privileges contract (mandatory)
 
@@ -66,13 +66,13 @@ Required in `profile.ts`. Not configurable via CLI or `saifctl.config`.
 
 The 15 shipping profiles at [`src/agent-profiles/`](../../src/agent-profiles/) are the canonical examples. Notable variants:
 
-| Profile | Pattern |
-|---|---|
-| `claude` | npm-installed CLI; OAuth token-staging via `--claude-max` (per-agent option) |
-| `aider` | pipx-installed; reads task from `--message-file`; explicit `--no-auto-commits` |
-| `openhands` | Pre-installed in the published image; structured-JSON `stdoutStrategy` |
-| `cursor` | `curl | bash` install; OAuth via `--cursor-api-key` per-agent option |
-| `debug` | No-op; no LLM call. Used in integration tests |
+| Profile     | Pattern                                                                        |
+| ----------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| `claude`    | npm-installed CLI; OAuth token-staging via `--claude-max` (per-agent option)   |
+| `aider`     | pipx-installed; reads task from `--message-file`; explicit `--no-auto-commits` |
+| `openhands` | Pre-installed in the published image; structured-JSON `stdoutStrategy`         |
+| `cursor`    | `curl                                                                          | bash`install; OAuth via`--cursor-api-key` per-agent option |
+| `debug`     | No-op; no LLM call. Used in integration tests                                  |
 
 ## Adding a new agent — workflow
 
@@ -124,6 +124,14 @@ Check for places where we mention all agentic CLI integrations and add our new <
 ## Agent benchmarks
 
 - https://www.tbench.ai/leaderboard/terminal-bench/2.0
+
+## Tools considered but not integrated
+
+Some agentic CLIs look like a fit at first glance but turn out to overlap with what saifctl already does. Records below exist so the next person asking "should we add X?" can read the analysis instead of repeating it.
+
+| Tool                            | Why not                                                                                                                                                                                                                                            | Decision record                                                                                                |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [OpenClaw](https://openclaw.ai) | Is itself an orchestrator; its coding-agent skill delegates to `claude` / `codex` / `opencode` — all already first-class saifctl profiles. Stacking another orchestrator on top adds a daemon and an indirection without unlocking new capability. | [`saifctl/features/openclaw-agent-profile/design.md`](../../saifctl/features/openclaw-agent-profile/design.md) |
 
 ## See also
 

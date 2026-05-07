@@ -34,12 +34,12 @@ There is no direct transition from `paused` to `completed`; a paused run must be
 
 These two commands both halt a running Run, but they leave the system in very different states.
 
-| | `saifctl run pause` | `saifctl run stop` |
-|---|---|---|
-| Sandbox container | Stopped (not deleted) | Torn down |
-| Docker network | Preserved | Removed |
-| Resume path | `run resume` (fast) | `run start` (rebuild) |
-| Use when | You plan to continue soon | You are done or starting over |
+|                   | `saifctl run pause`       | `saifctl run stop`            |
+| ----------------- | ------------------------- | ----------------------------- |
+| Sandbox container | Stopped (not deleted)     | Torn down                     |
+| Docker network    | Preserved                 | Removed                       |
+| Resume path       | `run resume` (fast)       | `run start` (rebuild)         |
+| Use when          | You plan to continue soon | You are done or starting over |
 
 Think of it like the difference between suspending a process (`SIGSTOP`) and killing it (`SIGKILL`): pause halts the containers and preserves their state on disk so that resume is fast; stop frees all resources and makes recovery more expensive.
 

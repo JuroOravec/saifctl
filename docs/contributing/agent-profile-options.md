@@ -29,7 +29,7 @@ export const myAgentProfile: AgentProfile = {
 
   options: [
     {
-      name: 'config',                         // → --myagent-config
+      name: 'config', // → --myagent-config
       type: 'string',
       description: 'Path to a custom my-agent config file',
       validate: async (value) => {
@@ -40,7 +40,7 @@ export const myAgentProfile: AgentProfile = {
       },
     },
     {
-      name: 'flag',                           // → --myagent-flag
+      name: 'flag', // → --myagent-flag
       type: 'boolean',
       description: 'Toggle some myagent feature',
       default: false,
@@ -52,16 +52,19 @@ export const myAgentProfile: AgentProfile = {
 
     return {
       env: {
-        MYAGENT_FEATURE_FLAG: '1',           // visible to agent.sh
+        MYAGENT_FEATURE_FLAG: '1', // visible to agent.sh
       },
-      stageFiles: typeof options.config === 'string' ? [
-        {
-          src: { kind: 'file', path: options.config },
-          dst: `${unprivHome}/.myagent/config.yaml`,
-          mode: 0o600,
-          owner: 'unpriv',
-        },
-      ] : [],
+      stageFiles:
+        typeof options.config === 'string'
+          ? [
+              {
+                src: { kind: 'file', path: options.config },
+                dst: `${unprivHome}/.myagent/config.yaml`,
+                mode: 0o600,
+                owner: 'unpriv',
+              },
+            ]
+          : [],
     };
   },
 };
@@ -83,14 +86,14 @@ saifctl feat run --agent myagent --myagent-flag --myagent-config ./conf.yaml
 
 ## Field reference
 
-| Field | Type | Notes |
-|---|---|---|
-| `name` | string (kebab-case) | suffix only; saifctl prepends `<id>-` |
-| `type` | `'boolean' \| 'string' \| 'number'` | type-checked at parse time |
-| `description` | string | shown in `--help` |
-| `default` | matches `type` | only for boolean/string/number; strict type match required |
-| `secret` | boolean | when true, value is treated as a secret: kept out of run storage, redacted in logs |
-| `validate` | `(value) => void \| Promise<void>` | throw to surface a CLI error; runs after parse, before container start |
+| Field         | Type                                | Notes                                                                              |
+| ------------- | ----------------------------------- | ---------------------------------------------------------------------------------- |
+| `name`        | string (kebab-case)                 | suffix only; saifctl prepends `<id>-`                                              |
+| `type`        | `'boolean' \| 'string' \| 'number'` | type-checked at parse time                                                         |
+| `description` | string                              | shown in `--help`                                                                  |
+| `default`     | matches `type`                      | only for boolean/string/number; strict type match required                         |
+| `secret`      | boolean                             | when true, value is treated as a secret: kept out of run storage, redacted in logs |
+| `validate`    | `(value) => void \| Promise<void>`  | throw to surface a CLI error; runs after parse, before container start             |
 
 ## `prepareAgentEnv` hook
 
@@ -169,11 +172,11 @@ Notes:
 
 `DesignerProfile` (`src/designer-profiles/types.ts`) and `IndexerProfile` (`src/indexer-profiles/types.ts`) both accept the same `options?: AgentProfileOption[]` field as agents. The CLI dynamic flag injection in `src/cli/index.ts` pre-parses `--designer` and `--indexer` (in addition to `--agent`) and injects each profile's options into the matching command schemas:
 
-| Profile flag | Commands the options are injected into |
-|---|---|
-| `--agent <id>` | `feat run`, `sandbox` |
+| Profile flag      | Commands the options are injected into                                                                    |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| `--agent <id>`    | `feat run`, `sandbox`                                                                                     |
 | `--designer <id>` | `feat design`, `feat design-specs`, `feat design-discovery`, `feat design-tests`, `feat design-fail2pass` |
-| `--indexer <id>` | `init`, all `feat design*` |
+| `--indexer <id>`  | `init`, all `feat design*`                                                                                |
 
 Resolution + validation is wired into `feat design` and `init` handlers via `recordAndValidateProfileOptions({ profile, args, configMap })`. Designer/indexer code reads the resolved values via `readProfileOptionsFromEnv(profile)` from inside its own `run()` / `init()` implementation — no `prepareAgentEnv`-style container staging applies because designers and indexers run on the host, not inside a coder container.
 
@@ -185,14 +188,14 @@ agents:
     max: true
 designers:
   shotgun:
-    strict: true     # hypothetical --shotgun-strict
+    strict: true # hypothetical --shotgun-strict
 indexers:
   shotgun:
-    pre-warm: true   # hypothetical --shotgun-pre-warm
+    pre-warm: true # hypothetical --shotgun-pre-warm
 ```
 
 The respective config-schema fields are `agentOptions`, `designerOptions`, `indexerOptions`. CLI > config > profile.default.
 
 ## Wiring follow-up coverage
 
-The standalone `feat design-*` subcommands (`feat design-specs`, `feat design-discovery`, `feat design-tests`, `feat design-fail2pass`) currently get the dynamic CLI flag *injection* (so `--shotgun-foo --help` works) but don't yet call `recordAndValidateProfileOptions` in their handlers — only the top-level `feat design` does. Same for any other entry point that takes `--designer` or `--indexer` outside the design flow. Add the helper call when authoring a profile that needs it; the pattern is one line per handler.
+The standalone `feat design-*` subcommands (`feat design-specs`, `feat design-discovery`, `feat design-tests`, `feat design-fail2pass`) currently get the dynamic CLI flag _injection_ (so `--shotgun-foo --help` works) but don't yet call `recordAndValidateProfileOptions` in their handlers — only the top-level `feat design` does. Same for any other entry point that takes `--designer` or `--indexer` outside the design flow. Add the helper call when authoring a profile that needs it; the pattern is one line per handler.

@@ -3,7 +3,7 @@
 Two pipelines:
 
 - **Design pipeline** (`feat design`) — turns a `proposal.md` into `specification.md` + `plan.md` + `tests.json` + generated test files. Runs LLM agents (Designer / Tests Planner / Tests Catalog) against the proposal + codebase. Output is what the convergence loop runs against.
-- **Vague Specs Checker** — runs *after* a holdout-test failure during `feat run`. Decides whether the failure is a genuine implementation bug or an ambiguous spec, and produces either a sanitized hint for the agent or a proposed spec addition.
+- **Vague Specs Checker** — runs _after_ a holdout-test failure during `feat run`. Decides whether the failure is a genuine implementation bug or an ambiguous spec, and produces either a sanitized hint for the agent or a proposed spec addition.
 
 Plus per-phase **critics** for phased features — adversarial review subtasks running between gate-pass and the next phase.
 
@@ -45,20 +45,20 @@ Design is agent-driven (Mastra workers running against codebase + proposal) but 
 
 In [`src/cli/commands/feat.ts`](../../../src/cli/commands/feat.ts). `feat design` chains them; each is also runnable solo for iteration:
 
-| Subcommand | What it does | Reads | Writes |
-|---|---|---|---|
-| `feat new <name>` | Bootstrap a feature dir; scaffold `proposal.md` | template | `<feature>/proposal.md` |
-| `feat design-discovery` | (Optional) run an MCP/local-tool agent to gather external context | `proposal.md`, configured `discoveryMcps` / `discoveryTools` | `discovery.md` |
-| `feat design-specs` | Run the **Designer** profile (default: POC Explorer; alt: Shotgun) to produce specification + plan | `proposal.md`, optionally `discovery.md`, codebase | `specification.md`, `plan.md`, `poc-findings.md` (POC) |
-| `feat design-tests` | Run the **Tests Planner** + **Tests Catalog** agents to produce the test catalog | `specification.md`, `plan.md`, codebase | `tests.md`, `tests.json` (+ generated test files under `tests/public/` and `tests/hidden/`) |
-| `feat design-fail2pass` | Sanity check: confirm at least one feature test fails on the *current* codebase before the agent runs | `tests.json`, current code | exit `0`/`1` |
-| `feat design` | All of the above in sequence (`discovery → specs → tests → fail2pass`) | proposal | full feature |
+| Subcommand              | What it does                                                                                          | Reads                                                        | Writes                                                                                      |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `feat new <name>`       | Bootstrap a feature dir; scaffold `proposal.md`                                                       | template                                                     | `<feature>/proposal.md`                                                                     |
+| `feat design-discovery` | (Optional) run an MCP/local-tool agent to gather external context                                     | `proposal.md`, configured `discoveryMcps` / `discoveryTools` | `discovery.md`                                                                              |
+| `feat design-specs`     | Run the **Designer** profile (default: POC Explorer; alt: Shotgun) to produce specification + plan    | `proposal.md`, optionally `discovery.md`, codebase           | `specification.md`, `plan.md`, `poc-findings.md` (POC)                                      |
+| `feat design-tests`     | Run the **Tests Planner** + **Tests Catalog** agents to produce the test catalog                      | `specification.md`, `plan.md`, codebase                      | `tests.md`, `tests.json` (+ generated test files under `tests/public/` and `tests/hidden/`) |
+| `feat design-fail2pass` | Sanity check: confirm at least one feature test fails on the _current_ codebase before the agent runs | `tests.json`, current code                                   | exit `0`/`1`                                                                                |
+| `feat design`           | All of the above in sequence (`discovery → specs → tests → fail2pass`)                                | proposal                                                     | full feature                                                                                |
 
 Cost: ~$1 and 1–2 min on a Sonnet-tier model. Scales with input-spec + codebase size.
 
 ## Stage 1: design-discovery (optional)
 
-Designers (Shotgun, POC Explorer) analyze the *internal* codebase via tree-sitter graph + RAG. They can't reach **outside** the project boundary.
+Designers (Shotgun, POC Explorer) analyze the _internal_ codebase via tree-sitter graph + RAG. They can't reach **outside** the project boundary.
 
 `feat design-discovery` is the bridge for external context — third-party API schemas, Jira tickets, Notion docs, internal microservice contracts, competitor UI scraping. Runs an LLM agent armed with user-supplied tools, reads `proposal.md`, writes `discovery.md`. `design-specs` picks it up automatically.
 
@@ -73,10 +73,10 @@ Output `discovery.md` is freeform markdown; no schema. Designer treats it as add
 
 [`feat design-specs`](../../../src/cli/commands/feat.ts#L396) dispatches to the configured designer profile.
 
-| Profile | Strategy | Trade-off |
-|---|---|---|
-| **`poc`** (POC Explorer; default; [`src/designer-profiles/poc/`](../../../src/designer-profiles/poc/)) | Sandboxed coding agent builds a throwaway proof-of-concept first, *then* derives the spec from what it discovered | Specs are grounded in code that compiles; surfaces edge cases. Slower; ~$1/run. |
-| **`shotgun`** ([`src/designer-profiles/shotgun/`](../../../src/designer-profiles/shotgun/)) | Static-trace-based: tree-sitter index + multi-agent (Researcher / Architect / Spec Writer) chain | Faster, no code execution. Specs are based on what the designer thinks the code does, not what it actually does at runtime. |
+| Profile                                                                                                | Strategy                                                                                                          | Trade-off                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **`poc`** (POC Explorer; default; [`src/designer-profiles/poc/`](../../../src/designer-profiles/poc/)) | Sandboxed coding agent builds a throwaway proof-of-concept first, _then_ derives the spec from what it discovered | Specs are grounded in code that compiles; surfaces edge cases. Slower; ~$1/run.                                             |
+| **`shotgun`** ([`src/designer-profiles/shotgun/`](../../../src/designer-profiles/shotgun/))            | Static-trace-based: tree-sitter index + multi-agent (Researcher / Architect / Spec Writer) chain                  | Faster, no code execution. Specs are based on what the designer thinks the code does, not what it actually does at runtime. |
 
 Pick via `--designer <id>` or `defaults.designer` in config. New profiles per [`extension-points.md`](./extension-points.md).
 
@@ -102,7 +102,7 @@ Why two passes (markdown → JSON):
 
 ## Stage 4: design-fail2pass
 
-Pre-flight: runs just-generated tests against the *current* codebase (agent hasn't touched anything). Expected outcome:
+Pre-flight: runs just-generated tests against the _current_ codebase (agent hasn't touched anything). Expected outcome:
 
 - At least one feature test **fails** — the feature isn't built yet, good.
 - Infra tests pass — sidecar reachable, helpers import, environment wires up.
@@ -126,17 +126,17 @@ The implementation agent reads the same `specification.md` the test-design agent
 >
 > **Implementation agent infers**: greeting can be generic (e.g. `Hello, world`).
 >
-> Hidden test: `expect(out).toContain('Alice')` → fails. The implementer's diff is *defensible*; the spec just didn't pin the behaviour.
+> Hidden test: `expect(out).toContain('Alice')` → fails. The implementer's diff is _defensible_; the spec just didn't pin the behaviour.
 
 ### How the checker fires
 
 When the test runner reports a failure, the orchestrator's [`runVagueSpecsCheckerForFailure`](../../../src/orchestrator/loop.ts#L2079) optionally invokes the Vague Specs Checker. Behaviour controlled by `--resolve-ambiguity off|prompt|ai`:
 
-| Mode | Behaviour |
-|---|---|
-| `off` (default) | Failure feeds back to the agent as-is (sanitized stderr); next round runs unchanged. Original behaviour. |
-| `prompt` | When the checker flags ambiguity, saifctl pauses the run and asks the user to confirm the proposed spec addition. |
-| `ai` | Saifctl auto-applies the proposed addition without human confirmation. Risky; appropriate for unattended runs only when you trust the checker. |
+| Mode            | Behaviour                                                                                                                                      |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `off` (default) | Failure feeds back to the agent as-is (sanitized stderr); next round runs unchanged. Original behaviour.                                       |
+| `prompt`        | When the checker flags ambiguity, saifctl pauses the run and asks the user to confirm the proposed spec addition.                              |
+| `ai`            | Saifctl auto-applies the proposed addition without human confirmation. Risky; appropriate for unattended runs only when you trust the checker. |
 
 ### What the checker sees and produces
 
@@ -163,12 +163,12 @@ Decision criteria, distilled from the prompt at [`vague-specs-check.ts:43-46`](.
 
 When the checker decides the failure is genuine (not ambiguous), `sanitizedHintForAgent` describes the failure in **behavioural** terms only — never quoting hidden test code.
 
-| Hint shape | Example |
-|---|---|
-| ✅ Behavioural | `"The command exits with code 1 when no arguments are provided, but should exit with code 0"` |
-| ❌ Test-code-quoting | `"the test checks if exit code equals 0"` |
+| Hint shape           | Example                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| ✅ Behavioural       | `"The command exits with code 1 when no arguments are provided, but should exit with code 0"` |
+| ❌ Test-code-quoting | `"the test checks if exit code equals 0"`                                                     |
 
-This is the only path holdout-test failure information reaches the implementer. Sanitized so the agent learns *what* is wrong without learning *what the hidden test does* — protects the holdout-hidden invariant ([`gate-and-reviewer.md`](./gate-and-reviewer.md#layer-3-holdout-tests)).
+This is the only path holdout-test failure information reaches the implementer. Sanitized so the agent learns _what_ is wrong without learning _what the hidden test does_ — protects the holdout-hidden invariant ([`gate-and-reviewer.md`](./gate-and-reviewer.md#layer-3-holdout-tests)).
 
 ### Spec-update mechanics
 
@@ -204,25 +204,25 @@ Each critic per phase = 2 subtasks:
 
 Both subtasks respect `--max-runs`. Critic prompts are templated with `{{phase.baseRef}}` (commit at the start of the phase's implementer subtask) so they can inspect via `git log {{phase.baseRef}}..HEAD`.
 
-| | Reviewer (Argus) | Critics |
-|---|---|---|
-| When | Per round, inner loop | Per phase, after gate passes |
-| Diff range | Run's initial base state → current HEAD | `{{phase.baseRef}} → HEAD` |
-| Catches | Semantic drift, hallucinated APIs | User-defined concerns: security, performance, paranoia |
-| User-wired? | No (always-on built-in) | Yes (declared in `feature.yml`) |
+|             | Reviewer (Argus)                        | Critics                                                |
+| ----------- | --------------------------------------- | ------------------------------------------------------ |
+| When        | Per round, inner loop                   | Per phase, after gate passes                           |
+| Diff range  | Run's initial base state → current HEAD | `{{phase.baseRef}} → HEAD`                             |
+| Catches     | Semantic drift, hallucinated APIs       | User-defined concerns: security, performance, paranoia |
+| User-wired? | No (always-on built-in)                 | Yes (declared in `feature.yml`)                        |
 
 ## Why three distinct agents
 
 Three distinct LLM agents by design:
 
-| Agent | Role | What it sees |
-|---|---|---|
-| **Designer (POC / Shotgun)** | Generate spec + plan | Proposal, codebase, optionally `discovery.md`. Never sees test agent's output or implementer's diff. |
-| **Tests Planner + Tests Catalog** | Generate test catalog | Spec, plan, codebase. Never sees implementer's diff. |
-| **Implementer (OpenHands / Claude / Codex / etc.)** | Write code | Spec, plan, **public** tests, codebase copy. Never sees hidden tests. See [`extension-points.md`](./extension-points.md) for the 15 supported agents. |
-| **Reviewer (Argus)** | Per-round semantic check | Spec, agent's diff. The deliberate exception to "agent output never reaches saifctl AI agents" — mitigated by the three-gate gauntlet, see [`security-threats.md` "Prompt-injection isolation"](./security-threats.md#additional-hardening-mechanisms). |
-| **Vague Specs Checker** | Adjudicate test failure as ambiguous-or-genuine | Spec, **failing test details (NOT the diff)**. Never sees the implementer's output. |
-| **Critics** | Per-phase adversarial review | Per-phase prompt, phase diff range. |
+| Agent                                               | Role                                            | What it sees                                                                                                                                                                                                                                            |
+| --------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Designer (POC / Shotgun)**                        | Generate spec + plan                            | Proposal, codebase, optionally `discovery.md`. Never sees test agent's output or implementer's diff.                                                                                                                                                    |
+| **Tests Planner + Tests Catalog**                   | Generate test catalog                           | Spec, plan, codebase. Never sees implementer's diff.                                                                                                                                                                                                    |
+| **Implementer (OpenHands / Claude / Codex / etc.)** | Write code                                      | Spec, plan, **public** tests, codebase copy. Never sees hidden tests. See [`extension-points.md`](./extension-points.md) for the 15 supported agents.                                                                                                   |
+| **Reviewer (Argus)**                                | Per-round semantic check                        | Spec, agent's diff. The deliberate exception to "agent output never reaches saifctl AI agents" — mitigated by the three-gate gauntlet, see [`security-threats.md` "Prompt-injection isolation"](./security-threats.md#additional-hardening-mechanisms). |
+| **Vague Specs Checker**                             | Adjudicate test failure as ambiguous-or-genuine | Spec, **failing test details (NOT the diff)**. Never sees the implementer's output.                                                                                                                                                                     |
+| **Critics**                                         | Per-phase adversarial review                    | Per-phase prompt, phase diff range.                                                                                                                                                                                                                     |
 
 The firewall exists because **the implementer is the untrusted party** in the threat model. Letting the implementer's output reach the agents that grade it (Vague Specs Checker, Reviewer prompt, Tests Catalog) opens prompt-injection paths. Each agent above either has zero exposure to the implementer (Tests Catalog, Vague Specs Checker) or is exposed only to the diff under controlled conditions (Reviewer — and bypassing the Reviewer doesn't pass holdouts).
 

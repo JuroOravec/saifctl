@@ -6,12 +6,12 @@ Store run metadata, patches, and sandbox state so you can inspect, resume, fork,
 
 ## Backends
 
-| Value | Where data goes | Setup required |
-|---|---|---|
-| `local` | `.saifctl/runs/` under the project root | None — the default |
-| `file://<path>` | Local filesystem at `<path>` | Path must be writable |
-| `s3://<bucket>[/<prefix>]` | Amazon S3 (or compatible) | AWS credentials in env |
-| `none` | Disabled — data is not persisted | None |
+| Value                      | Where data goes                         | Setup required         |
+| -------------------------- | --------------------------------------- | ---------------------- |
+| `local`                    | `.saifctl/runs/` under the project root | None — the default     |
+| `file://<path>`            | Local filesystem at `<path>`            | Path must be writable  |
+| `s3://<bucket>[/<prefix>]` | Amazon S3 (or compatible)               | AWS credentials in env |
+| `none`                     | Disabled — data is not persisted        | None                   |
 
 `saifctl sandbox` defaults to `none`. For all other commands the default is `local`.
 
@@ -19,11 +19,11 @@ Store run metadata, patches, and sandbox state so you can inspect, resume, fork,
 
 ## URI format
 
-| Shorthand | Expands to |
-|---|---|
-| `local` | `file://{projectDir}/.saifctl` |
+| Shorthand         | Expands to                                      |
+| ----------------- | ----------------------------------------------- |
+| `local`           | `file://{projectDir}/.saifctl`                  |
 | `none` / `memory` | no storage (null — nothing written or retained) |
-| `s3` | `s3://{SAIF_DEFAULT_S3_BUCKET}` |
+| `s3`              | `s3://{SAIF_DEFAULT_S3_BUCKET}`                 |
 
 Full URIs are also accepted:
 
@@ -36,28 +36,28 @@ s3://my-bucket?profile=staging&region=eu-west-1
 
 ### S3 query parameters
 
-| Parameter | Description |
-|---|---|
+| Parameter | Description                                         |
+| --------- | --------------------------------------------------- |
 | `profile` | AWS named profile to use (overrides `AWS_PROFILE`). |
-| `region` | AWS region (overrides `AWS_DEFAULT_REGION`). |
+| `region`  | AWS region (overrides `AWS_DEFAULT_REGION`).        |
 
 ---
 
 ## Environment variables
 
-| Variable | Used by |
-|---|---|
-| `SAIF_DEFAULT_S3_BUCKET` | Required when using the `s3` shorthand. Set to your bucket name. |
-| `AWS_PROFILE` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Standard AWS credential chain used by the S3 backend. |
+| Variable                                                      | Used by                                                          |
+| ------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `SAIF_DEFAULT_S3_BUCKET`                                      | Required when using the `s3` shorthand. Set to your bucket name. |
+| `AWS_PROFILE` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Standard AWS credential chain used by the S3 backend.            |
 
 ---
 
 ## CLI flags
 
-| Flag | Config field | Description |
-|---|---|---|
-| `--storage <uri>` | `defaults.globalStorage` | Bare URI sets the global backend for all namespaces (e.g. `--storage s3://bucket`). |
-| `--storage <key>=<uri>,...` | `defaults.storages` | Key=value pairs set per-namespace overrides (e.g. `--storage runs=local,tasks=s3`). Both forms may be combined in a single flag. |
+| Flag                        | Config field             | Description                                                                                                                      |
+| --------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--storage <uri>`           | `defaults.globalStorage` | Bare URI sets the global backend for all namespaces (e.g. `--storage s3://bucket`).                                              |
+| `--storage <key>=<uri>,...` | `defaults.storages`      | Key=value pairs set per-namespace overrides (e.g. `--storage runs=local,tasks=s3`). Both forms may be combined in a single flag. |
 
 **Precedence:** `--storage <key>=<uri>` entries > bare `--storage <uri>` global value > `defaults.globalStorage` in config file > built-in default (`local`).
 
@@ -86,13 +86,13 @@ saifctl feat run --storage runs=s3://my-bucket/runs,tasks=local
 
 ## Feature support matrix
 
-| Feature | `local` | `file://` | `s3://` | `none` |
-|---|---|---|---|---|
-| `run inspect` / reattach | yes | yes | yes | no |
-| `run list` | yes | yes | yes | no |
-| `run resume` / `fork` | yes | yes | yes | no |
-| Survives process restart | yes | yes | yes | no |
-| Multi-host access | no | shared-mount only | yes | no |
+| Feature                  | `local` | `file://`         | `s3://` | `none` |
+| ------------------------ | ------- | ----------------- | ------- | ------ |
+| `run inspect` / reattach | yes     | yes               | yes     | no     |
+| `run list`               | yes     | yes               | yes     | no     |
+| `run resume` / `fork`    | yes     | yes               | yes     | no     |
+| Survives process restart | yes     | yes               | yes     | no     |
+| Multi-host access        | no      | shared-mount only | yes     | no     |
 
 ---
 

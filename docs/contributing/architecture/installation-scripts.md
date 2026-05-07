@@ -63,18 +63,18 @@ Provenance:
 
 **Default per profile** ([`src/sandbox-profiles/<profile>/startup.sh`](../../../src/sandbox-profiles/)):
 
-| Profile | Default startup |
-|---|---|
-| `node-pnpm` / `node-pnpm-python` | `cd /workspace && pnpm install --frozen-lockfile \|\| pnpm install` |
-| `node-npm` / `node-npm-python` | `cd /workspace && npm ci \|\| npm install` |
-| `node-yarn` / `node-yarn-python` | `cd /workspace && yarn install --frozen-lockfile` |
-| `node-bun` / `node-bun-python` | `cd /workspace && bun install` |
-| `python-pip` / `python-pip-node` | `cd /workspace && pip install -r requirements.txt` (if exists) |
-| `python-uv` / `python-uv-node` | `cd /workspace && uv sync` |
-| `python-poetry` / `python-poetry-node` | `cd /workspace && poetry install` |
-| `python-conda` / `python-conda-node` | `cd /workspace && conda env update -f environment.yml` |
-| `go` / `go-node` / `go-python` / `go-node-python` | `cd /workspace && go mod download` |
-| `rust` / `rust-node` / `rust-python` / `rust-node-python` | `cd /workspace && cargo fetch` |
+| Profile                                                   | Default startup                                                     |
+| --------------------------------------------------------- | ------------------------------------------------------------------- |
+| `node-pnpm` / `node-pnpm-python`                          | `cd /workspace && pnpm install --frozen-lockfile \|\| pnpm install` |
+| `node-npm` / `node-npm-python`                            | `cd /workspace && npm ci \|\| npm install`                          |
+| `node-yarn` / `node-yarn-python`                          | `cd /workspace && yarn install --frozen-lockfile`                   |
+| `node-bun` / `node-bun-python`                            | `cd /workspace && bun install`                                      |
+| `python-pip` / `python-pip-node`                          | `cd /workspace && pip install -r requirements.txt` (if exists)      |
+| `python-uv` / `python-uv-node`                            | `cd /workspace && uv sync`                                          |
+| `python-poetry` / `python-poetry-node`                    | `cd /workspace && poetry install`                                   |
+| `python-conda` / `python-conda-node`                      | `cd /workspace && conda env update -f environment.yml`              |
+| `go` / `go-node` / `go-python` / `go-node-python`         | `cd /workspace && go mod download`                                  |
+| `rust` / `rust-node` / `rust-python` / `rust-node-python` | `cd /workspace && cargo fetch`                                      |
 
 The default scripts try the lockfile-locked install first then fall back to "regenerate the lockfile" mode for the case where the lockfile is missing or corrupted.
 
@@ -101,14 +101,14 @@ The default scripts try the lockfile-locked install first then fall back to "reg
 
 Examples:
 
-| Agent | Install command |
-|---|---|
+| Agent       | Install command                                                                      |
+| ----------- | ------------------------------------------------------------------------------------ |
 | Claude Code | `npm install -g @anthropic-ai/claude-code` (idempotent — skips if already installed) |
-| Aider | `pipx install aider-chat` |
-| OpenHands | (default — pre-installed in the published image) `: # no-op` |
-| Gemini CLI | `npm install -g @google/gemini-cli` |
-| Codex | `npm install -g @openai/codex` |
-| Cursor | `curl https://cursor.com/install -fsS \| bash` |
+| Aider       | `pipx install aider-chat`                                                            |
+| OpenHands   | (default — pre-installed in the published image) `: # no-op`                         |
+| Gemini CLI  | `npm install -g @google/gemini-cli`                                                  |
+| Codex       | `npm install -g @openai/codex`                                                       |
+| Cursor      | `curl https://cursor.com/install -fsS \| bash`                                       |
 
 Some agents (OpenHands, OpenCode) are pre-installed in the saifctl-published `saifctl-coder-<profile>:latest` images, so `agent-install.sh` is essentially a no-op — guards against the user supplying a `--coder-image` that doesn't have the agent.
 
@@ -122,12 +122,12 @@ Full detail at [`gate-and-reviewer.md`](./gate-and-reviewer.md#layer-1-the-gate)
 
 Per-profile defaults at [`src/sandbox-profiles/<profile>/gate.sh`](../../../src/sandbox-profiles/):
 
-| Profile | Default gate |
-|---|---|
-| `node-*` | No-op + warning. Node tests too project-specific to default. |
-| `go` / `go-*` | `go vet` + `go test` |
-| `rust` / `rust-*` | `cargo check` + `cargo clippy` + `cargo test` |
-| `python` / `python-*` | `python -m pytest` + `ruff check` |
+| Profile               | Default gate                                                 |
+| --------------------- | ------------------------------------------------------------ |
+| `node-*`              | No-op + warning. Node tests too project-specific to default. |
+| `go` / `go-*`         | `go vet` + `go test`                                         |
+| `rust` / `rust-*`     | `cargo check` + `cargo clippy` + `cargo test`                |
+| `python` / `python-*` | `python -m pytest` + `ruff check`                            |
 
 Override: `--gate-script <path>`, bind-mounted at `/saifctl/gate.sh:ro`.
 
@@ -137,9 +137,9 @@ Override: `--gate-script <path>`, bind-mounted at `/saifctl/gate.sh:ro`.
 
 **Purpose**: start the app the agent built so the test runner can hit it.
 
-| App type | Pattern |
-|---|---|
-| Web app | `pnpm run start` (or equivalent) → app binds to a port; test runner makes HTTP requests. |
+| App type | Pattern                                                                                   |
+| -------- | ----------------------------------------------------------------------------------------- |
+| Web app  | `pnpm run start` (or equivalent) → app binds to a port; test runner makes HTTP requests.  |
 | CLI-only | `wait` → container stays alive; sidecar handles all CLI invocations from the test runner. |
 
 **Override**: `--stage-script <path>`.
@@ -198,11 +198,11 @@ Per-run flags: `--startup-script`, `--gate-script`, `--stage-script`. Or set `de
 
 Three cases warrant Dockerfile extension over scripting:
 
-| Case | Why image, not script |
-|---|---|
+| Case                               | Why image, not script                                                                           |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------- |
 | Heavy project-agnostic system deps | Compiler toolchains, ImageMagick, Playwright browsers. Don't change between runs; bake them in. |
-| Expensive-to-install tooling | C compilation, GPU drivers, etc. Doesn't need the workspace to install. |
-| Network-restricted environments | Agent can't reach external registries at runtime. |
+| Expensive-to-install tooling       | C compilation, GPU drivers, etc. Doesn't need the workspace to install.                         |
+| Network-restricted environments    | Agent can't reach external registries at runtime.                                               |
 
 Pattern:
 
@@ -217,20 +217,20 @@ Then `--coder-image <your-image>`. Startup/gate/stage scripts still apply as bin
 
 `coder-start.sh` ([`src/orchestrator/scripts/coder-start.sh`](../../../src/orchestrator/scripts/coder-start.sh)) sets a contract of env vars the lifecycle scripts can rely on:
 
-| Variable | Set by | Contract |
-|---|---|---|
-| `SAIFCTL_TASK_PATH` | Orchestrator | Path to the per-round task markdown file |
-| `SAIFCTL_GATE_RETRIES` | Orchestrator | Max inner-loop rounds (default 5) |
-| `SAIFCTL_GATE_SCRIPT` | Orchestrator | `/saifctl/gate.sh` |
-| `SAIFCTL_STARTUP_SCRIPT` | Orchestrator | `/saifctl/startup.sh` (always set; coder-start fails if missing) |
-| `SAIFCTL_AGENT_INSTALL_SCRIPT` | Orchestrator | Path to agent install script (or empty to skip) |
-| `SAIFCTL_AGENT_SCRIPT` | Orchestrator | `/saifctl/agent.sh` |
-| `SAIFCTL_REVIEWER_ENABLED` | Orchestrator | Non-empty → run `/saifctl/reviewer.sh` after gate passes |
-| `SAIFCTL_WORKSPACE_BASE` | Orchestrator | `/workspace` (the sandboxed project tree) |
-| `SAIFCTL_RUN_ID` | Orchestrator | Run ID for log correlation |
-| `SAIFCTL_UNPRIV_USER` | Orchestrator | The unprivileged user the agent CLI should run as (drop-privileges contract) |
-| `SAIFCTL_PENDING_RULES_PATH` | Orchestrator | Run-rules feedback channel ([`docspec/references/commands/run-rules.md`](../../../docspec/references/commands/run-rules.md)) |
-| `SAIFCTL_ROUNDS_STATS_PATH` | Orchestrator | Where coder-start writes per-round JSONL stats ([`../inner-round-stats.md`](../inner-round-stats.md)) |
+| Variable                                | Set by       | Contract                                                                                                                                                                              |
+| --------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SAIFCTL_TASK_PATH`                     | Orchestrator | Path to the per-round task markdown file                                                                                                                                              |
+| `SAIFCTL_GATE_RETRIES`                  | Orchestrator | Max inner-loop rounds (default 5)                                                                                                                                                     |
+| `SAIFCTL_GATE_SCRIPT`                   | Orchestrator | `/saifctl/gate.sh`                                                                                                                                                                    |
+| `SAIFCTL_STARTUP_SCRIPT`                | Orchestrator | `/saifctl/startup.sh` (always set; coder-start fails if missing)                                                                                                                      |
+| `SAIFCTL_AGENT_INSTALL_SCRIPT`          | Orchestrator | Path to agent install script (or empty to skip)                                                                                                                                       |
+| `SAIFCTL_AGENT_SCRIPT`                  | Orchestrator | `/saifctl/agent.sh`                                                                                                                                                                   |
+| `SAIFCTL_REVIEWER_ENABLED`              | Orchestrator | Non-empty → run `/saifctl/reviewer.sh` after gate passes                                                                                                                              |
+| `SAIFCTL_WORKSPACE_BASE`                | Orchestrator | `/workspace` (the sandboxed project tree)                                                                                                                                             |
+| `SAIFCTL_RUN_ID`                        | Orchestrator | Run ID for log correlation                                                                                                                                                            |
+| `SAIFCTL_UNPRIV_USER`                   | Orchestrator | The unprivileged user the agent CLI should run as (drop-privileges contract)                                                                                                          |
+| `SAIFCTL_PENDING_RULES_PATH`            | Orchestrator | Run-rules feedback channel ([`docspec/references/commands/run-rules.md`](../../../docspec/references/commands/run-rules.md))                                                          |
+| `SAIFCTL_ROUNDS_STATS_PATH`             | Orchestrator | Where coder-start writes per-round JSONL stats ([`../inner-round-stats.md`](../inner-round-stats.md))                                                                                 |
 | Agent-specific env (e.g. `LLM_API_KEY`) | Orchestrator | Forwarded after stripping reserved `SAIFCTL_*` / `LLM_*` / `REVIEWER_LLM_*` vars to prevent leak — see [`security-threats.md`](./security-threats.md#additional-hardening-mechanisms) |
 
 The full list is documented inline at the head of `coder-start.sh` (lines 21+).

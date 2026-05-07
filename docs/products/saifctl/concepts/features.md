@@ -1,6 +1,6 @@
 # Features
 
-A **feature** lets you define a complete change as a directory — specs, tests, configuration — and have saifctl drive agents to implement it until all tests pass. You create that directory under `saifctl/features/<feature-id>/`. saifctl reads that directory to understand what to run; there is no database, no registration step, no migration. The filesystem *is* the schema.
+A **feature** lets you define a complete change as a directory — specs, tests, configuration — and have saifctl drive agents to implement it until all tests pass. You create that directory under `saifctl/features/<feature-id>/`. saifctl reads that directory to understand what to run; there is no database, no registration step, no migration. The filesystem _is_ the schema.
 
 This is the same convention-over-configuration idea you know from Rails or Next.js: the shape of the directory tells saifctl exactly what to do, and deviations from the convention are errors.
 
@@ -18,10 +18,10 @@ saifctl/features/<feature-id>/
 
 Two optional files broaden the picture without changing the run behaviour:
 
-| File | Purpose |
-|---|---|
-| `proposal.md` | Human-readable rationale; not read by the agent |
-| `plan.md` | Agent-generated or hand-written build plan; informational |
+| File          | Purpose                                                   |
+| ------------- | --------------------------------------------------------- |
+| `proposal.md` | Human-readable rationale; not read by the agent           |
+| `plan.md`     | Agent-generated or hand-written build plan; informational |
 
 ### Phased features
 
@@ -53,7 +53,7 @@ When you run `saifctl feat run --feature <feature-id>`, saifctl:
 2. For single-phase features, runs the convergence loop once.
 3. For phased features, runs the loop once per phase in lex order; a phase must pass its gate before the next begins.
 
-Test scope accumulates as phases complete: just as a test suite mirrors the source tree being tested, each phase adds its own `tests/` to the running scope, so the gate for phase *N* runs against all earlier phases' tests plus phase *N*'s own tests. Feature-root `tests/` and project-level tests run only on the final phase, because intermediate phases may be mid-migration — the end-state contracts cannot pass until the change is complete. Regressions are caught mechanically, not by convention or memory.
+Test scope accumulates as phases complete: just as a test suite mirrors the source tree being tested, each phase adds its own `tests/` to the running scope, so the gate for phase _N_ runs against all earlier phases' tests plus phase _N_'s own tests. Feature-root `tests/` and project-level tests run only on the final phase, because intermediate phases may be mid-migration — the end-state contracts cannot pass until the change is complete. Regressions are caught mechanically, not by convention or memory.
 
 ## Configuration: `feature.yml` and `phase.yml`
 
@@ -75,10 +75,10 @@ The `--strict` flag (the default) enforces this. Pass `--no-strict` only when a 
 
 Directories whose names start with `_` are reserved as documentation, not runnable features:
 
-| Directory | Contents |
-|---|---|
-| `_phases-example/` | Annotated full example of a phased feature |
-| `_phases-and-critics/` | Smaller example with critics configured |
+| Directory              | Contents                                   |
+| ---------------------- | ------------------------------------------ |
+| `_phases-example/`     | Annotated full example of a phased feature |
+| `_phases-and-critics/` | Smaller example with critics configured    |
 
 saifctl ignores these during `feat run`. They exist so you can copy them as starting points without accidentally triggering a real build.
 

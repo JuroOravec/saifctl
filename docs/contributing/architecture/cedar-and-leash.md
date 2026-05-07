@@ -14,13 +14,13 @@ Saifctl ships three bundled policies and accepts a custom one via `--cedar <path
 
 Cedar shape used by Leash (transpiler + linter): see [strongdm/leash CEDAR.md](https://github.com/strongdm/leash/blob/main/docs/design/CEDAR.md). The action vocabulary saifctl exercises:
 
-| Action | What it gates |
-|---|---|
-| `Action::"FileOpen"` | Generic open (read or write) — used by Leash for permit-read-by-default rules. |
-| `Action::"FileOpenReadOnly"` | Read-only file access. |
-| `Action::"FileOpenReadWrite"` | Anything that writes / appends / truncates. |
-| `Action::"ProcessExec"` | `exec*()` syscalls. |
-| `Action::"NetworkConnect"` | Outbound TCP/UDP `connect()`. Resource is `Host::"..."` (DNS name or `*`). |
+| Action                        | What it gates                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| `Action::"FileOpen"`          | Generic open (read or write) — used by Leash for permit-read-by-default rules. |
+| `Action::"FileOpenReadOnly"`  | Read-only file access.                                                         |
+| `Action::"FileOpenReadWrite"` | Anything that writes / appends / truncates.                                    |
+| `Action::"ProcessExec"`       | `exec*()` syscalls.                                                            |
+| `Action::"NetworkConnect"`    | Outbound TCP/UDP `connect()`. Resource is `Host::"..."` (DNS name or `*`).     |
 
 Resources are `Dir::"…/"` (trailing slash = directory coverage), `File::"/abs/path"`, or `Host::"domain"`. Forbid beats permit; missing rule = implicit deny.
 
@@ -93,10 +93,10 @@ Framing matters: not "we deny network because it's safe" (false — the agent ca
 
 Specific Cedar rules trace to specific findings in [`security-threats.md`](./security-threats.md):
 
-| Finding | Cedar rule |
-|---|---|
-| Sandbox-escape via `.git/hooks/` (host honours these on `git apply`) | `forbid` writes to `Dir::"/workspace/.git/hooks/"` |
-| Sandbox-escape via `.git/config` (host honours `core.fsmonitor`, `diff.external`) | `forbid` writes to `File::"/workspace/.git/config"` |
-| Reward-hacking via test/spec edits | `forbid` writes to `Dir::"/workspace/saifctl/"` (`default.cedar` only) |
+| Finding                                                                           | Cedar rule                                                             |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Sandbox-escape via `.git/hooks/` (host honours these on `git apply`)              | `forbid` writes to `Dir::"/workspace/.git/hooks/"`                     |
+| Sandbox-escape via `.git/config` (host honours `core.fsmonitor`, `diff.external`) | `forbid` writes to `File::"/workspace/.git/config"`                    |
+| Reward-hacking via test/spec edits                                                | `forbid` writes to `Dir::"/workspace/saifctl/"` (`default.cedar` only) |
 
 The narrowing from the original blanket `Dir::"/workspace/.git/"` forbid (which broke the in-container reviewer's commit step) to the two specific paths is documented inline at `default.cedar:55-64`.

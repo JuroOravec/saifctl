@@ -1380,7 +1380,9 @@ async function removeLeashTargetWithDependents(targetName: string): Promise<void
   try {
     all = await docker.listContainers({ all: true });
   } catch (err) {
-    consola.warn(`[docker] Failed to list containers while removing "${targetName}": ${String(err)}`);
+    consola.warn(
+      `[docker] Failed to list containers while removing "${targetName}": ${String(err)}`,
+    );
     await removeDockerContainerForce(targetName);
     return;
   }

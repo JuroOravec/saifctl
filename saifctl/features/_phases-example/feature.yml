@@ -6,9 +6,9 @@
 # intentional — it demonstrates the override-replaces semantics.
 
 critics:
-  - { id: strict,   rounds: 1 }
+  - { id: strict, rounds: 1 }
   - { id: paranoid, rounds: 1 }
-  - { id: audit,    rounds: 1 }
+  - { id: audit, rounds: 1 }
 
 # Phase-level tests are cumulative; feature-level tests run only at the
 # last phase's gate (mongo→postgres rationale, §9 of TODO_phases_and_critics).

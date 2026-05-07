@@ -16,12 +16,12 @@ Requires Node.js in the coder image.
 
 Copilot CLI authenticates via a GitHub token. Variables are checked in this order of precedence:
 
-| Variable | Notes |
-|----------|-------|
-| `COPILOT_GITHUB_TOKEN` | Native Copilot token variable — highest precedence. |
-| `GH_TOKEN` | GitHub CLI token — second precedence. |
-| `GITHUB_TOKEN` | Standard GitHub Actions token — third precedence. |
-| `LLM_API_KEY` | Generic saifctl credential — fallback. Mapped to `COPILOT_GITHUB_TOKEN` automatically. |
+| Variable               | Notes                                                                                  |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| `COPILOT_GITHUB_TOKEN` | Native Copilot token variable — highest precedence.                                    |
+| `GH_TOKEN`             | GitHub CLI token — second precedence.                                                  |
+| `GITHUB_TOKEN`         | Standard GitHub Actions token — third precedence.                                      |
+| `LLM_API_KEY`          | Generic saifctl credential — fallback. Mapped to `COPILOT_GITHUB_TOKEN` automatically. |
 
 Set any one of the above; the agent resolves them in order so you only need `LLM_API_KEY` if you have no Copilot-native token.
 
@@ -35,14 +35,14 @@ If `LLM_MODEL_ID` is unset, Copilot uses its default (currently Claude Sonnet 4.
 
 ## CLI flags used by the agent
 
-| Flag | Description |
-|------|-------------|
-| `--prompt` / `-p` | Non-interactive (programmatic) mode. |
-| `--model <id>` | Model override, sourced from `LLM_MODEL_ID`. Omitted when `LLM_MODEL_ID` is unset. |
-| `--allow-all` | Approve all file, shell, and network tool use without prompts. Safe because Leash sandboxes the container. |
-| `--no-ask-user` | Disable the `ask_user` tool so Copilot does not pause for interactive input. |
-| `--no-auto-update` | Suppress automatic CLI self-update during a run. |
-| `--autopilot` | Enable autonomous multi-step continuation. |
+| Flag               | Description                                                                                                |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `--prompt` / `-p`  | Non-interactive (programmatic) mode.                                                                       |
+| `--model <id>`     | Model override, sourced from `LLM_MODEL_ID`. Omitted when `LLM_MODEL_ID` is unset.                         |
+| `--allow-all`      | Approve all file, shell, and network tool use without prompts. Safe because Leash sandboxes the container. |
+| `--no-ask-user`    | Disable the `ask_user` tool so Copilot does not pause for interactive input.                               |
+| `--no-auto-update` | Suppress automatic CLI self-update during a run.                                                           |
+| `--autopilot`      | Enable autonomous multi-step continuation.                                                                 |
 
 ## Change detection
 
@@ -54,17 +54,17 @@ The agent runs `copilot` as `$SAIFCTL_UNPRIV_USER` via `runuser`, which resets `
 
 ## Environment variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `COPILOT_GITHUB_TOKEN` | One of these is required | See [Authentication](#authentication) — highest precedence. |
-| `GH_TOKEN` | One of these is required | See [Authentication](#authentication) — second precedence. |
-| `GITHUB_TOKEN` | One of these is required | See [Authentication](#authentication) — third precedence. |
-| `LLM_API_KEY` | Fallback | See [Authentication](#authentication) — mapped to `COPILOT_GITHUB_TOKEN`. |
-| `LLM_MODEL_ID` | No | GitHub-managed model identifier forwarded via `--model`. |
-| `SAIFCTL_TASK_PATH` | Yes | Path to the file containing the task prompt. |
-| `SAIFCTL_UNPRIV_USER` | Yes | Unprivileged user to run `copilot` as. Baked into each coder Dockerfile. |
-| `SAIFCTL_UNPRIV_NPM_PREFIX` | Yes | npm prefix where the `copilot` binary is installed. |
-| `SAIFCTL_WORKSPACE_BASE` | No | Workspace directory (default: `/workspace`). `copilot` is invoked with this as cwd. |
+| Variable                    | Required                 | Description                                                                         |
+| --------------------------- | ------------------------ | ----------------------------------------------------------------------------------- |
+| `COPILOT_GITHUB_TOKEN`      | One of these is required | See [Authentication](#authentication) — highest precedence.                         |
+| `GH_TOKEN`                  | One of these is required | See [Authentication](#authentication) — second precedence.                          |
+| `GITHUB_TOKEN`              | One of these is required | See [Authentication](#authentication) — third precedence.                           |
+| `LLM_API_KEY`               | Fallback                 | See [Authentication](#authentication) — mapped to `COPILOT_GITHUB_TOKEN`.           |
+| `LLM_MODEL_ID`              | No                       | GitHub-managed model identifier forwarded via `--model`.                            |
+| `SAIFCTL_TASK_PATH`         | Yes                      | Path to the file containing the task prompt.                                        |
+| `SAIFCTL_UNPRIV_USER`       | Yes                      | Unprivileged user to run `copilot` as. Baked into each coder Dockerfile.            |
+| `SAIFCTL_UNPRIV_NPM_PREFIX` | Yes                      | npm prefix where the `copilot` binary is installed.                                 |
+| `SAIFCTL_WORKSPACE_BASE`    | No                       | Workspace directory (default: `/workspace`). `copilot` is invoked with this as cwd. |
 
 ## Usage examples
 

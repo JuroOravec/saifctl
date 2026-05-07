@@ -14,12 +14,12 @@ Forge has no `--model` CLI flag. The agent script runs `forge config set model "
 
 **Model string format is provider-dependent:**
 
-| Provider      | Format                | Example                                      |
-|---------------|-----------------------|----------------------------------------------|
-| OpenRouter    | `provider/org/model`  | `openrouter/anthropic/claude-3-5-sonnet`     |
-| HuggingFace   | `org/model`           | `meta-llama/Llama-3.3-70B-Instruct`          |
-| OpenAI        | bare id               | `o1`, `gpt-5`                                |
-| Anthropic     | bare id               | `claude-sonnet-4.5`                          |
+| Provider    | Format               | Example                                  |
+| ----------- | -------------------- | ---------------------------------------- |
+| OpenRouter  | `provider/org/model` | `openrouter/anthropic/claude-3-5-sonnet` |
+| HuggingFace | `org/model`          | `meta-llama/Llama-3.3-70B-Instruct`      |
+| OpenAI      | bare id              | `o1`, `gpt-5`                            |
+| Anthropic   | bare id              | `claude-sonnet-4.5`                      |
 
 `LLM_MODEL` is passed verbatim to `forge config set model`. This works correctly for OpenRouter and HuggingFace (slash-separated). For OpenAI and Anthropic, the saifctl-prefixed form (e.g. `openai/gpt-4o`) may be rejected by Forge's model registry. In that case use one of:
 
@@ -30,33 +30,33 @@ Forge has no `--model` CLI flag. The agent script runs `forge config set model "
 
 Forge reads API keys directly from environment variables. Priority order:
 
-| Variable              | Purpose                                     |
-|-----------------------|---------------------------------------------|
-| `FORGE_KEY`           | Forge-native key (highest priority)         |
-| `OPENROUTER_API_KEY`  | OpenRouter                                  |
-| `OPENAI_API_KEY`      | OpenAI                                      |
-| `ANTHROPIC_API_KEY`   | Anthropic                                   |
-| `LLM_API_KEY`         | Generic fallback, mapped to all keys above  |
+| Variable             | Purpose                                    |
+| -------------------- | ------------------------------------------ |
+| `FORGE_KEY`          | Forge-native key (highest priority)        |
+| `OPENROUTER_API_KEY` | OpenRouter                                 |
+| `OPENAI_API_KEY`     | OpenAI                                     |
+| `ANTHROPIC_API_KEY`  | Anthropic                                  |
+| `LLM_API_KEY`        | Generic fallback, mapped to all keys above |
 
 All four provider keys fall back to `LLM_API_KEY` when unset.
 
 **Base URL:**
 
-| Variable        | Purpose                                                  |
-|-----------------|----------------------------------------------------------|
-| `LLM_BASE_URL`  | Forwarded as `OPENAI_URL` for OpenAI-compatible endpoints |
+| Variable        | Purpose                                                         |
+| --------------- | --------------------------------------------------------------- |
+| `LLM_BASE_URL`  | Forwarded as `OPENAI_URL` for OpenAI-compatible endpoints       |
 | `OPENAI_URL`    | OpenAI-compatible base URL (set directly or via `LLM_BASE_URL`) |
-| `ANTHROPIC_URL` | Anthropic-compatible base URL (set directly)             |
+| `ANTHROPIC_URL` | Anthropic-compatible base URL (set directly)                    |
 
 ## CLI flags used by the agent script
 
 These flags are passed automatically on every invocation.
 
-| Flag             | Effect                                                      |
-|------------------|-------------------------------------------------------------|
-| `--agent forge`  | Full read-write execution agent (default; set explicitly for clarity). |
-| `--verbose`      | Verbose output for factory log inspection.                  |
-| `-p "$(cat …)"`  | Reads the task from `$SAIFCTL_TASK_PATH`; non-interactive single-shot mode. |
+| Flag            | Effect                                                                      |
+| --------------- | --------------------------------------------------------------------------- |
+| `--agent forge` | Full read-write execution agent (default; set explicitly for clarity).      |
+| `--verbose`     | Verbose output for factory log inspection.                                  |
+| `-p "$(cat …)"` | Reads the task from `$SAIFCTL_TASK_PATH`; non-interactive single-shot mode. |
 
 ## Privileges
 

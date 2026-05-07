@@ -26,14 +26,14 @@ The default Cedar policy for sandbox runs is `sandbox.cedar`. You can substitute
 
 Both modes use the same isolation foundation:
 
-| | `saifctl sandbox` | `saifctl feat run` |
-|---|---|---|
-| Ephemeral container | yes | yes |
-| Cedar/Leash policies | yes | yes |
-| Copy-not-mount workspace | yes | yes |
-| Reviewer (Argus) | no | yes |
-| Gate and test pipeline | no (noop gate) | yes |
-| Multi-run convergence loop | no (fixed at 1 run) | yes |
+|                            | `saifctl sandbox`   | `saifctl feat run` |
+| -------------------------- | ------------------- | ------------------ |
+| Ephemeral container        | yes                 | yes                |
+| Cedar/Leash policies       | yes                 | yes                |
+| Copy-not-mount workspace   | yes                 | yes                |
+| Reviewer (Argus)           | no                  | yes                |
+| Gate and test pipeline     | no (noop gate)      | yes                |
+| Multi-run convergence loop | no (fixed at 1 run) | yes                |
 
 The difference between the two modes is not the isolation — it is whether the agent's output is also subject to a correctness gauntlet (gate script, holdout tests, reviewer) before changes are promoted.
 

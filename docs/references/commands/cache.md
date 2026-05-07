@@ -18,12 +18,12 @@ List sandbox entries in the sandbox base directory. By default, results are scop
 saifctl cache list [options]
 ```
 
-| Flag | Alias | Type | Default | Description |
-|------|-------|------|---------|-------------|
-| `--all` | | boolean | `false` | List entries for all projects instead of only the current one |
-| `--project` | `-p` | string | _(from package.json)_ | Override the project name used for filtering. Ignored when `--all` is set. |
-| `--project-dir` | | string | `process.cwd()` | Directory containing `package.json`. Ignored when `--all` is set. |
-| `--sandbox-base-dir` | | string | `/tmp/saifctl/sandboxes` | Directory to list entries from |
+| Flag                 | Alias | Type    | Default                  | Description                                                                |
+| -------------------- | ----- | ------- | ------------------------ | -------------------------------------------------------------------------- |
+| `--all`              |       | boolean | `false`                  | List entries for all projects instead of only the current one              |
+| `--project`          | `-p`  | string  | _(from package.json)_    | Override the project name used for filtering. Ignored when `--all` is set. |
+| `--project-dir`      |       | string  | `process.cwd()`          | Directory containing `package.json`. Ignored when `--all` is set.          |
+| `--sandbox-base-dir` |       | string  | `/tmp/saifctl/sandboxes` | Directory to list entries from                                             |
 
 ### `cache clear`
 
@@ -33,12 +33,12 @@ Remove sandbox entries from the sandbox base directory. By default, only entries
 saifctl cache clear [options]
 ```
 
-| Flag | Alias | Type | Default | Description |
-|------|-------|------|---------|-------------|
-| `--all` | | boolean | `false` | Remove all entries in the base directory, not just the current project's |
-| `--project` | `-p` | string | _(from package.json)_ | Override the project name used for filtering. Ignored when `--all` is set. |
-| `--project-dir` | | string | `process.cwd()` | Directory containing `package.json`. Ignored when `--all` is set. |
-| `--sandbox-base-dir` | | string | `/tmp/saifctl/sandboxes` | Directory to remove entries from |
+| Flag                 | Alias | Type    | Default                  | Description                                                                |
+| -------------------- | ----- | ------- | ------------------------ | -------------------------------------------------------------------------- |
+| `--all`              |       | boolean | `false`                  | Remove all entries in the base directory, not just the current project's   |
+| `--project`          | `-p`  | string  | _(from package.json)_    | Override the project name used for filtering. Ignored when `--all` is set. |
+| `--project-dir`      |       | string  | `process.cwd()`          | Directory containing `package.json`. Ignored when `--all` is set.          |
+| `--sandbox-base-dir` |       | string  | `/tmp/saifctl/sandboxes` | Directory to remove entries from                                           |
 
 **Safety guard:** `cache clear --all` is refused when `--sandbox-base-dir` resolves to `/tmp/saifctl/` (the temp root). This prevents accidentally wiping shared state such as `bin/`. Pass `--sandbox-base-dir` pointing at a sandboxes directory, not the temp root.
 

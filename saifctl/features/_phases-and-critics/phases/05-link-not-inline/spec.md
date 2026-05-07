@@ -75,7 +75,7 @@ regressions appear.
   this phase. The directive emitted here uses workspace-relative POSIX
   paths so it works regardless of whether the agent runs in a
   container (`/workspace/...` resolves) or on the host (`--engine
-  local`, agent's cwd is `codePath`). Phase 08 will refine this when
+local`, agent's cwd is `codePath`). Phase 08 will refine this when
   it adds engine-aware path rendering for the per-round directive in
   `buildTaskPrompt`.
 

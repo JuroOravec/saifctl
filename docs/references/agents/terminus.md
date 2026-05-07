@@ -18,36 +18,36 @@ saifctl feat run --agent terminus
 
 `LLM_MODEL` is **required** — Terminus has no built-in default. Use litellm model strings:
 
-| Provider   | Example model string                      |
-|------------|-------------------------------------------|
-| Anthropic  | `anthropic/claude-sonnet-4-5`             |
-| OpenRouter | `openrouter/anthropic/claude-3-5-sonnet`  |
-| OpenAI     | `openai/gpt-4o`                           |
+| Provider   | Example model string                     |
+| ---------- | ---------------------------------------- |
+| Anthropic  | `anthropic/claude-sonnet-4-5`            |
+| OpenRouter | `openrouter/anthropic/claude-3-5-sonnet` |
+| OpenAI     | `openai/gpt-4o`                          |
 
 ## API key and base URL
 
 `LLM_API_KEY` is exported as a fallback for all common provider environment variables. Native provider keys take precedence.
 
-| Variable              | Purpose                                                                 |
-|-----------------------|-------------------------------------------------------------------------|
-| `LLM_API_KEY`         | Generic fallback, mapped to all provider keys below.                    |
-| `ANTHROPIC_API_KEY`   | Anthropic — native key, takes precedence over `LLM_API_KEY`.           |
-| `OPENAI_API_KEY`      | OpenAI and OpenAI-compatible endpoints — also used when `LLM_BASE_URL` is set. |
-| `GEMINI_API_KEY`      | Gemini — native key, takes precedence over `LLM_API_KEY`.              |
-| `OPENROUTER_API_KEY`  | OpenRouter — native key, takes precedence over `LLM_API_KEY`.          |
-| `OR_API_KEY`          | OpenRouter alias — native key, takes precedence over `LLM_API_KEY`.    |
-| `LLM_BASE_URL`        | Custom API base URL, forwarded as `--api-base` to Terminus.            |
+| Variable             | Purpose                                                                        |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `LLM_API_KEY`        | Generic fallback, mapped to all provider keys below.                           |
+| `ANTHROPIC_API_KEY`  | Anthropic — native key, takes precedence over `LLM_API_KEY`.                   |
+| `OPENAI_API_KEY`     | OpenAI and OpenAI-compatible endpoints — also used when `LLM_BASE_URL` is set. |
+| `GEMINI_API_KEY`     | Gemini — native key, takes precedence over `LLM_API_KEY`.                      |
+| `OPENROUTER_API_KEY` | OpenRouter — native key, takes precedence over `LLM_API_KEY`.                  |
+| `OR_API_KEY`         | OpenRouter alias — native key, takes precedence over `LLM_API_KEY`.            |
+| `LLM_BASE_URL`       | Custom API base URL, forwarded as `--api-base` to Terminus.                    |
 
 ## Flags used by the agent script
 
 These flags are passed automatically; you do not set them directly.
 
-| Flag                  | Value / default | Description                                         |
-|-----------------------|-----------------|-----------------------------------------------------|
-| `--model`             | `$LLM_MODEL`    | litellm provider/model string (required).           |
-| `--api-base`          | `$LLM_BASE_URL` | Custom LLM API base URL. Omitted when not set.      |
-| `--parser`            | `json`          | Response format (`json` or `xml`).                  |
-| `--temperature`       | `0.7`           | Sampling temperature.                               |
+| Flag            | Value / default | Description                                    |
+| --------------- | --------------- | ---------------------------------------------- |
+| `--model`       | `$LLM_MODEL`    | litellm provider/model string (required).      |
+| `--api-base`    | `$LLM_BASE_URL` | Custom LLM API base URL. Omitted when not set. |
+| `--parser`      | `json`          | Response format (`json` or `xml`).             |
+| `--temperature` | `0.7`           | Sampling temperature.                          |
 
 The task is passed as the first positional argument, read from `$SAIFCTL_TASK_PATH`.
 

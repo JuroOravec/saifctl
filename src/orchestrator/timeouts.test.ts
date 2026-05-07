@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  DEFAULT_TIMEOUTS,
-  formatDurationMs,
-  parseDuration,
-  resolveTimeouts,
-} from './timeouts.js';
+import { DEFAULT_TIMEOUTS, formatDurationMs, parseDuration, resolveTimeouts } from './timeouts.js';
 
 describe('parseDuration', () => {
   it('returns null for null input', () => {

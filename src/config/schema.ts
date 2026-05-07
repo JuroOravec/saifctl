@@ -139,12 +139,8 @@ const saifctlConfigDefaultsSchema = z.object({
    */
   timeouts: z
     .object({
-      run: z
-        .union([z.number().int().nonnegative(), z.string(), z.null()])
-        .optional(),
-      subtask: z
-        .union([z.number().int().nonnegative(), z.string(), z.null()])
-        .optional(),
+      run: z.union([z.number().int().nonnegative(), z.string(), z.null()]).optional(),
+      subtask: z.union([z.number().int().nonnegative(), z.string(), z.null()]).optional(),
     })
     .optional(),
   /** Skip Leash; run the coder image with `docker run` (same mounts/env as Leash, no Cedar/eBPF). */

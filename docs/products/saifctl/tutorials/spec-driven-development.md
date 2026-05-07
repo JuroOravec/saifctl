@@ -2,7 +2,7 @@
 
 **What you will have by the end:** a working feature directory, a running agent loop you can observe, and a clear mental model of how saifctl enforces correctness mechanically — not by trusting the agent.
 
-This is stage 1 of 2 in this tutorial series. It walks slowly through the feature directory layout and explains *why* each file exists. If you want to race straight to a finished PR, see [Run your first feature](../how-tos/run-first-feature.md) instead.
+This is stage 1 of 2 in this tutorial series. It walks slowly through the feature directory layout and explains _why_ each file exists. If you want to race straight to a finished PR, see [Run your first feature](../how-tos/run-first-feature.md) instead.
 
 ---
 
@@ -60,13 +60,13 @@ Tests live under `tests/`. The agent can read everything directly under `tests/`
 
 ```typescript
 // tests/01-json-flag.spec.ts
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 
 const run = promisify(exec);
 
-test("--json produces valid JSON array", async () => {
-  const { stdout } = await run("saifctl run list --json");
+test('--json produces valid JSON array', async () => {
+  const { stdout } = await run('saifctl run list --json');
   const parsed = JSON.parse(stdout); // throws if invalid
   expect(Array.isArray(parsed)).toBe(true);
 });
@@ -169,7 +169,7 @@ saifctl/features/add-json-flag/
         └── tests/holdout/
 ```
 
-Later phases always include earlier phases' holdout tests, so regressions to earlier work fail the gate mechanically. Critics are an optional fourth layer that runs *after* a phase's gate passes — useful for security review, performance budgets, or any adversarial check you want automated.
+Later phases always include earlier phases' holdout tests, so regressions to earlier work fail the gate mechanically. Critics are an optional fourth layer that runs _after_ a phase's gate passes — useful for security review, performance budgets, or any adversarial check you want automated.
 
 A minimal `feature.yml` for a phased feature:
 

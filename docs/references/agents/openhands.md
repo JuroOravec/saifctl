@@ -14,24 +14,24 @@ OpenHands natively uses the same environment variable names that saifctl provide
 
 These flags are passed unconditionally on every invocation:
 
-| Flag | Description |
-|------|-------------|
-| `--headless` | Run without UI. Required for automation. |
-| `--always-approve` | Auto-approve all agent actions without confirmation prompts. |
+| Flag                   | Description                                                                                                          |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `--headless`           | Run without UI. Required for automation.                                                                             |
+| `--always-approve`     | Auto-approve all agent actions without confirmation prompts.                                                         |
 | `--override-with-envs` | Apply `LLM_MODEL`, `LLM_API_KEY`, and `LLM_BASE_URL` from the environment, overriding any stored OpenHands settings. |
-| `--json` | Emit JSONL on stdout. Parsed by the factory's OpenHands log formatter. |
-| `-t <task>` | Task string to execute. The content of `$SAIFCTL_TASK_PATH` is passed here. |
+| `--json`               | Emit JSONL on stdout. Parsed by the factory's OpenHands log formatter.                                               |
+| `-t <task>`            | Task string to execute. The content of `$SAIFCTL_TASK_PATH` is passed here.                                          |
 
 ## Output format
 
 With `--json`, OpenHands emits newline-delimited JSON on stdout. The OpenHands agent profile's `stdoutStrategy` splits and formats these segments for readable CLI output:
 
-| Prefix | Source |
-|--------|--------|
-| `[think]` | Model reasoning / thought steps |
-| `[agent]` | Agent actions |
-| `[inspect]` | Observation / inspection results |
-| *(unmarked)* | Errors and other output |
+| Prefix       | Source                           |
+| ------------ | -------------------------------- |
+| `[think]`    | Model reasoning / thought steps  |
+| `[agent]`    | Agent actions                    |
+| `[inspect]`  | Observation / inspection results |
+| _(unmarked)_ | Errors and other output          |
 
 ## Privilege drop
 
@@ -39,16 +39,16 @@ The agent runs OpenHands as `$SAIFCTL_UNPRIV_USER` via `runuser`. The whiteliste
 
 ## Environment variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `LLM_MODEL` | Yes | Model identifier, passed directly to OpenHands. |
-| `LLM_API_KEY` | Yes | API key for the model provider. |
-| `LLM_BASE_URL` | No | Base URL override for the model API. |
-| `SAIFCTL_TASK_PATH` | Yes | Path to the file containing the task prompt. |
-| `SAIFCTL_UNPRIV_USER` | Yes | Unprivileged user to run OpenHands as. Baked into each coder Dockerfile. |
-| `SAIFCTL_UNPRIV_NPM_PREFIX` | Yes | npm prefix whose `bin` directory is prepended to `PATH` before invoking `openhands`. |
-| `SAIFCTL_WORKSPACE_BASE` | No | Workspace directory (default: `/workspace`). OpenHands is invoked with this as cwd. |
-| `OPENHANDS_WORK_DIR` | No | OpenHands state directory (default: `/tmp/openhands-state`). |
+| Variable                    | Required | Description                                                                          |
+| --------------------------- | -------- | ------------------------------------------------------------------------------------ |
+| `LLM_MODEL`                 | Yes      | Model identifier, passed directly to OpenHands.                                      |
+| `LLM_API_KEY`               | Yes      | API key for the model provider.                                                      |
+| `LLM_BASE_URL`              | No       | Base URL override for the model API.                                                 |
+| `SAIFCTL_TASK_PATH`         | Yes      | Path to the file containing the task prompt.                                         |
+| `SAIFCTL_UNPRIV_USER`       | Yes      | Unprivileged user to run OpenHands as. Baked into each coder Dockerfile.             |
+| `SAIFCTL_UNPRIV_NPM_PREFIX` | Yes      | npm prefix whose `bin` directory is prepended to `PATH` before invoking `openhands`. |
+| `SAIFCTL_WORKSPACE_BASE`    | No       | Workspace directory (default: `/workspace`). OpenHands is invoked with this as cwd.  |
+| `OPENHANDS_WORK_DIR`        | No       | OpenHands state directory (default: `/tmp/openhands-state`).                         |
 
 ## Usage examples
 

@@ -34,6 +34,7 @@ and as the benchmark against which the design is judged.
 ### 1.1 The current Claude-Opus workflow
 
 > Currently I use claude opus in following manner:
+>
 > 1. I usually start exploring some idea.
 > 2. Then I go deeper into individual parts of it, iterating, recursing,
 >    clearing out the unknowns until the impl seems clear to me.
@@ -53,16 +54,13 @@ and as the benchmark against which the design is judged.
 >    reuse impl's context so reviewers are not swayed. The reviews
 >    usually find a range of issues - large and small, and I tell the
 >    agent to fix all found issues.
->
 > 7. Sometimes, for large refactors, or when I'm not confident in the
 >    result, I do a second review pass. Again the same prompt, and again
 >    in a fresh context (review1 and review2 don't see each other's
 >    context). So the pattern is "impl p1 → review#1 p1 → review#2 p1".
->
 > 8. Also, for EVERY step of the agent's flow (impl1, review#1, review#2),
 >    I tell the agent in the prompt to update the plan doc with deviations
 >    from the original doc as it is implementing it.
->
 > 9. At the end I usually ask the agent to write E2E tests for the entire
 >    phase / entire feature. And after that I again run a review agent to
 >    review how the e2e tests were implemented. So the flow is roughly
@@ -75,7 +73,7 @@ and as the benchmark against which the design is judged.
 The verbatim daily-driver template lives at `critics/audit.md`. Its
 historical form (paraphrased from the originating conversation):
 
-> Consider TODO_<feature>.md, TODO_<feature>_phase_1.md, … and other
+> Consider TODO*<feature>.md, TODO*<feature>_phase_1.md, … and other
 > TODO_ files. Review the implementation of entire phase N.
 >
 > As an example why we're doing this, we found that the lesser model that
@@ -93,6 +91,7 @@ historical form (paraphrased from the originating conversation):
 
 > Right now, I have to drive this entire workflow (design, prepare impl
 > plan, impl, reviews, impl, reviews, [...], e2e, e2e review, etc).
+>
 > - This is very limiting — I have to stand by the laptop as a single
 >   step usually takes ~10 min.
 > - This is also slow — because usually the implementation is only as
@@ -134,7 +133,7 @@ Pinned vocabulary. These names are load-bearing in code, config, docs.
 - **Implementer** — coding agent invocation that builds a phase. Same
   CLI/profile as today's coder (e.g. `claude/agent.sh`).
 - **Critic** — coding agent invocation that audits-and-fixes a phase.
-  *Same CLI, same profile, same piping as the implementer.* Distinguished
+  _Same CLI, same profile, same piping as the implementer._ Distinguished
   only by prompt. Critics are not gates; critics modify code in-place
   and commit, just like implementers.
 - **Reviewer gate** — the existing Argus-driven gate

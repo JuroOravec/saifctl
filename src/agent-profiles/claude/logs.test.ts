@@ -187,7 +187,11 @@ describe('formatClaudeSegment', () => {
         type: 'assistant',
         message: {
           content: [
-            { type: 'tool_use', name: 'Glob', input: { pattern: '**/*.ts', path: '/workspace/src' } },
+            {
+              type: 'tool_use',
+              name: 'Glob',
+              input: { pattern: '**/*.ts', path: '/workspace/src' },
+            },
           ],
         },
       }),

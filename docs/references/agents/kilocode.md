@@ -28,9 +28,9 @@ Kilo uses a JSON `"permission"` config key rather than a CLI flag. The agent inj
 
 ## CLI flags used by the agent
 
-| Flag | Description |
-|------|-------------|
-| `run` | Non-interactive mode — run with a message and exit. |
+| Flag     | Description                                                                          |
+| -------- | ------------------------------------------------------------------------------------ |
+| `run`    | Non-interactive mode — run with a message and exit.                                  |
 | `--auto` | Autonomous mode: disables all permission prompts. Required for headless factory use. |
 
 The task prompt is read from `$SAIFCTL_TASK_PATH` and passed as the message argument to `kilo run`.
@@ -41,16 +41,16 @@ The agent drops privileges before invoking `kilo`. `kilo` runs as `$SAIFCTL_UNPR
 
 ## Environment variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `LLM_MODEL` | No | Model in `provider/model` format (e.g. `anthropic/claude-sonnet-4-5`). When unset, kilo uses its globally configured default model. |
-| `LLM_PROVIDER` | No | Explicit provider ID. When set, takes precedence over the prefix in `LLM_MODEL`. |
-| `LLM_API_KEY` | Conditional | API key forwarded to the provider's `apiKey` config field. Required when a provider is configured; unused (and warned against) when no provider can be determined. |
-| `LLM_BASE_URL` | No | Custom base URL forwarded to the provider's `baseURL` config field. |
-| `SAIFCTL_TASK_PATH` | Yes | Path to the file containing the task prompt. |
-| `SAIFCTL_UNPRIV_USER` | Yes | Unprivileged user to run `kilo` as. Baked into each coder Dockerfile. |
-| `SAIFCTL_UNPRIV_NPM_PREFIX` | Yes | npm prefix where the `kilo` binary is installed. |
-| `SAIFCTL_WORKSPACE_BASE` | No | Workspace directory (default: `/workspace`). `kilo` is invoked with this as cwd. |
+| Variable                    | Required    | Description                                                                                                                                                        |
+| --------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `LLM_MODEL`                 | No          | Model in `provider/model` format (e.g. `anthropic/claude-sonnet-4-5`). When unset, kilo uses its globally configured default model.                                |
+| `LLM_PROVIDER`              | No          | Explicit provider ID. When set, takes precedence over the prefix in `LLM_MODEL`.                                                                                   |
+| `LLM_API_KEY`               | Conditional | API key forwarded to the provider's `apiKey` config field. Required when a provider is configured; unused (and warned against) when no provider can be determined. |
+| `LLM_BASE_URL`              | No          | Custom base URL forwarded to the provider's `baseURL` config field.                                                                                                |
+| `SAIFCTL_TASK_PATH`         | Yes         | Path to the file containing the task prompt.                                                                                                                       |
+| `SAIFCTL_UNPRIV_USER`       | Yes         | Unprivileged user to run `kilo` as. Baked into each coder Dockerfile.                                                                                              |
+| `SAIFCTL_UNPRIV_NPM_PREFIX` | Yes         | npm prefix where the `kilo` binary is installed.                                                                                                                   |
+| `SAIFCTL_WORKSPACE_BASE`    | No          | Workspace directory (default: `/workspace`). `kilo` is invoked with this as cwd.                                                                                   |
 
 ## Assembled config
 

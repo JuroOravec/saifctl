@@ -16,13 +16,13 @@ pip install deepagents[anthropic,groq,openrouter]
 
 `LLM_API_KEY` is mapped to provider-specific environment variables. Native provider keys take precedence if already set.
 
-| Variable | Provider | Notes |
-|----------|----------|-------|
-| `OPENAI_API_KEY` | OpenAI | Native key; takes precedence over `LLM_API_KEY`. |
-| `ANTHROPIC_API_KEY` | Anthropic | Native key; takes precedence over `LLM_API_KEY`. |
-| `OPENROUTER_API_KEY` | OpenRouter | Native key; takes precedence over `LLM_API_KEY`. |
-| `LLM_API_KEY` | Any | Fallback — exported as all three provider keys when native keys are unset. |
-| `GROQ_API_KEY` | Groq | Must be set directly. Groq is **not** covered by the `LLM_API_KEY` fallback — the agent only maps `LLM_API_KEY` to `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `OPENROUTER_API_KEY`. |
+| Variable             | Provider   | Notes                                                                                                                                                                               |
+| -------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OPENAI_API_KEY`     | OpenAI     | Native key; takes precedence over `LLM_API_KEY`.                                                                                                                                    |
+| `ANTHROPIC_API_KEY`  | Anthropic  | Native key; takes precedence over `LLM_API_KEY`.                                                                                                                                    |
+| `OPENROUTER_API_KEY` | OpenRouter | Native key; takes precedence over `LLM_API_KEY`.                                                                                                                                    |
+| `LLM_API_KEY`        | Any        | Fallback — exported as all three provider keys when native keys are unset.                                                                                                          |
+| `GROQ_API_KEY`       | Groq       | Must be set directly. Groq is **not** covered by the `LLM_API_KEY` fallback — the agent only maps `LLM_API_KEY` to `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `OPENROUTER_API_KEY`. |
 
 ## Model format
 
@@ -48,13 +48,13 @@ base_url = "<LLM_BASE_URL>"
 
 ## CLI flags used by the agent
 
-| Flag | Description |
-|------|-------------|
-| `-n <task>` | Non-interactive mode — pass the task text directly; deepagents exits when done. |
-| `-a` / `--agent factory` | Use the `factory` named-agent, which has its own config and memory dir (`~/.deepagents/factory/`), isolated from the user's default agent. |
-| `--auto-approve` | Autonomous mode — skip all interactive approval prompts. |
-| `--shell-allow-list recommended` | Enable the recommended set of safe shell commands. |
-| `-M` / `--model <provider:model>` | Model in `provider:model` format. Set only when `LLM_MODEL_ID` is non-empty. |
+| Flag                              | Description                                                                                                                                |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `-n <task>`                       | Non-interactive mode — pass the task text directly; deepagents exits when done.                                                            |
+| `-a` / `--agent factory`          | Use the `factory` named-agent, which has its own config and memory dir (`~/.deepagents/factory/`), isolated from the user's default agent. |
+| `--auto-approve`                  | Autonomous mode — skip all interactive approval prompts.                                                                                   |
+| `--shell-allow-list recommended`  | Enable the recommended set of safe shell commands.                                                                                         |
+| `-M` / `--model <provider:model>` | Model in `provider:model` format. Set only when `LLM_MODEL_ID` is non-empty.                                                               |
 
 ## Privilege drop
 
@@ -62,19 +62,19 @@ The agent runs `deepagents` as `$SAIFCTL_UNPRIV_USER` via `runuser`, resetting `
 
 ## Environment variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `LLM_MODEL_ID` | No | Bare model ID (e.g. `gpt-4o`, `claude-sonnet-4-5`). Passed to `--model` after provider prefix is prepended. When unset, `--model` is omitted and deepagents uses its own default model. |
-| `LLM_PROVIDER` | No | Provider name (e.g. `openai`, `anthropic`). Prepended to `LLM_MODEL_ID` to form `provider:model`. Also used to scope `config.toml` when `LLM_BASE_URL` is set. Falls back to `openai` when unset. |
-| `LLM_API_KEY` | Fallback | Exported as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `OPENROUTER_API_KEY` when those are not already set. |
-| `OPENAI_API_KEY` | Conditional | Native OpenAI key. Takes precedence over `LLM_API_KEY`. |
-| `ANTHROPIC_API_KEY` | Conditional | Native Anthropic key. Takes precedence over `LLM_API_KEY`. |
-| `OPENROUTER_API_KEY` | Conditional | Native OpenRouter key. Takes precedence over `LLM_API_KEY`. |
-| `LLM_BASE_URL` | No | Custom provider base URL. Written to `~/.deepagents/factory/config.toml`. |
-| `SAIFCTL_TASK_PATH` | Yes | Path to the file containing the task prompt. Read by `deepagents -n "$(cat …)"`. |
-| `SAIFCTL_UNPRIV_USER` | Yes | Unprivileged user to run `deepagents` as. |
-| `SAIFCTL_UNPRIV_NPM_PREFIX` | Yes | npm binary prefix whose `bin/` is prepended to `PATH` inside the `runuser` shell. Baked into the coder image. |
-| `SAIFCTL_WORKSPACE_BASE` | No | Working directory for the agent (default: `/workspace`). |
+| Variable                    | Required    | Description                                                                                                                                                                                       |
+| --------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LLM_MODEL_ID`              | No          | Bare model ID (e.g. `gpt-4o`, `claude-sonnet-4-5`). Passed to `--model` after provider prefix is prepended. When unset, `--model` is omitted and deepagents uses its own default model.           |
+| `LLM_PROVIDER`              | No          | Provider name (e.g. `openai`, `anthropic`). Prepended to `LLM_MODEL_ID` to form `provider:model`. Also used to scope `config.toml` when `LLM_BASE_URL` is set. Falls back to `openai` when unset. |
+| `LLM_API_KEY`               | Fallback    | Exported as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `OPENROUTER_API_KEY` when those are not already set.                                                                                       |
+| `OPENAI_API_KEY`            | Conditional | Native OpenAI key. Takes precedence over `LLM_API_KEY`.                                                                                                                                           |
+| `ANTHROPIC_API_KEY`         | Conditional | Native Anthropic key. Takes precedence over `LLM_API_KEY`.                                                                                                                                        |
+| `OPENROUTER_API_KEY`        | Conditional | Native OpenRouter key. Takes precedence over `LLM_API_KEY`.                                                                                                                                       |
+| `LLM_BASE_URL`              | No          | Custom provider base URL. Written to `~/.deepagents/factory/config.toml`.                                                                                                                         |
+| `SAIFCTL_TASK_PATH`         | Yes         | Path to the file containing the task prompt. Read by `deepagents -n "$(cat …)"`.                                                                                                                  |
+| `SAIFCTL_UNPRIV_USER`       | Yes         | Unprivileged user to run `deepagents` as.                                                                                                                                                         |
+| `SAIFCTL_UNPRIV_NPM_PREFIX` | Yes         | npm binary prefix whose `bin/` is prepended to `PATH` inside the `runuser` shell. Baked into the coder image.                                                                                     |
+| `SAIFCTL_WORKSPACE_BASE`    | No          | Working directory for the agent (default: `/workspace`).                                                                                                                                          |
 
 ## Usage examples
 

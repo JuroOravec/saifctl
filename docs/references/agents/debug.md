@@ -29,14 +29,14 @@ When the network probe is active (i.e. `SAIFCTL_SKIP_NETWORK_PROBE` is unset), `
 
 ## Environment variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `SAIFCTL_WORKSPACE_BASE` | No | `/workspace` | Workspace root. `dummy.md` is written here. |
-| `SAIFCTL_SKIP_NETWORK_PROBE` | No | unset | Set to any non-empty value to skip the HTTP network probe entirely (useful in unit tests). |
-| `SAIFCTL_NETWORK_PROBE_URL` | No | `https://example.com` | URL used for the network probe `GET` request (15 s timeout). |
-| `SAIFCTL_DEBUG_REQUIRE_HUMAN_FEEDBACK` | No | unset | Set to any non-empty value to enable the manual human-feedback test: the agent waits 10 s for a pending-rules file and asserts it contains the exact string `Say hello in a comment in src/foo.ts`. |
-| `SAIFCTL_TASK_PATH` | No | `/workspace/.saifctl/task.md` | Path to the task file. Used only when `SAIFCTL_DEBUG_REQUIRE_HUMAN_FEEDBACK` is set to locate the pending-rules file. |
-| `SAIFCTL_PENDING_RULES_PATH` | No | `$(dirname $SAIFCTL_TASK_PATH)/pending-rules.md` | Explicit path to the pending-rules file. Overrides the default derived from `SAIFCTL_TASK_PATH`. Used only when `SAIFCTL_DEBUG_REQUIRE_HUMAN_FEEDBACK` is set. |
+| Variable                               | Required | Default                                          | Description                                                                                                                                                                                         |
+| -------------------------------------- | -------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SAIFCTL_WORKSPACE_BASE`               | No       | `/workspace`                                     | Workspace root. `dummy.md` is written here.                                                                                                                                                         |
+| `SAIFCTL_SKIP_NETWORK_PROBE`           | No       | unset                                            | Set to any non-empty value to skip the HTTP network probe entirely (useful in unit tests).                                                                                                          |
+| `SAIFCTL_NETWORK_PROBE_URL`            | No       | `https://example.com`                            | URL used for the network probe `GET` request (15 s timeout).                                                                                                                                        |
+| `SAIFCTL_DEBUG_REQUIRE_HUMAN_FEEDBACK` | No       | unset                                            | Set to any non-empty value to enable the manual human-feedback test: the agent waits 10 s for a pending-rules file and asserts it contains the exact string `Say hello in a comment in src/foo.ts`. |
+| `SAIFCTL_TASK_PATH`                    | No       | `/workspace/.saifctl/task.md`                    | Path to the task file. Used only when `SAIFCTL_DEBUG_REQUIRE_HUMAN_FEEDBACK` is set to locate the pending-rules file.                                                                               |
+| `SAIFCTL_PENDING_RULES_PATH`           | No       | `$(dirname $SAIFCTL_TASK_PATH)/pending-rules.md` | Explicit path to the pending-rules file. Overrides the default derived from `SAIFCTL_TASK_PATH`. Used only when `SAIFCTL_DEBUG_REQUIRE_HUMAN_FEEDBACK` is set.                                      |
 
 ## Usage examples
 

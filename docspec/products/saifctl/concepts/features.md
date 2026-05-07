@@ -6,7 +6,7 @@ learning_outcomes:
   - Required files for a single-phase feature (`specification.md`, `tests/`); optional (`proposal.md`, `plan.md`).
   - Phased features add `phases/<id>/` subdirs, each with its own `spec.md` + `tests/`, plus optional `critics/<id>.md` at feature root and a `feature.yml` config.
   - Phase-numbering convention (zero-padded `01..NN`) keeps lex-order = run-order.
-  - "`feature.yml` configures phase defaults (critics, mutability, max-runs); `phase.yml` overrides per-phase."
+  - '`feature.yml` configures phase defaults (critics, mutability, max-runs); `phase.yml` overrides per-phase.'
   - The `--strict` mutability gate keeps test files immutable mid-run; saifctl rolls back rounds that touch them.
   - Reference subdirectories — `_phases-example/` (annotated full example), `_phases-and-critics/` (small full example with critics) — leading underscore reserves them as docs, not real features.
 analogies:

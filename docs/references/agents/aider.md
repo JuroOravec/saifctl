@@ -17,38 +17,38 @@ saifctl feat run --agent aider
 
 Aider uses litellm model strings. Pass the model via the `LLM_MODEL` environment variable or the saifctl `--model` flag. The format follows litellm conventions, for example:
 
-| Provider   | Example model string              |
-|------------|-----------------------------------|
-| Anthropic  | `anthropic/claude-sonnet-4-6`     |
-| OpenAI     | `openai/gpt-4o`                   |
+| Provider   | Example model string                     |
+| ---------- | ---------------------------------------- |
+| Anthropic  | `anthropic/claude-sonnet-4-6`            |
+| OpenAI     | `openai/gpt-4o`                          |
 | OpenRouter | `openrouter/anthropic/claude-3-5-sonnet` |
-| Gemini     | `gemini/gemini-1.5-pro`           |
+| Gemini     | `gemini/gemini-1.5-pro`                  |
 
 ## API key and base URL
 
 `LLM_API_KEY` is exported as a fallback for all common provider environment variables. Native provider keys take precedence.
 
-| Variable               | Purpose                                              |
-|------------------------|------------------------------------------------------|
-| `ANTHROPIC_API_KEY`    | Anthropic — native key, takes precedence over `LLM_API_KEY` |
-| `OPENAI_API_KEY`       | OpenAI — native key, takes precedence over `LLM_API_KEY`    |
-| `OPENROUTER_API_KEY`   | OpenRouter — native key, takes precedence over `LLM_API_KEY` |
-| `GEMINI_API_KEY`       | Gemini — native key, takes precedence over `LLM_API_KEY`    |
-| `LLM_API_KEY`          | Generic fallback, mapped to all provider keys above  |
-| `LLM_BASE_URL`         | Forwarded as `OPENAI_API_BASE` for custom endpoints  |
+| Variable             | Purpose                                                      |
+| -------------------- | ------------------------------------------------------------ |
+| `ANTHROPIC_API_KEY`  | Anthropic — native key, takes precedence over `LLM_API_KEY`  |
+| `OPENAI_API_KEY`     | OpenAI — native key, takes precedence over `LLM_API_KEY`     |
+| `OPENROUTER_API_KEY` | OpenRouter — native key, takes precedence over `LLM_API_KEY` |
+| `GEMINI_API_KEY`     | Gemini — native key, takes precedence over `LLM_API_KEY`     |
+| `LLM_API_KEY`        | Generic fallback, mapped to all provider keys above          |
+| `LLM_BASE_URL`       | Forwarded as `OPENAI_API_BASE` for custom endpoints          |
 
 ## Flags used by the agent script
 
 These flags are passed automatically; you do not set them directly.
 
-| Flag                          | Effect                                                                  |
-|-------------------------------|-------------------------------------------------------------------------|
-| `--model`                     | Selects the model (value from `LLM_MODEL`).                            |
-| `--message-file`              | Reads the task from `$SAIFCTL_TASK_PATH`; exits after completion (single-shot mode). |
-| `--yes`                       | Auto-confirms all prompts — required for headless operation.           |
+| Flag                          | Effect                                                                                                |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `--model`                     | Selects the model (value from `LLM_MODEL`).                                                           |
+| `--message-file`              | Reads the task from `$SAIFCTL_TASK_PATH`; exits after completion (single-shot mode).                  |
+| `--yes`                       | Auto-confirms all prompts — required for headless operation.                                          |
 | `--no-auto-commits`           | Disables aider's own git commits. saifctl extracts changes via `git diff HEAD` after the agent exits. |
-| `--no-check-update`           | Suppresses the update-available banner.                                 |
-| `--no-suggest-shell-commands` | Suppresses shell-command suggestions (not useful headlessly).           |
+| `--no-check-update`           | Suppresses the update-available banner.                                                               |
+| `--no-suggest-shell-commands` | Suppresses shell-command suggestions (not useful headlessly).                                         |
 
 ## Privileges
 

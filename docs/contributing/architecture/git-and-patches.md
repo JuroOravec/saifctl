@@ -12,11 +12,11 @@ The user's working directory is never modified during the loop.
 
 ## Three Git phases
 
-| Phase | Where | Purpose |
-|---|---|---|
-| **Sandbox** | `/tmp/saifctl/sandboxes/<proj>-<feat>-<runId>/code/` | Fresh git repo (not a clone). Host's `.git` is never mounted or copied. Diff agent changes against a baseline. |
-| **Tests** | Same sandbox | [`extractIncrementalRoundPatch`](../../../src/orchestrator/sandbox.ts#L1045) leaves `code/` at a new commit; staging reads from there directly (no extra `git apply`). `run test` mode reuses the same layout. |
-| **Success** | Host repo | Git **worktree** creates a feature branch, applies the patch, commits, optionally pushes + PRs — without changing the main working tree's checked-out branch. |
+| Phase       | Where                                                | Purpose                                                                                                                                                                                                        |
+| ----------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Sandbox** | `/tmp/saifctl/sandboxes/<proj>-<feat>-<runId>/code/` | Fresh git repo (not a clone). Host's `.git` is never mounted or copied. Diff agent changes against a baseline.                                                                                                 |
+| **Tests**   | Same sandbox                                         | [`extractIncrementalRoundPatch`](../../../src/orchestrator/sandbox.ts#L1045) leaves `code/` at a new commit; staging reads from there directly (no extra `git apply`). `run test` mode reuses the same layout. |
+| **Success** | Host repo                                            | Git **worktree** creates a feature branch, applies the patch, commits, optionally pushes + PRs — without changing the main working tree's checked-out branch.                                                  |
 
 The host's working directory is **never modified** during the convergence loop. Worktree apply happens only after gate + reviewer + holdout all pass. User's current branch + uncommitted work stay untouched → safe parallel runs.
 
@@ -26,10 +26,10 @@ Default: saifctl assumes a clean, committed state at `HEAD`. Sandbox is filled w
 
 `--include-dirty` (or `defaults.includeDirty`): `rsync` of the working tree instead (committed + staged + unstaged + untracked, `.gitignore`-respected).
 
-| Mode | Pro | Con |
-|---|---|---|
-| `git archive HEAD` (default) | Baseline aligns with git; what-the-agent-sees = what's-committed | WIP not visible to the agent |
-| `--include-dirty` | WIP visible to the agent | Host-apply can bake WIP paths into feature-branch history |
+| Mode                         | Pro                                                              | Con                                                       |
+| ---------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------- |
+| `git archive HEAD` (default) | Baseline aligns with git; what-the-agent-sees = what's-committed | WIP not visible to the agent                              |
+| `--include-dirty`            | WIP visible to the agent                                         | Host-apply can bake WIP paths into feature-branch history |
 
 For dirty trees needing fine control: `saifctl run export` + manual `git apply` (staged for review). **CI / unattended runs should stay on the default.**
 
@@ -87,12 +87,12 @@ Why this shape:
 
 Default set from [`buildPatchExcludeRules`](../../../src/orchestrator/loop.ts#L111):
 
-| Pattern | Why |
-|---|---|
-| `.git/hooks/**` | Host `git apply` would honour these — see [`security-threats.md` #2](./security-threats.md#2-arbitrary-code-execution-via-malicious-patch-githooks-injection). |
-| `saifctl/tests/**` | Project-immutable; reward-hacking prevention. |
-| `<saifctl-dir>/.saifctl/**` | Factory-internal workspace state (task file, stats, etc.). Not product code. |
-| Custom `--patch-exclude` rules | Project-specific (e.g. `dist/`, `*.snap`). |
+| Pattern                        | Why                                                                                                                                                            |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.git/hooks/**`                | Host `git apply` would honour these — see [`security-threats.md` #2](./security-threats.md#2-arbitrary-code-execution-via-malicious-patch-githooks-injection). |
+| `saifctl/tests/**`             | Project-immutable; reward-hacking prevention.                                                                                                                  |
+| `<saifctl-dir>/.saifctl/**`    | Factory-internal workspace state (task file, stats, etc.). Not product code.                                                                                   |
+| Custom `--patch-exclude` rules | Project-specific (e.g. `dist/`, `*.snap`).                                                                                                                     |
 
 Two-layer enforcement: `filterPatchHunks` strips hunks before storage; `assertRunCommitsSafeForHost` throws if a `.git/hooks/` path slips through (last-resort guard before host `git apply`).
 
@@ -108,7 +108,7 @@ The sandbox repo is **not reset** when a round fails the gate. Agent commits sta
 
 After patch extraction, the **staging container reads `code/` directly** — no `git apply` step, no extra copy. The staging container's `/workspace/` mount points at the same `code/` directory the agent edited. The test runner reaches the staging container over HTTP via the sidecar ([`test-runner.md`](./test-runner.md)).
 
-Why no `git apply` for the staging container: the agent's commits *are* the post-patch state. Applying the diff back on top would be a no-op. Saves the round-trip.
+Why no `git apply` for the staging container: the agent's commits _are_ the post-patch state. Applying the diff back on top would be a no-op. Saves the round-trip.
 
 ## Iterative loop: commit, then verify
 
@@ -144,11 +144,11 @@ Sandbox `code/` ≠ worktree `<feature-branch>`. Two separate physical dirs beca
 
 `--push` (or `defaults.push`) → orchestrator pushes the feature branch. Provider-aware ([`extension-points.md` Git providers](./extension-points.md#git-providers)):
 
-| Source | Behaviour |
-|---|---|
-| `--push <target>` | Explicit URL or named remote; provider auto-detected from URL. |
-| `defaults.push.url` in config | Same. |
-| `defaults.push: true` (no flag) | Push to resolved `origin`. |
+| Source                          | Behaviour                                                      |
+| ------------------------------- | -------------------------------------------------------------- |
+| `--push <target>`               | Explicit URL or named remote; provider auto-detected from URL. |
+| `defaults.push.url` in config   | Same.                                                          |
+| `defaults.push: true` (no flag) | Push to resolved `origin`.                                     |
 
 Auth: each provider's `resolvePushUrl()` injects the matching `*_TOKEN` env var into the push URL. Tokens are env-only, never passed as arguments, URL-with-token only lives for the `git push` invocation, never logged or persisted.
 
@@ -168,13 +168,13 @@ PR/MR URL surfaced in the run summary. Saifctl does **not** auto-merge — user 
 
 Five mitigations on the agent → host → remote-host trust path. All cross-link [`security-threats.md`](./security-threats.md):
 
-| # | Layer | Where | Threat |
-|---|---|---|---|
-| 1 | Patch filter before storage | [`filterPatchHunks`](../../../src/orchestrator/sandbox.ts#L1194) strips `.git/hooks/`, `saifctl/tests/` before `RunCommit` persists | #2 |
-| 2 | Pre-apply guard on host | [`assertRunCommitsSafeForHost`](../../../src/orchestrator/phases/apply-patch.ts#L75) re-scans before `git apply` | #2 |
-| 3 | Cedar `forbid` writes | `/workspace/.git/hooks/` + `File::"/workspace/.git/config"` blocked at syscall level | #2, #6 |
-| 4 | Worktree isolation | Host apply uses separate physical dir; user's branch + uncommitted work untouched | — |
-| 5 | Token handling | Read from env, injected only for `git push`, never logged or persisted | — |
+| #   | Layer                       | Where                                                                                                                               | Threat |
+| --- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | Patch filter before storage | [`filterPatchHunks`](../../../src/orchestrator/sandbox.ts#L1194) strips `.git/hooks/`, `saifctl/tests/` before `RunCommit` persists | #2     |
+| 2   | Pre-apply guard on host     | [`assertRunCommitsSafeForHost`](../../../src/orchestrator/phases/apply-patch.ts#L75) re-scans before `git apply`                    | #2     |
+| 3   | Cedar `forbid` writes       | `/workspace/.git/hooks/` + `File::"/workspace/.git/config"` blocked at syscall level                                                | #2, #6 |
+| 4   | Worktree isolation          | Host apply uses separate physical dir; user's branch + uncommitted work untouched                                                   | —      |
+| 5   | Token handling              | Read from env, injected only for `git push`, never logged or persisted                                                              | —      |
 
 Defense-in-depth: even if Cedar were bypassed (it isn't — Leash enforces at syscall level), the patch filter strips it; even past the filter, the pre-apply guard catches it; even if applied, the worktree is a temp dir, not the user's working tree.
 
@@ -182,13 +182,13 @@ Defense-in-depth: even if Cedar were bypassed (it isn't — Leash enforces at sy
 
 Multiple `feat run` invocations on the same project run concurrently. Each run gets a unique:
 
-| Resource | Path |
-|---|---|
-| Sandbox dir | `/tmp/saifctl/sandboxes/<proj>-<feat>-<runId>/` |
-| Worktree dir | `/tmp/saifctl/worktrees/<runId>/` |
-| Docker network | `saifctl-net-<proj>-<feat>-<runId>` |
-| Branch name | `saifctl/<feature>-<runId>` |
-| Run-storage key | `<runId>` |
+| Resource        | Path                                            |
+| --------------- | ----------------------------------------------- |
+| Sandbox dir     | `/tmp/saifctl/sandboxes/<proj>-<feat>-<runId>/` |
+| Worktree dir    | `/tmp/saifctl/worktrees/<runId>/`               |
+| Docker network  | `saifctl-net-<proj>-<feat>-<runId>`             |
+| Branch name     | `saifctl/<feature>-<runId>`                     |
+| Run-storage key | `<runId>`                                       |
 
 The user's working directory is never modified. The only shared state is the host's `.git/` (under `.git/saifctl/<runId>/`-prefixed worktrees); git's worktree mechanism handles concurrent operations as long as branches are unique — saifctl ensures uniqueness via `<feature>-<runId>` naming.
 

@@ -47,12 +47,12 @@ For multi-value options, saifctl consistently uses **one flag** and **comma-sepa
 --discovery-mcp a=1,b=2
 ```
 
-| Area | Flag (examples) | Format |
-| ---- | --------------- | ------ |
-| Storage | `--storage` | Global and/or `runs=local`, `tasks=s3://…` (comma-separated parts; `key=value` only if the key matches `^\w+=`) |
-| Models | `--model`, `--base-url` | `agent=model` or bare global, comma-separated |
-| Agent env | `--agent-env`, `--agent-env-file` | Comma-separated `KEY=VAL` or paths |
-| Discovery MCP | `--discovery-mcp` | `name=url` entries, comma-separated |
+| Area          | Flag (examples)                   | Format                                                                                                          |
+| ------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Storage       | `--storage`                       | Global and/or `runs=local`, `tasks=s3://…` (comma-separated parts; `key=value` only if the key matches `^\w+=`) |
+| Models        | `--model`, `--base-url`           | `agent=model` or bare global, comma-separated                                                                   |
+| Agent env     | `--agent-env`, `--agent-env-file` | Comma-separated `KEY=VAL` or paths                                                                              |
+| Discovery MCP | `--discovery-mcp`                 | `name=url` entries, comma-separated                                                                             |
 
 Because splitting is on **commas**, individual values usually **must not contain commas** (e.g. agent names in `--model` cannot include commas). URLs with query strings remain **bare** segments (not `key=value` keys) because only `\w+=` prefixes are treated as keyed parts — see comments on **`KEY_EQ_PATTERN`** in **`resolveStorageOverrides`** / **`parseCommaSeparatedOverrides`** (`src/cli/utils.ts`).
 

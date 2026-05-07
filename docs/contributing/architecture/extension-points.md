@@ -2,14 +2,14 @@
 
 Six profile systems make saifctl pluggable. Each is a directory of implementations + an `index.ts` registry; new entries are dropped in.
 
-| System | Source | Default | Count | Picks via |
-|---|---|---|---|---|
-| Agent profiles | [`src/agent-profiles/`](../../../src/agent-profiles/) | `openhands` | 15 | `--agent <id>` |
-| Designer profiles | [`src/designer-profiles/`](../../../src/designer-profiles/) | `poc` | 2 (`poc`, `shotgun`) | `--designer <id>` |
-| Indexer profiles | [`src/indexer-profiles/`](../../../src/indexer-profiles/) | `shotgun` | 1 | `--indexer <id>` |
-| Sandbox profiles | [`src/sandbox-profiles/`](../../../src/sandbox-profiles/) | `node-pnpm-python` | 24 | `--profile <id>` |
-| Test profiles | [`src/test-profiles/`](../../../src/test-profiles/) | `node-vitest` | 8 | `--test-profile <id>` |
-| Git providers | [`src/git/providers/`](../../../src/git/providers/) | (auto from remote URL) | 5 (`github`, `gitlab`, `bitbucket`, `azure`, `gitea`) | `--git-provider <id>` |
+| System            | Source                                                      | Default                | Count                                                 | Picks via             |
+| ----------------- | ----------------------------------------------------------- | ---------------------- | ----------------------------------------------------- | --------------------- |
+| Agent profiles    | [`src/agent-profiles/`](../../../src/agent-profiles/)       | `openhands`            | 15                                                    | `--agent <id>`        |
+| Designer profiles | [`src/designer-profiles/`](../../../src/designer-profiles/) | `poc`                  | 2 (`poc`, `shotgun`)                                  | `--designer <id>`     |
+| Indexer profiles  | [`src/indexer-profiles/`](../../../src/indexer-profiles/)   | `shotgun`              | 1                                                     | `--indexer <id>`      |
+| Sandbox profiles  | [`src/sandbox-profiles/`](../../../src/sandbox-profiles/)   | `node-pnpm-python`     | 24                                                    | `--profile <id>`      |
+| Test profiles     | [`src/test-profiles/`](../../../src/test-profiles/)         | `node-vitest`          | 8                                                     | `--test-profile <id>` |
+| Git providers     | [`src/git/providers/`](../../../src/git/providers/)         | (auto from remote URL) | 5 (`github`, `gitlab`, `bitbucket`, `azure`, `gitea`) | `--git-provider <id>` |
 
 > **Related:** [`orchestrator.md`](./orchestrator.md) · [`sandbox-isolation.md`](./sandbox-isolation.md) · [`test-runner.md`](./test-runner.md) · [`spec-pipeline.md`](./spec-pipeline.md) · [`../adding-agents.md`](../adding-agents.md) (practical how-to for the agent case).
 
@@ -36,15 +36,17 @@ Each profile system has a `<dir>/index.ts` that exports a registry. The runtime 
 
 15 supported: `aider`, `claude`, `codex`, `copilot`, `cursor`, `debug`, `deepagents`, `forge`, `gemini`, `kilocode`, `mini-swe-agent`, `opencode`, `openhands`, `qwen`, `terminus`. Per-agent user-facing pages at [`docspec/references/agents/`](../../../docspec/references/agents/).
 
+Out of scope: orchestrator-class tools (e.g. [OpenClaw](https://openclaw.ai)) — the agent-profile contract assumes a CLI that edits files in a workspace per round, not a sub-orchestrator that delegates to other coding CLIs. See [`saifctl/features/openclaw-agent-profile/design.md`](../../../saifctl/features/openclaw-agent-profile/design.md) and the "Tools considered but not integrated" section in [`adding-agents.md`](../adding-agents.md#tools-considered-but-not-integrated).
+
 ### Profile contract
 
 Each profile dir at `src/agent-profiles/<id>/` ships:
 
-| File | Role | When it runs |
-|---|---|---|
-| `profile.ts` | Registers id, displayName, stdoutStrategy, drop-privileges classification | At saifctl boot |
-| `agent-install.sh` | Install the agent CLI in the coder container | Once at container start |
-| `agent.sh` | Run the agent for one inner round | Per inner round; reads `$SAIFCTL_TASK_PATH`, exits on completion |
+| File               | Role                                                                      | When it runs                                                     |
+| ------------------ | ------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `profile.ts`       | Registers id, displayName, stdoutStrategy, drop-privileges classification | At saifctl boot                                                  |
+| `agent-install.sh` | Install the agent CLI in the coder container                              | Once at container start                                          |
+| `agent.sh`         | Run the agent for one inner round                                         | Per inner round; reads `$SAIFCTL_TASK_PATH`, exits on completion |
 
 The convergence loop ([`orchestrator.md`](./orchestrator.md)) is agent-agnostic — writes the task to `$SAIFCTL_TASK_PATH`, invokes `agent.sh`, runs the gate against whatever ends up in `/workspace/`. Black box from the orchestrator's POV.
 
@@ -96,10 +98,10 @@ Full walkthrough: [`../adding-agents.md`](../adding-agents.md). Summary:
 
 Run at `feat design-specs` ([`spec-pipeline.md`](./spec-pipeline.md#stage-2-design-specs-designer-profile)). Convert `proposal.md` (+ optional `discovery.md`) → `specification.md` + `plan.md`.
 
-| Profile | Strategy | Strength | Weakness |
-|---|---|---|---|
-| **`poc`** (default) | Sandboxed coding agent builds a throwaway PoC first, derives the spec from what it discovered | Specs grounded in code that compiles; surfaces edge cases | Slower; ~$1/run on Sonnet-tier |
-| **`shotgun`** | Static-trace: tree-sitter index + multi-agent chain (Researcher / Architect / Spec Writer) | Faster; no code execution; local-first | Specs based on what the designer *thinks* the code does, not runtime behaviour |
+| Profile             | Strategy                                                                                      | Strength                                                  | Weakness                                                                       |
+| ------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **`poc`** (default) | Sandboxed coding agent builds a throwaway PoC first, derives the spec from what it discovered | Specs grounded in code that compiles; surfaces edge cases | Slower; ~$1/run on Sonnet-tier                                                 |
+| **`shotgun`**       | Static-trace: tree-sitter index + multi-agent chain (Researcher / Architect / Spec Writer)    | Faster; no code execution; local-first                    | Specs based on what the designer _thinks_ the code does, not runtime behaviour |
 
 POC is saifctl-internal (reuses the convergence-loop machinery). Shotgun is third-party ([github.com/shotgun-sh/shotgun](https://github.com/shotgun-sh/shotgun)); saifctl shells out to its CLI.
 
@@ -119,24 +121,24 @@ Shotgun-as-designer and Shotgun-as-indexer are independent — you can `--design
 
 Language + package-manager stack for the coder + staging containers. 24 profiles, named `<lang>[-<lang2>][-<pkg-mgr>]`:
 
-| Family | Profiles |
-|---|---|
-| Node | `node-pnpm` (default), `node-npm`, `node-yarn`, `node-bun` (each with optional `-python` suffix) |
-| Python | `python-pip`, `python-uv`, `python-poetry`, `python-conda` (each with optional `-node` suffix) |
-| Go | `go`, `go-node`, `go-python`, `go-node-python` |
-| Rust | `rust`, `rust-node`, `rust-python`, `rust-node-python` |
+| Family | Profiles                                                                                         |
+| ------ | ------------------------------------------------------------------------------------------------ |
+| Node   | `node-pnpm` (default), `node-npm`, `node-yarn`, `node-bun` (each with optional `-python` suffix) |
+| Python | `python-pip`, `python-uv`, `python-poetry`, `python-conda` (each with optional `-node` suffix)   |
+| Go     | `go`, `go-node`, `go-python`, `go-node-python`                                                   |
+| Rust   | `rust`, `rust-node`, `rust-python`, `rust-node-python`                                           |
 
 The `<lang>-<lang2>` forms are for mixed-language projects (Node tooling around a Rust core, Python ML utils in a Go CLI). `Dockerfile.coder` installs both runtimes.
 
 Profile contract — each `src/sandbox-profiles/<id>/`:
 
-| File | Role |
-|---|---|
-| `profile.ts` | `SandboxProfile` metadata (id, displayName, image tag) |
-| `Dockerfile.coder` | Image for both coder + staging |
-| `startup.sh` | Workspace deps install (`pnpm install`, `cargo fetch`, …) |
-| `stage.sh` | Starts the app (`pnpm run start`) or `wait`s for CLI-only projects |
-| `gate.sh` | Per-profile default gate ([`gate-and-reviewer.md`](./gate-and-reviewer.md#layer-1-the-gate)) |
+| File               | Role                                                                                         |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| `profile.ts`       | `SandboxProfile` metadata (id, displayName, image tag)                                       |
+| `Dockerfile.coder` | Image for both coder + staging                                                               |
+| `startup.sh`       | Workspace deps install (`pnpm install`, `cargo fetch`, …)                                    |
+| `stage.sh`         | Starts the app (`pnpm run start`) or `wait`s for CLI-only projects                           |
+| `gate.sh`          | Per-profile default gate ([`gate-and-reviewer.md`](./gate-and-reviewer.md#layer-1-the-gate)) |
 
 Same `Dockerfile.coder` produces coder + staging images. Difference is what runs inside (agent vs app), not the image — see [`sandbox-isolation.md`](./sandbox-isolation.md#the-three-containers).
 

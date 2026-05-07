@@ -56,7 +56,7 @@ Hence audit×2 on this phase.
   but empty is a misconfiguration; validate should reject with a
   clear error. Don't silently fall back to the legacy path.
 - **Multi-feature mode** is a stretch goal here: `feat phases
-  validate` (no feature arg) walks the entire features tree and
+validate` (no feature arg) walks the entire features tree and
   validates every phased feature. Useful for CI / pre-commit hooks.
   Make this work if it's cheap; defer otherwise.
 
@@ -72,7 +72,7 @@ common failure modes:
   config file or the wrong line. Users will copy-paste broken YAML
   if the error message is unclear.
 - A `phases compile` output that silently differs from what `feat
-  run` actually executes. Users rely on this to preview before
+run` actually executes. Users rely on this to preview before
   committing — if it lies, the whole observability story breaks.
 - Pre-flight that's too strict (rejects valid configs) or too lenient
   (accepts broken configs that then fail mid-run). Both are bad,

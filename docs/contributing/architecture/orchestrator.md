@@ -2,9 +2,10 @@
 
 The state machine `saifctl feat run` runs through. Lives in [`src/orchestrator/`](../../../src/orchestrator/), entry at [`modes.ts`](../../../src/orchestrator/modes.ts), convergence loop at [`loop.ts:703`](../../../src/orchestrator/loop.ts#L703).
 
-The *what each gate checks* details live in [`gate-and-reviewer.md`](./gate-and-reviewer.md); this page is "what runs in what order, where".
+The _what each gate checks_ details live in [`gate-and-reviewer.md`](./gate-and-reviewer.md); this page is "what runs in what order, where".
 
 > **"Phases" is overloaded.** Two senses, both appear below:
+>
 > - **Orchestrator modes** — `fail2pass | start | fromArtifact | test | inspect`. CLI dispatch.
 > - **Feature phases** — `phases/<id>/` subdirs in a phased feature. Compile to **subtasks** that the convergence loop dispatches one at a time.
 
@@ -12,19 +13,19 @@ The *what each gate checks* details live in [`gate-and-reviewer.md`](./gate-and-
 
 [`src/orchestrator/modes.ts`](../../../src/orchestrator/modes.ts) hosts the five orchestrator entry points. Each is the root of a state machine; each ends in either `success`, `failed`, `paused`, or `stopped` ([`OrchestratorOutcomeStatus`](../../../src/orchestrator/loop.ts#L432)).
 
-| Mode | Triggered by | What it does |
-|---|---|---|
-| **`fail2pass`** | `saifctl feat design-fail2pass` | Sanity check: confirm at least one of the feature's tests fails on the *current* codebase before the agent runs. Cheap pre-flight that catches "tests already pass, so the spec is already satisfied" mistakes. |
-| **`start`** | `saifctl feat run`, `saifctl sandbox` | Create a fresh sandbox + run the iterative agent loop until convergence or `maxRuns`. The hot path. |
-| **`fromArtifact`** | `saifctl run start <runId>`, `saifctl run resume <runId>` | Reconstruct sandbox state from a saved Run, then dispatch into `start`'s same loop with seeded `initialErrorFeedback`. |
-| **`test`** | `saifctl run test <runId>` | Re-test a Run's stored patch *without* running the coding-agent loop. Useful for "the holdout tests changed, does the old fix still pass?". |
-| **`inspect`** | `saifctl run inspect <runId>` | Provision an idle coder container reproducing the Run's workspace state. Changes the user makes in-container are saved back to the Run. |
+| Mode               | Triggered by                                              | What it does                                                                                                                                                                                                    |
+| ------------------ | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`fail2pass`**    | `saifctl feat design-fail2pass`                           | Sanity check: confirm at least one of the feature's tests fails on the _current_ codebase before the agent runs. Cheap pre-flight that catches "tests already pass, so the spec is already satisfied" mistakes. |
+| **`start`**        | `saifctl feat run`, `saifctl sandbox`                     | Create a fresh sandbox + run the iterative agent loop until convergence or `maxRuns`. The hot path.                                                                                                             |
+| **`fromArtifact`** | `saifctl run start <runId>`, `saifctl run resume <runId>` | Reconstruct sandbox state from a saved Run, then dispatch into `start`'s same loop with seeded `initialErrorFeedback`.                                                                                          |
+| **`test`**         | `saifctl run test <runId>`                                | Re-test a Run's stored patch _without_ running the coding-agent loop. Useful for "the holdout tests changed, does the old fix still pass?".                                                                     |
+| **`inspect`**      | `saifctl run inspect <runId>`                             | Provision an idle coder container reproducing the Run's workspace state. Changes the user makes in-container are saved back to the Run.                                                                         |
 
 The mode dispatch happens at the CLI layer ([`src/cli/commands/feat.ts`](../../../src/cli/commands/feat.ts), [`run.ts`](../../../src/cli/commands/run.ts)); `modes.ts` exports each mode as an `async function` the CLI calls.
 
 ## The convergence loop — `runIterativeLoop`
 
-[`src/orchestrator/loop.ts:703`](../../../src/orchestrator/loop.ts#L703) is *the* function. Both `start` and `fromArtifact` end up here. Pseudocode:
+[`src/orchestrator/loop.ts:703`](../../../src/orchestrator/loop.ts#L703) is _the_ function. Both `start` and `fromArtifact` end up here. Pseudocode:
 
 ```ts
 for each subtask in loopRunSubtasks:
@@ -55,11 +56,11 @@ A `RunSubtaskInput` is the dispatch unit (`{ content: string }` + optional metad
 
 Three resolution paths in [`resolve-subtasks.ts`](../../../src/orchestrator/resolve-subtasks.ts):
 
-| Source | When | Output |
-|---|---|---|
-| `--subtasks <path>` (JSON) | Tests, advanced consumers | One subtask per row |
-| Non-phased feature | Default `feat run` | One subtask synthesized from `specification.md` + `plan.md` ([`buildSubtasksFromSpec`](../../../src/orchestrator/resolve-subtasks.ts#L137)) |
-| Phased feature | Feature has a `phases/` dir | N subtasks compiled by [`compilePhasesToSubtasks`](../../../src/specs/phases/compile.ts) |
+| Source                     | When                        | Output                                                                                                                                      |
+| -------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--subtasks <path>` (JSON) | Tests, advanced consumers   | One subtask per row                                                                                                                         |
+| Non-phased feature         | Default `feat run`          | One subtask synthesized from `specification.md` + `plan.md` ([`buildSubtasksFromSpec`](../../../src/orchestrator/resolve-subtasks.ts#L137)) |
+| Phased feature             | Feature has a `phases/` dir | N subtasks compiled by [`compilePhasesToSubtasks`](../../../src/specs/phases/compile.ts)                                                    |
 
 Phased features contribute per phase:
 
@@ -82,32 +83,32 @@ All three call `validatePhasedFeature` for consistent error reporting with the l
 
 Test files are **immutable** by default. After every round, [`mutability-check.ts`](../../../src/orchestrator/mutability-check.ts) inspects the per-round diff and rolls back if any immutable file was touched. The violation is fed back as error feedback; the round **doesn't consume a `maxRuns` slot** (lost work, not lost budget).
 
-| Layer | Mutability |
-|---|---|
+| Layer                                         | Mutability                                                        |
+| --------------------------------------------- | ----------------------------------------------------------------- |
 | `<feature>/tests/` and `<phases>/<id>/tests/` | Immutable with `--strict` (default); editable with `--no-strict`. |
-| `saifctl/tests/` (project-wide) | **Always** immutable. |
+| `saifctl/tests/` (project-wide)               | **Always** immutable.                                             |
 
 Per-feature override: `feature.yml` `tests.mutable: true`. Per-test override: file annotations.
 
 ## Pause / Stop / Resume / Start — run lifecycle
 
-| CLI | Mode | What changes |
-|---|---|---|
-| `saifctl run pause <id>` | `runPause` ([`modes.ts:1191`](../../../src/orchestrator/modes.ts#L1191)) | Sample at next subtask boundary; preserve sandbox + Docker network for resume; stored status → `paused`. |
-| `saifctl run resume <id>` | `fromArtifact` (with paused→running) | Reuse cached sandbox + network if still present; if cache is gone, fall back to `start` semantics from the saved git state. |
-| `saifctl run stop <id>` | `runStop` ([`modes.ts:1222`](../../../src/orchestrator/modes.ts#L1222)) | Full teardown (sandbox + Docker resources via `LiveInfra` — see [`infra.md`](../infra.md)); stored status → `failed`. Use before `run rm` when the run is `running` or `paused`. |
-| `saifctl run start <id>` | `fromArtifact` (failed/interrupted → running) | Reconstruct workspace from git + saved commits; same agent loop. **Not** for `paused` runs. |
+| CLI                        | Mode                                                                       | What changes                                                                                                                                                                                                                                                                 |
+| -------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `saifctl run pause <id>`   | `runPause` ([`modes.ts:1191`](../../../src/orchestrator/modes.ts#L1191))   | Sample at next subtask boundary; preserve sandbox + Docker network for resume; stored status → `paused`.                                                                                                                                                                     |
+| `saifctl run resume <id>`  | `fromArtifact` (with paused→running)                                       | Reuse cached sandbox + network if still present; if cache is gone, fall back to `start` semantics from the saved git state.                                                                                                                                                  |
+| `saifctl run stop <id>`    | `runStop` ([`modes.ts:1222`](../../../src/orchestrator/modes.ts#L1222))    | Full teardown (sandbox + Docker resources via `LiveInfra` — see [`infra.md`](../infra.md)); stored status → `failed`. Use before `run rm` when the run is `running` or `paused`.                                                                                             |
+| `saifctl run start <id>`   | `fromArtifact` (failed/interrupted → running)                              | Reconstruct workspace from git + saved commits; same agent loop. **Not** for `paused` runs.                                                                                                                                                                                  |
 | `saifctl run inspect <id>` | `runInspect` ([`modes.ts:1407`](../../../src/orchestrator/modes.ts#L1407)) | Provision idle coder container; user manually edits; saifctl applies edits back to the run when the container exits. See [`docspec/products/saifctl/how-tos/inspect-and-start.md`](../../../docspec/products/saifctl/how-tos/inspect-and-start.md) for the user-facing flow. |
-| `saifctl run export <id>` | `runExport` ([`modes.ts:1809`](../../../src/orchestrator/modes.ts#L1809)) | Export workspace tree + logs + diff to a directory or tarball. |
+| `saifctl run export <id>`  | `runExport` ([`modes.ts:1809`](../../../src/orchestrator/modes.ts#L1809))  | Export workspace tree + logs + diff to a directory or tarball.                                                                                                                                                                                                               |
 
-**Granularity note for phased features**: pause/resume sample at *subtask boundaries* (per phase / per critic round). Pausing mid-phase preserves state at the most recent checkpoint, NOT mid-round. Resume re-enters at the same subtask cursor; phases that already cleared their gate stay committed in the sandbox.
+**Granularity note for phased features**: pause/resume sample at _subtask boundaries_ (per phase / per critic round). Pausing mid-phase preserves state at the most recent checkpoint, NOT mid-round. Resume re-enters at the same subtask cursor; phases that already cleared their gate stay committed in the sandbox.
 
 ## The outer loop ↔ inner loop split
 
-| Loop | Where | Owns |
-|---|---|---|
-| **Outer** (this doc) | saifctl host process | Sandbox provisioning, patch extraction, mutability check, test-runner orchestration, run-storage updates, `maxRuns` budget. |
-| **Inner** ([`gate-and-reviewer.md`](./gate-and-reviewer.md)) | coder container | Agent's coding round; gate (`gate.sh`); optional reviewer (Argus). Failures loop back to the agent in the same outer round. |
+| Loop                                                         | Where                | Owns                                                                                                                        |
+| ------------------------------------------------------------ | -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **Outer** (this doc)                                         | saifctl host process | Sandbox provisioning, patch extraction, mutability check, test-runner orchestration, run-storage updates, `maxRuns` budget. |
+| **Inner** ([`gate-and-reviewer.md`](./gate-and-reviewer.md)) | coder container      | Agent's coding round; gate (`gate.sh`); optional reviewer (Argus). Failures loop back to the agent in the same outer round. |
 
 The split puts deterministic gate/reviewer checks close to the agent (low latency) and pushes the expensive containerized test runner to the outer loop. Outer sees only the final committed result of all inner-round attempts.
 

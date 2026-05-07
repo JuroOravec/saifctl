@@ -39,14 +39,14 @@ You can narrow what gets applied:
 
 Factory mode (`saifctl feat run`) runs agents through a convergence loop with a Gate, Reviewer, and Holdout tests, storing each run. Sandbox intentionally skips all of that:
 
-| | Sandbox | Factory |
-|---|---|---|
-| Gate | No | Yes |
-| Reviewer | No | Yes |
-| Holdout tests | No | Yes |
-| Attempts | Single | Convergence loop |
-| Run storage | No (default) | Yes |
-| Spec required | No | Yes |
+|               | Sandbox      | Factory          |
+| ------------- | ------------ | ---------------- |
+| Gate          | No           | Yes              |
+| Reviewer      | No           | Yes              |
+| Holdout tests | No           | Yes              |
+| Attempts      | Single       | Convergence loop |
+| Run storage   | No (default) | Yes              |
+| Spec required | No           | Yes              |
 
 ## When to use sandbox
 

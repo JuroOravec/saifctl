@@ -11,11 +11,11 @@ Both run the same workflow at [`src/hatchet/workflows/feat-run.workflow.ts`](../
 
 Local mode runs Hatchet workflows in-process via [`src/hatchet/utils/local.ts`](../../src/hatchet/utils/local.ts). DAG ordering, `parentOutput`, `runChild`, `onFailure` semantics match the real Hatchet — single code path means feature-run logic stays tested without standing up a server.
 
-| Path | Role |
-|---|---|
-| `src/hatchet/utils/local.ts` | Runner + `HatchetLike`, `WorkflowDeclaration`, `LocalContext` |
-| `src/hatchet/utils/local.test.ts` | DAG, children, failures, `onFailure`, abort coverage |
-| `src/hatchet/client.ts` | `getHatchetClient()`, `_resetHatchetClient()` (tests) |
+| Path                                         | Role                                                            |
+| -------------------------------------------- | --------------------------------------------------------------- |
+| `src/hatchet/utils/local.ts`                 | Runner + `HatchetLike`, `WorkflowDeclaration`, `LocalContext`   |
+| `src/hatchet/utils/local.test.ts`            | DAG, children, failures, `onFailure`, abort coverage            |
+| `src/hatchet/client.ts`                      | `getHatchetClient()`, `_resetHatchetClient()` (tests)           |
 | `src/hatchet/workflows/feat-run.workflow.ts` | Production workflow; uses `getHatchetClient()` for declarations |
 
 Not implemented vs real Hatchet (intentional): persistence, retries, distributed workers, dashboard, server-side scheduling, anything assuming an external engine. Failures surface synchronously in-process.
@@ -24,12 +24,12 @@ Not implemented vs real Hatchet (intentional): persistence, retries, distributed
 
 Per **Decision D-04** + spec section 3.5. Goal: durable, distributed `feat run` execution where saifctl drives runs across multiple worker machines, with a dashboard surfacing run state to operators.
 
-| Phase | Status | What it adds |
-|---|---|---|
+| Phase                                                               | Status                                                                                   | What it adds                                                                                                                                                                   |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Phase 1 — Local Hatchet (single machine, optional local server)** | 🟡 in progress, **experimental in v0.1** (gated behind `SAIFCTL_EXPERIMENTAL_HATCHET=1`) | Real Hatchet server runs on the user's machine; saifctl talks to it via gRPC. Durability across saifctl crashes. Local dashboard. Same `feat-run.workflow.ts` driving the run. |
-| **Phase 2 — Remote workers** | ➡️ future | Workers run on separate machines; saifctl host dispatches via Hatchet, results stream back. Useful for CI farms and shared compute pools. |
-| **Phase 3 — Control plane server** | ➡️ future | A saifctl-specific REST API in front of Hatchet for project / feature / run / worker management. Multi-tenant. |
-| **Phase 4 — GitHub App + webhook triggers** | ➡️ future | `feat run` triggers from GitHub PR events; AI agents fix CI failures, propose changes, etc. |
+| **Phase 2 — Remote workers**                                        | ➡️ future                                                                                | Workers run on separate machines; saifctl host dispatches via Hatchet, results stream back. Useful for CI farms and shared compute pools.                                      |
+| **Phase 3 — Control plane server**                                  | ➡️ future                                                                                | A saifctl-specific REST API in front of Hatchet for project / feature / run / worker management. Multi-tenant.                                                                 |
+| **Phase 4 — GitHub App + webhook triggers**                         | ➡️ future                                                                                | `feat run` triggers from GitHub PR events; AI agents fix CI failures, propose changes, etc.                                                                                    |
 
 The full design (data schemas, control-plane REST API, worker-node provisioning, dashboard features, storage backends) is roadmap material for Phases 2-4. When those phases ship, this doc gets the detail. The earlier design draft is preserved in `git log` (commit before the DOC-09 architecture restructure).
 

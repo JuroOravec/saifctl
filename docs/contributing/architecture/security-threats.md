@@ -10,7 +10,7 @@ The agent (its CLI + anything it `pip install`s / `npm install`s) is hostile. Th
 
 Two design principles fall out:
 
-1. **The agent never controls what the host executes.** Anything the agent writes that the host then *honours* — git config, hooks, patches, stderr piped into a shell — is an escape vector. All seven findings below are variations on this.
+1. **The agent never controls what the host executes.** Anything the agent writes that the host then _honours_ — git config, hooks, patches, stderr piped into a shell — is an escape vector. All seven findings below are variations on this.
 2. **Network egress is permitted by default — pragmatic, not principled.** A network allowlist for arbitrary user projects (npm, PyPI, crates, GitHub, doc hosts, per-project deps, …) is intractable. Filesystem isolation is what actually contains the blast radius; the network is a known unmitigated exfiltration channel. Per Decision D-06 in the release-readiness specification.
 
 ## Defense-in-depth layers
@@ -27,15 +27,15 @@ The user-facing version of these five lives at [`web/src/app/saifctl/page.tsx`](
 
 ## Additional hardening mechanisms
 
-| Mechanism | Where | What it blocks |
-|---|---|---|
-| Saifctl env-var stripping | [`src/orchestrator/loop.ts:268`](../../../src/orchestrator/loop.ts#L268) | Agent can't read `SAIFCTL_*` / `LLM_*` / `REVIEWER_LLM_*` vars (saifctl's own credentials, coordination state). |
-| Secret-env redaction | same | `--agent-secret KEY` env vars are forwarded but never logged as values, never persisted to run storage. |
-| Drop-privileges contract | [`src/orchestrator/scripts/saifctl-agent-helpers.sh`](../../../src/orchestrator/scripts/saifctl-agent-helpers.sh) + [`drop-privileges-contract.test.ts`](../../../src/agent-profiles/drop-privileges-contract.test.ts) | Each agent profile's `agent.sh` runs the CLI as `$SAIFCTL_UNPRIV_USER` (uid != 0). Even `--dangerousNoLeash` keeps non-root. |
-| Prompt-injection isolation | (design invariant; no single file) | Agent output never reaches saifctl's internal AI agents (vague-specs-checker, design agents). Only Argus reads agent bytes; bypassing it doesn't pass holdout tests — three independent gates. See [`gate-and-reviewer.md`](./gate-and-reviewer.md). |
-| Reward-hacking forbid | `default.cedar` + patchExclude | Cedar forbids writes under `/workspace/saifctl/`; even if bypassed, the patch filter strips agent-written test files before storage. See #6 below. |
-| Hidden tests physically absent | [`sandbox.ts:16`](../../../src/orchestrator/sandbox.ts#L16) | `<feature>/tests/hidden/` is not staged into the sandbox copy. The agent has no observation of what hidden tests check. |
-| Agent-identity commits | git author signing | Every `feat run` commit signed `saifctl-agent[<run-id>]`. Distinguishable from human commits in `git log`. Audit trail. |
+| Mechanism                      | Where                                                                                                                                                                                                                  | What it blocks                                                                                                                                                                                                                                       |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Saifctl env-var stripping      | [`src/orchestrator/loop.ts:268`](../../../src/orchestrator/loop.ts#L268)                                                                                                                                               | Agent can't read `SAIFCTL_*` / `LLM_*` / `REVIEWER_LLM_*` vars (saifctl's own credentials, coordination state).                                                                                                                                      |
+| Secret-env redaction           | same                                                                                                                                                                                                                   | `--agent-secret KEY` env vars are forwarded but never logged as values, never persisted to run storage.                                                                                                                                              |
+| Drop-privileges contract       | [`src/orchestrator/scripts/saifctl-agent-helpers.sh`](../../../src/orchestrator/scripts/saifctl-agent-helpers.sh) + [`drop-privileges-contract.test.ts`](../../../src/agent-profiles/drop-privileges-contract.test.ts) | Each agent profile's `agent.sh` runs the CLI as `$SAIFCTL_UNPRIV_USER` (uid != 0). Even `--dangerousNoLeash` keeps non-root.                                                                                                                         |
+| Prompt-injection isolation     | (design invariant; no single file)                                                                                                                                                                                     | Agent output never reaches saifctl's internal AI agents (vague-specs-checker, design agents). Only Argus reads agent bytes; bypassing it doesn't pass holdout tests — three independent gates. See [`gate-and-reviewer.md`](./gate-and-reviewer.md). |
+| Reward-hacking forbid          | `default.cedar` + patchExclude                                                                                                                                                                                         | Cedar forbids writes under `/workspace/saifctl/`; even if bypassed, the patch filter strips agent-written test files before storage. See #6 below.                                                                                                   |
+| Hidden tests physically absent | [`sandbox.ts:16`](../../../src/orchestrator/sandbox.ts#L16)                                                                                                                                                            | `<feature>/tests/hidden/` is not staged into the sandbox copy. The agent has no observation of what hidden tests check.                                                                                                                              |
+| Agent-identity commits         | git author signing                                                                                                                                                                                                     | Every `feat run` commit signed `saifctl-agent[<run-id>]`. Distinguishable from human commits in `git log`. Audit trail.                                                                                                                              |
 
 ## Original design-time findings
 
@@ -84,11 +84,11 @@ See [`test-runner.md`](./test-runner.md) for the full sidecar protocol.
 
 **Original flaw**: `featureName` was passed directly into shell commands and file paths without sanitization, enabling path traversal (`../../../etc`) or shell injection (`my-feature; rm -rf /`).
 
-**Mitigation**: `validateFeatureName()` at [`src/cli/utils.ts:227`](../../../src/cli/utils.ts#L227) enforces kebab-case / safe path segments at the CLI boundary. Any name containing path-traversal characters, spaces, or shell metacharacters is rejected immediately with a clear error, *before* any shell command is constructed.
+**Mitigation**: `validateFeatureName()` at [`src/cli/utils.ts:227`](../../../src/cli/utils.ts#L227) enforces kebab-case / safe path segments at the CLI boundary. Any name containing path-traversal characters, spaces, or shell metacharacters is rejected immediately with a clear error, _before_ any shell command is constructed.
 
 Applied at every entry point: `--name`/`-n` flag (`utils.ts:245`), the `saifctl feat new` interactive prompt, and any internal call sites that construct paths from user input.
 
-Defense-in-depth: shell commands that *do* use `featureName` quote paths (`"${sandboxBasePath}"`), but the primary control is the boundary regex.
+Defense-in-depth: shell commands that _do_ use `featureName` quote paths (`"${sandboxBasePath}"`), but the primary control is the boundary regex.
 
 ### #5. Default container capabilities (root, unrestricted privileges)
 
@@ -148,15 +148,15 @@ Belt-and-suspenders: even with the patch filter (#2), the policy enforces the bo
 
 ## Summary
 
-| # | Finding | Severity | Mitigation |
-|---|---|---|---|
-| 1 | `stderr` → shell injection via sync `exec` | CRITICAL | `spawn()` + sanitized feedback (`modes.ts`) |
-| 2 | `git apply` `.git/hooks/` injection | CRITICAL | patch filter (`modes.ts:1480`) + pre-apply guard (`apply-patch.ts:75`) |
-| 3 | Docker socket → host root | CRITICAL | HTTP sidecar (`sidecars/cli-over-http/`); no socket mount |
-| 4 | Path traversal via `featureName` | HIGH | `validateFeatureName` regex at CLI boundary (`utils.ts:227`) |
-| 5 | Default container capabilities | HIGH | `User: 'node'`, `CapDrop: ['ALL']`, `no-new-privileges` (`engines/docker/index.ts:285,410`) |
-| 6 | `.git/config` host command injection | CRITICAL | Cedar `forbid` write to `Dir::"/workspace/.git/hooks/"` + `File::"/workspace/.git/config"` (`policies/default.cedar:65`) |
-| 7 | Shell injection via CLI image flags | LOW | `validateImageTag` at CLI + library boundaries (`utils/docker.ts`) |
+| #   | Finding                                    | Severity | Mitigation                                                                                                               |
+| --- | ------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 1   | `stderr` → shell injection via sync `exec` | CRITICAL | `spawn()` + sanitized feedback (`modes.ts`)                                                                              |
+| 2   | `git apply` `.git/hooks/` injection        | CRITICAL | patch filter (`modes.ts:1480`) + pre-apply guard (`apply-patch.ts:75`)                                                   |
+| 3   | Docker socket → host root                  | CRITICAL | HTTP sidecar (`sidecars/cli-over-http/`); no socket mount                                                                |
+| 4   | Path traversal via `featureName`           | HIGH     | `validateFeatureName` regex at CLI boundary (`utils.ts:227`)                                                             |
+| 5   | Default container capabilities             | HIGH     | `User: 'node'`, `CapDrop: ['ALL']`, `no-new-privileges` (`engines/docker/index.ts:285,410`)                              |
+| 6   | `.git/config` host command injection       | CRITICAL | Cedar `forbid` write to `Dir::"/workspace/.git/hooks/"` + `File::"/workspace/.git/config"` (`policies/default.cedar:65`) |
+| 7   | Shell injection via CLI image flags        | LOW      | `validateImageTag` at CLI + library boundaries (`utils/docker.ts`)                                                       |
 
 ## Living-document notes
 

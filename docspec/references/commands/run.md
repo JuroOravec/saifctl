@@ -19,4 +19,4 @@ Run-lifecycle management. A "Run" is a persisted execution of `feat run` or `san
 - `clear` — bulk-remove runs by filter.
 - `test` — re-run a saved run's holdout tests against its final state.
 
-`run rules` is a separate top-level command (see `run-rules.md`) — it manages user-feedback rules attached to a run, and operates while a run is *executing*.
+`run rules` is a separate top-level command (see `run-rules.md`) — it manages user-feedback rules attached to a run, and operates while a run is _executing_.

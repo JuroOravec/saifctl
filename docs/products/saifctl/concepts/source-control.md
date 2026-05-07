@@ -33,13 +33,13 @@ saifctl feat run --feature <id> --push --branch my-custom-branch
 
 saifctl supports five providers. Each uses its own credential mechanism:
 
-| Provider | Authentication |
-|---|---|
-| GitHub | `GITHUB_TOKEN` env var |
-| GitLab | `GITLAB_TOKEN` env var; `GITLAB_URL` env var (optional, for self-hosted instances) |
-| Bitbucket | PAT or repository access token via `BITBUCKET_TOKEN` + `BITBUCKET_USERNAME` env vars |
-| Azure Repos | Personal access token via `AZURE_DEVOPS_TOKEN` env var |
-| Gitea | `GITEA_TOKEN` + `GITEA_USERNAME` env vars; `GITEA_URL` env var (optional, for self-hosted instances) |
+| Provider    | Authentication                                                                                       |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
+| GitHub      | `GITHUB_TOKEN` env var                                                                               |
+| GitLab      | `GITLAB_TOKEN` env var; `GITLAB_URL` env var (optional, for self-hosted instances)                   |
+| Bitbucket   | PAT or repository access token via `BITBUCKET_TOKEN` + `BITBUCKET_USERNAME` env vars                 |
+| Azure Repos | Personal access token via `AZURE_DEVOPS_TOKEN` env var                                               |
+| Gitea       | `GITEA_TOKEN` + `GITEA_USERNAME` env vars; `GITEA_URL` env var (optional, for self-hosted instances) |
 
 Use the `--git-provider` flag to select the hosting provider (`github` | `gitlab` | `bitbucket` | `azure` | `gitea`; default: `github`).
 

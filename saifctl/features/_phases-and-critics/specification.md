@@ -1,7 +1,7 @@
 # `_phases-and-critics` — specification
 
-This is the *what* (filesystem shape, configs, critic mental model,
-decisions). The *why* lives in `plan.md`. Per-phase implementation slices
+This is the _what_ (filesystem shape, configs, critic mental model,
+decisions). The _why_ lives in `plan.md`. Per-phase implementation slices
 live in each `phases/<id>/spec.md`.
 
 This feature ships a single critic, `audit` — the project author's
@@ -65,24 +65,24 @@ Two files. Both optional. One vocabulary.
 
 ```yaml
 # All keys optional.
-critics:                            # default critic selection at feature scope (no-phases mode
-                                    # uses this directly; phased mode uses it as a fallback only
-                                    # if neither phases.defaults.critics nor phase.yml specify)
+critics: # default critic selection at feature scope (no-phases mode
+  # uses this directly; phased mode uses it as a fallback only
+  # if neither phases.defaults.critics nor phase.yml specify)
   - { id: audit, rounds: 1 }
 
-tests:                              # feature-scope test mutability config
-  mutable: false                    # default false; see §2.6
-  immutable-files: []               # globs that stay locked even when mutable=true
+tests: # feature-scope test mutability config
+  mutable: false # default false; see §2.6
+  immutable-files: [] # globs that stay locked even when mutable=true
 
-phases:                             # only meaningful if phases/ dir exists
+phases: # only meaningful if phases/ dir exists
   order: [01-core, 02-trigger, e2e] # omit to use lexicographic
   # Phases use cumulative tests. Always. (Not configurable.)
-  defaults:                         # inherited by every phase that doesn't override
+  defaults: # inherited by every phase that doesn't override
     critics:
       - { id: audit, rounds: 1 }
     tests:
-      mutable: false                # default
-      fail2pass: true               # default; auto-flips to false when mutable=true
+      mutable: false # default
+      fail2pass: true # default; auto-flips to false when mutable=true
 ```
 
 Optionally, full per-phase config can live inline in `feature.yml`
@@ -96,13 +96,13 @@ supported; per-phase `phase.yml` overrides whatever inline config
 
 ```yaml
 # All keys optional. Same vocabulary as feature.yml.phases.defaults.
-critics:                            # FULL OVERRIDE of inherited list (no key-level merge)
+critics: # FULL OVERRIDE of inherited list (no key-level merge)
   - { id: audit, rounds: 2 }
-spec: spec.md                       # default; only set if you want a custom spec file path
+spec: spec.md # default; only set if you want a custom spec file path
 tests:
   mutable: false
-  fail2pass: true                   # default; auto-flips to false when mutable=true
-  enforce: diff-inspection          # 'diff-inspection' (default) | 'read-only'
+  fail2pass: true # default; auto-flips to false when mutable=true
+  enforce: diff-inspection # 'diff-inspection' (default) | 'read-only'
 ```
 
 ### 2.3 Resolution order (most-specific wins)
@@ -114,7 +114,7 @@ tests:
 4. saifctl built-in default
 
 **No key-level merge.** If `phase.yml` declares `critics:`, that
-*replaces* the inherited list entirely. To extend, write the full list.
+_replaces_ the inherited list entirely. To extend, write the full list.
 Rationale: avoids the "I added one critic but inherited two and now I
 have three" surprise.
 
@@ -124,7 +124,7 @@ Each critic entry is an object, not a bare string:
 
 ```yaml
 critics:
-  - { id: audit, rounds: 2 }        # rounds optional, default 1
+  - { id: audit, rounds: 2 } # rounds optional, default 1
   - { id: audit }
 ```
 
@@ -154,11 +154,11 @@ Three layers, evaluated as: walk up the dir tree from the test file,
 first explicit declaration wins; if none found, fall back to the
 project default (which `--strict`/`--no-strict` flips).
 
-| Location                                         | Mutability                                    |
-|--------------------------------------------------|-----------------------------------------------|
-| `saifctl/tests/**`                               | **Always immutable.** Hard-coded; never overridable. |
-| `saifctl/features/<feat>/phases/<id>/tests/**`   | Per `phase.yml.tests.mutable` ⇒ inherited from `feature.yml.phases.defaults` ⇒ inherited from `feature.yml.tests.mutable` ⇒ project default. |
-| `saifctl/features/<feat>/tests/**`               | Per `feature.yml.tests.mutable` ⇒ project default. |
+| Location                                       | Mutability                                                                                                                                   |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `saifctl/tests/**`                             | **Always immutable.** Hard-coded; never overridable.                                                                                         |
+| `saifctl/features/<feat>/phases/<id>/tests/**` | Per `phase.yml.tests.mutable` ⇒ inherited from `feature.yml.phases.defaults` ⇒ inherited from `feature.yml.tests.mutable` ⇒ project default. |
+| `saifctl/features/<feat>/tests/**`             | Per `feature.yml.tests.mutable` ⇒ project default.                                                                                           |
 
 The project default is `false` (strict) unless `--no-strict` is passed
 (or `defaults.strict: false` is set in `~/.saifctl/config.yml`).
@@ -168,6 +168,7 @@ The project default is `false` (strict) unless `--no-strict` is passed
 **Per-file escape hatch:** `feature.yml.tests.immutable-files` (a list
 of globs relative to the feature dir) marks specific files as immutable
 even when the surrounding scope is mutable. Use for:
+
 - a single test file that's been promoted to "this is now part of the
   contract, don't touch" without elevating the whole feature to
   `saifctl/tests/`;
@@ -178,8 +179,8 @@ even when the surrounding scope is mutable. Use for:
 tests:
   mutable: true
   immutable-files:
-    - "tests/api-contract.test.ts"
-    - "tests/auth-flows/**"
+    - 'tests/api-contract.test.ts'
+    - 'tests/auth-flows/**'
 ```
 
 **Enforcement:** `tests.enforce` selects mechanism, default
@@ -239,8 +240,8 @@ findings" sentinel), fix exits immediately as a no-op.
 Earlier drafts proposed a single "find AND fix in-place" critic
 subtask. The user's real workflow has always been two steps:
 
-1. *Reviewer agent* reads code + writes findings to a file.
-2. *Coding agent* reads findings + applies fixes.
+1. _Reviewer agent_ reads code + writes findings to a file.
+2. _Coding agent_ reads findings + applies fixes.
 
 The split has practical benefits:
 
@@ -261,7 +262,7 @@ The split has practical benefits:
 Path: `/workspace/.saifctl/critic-findings/<phaseId>--<criticId>--r<round>.md`
 
 - Inside the workspace `.saifctl/` dir (where `task.md` already
-  lives). Distinct from the project's `saifctl/` *config* dir.
+  lives). Distinct from the project's `saifctl/` _config_ dir.
 - Filename pinned by phase + critic + round so re-runs are
   deterministic and the fix step can find what discover wrote.
 - Format: markdown checklist (`- [ ] Issue: ...`) so the fix step
@@ -330,13 +331,13 @@ sandbox via symlink.
   no editorial notes, no commentary about how the partial works. Keep
   partial files to direct content only (rules, conventions, reference
   text the agent should act on). Documentation about the partial
-  belongs in a sibling README that *isn't* inlined.
+  belongs in a sibling README that _isn't_ inlined.
 - **Partial content is text, not a template.** Mustache tokens
   (`{{phase.id}}` etc.) inside an inlined file render as literal text;
   they are NOT substituted. This is intentional — it keeps the partial
   mechanism a one-way pipe and prevents stale tokens in referenced
   files from breaking renders. If you need a variable in the inlined
-  section, put it in the *template* before/after the `{{> file ...}}`
+  section, put it in the _template_ before/after the `{{> file ...}}`
   partial, not in the file itself.
 
 The combined consequence: prose that mentions partial syntax (e.g.
@@ -410,7 +411,7 @@ overrides, gate script, fresh LLM per round) already exists.
 Files touched:
 
 - `src/runs/types.ts` — `testScope?: { include?: string[];
-  cumulative?: boolean }` on `RunSubtaskInput`.
+cumulative?: boolean }` on `RunSubtaskInput`.
 - `src/orchestrator/loop.ts` — `prepareTestRunnerOpts` honors
   `activeRow.testScope`.
 - `src/orchestrator/resolve-subtasks.ts` — "compile from phases" path
@@ -504,18 +505,18 @@ Files touched:
   read plan.md before starting any work").
 - **Plan/spec deviation handling = inverted from initial proposal.**
   Not all rounds will deviate from the plan, so saifctl does **not**
-  enforce or warn when plan.md is *unchanged*. Instead:
-  - Implementer/critic prompts include a directive: *"If your
+  enforce or warn when plan.md is _unchanged_. Instead:
+  - Implementer/critic prompts include a directive: _"If your
     implementation deviates from the original plan or spec, update
-    `plan.md` / `spec.md` to reflect the actual implementation."*
+    `plan.md` / `spec.md` to reflect the actual implementation."_
     Soft directive; not enforced.
   - **After each round, saifctl prints an informational warning if
     the agent's commits modified `plan.md`, any `spec.md`, or any
     test file** — naming the modified paths. Non-fatal; surfaces the
     change in the run log so the user notices it during overnight
     review. Independent of mutability enforcement (which fails the
-    gate when *immutable* tests are touched; the warning surfaces
-    *all* such modifications regardless of mutability).
+    gate when _immutable_ tests are touched; the warning surfaces
+    _all_ such modifications regardless of mutability).
 - **Feature-level `tests/` and phase-level `tests/` both supported,
   but with different gating semantics.** When `phases/` exists,
   `saifctl/features/<feat>/tests/` continues to be valid for tests
@@ -525,7 +526,7 @@ Files touched:
   across phases; feature-level and project-level tests run only at
   the end** (gating only the last phase). Rationale: in a multi-phase
   migration (e.g. mongo→postgres in 4 phases), feature-level tests
-  describe the *terminal* state of the feature and cannot pass at
+  describe the _terminal_ state of the feature and cannot pass at
   intermediate phases by design. Mutability rules apply per-dir.
 - **Inline-phases-in-feature.yml syntax: `phases.phases.<id>: {...}`**
   for projects that prefer a single config file over scattered
@@ -579,13 +580,14 @@ phases). Out of scope for the first cut.
 ### A.4 "Always-on" project-level tests
 
 The §6 decision is that `saifctl/tests/` (project-level) and
-`features/<feat>/tests/` (feature-level) only gate the *last* phase —
+`features/<feat>/tests/` (feature-level) only gate the _last_ phase —
 matching the mongo→postgres rationale where end-state tests can't pass
-mid-migration. But a real use case exists for *invariants* that should
+mid-migration. But a real use case exists for _invariants_ that should
 hold at every phase: e.g. a security scan, a "no secrets in code"
 check, or a "build still compiles" smoke test.
 
 Possible later approaches:
+
 - Subdivide `saifctl/tests/` into `saifctl/tests/always/` (every
   phase) and `saifctl/tests/end/` (last phase only).
 - A `saifctl/tests.yml` listing per-glob gating policy.

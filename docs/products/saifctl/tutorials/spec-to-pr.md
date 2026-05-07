@@ -38,6 +38,7 @@ saifctl/features/csv-export/
 Add `--format csv` to `saifctl run list`.
 
 Acceptance criteria:
+
 - `--format` accepts `table` (existing default) and `csv` (new value).
 - Any other value exits with code 2 and an error to stderr.
 - `--format csv` produces UTF-8 CSV on stdout; no change to `--format table` output.
@@ -50,6 +51,7 @@ Acceptance criteria:
 # csv-export / phase 02: CSV output
 
 CSV output from `saifctl run list --format csv` must:
+
 - Include a header row: `id,status,started_at,finished_at`.
 - Represent each run as one data row with the same fields.
 - Properly quote fields that contain commas or newlines (RFC 4180).
@@ -73,8 +75,8 @@ A minimal holdout test for phase 1:
 
 ```typescript
 // phases/01-flag/tests/holdout/flag.spec.ts
-test("unknown format value exits 2", async () => {
-  const { code } = await run("saifctl run list --format xml");
+test('unknown format value exits 2', async () => {
+  const { code } = await run('saifctl run list --format xml');
   expect(code).toBe(2);
 });
 ```
@@ -83,13 +85,13 @@ A minimal holdout test for phase 2:
 
 ```typescript
 // phases/02-output/tests/holdout/csv.spec.ts
-import { parse } from "csv-parse/sync";
+import { parse } from 'csv-parse/sync';
 
-test("csv output parses as valid RFC 4180", async () => {
-  const { stdout } = await run("saifctl run list --format csv");
+test('csv output parses as valid RFC 4180', async () => {
+  const { stdout } = await run('saifctl run list --format csv');
   const rows = parse(stdout, { columns: true });
-  expect(rows[0]).toHaveProperty("id");
-  expect(rows[0]).toHaveProperty("status");
+  expect(rows[0]).toHaveProperty('id');
+  expect(rows[0]).toHaveProperty('status');
 });
 ```
 

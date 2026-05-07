@@ -5,7 +5,7 @@
 - Product name: SaifCTL
 - CLI name: `saifctl`
 
-Example: *SaifCTL* is documented here; use `saifctl run start` to launch a run.
+Example: _SaifCTL_ is documented here; use `saifctl run start` to launch a run.
 
 ### Product name
 
@@ -73,12 +73,12 @@ doc-meta:
 # Title
 ```
 
-| Key | Purpose |
-| --- | --- |
-| `happy-paths` | Main journeys this doc supports (free-form list). |
-| `out-of-scope` | Features/concepts that are out of scope for this doc (free-form list). |
-| `next` | Suggested follow-on doc; path relative to the `docs/` directory (e.g. `sandbox.md`, `commands/feat-run.md`). |
-| `audience` | Who the page is for (e.g. `end-users`, `contributors`). |
+| Key            | Purpose                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------ |
+| `happy-paths`  | Main journeys this doc supports (free-form list).                                                            |
+| `out-of-scope` | Features/concepts that are out of scope for this doc (free-form list).                                       |
+| `next`         | Suggested follow-on doc; path relative to the `docs/` directory (e.g. `sandbox.md`, `commands/feat-run.md`). |
+| `audience`     | Who the page is for (e.g. `end-users`, `contributors`).                                                      |
 
 Add more keys only if they stay stable and useful across the tree. Omit the whole block when a page does not need structured hints.
 
@@ -91,6 +91,6 @@ Add more keys only if they stay stable and useful across the tree. Omit the whol
 
 Lead with **outcome** (“run AI agents safely”), not **category** (“open source orchestrator for autonomous AI agents”). Hero: what you do and why, not ecosystem labels.
 
-| Avoid | Prefer |
-|-------|--------|
+| Avoid                                                           | Prefer                  |
+| --------------------------------------------------------------- | ----------------------- |
 | “This is an open source orchestrator for autonomous AI agents.” | “Run AI agents safely.” |

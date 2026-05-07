@@ -18,11 +18,11 @@ Validate a phased feature without running anything. Runs the same schema validat
 saifctl feat phases validate [options]
 ```
 
-| Flag | Alias | Type | Default | Description |
-|------|-------|------|---------|-------------|
-| `--name` | `-n` | string | _(prompted)_ | Feature name (kebab-case). Prompts with a list if omitted. |
-| `--project-dir` | | string | `(current directory)` | Project directory. |
-| `--saifctl-dir` | | string | `saifctl` | Path to the saifctl directory relative to the project root. |
+| Flag            | Alias | Type   | Default               | Description                                                 |
+| --------------- | ----- | ------ | --------------------- | ----------------------------------------------------------- |
+| `--name`        | `-n`  | string | _(prompted)_          | Feature name (kebab-case). Prompts with a list if omitted.  |
+| `--project-dir` |       | string | `(current directory)` | Project directory.                                          |
+| `--saifctl-dir` |       | string | `saifctl`             | Path to the saifctl directory relative to the project root. |
 
 ### `feat phases compile`
 
@@ -34,12 +34,12 @@ The compiled JSON is a **review artifact** — it documents the prompts and stru
 saifctl feat phases compile [options]
 ```
 
-| Flag | Alias | Type | Default | Description |
-|------|-------|------|---------|-------------|
-| `--name` | `-n` | string | _(prompted)_ | Feature name (kebab-case). Prompts with a list if omitted. |
-| `--project-dir` | | string | `(current directory)` | Project directory. |
-| `--saifctl-dir` | | string | `saifctl` | Path to the saifctl directory relative to the project root. |
-| `--gate-script` | | string | _(placeholder)_ | Path to a gate script to embed on every subtask. When omitted, a fail-loud placeholder is used so the artifact cannot silently bypass gates if misused. |
+| Flag            | Alias | Type   | Default               | Description                                                                                                                                             |
+| --------------- | ----- | ------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--name`        | `-n`  | string | _(prompted)_          | Feature name (kebab-case). Prompts with a list if omitted.                                                                                              |
+| `--project-dir` |       | string | `(current directory)` | Project directory.                                                                                                                                      |
+| `--saifctl-dir` |       | string | `saifctl`             | Path to the saifctl directory relative to the project root.                                                                                             |
+| `--gate-script` |       | string | _(placeholder)_       | Path to a gate script to embed on every subtask. When omitted, a fail-loud placeholder is used so the artifact cannot silently bypass gates if misused. |
 
 **Output path:** `<projectDir>/.saifctl/features/<feature>/phases.compiled.json`
 

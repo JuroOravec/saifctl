@@ -14,11 +14,11 @@ There's no flag that lets the agent skip any layer.
 
 Each layer catches a class the others can't:
 
-| Layer | Catches | Cost | Where it runs |
-|---|---|---|---|
-| **Gate** | Lint, format, typecheck, static analysis, public unit-test failures | Seconds, deterministic, no LLM | Coder container, inner loop, every agent round |
-| **Reviewer** (Argus) | Code that compiles but drifts from the spec — hallucinated APIs, missed cases, agent solved the wrong problem | ~30-60s, one LLM call | Coder container, after gate passes |
-| **Holdout tests** | Code that satisfies visible specs but breaks an unseen test | Minutes, full staging + test-runner stack | Outer loop, separate containers; see [`test-runner.md`](./test-runner.md) |
+| Layer                | Catches                                                                                                       | Cost                                      | Where it runs                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------- |
+| **Gate**             | Lint, format, typecheck, static analysis, public unit-test failures                                           | Seconds, deterministic, no LLM            | Coder container, inner loop, every agent round                            |
+| **Reviewer** (Argus) | Code that compiles but drifts from the spec — hallucinated APIs, missed cases, agent solved the wrong problem | ~30-60s, one LLM call                     | Coder container, after gate passes                                        |
+| **Holdout tests**    | Code that satisfies visible specs but breaks an unseen test                                                   | Minutes, full staging + test-runner stack | Outer loop, separate containers; see [`test-runner.md`](./test-runner.md) |
 
 All three must pass. The agent **can't bypass any layer**: holdout tests are physically stripped from the sandbox copy ([`sandbox-isolation.md`](./sandbox-isolation.md#the-copy-not-mount-workspace)), the Reviewer is a separate LLM call with no agent input, and the gate is deterministic.
 
@@ -29,7 +29,7 @@ Outer loop = [`runIterativeLoop`](../../../src/orchestrator/loop.ts#L703) on the
 ```
 outer loop (host process)                   inner loop (coder container)
 ─────────────────────                       ──────────────────────────────
-provision sandbox                           
+provision sandbox
 spawn coder container                ────►  coder-start.sh
                                               │
                                               ├── run startup.sh once (deps)
@@ -43,16 +43,16 @@ spawn coder container                ────►  coder-start.sh
                                                     └── reviewer.sh (Argus, optional)
                                                           │ fail → append findings to task; retry
                                                           └ pass → exit 0; commit ready
-                                              
+
 extract incremental patch                  ◄── (host reads sandbox repo HEAD)
-mutability-check                            
+mutability-check
 run test runner (separate containers)        ──── reaches staging via HTTP sidecar
   │ fail → run vague-specs-checker;
   │        feed back; restart inner loop
   └ pass: subtask done
 ```
 
-Gate + reviewer failures bounce *inside the container* with the failure text appended to the next round's task prompt — agent doesn't burn an outer test-runner pass on something a linter would catch. Outer loop sees only the final committed result.
+Gate + reviewer failures bounce _inside the container_ with the failure text appended to the next round's task prompt — agent doesn't burn an outer test-runner pass on something a linter would catch. Outer loop sees only the final committed result.
 
 `SAIFCTL_GATE_RETRIES` (default `5`) caps the inner loop. Past that, the inner loop returns failure and the outer loop counts it as one consumed `--max-runs` attempt.
 
@@ -64,12 +64,12 @@ Gate + reviewer failures bounce *inside the container* with the failure text app
 
 Per-profile defaults at [`src/sandbox-profiles/<profile>/gate.sh`](../../../src/sandbox-profiles/):
 
-| Profile | Default gate |
-|---|---|
-| `node-*` | No-op placeholder + warning. Node tests are too project-specific to default. |
-| `go` / `go-*` | `go vet` + `go test` |
-| `rust` / `rust-*` | `cargo check` + `cargo clippy` + `cargo test` |
-| `python` / `python-*` | `python -m pytest` + `ruff check` (variants per profile) |
+| Profile               | Default gate                                                                 |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `node-*`              | No-op placeholder + warning. Node tests are too project-specific to default. |
+| `go` / `go-*`         | `go vet` + `go test`                                                         |
+| `rust` / `rust-*`     | `cargo check` + `cargo clippy` + `cargo test`                                |
+| `python` / `python-*` | `python -m pytest` + `ruff check` (variants per profile)                     |
 
 Override: `--gate-script <path>`. Script runs in the coder container with `/workspace` as cwd.
 
@@ -92,7 +92,7 @@ The outer-loop test runner is the **authoritative** check; the gate is the **che
 
 Catches what the gate can't:
 
-- Agent solved a *different* problem than the spec (semantic drift).
+- Agent solved a _different_ problem than the spec (semantic drift).
 - Agent hallucinated an API call (no test exercises it; gate misses it).
 - Logic error in the diff that public tests happen not to cover.
 - Implementation correct but missing a spec'd case.
@@ -101,12 +101,12 @@ Runs after gate passes (no LLM spend on uncompilable code), before the agent's r
 
 ### Why Argus and not something else
 
-| Option | Pro | Con |
-|---|---|---|
-| Tree-sitter custom scripts | Flexible | LLM tool-calling for AST queries hallucinates + crashes searches. |
-| SCIP / LSIF indexers | Mathematically precise | Heavyweight; requires the codebase to compile, which the agent's broken-mid-round code often can't. |
-| LiteLLM proxy + custom orchestration | Provider abstraction | Over-engineered now that most providers ship OpenAI-compatible endpoints. |
-| **Argus** ([`vendor/argus/`](../../../vendor/argus/)) | ~25MB static Rust binary; tree-sitter AST chunking across 10+ languages without compilation; local CPU-only embedding model for semantic search; native OpenAI/Anthropic/Gemini + OpenAI-compat baseURL override; two-step prompt chain (`self_reflection`) drops false positives | — |
+| Option                                                | Pro                                                                                                                                                                                                                                                                               | Con                                                                                                 |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Tree-sitter custom scripts                            | Flexible                                                                                                                                                                                                                                                                          | LLM tool-calling for AST queries hallucinates + crashes searches.                                   |
+| SCIP / LSIF indexers                                  | Mathematically precise                                                                                                                                                                                                                                                            | Heavyweight; requires the codebase to compile, which the agent's broken-mid-round code often can't. |
+| LiteLLM proxy + custom orchestration                  | Provider abstraction                                                                                                                                                                                                                                                              | Over-engineered now that most providers ship OpenAI-compatible endpoints.                           |
+| **Argus** ([`vendor/argus/`](../../../vendor/argus/)) | ~25MB static Rust binary; tree-sitter AST chunking across 10+ languages without compilation; local CPU-only embedding model for semantic search; native OpenAI/Anthropic/Gemini + OpenAI-compat baseURL override; two-step prompt chain (`self_reflection`) drops false positives | —                                                                                                   |
 
 Argus wins: zero-infra (no Node/Python/proxy), AST chunking on broken code, self-reflection pattern (the #1 reason most automated AI reviewers fail in CI).
 
@@ -127,12 +127,12 @@ The Reviewer reads agent-written bytes (the diff) — the deliberate exception t
 
 ### Argus binary download — failure modes
 
-| Scenario | Behaviour |
-|---|---|
-| Network unreachable | Run fails fast. `--no-reviewer` to skip when offline. |
-| Mismatched arch | Resolves `linux-{x86_64,aarch64}-musl`; throws if no matching asset for `ARGUS_VERSION`. |
-| Cache hit on stale binary | `argus.ts:61` parses cached filename + re-downloads if `ARGUS_VERSION` bumped. |
-| Pre-flight check | `saifctl doctor` HEAD-probes the release endpoint and warns on unreachability. |
+| Scenario                  | Behaviour                                                                                |
+| ------------------------- | ---------------------------------------------------------------------------------------- |
+| Network unreachable       | Run fails fast. `--no-reviewer` to skip when offline.                                    |
+| Mismatched arch           | Resolves `linux-{x86_64,aarch64}-musl`; throws if no matching asset for `ARGUS_VERSION`. |
+| Cache hit on stale binary | `argus.ts:61` parses cached filename + re-downloads if `ARGUS_VERSION` bumped.           |
+| Pre-flight check          | `saifctl doctor` HEAD-probes the release endpoint and warns on unreachability.           |
 
 ## Layer 3: holdout tests
 
@@ -161,9 +161,9 @@ For phased features, the gauntlet runs **per phase**:
 
 - Each phase has its own implementer subtask. Gate + reviewer + holdout fire on each phase's inner loop.
 - The cumulative test scope makes regression-to-earlier-work fail the active phase: the test runner sees `<project-tests>/**` + `<feature>/tests/**` + `<each earlier phase>/tests/**` + `<this phase>/tests/**`. If phase 3's diff breaks a phase 1 test, phase 3's gate fails.
-- **Critics are a fourth layer** ([`spec-pipeline.md`](./spec-pipeline.md)) that runs *per phase* after the gate clears. Each critic discovers issues then a separate fix subtask resolves them. Critics are agent-driven adversarial reviews; they don't replace the Reviewer's per-round semantic check, they add another adversarial pass over the cumulative phase work.
+- **Critics are a fourth layer** ([`spec-pipeline.md`](./spec-pipeline.md)) that runs _per phase_ after the gate clears. Each critic discovers issues then a separate fix subtask resolves them. Critics are agent-driven adversarial reviews; they don't replace the Reviewer's per-round semantic check, they add another adversarial pass over the cumulative phase work.
 
-The Reviewer always diffs from the run's initial **base state** commit to current HEAD; it is *not* phase-scoped today. Critics, in contrast, ARE per-phase — the prompt is parameterised with `{{phase.baseRef}}` (captured at the start of each phase's implementer subtask), and critics inspect commits via `git log {{phase.baseRef}}..HEAD`.
+The Reviewer always diffs from the run's initial **base state** commit to current HEAD; it is _not_ phase-scoped today. Critics, in contrast, ARE per-phase — the prompt is parameterised with `{{phase.baseRef}}` (captured at the start of each phase's implementer subtask), and critics inspect commits via `git log {{phase.baseRef}}..HEAD`.
 
 ## Inner-round-stats
 

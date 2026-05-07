@@ -8,7 +8,7 @@ learns_concepts:
 goal: Build a feature in saifctl from an empty directory by adding files in the order they're needed, learning the spec-driven model as the layout grows
 ---
 
-Tutorial intent: this is the canonical introduction to spec-driven development in saifctl, framed as a progressive disclosure of the feature directory layout. Distinct from the goal-oriented `spec-to-pr` tutorial (which races through "spec → PR") — this one walks more slowly and explains *why* each file appears.
+Tutorial intent: this is the canonical introduction to spec-driven development in saifctl, framed as a progressive disclosure of the feature directory layout. Distinct from the goal-oriented `spec-to-pr` tutorial (which races through "spec → PR") — this one walks more slowly and explains _why_ each file appears.
 
 Approximate structure (subject to refinement when the agent generates the page):
 
@@ -46,7 +46,7 @@ Approximate structure (subject to refinement when the agent generates the page):
    - `saifctl/features/_phases-and-critics/` (smaller phased example focused on critics).
    - `concepts/feature-lifecycle.md` (the proposal → design → build → ship arc).
 
-**Tone**: explanatory, not prescriptive. The reader is *evaluating* saifctl and wants to understand what working with it looks like, not following commands. Examples should be tiny — the page should fit comfortably on one scroll for the minimum-viable section, expanding only when introducing optional concepts.
+**Tone**: explanatory, not prescriptive. The reader is _evaluating_ saifctl and wants to understand what working with it looks like, not following commands. Examples should be tiny — the page should fit comfortably on one scroll for the minimum-viable section, expanding only when introducing optional concepts.
 
 **Cross-links to use**: `concepts/features.md` (the feature dir as a concept), `concepts/feat-run-loop.md` (what feat run does internally), `concepts/gate-reviewer-holdout.md` (the gauntlet), `references/commands/feat.md` (CLI surface), `how-tos/run-first-feature.md` (companion goal-oriented how-to).
 

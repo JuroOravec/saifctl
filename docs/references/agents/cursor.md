@@ -12,10 +12,10 @@ saifctl feat run --agent cursor
 
 Cursor requires an active Cursor subscription. Obtain an API key from [cursor.com/dashboard/cloud-agents](https://cursor.com/dashboard/cloud-agents).
 
-| Variable | Description |
-|---|---|
-| `CURSOR_API_KEY` | Primary auth credential (preferred). |
-| `LLM_API_KEY` | Generic fallback; mapped to `CURSOR_API_KEY` if `CURSOR_API_KEY` is not set. |
+| Variable         | Description                                                                  |
+| ---------------- | ---------------------------------------------------------------------------- |
+| `CURSOR_API_KEY` | Primary auth credential (preferred).                                         |
+| `LLM_API_KEY`    | Generic fallback; mapped to `CURSOR_API_KEY` if `CURSOR_API_KEY` is not set. |
 
 Pass the key via `--agent-secret CURSOR_API_KEY` to keep it out of logs:
 
@@ -39,13 +39,13 @@ LLM_MODEL_ID=gemini-3.1-pro
 
 ## CLI flags (invoked internally)
 
-| Flag | Description |
-|---|---|
-| `-p` / `--print` | Non-interactive (headless) mode. |
-| `--force` / `--yolo` | Allow file edits without confirmation (required for headless use). |
-| `--trust` | Trust the workspace without prompting (required for headless use). |
-| `--model <id>` | Cursor model identifier. Passed when `LLM_MODEL_ID` is set. |
-| `--output-format stream-json` | Emit newline-delimited JSON events. |
+| Flag                          | Description                                                        |
+| ----------------------------- | ------------------------------------------------------------------ |
+| `-p` / `--print`              | Non-interactive (headless) mode.                                   |
+| `--force` / `--yolo`          | Allow file edits without confirmation (required for headless use). |
+| `--trust`                     | Trust the workspace without prompting (required for headless use). |
+| `--model <id>`                | Cursor model identifier. Passed when `LLM_MODEL_ID` is set.        |
+| `--output-format stream-json` | Emit newline-delimited JSON events.                                |
 
 ## Installation
 

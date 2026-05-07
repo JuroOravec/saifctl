@@ -12,26 +12,26 @@ The one rule that follows from this:
 
 Everything else under `docs/` (`docs/README.md`, `docs/contributing/`, anything you add at the top level of `docs/`) is **handwritten** and not touched by saifdocs. Edit those directly.
 
-| Path                      | Owner                | Edit how                            |
-| ------------------------- | -------------------- | ----------------------------------- |
-| `docs/products/saifctl/`  | saifdocs (generated) | Edit `docspec/products/saifctl/`    |
-| `docs/references/`        | saifdocs (generated) | Edit `docspec/references/`          |
-| `docs/contributing/`      | handwritten          | Edit the file directly              |
-| `docs/README.md`          | handwritten          | Edit the file directly              |
-| Any other top-level `docs/` file | handwritten   | Edit the file directly              |
+| Path                             | Owner                | Edit how                         |
+| -------------------------------- | -------------------- | -------------------------------- |
+| `docs/products/saifctl/`         | saifdocs (generated) | Edit `docspec/products/saifctl/` |
+| `docs/references/`               | saifdocs (generated) | Edit `docspec/references/`       |
+| `docs/contributing/`             | handwritten          | Edit the file directly           |
+| `docs/README.md`                 | handwritten          | Edit the file directly           |
+| Any other top-level `docs/` file | handwritten          | Edit the file directly           |
 
 When you run `saifdocs clear`, it only deletes paths listed in `docspec/.manifest.json`, so handwritten files at `docs/contributing/` and `docs/README.md` survive a full regen.
 
 ### Where does X go?
 
-| Kind                                                       | Goes to                                                              | Notes                                                          |
-| ---------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------- |
-| User-facing concepts<br/> (what something is, how it works)      | `docspec/products/<product>/concepts/<slug>.md`                      |                                                                |
-| User-facing how-tos<br/> (solve problem)             | `docspec/products/<product>/how-tos/<slug>.md`                       |                                                                |
-| User-facing tutorials<br/>(learning journey)         | `docspec/products/<product>/tutorials/<slug>.md`                     |                                                                |
-| CLI command, API method, or config field reference         | `docspec/references/.../<slug>.md` | With `source:` pointer at the implementation file.          |
-| Internal architecture, dev-loop walkthroughs | `docs/contributing/architecture/<slug>.md` (or `docs/contributing/<slug>.md`) | Handwritten. No docspec, no manifest.                |
-| Image, diagram, or other binary asset                      | `docspec/assets/<filename>`                                          | Reference from a docspec body via instruction text (saifdocs#1 pending). |
+| Kind                                                        | Goes to                                                                       | Notes                                                                    |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| User-facing concepts<br/> (what something is, how it works) | `docspec/products/<product>/concepts/<slug>.md`                               |                                                                          |
+| User-facing how-tos<br/> (solve problem)                    | `docspec/products/<product>/how-tos/<slug>.md`                                |                                                                          |
+| User-facing tutorials<br/>(learning journey)                | `docspec/products/<product>/tutorials/<slug>.md`                              |                                                                          |
+| CLI command, API method, or config field reference          | `docspec/references/.../<slug>.md`                                            | With `source:` pointer at the implementation file.                       |
+| Internal architecture, dev-loop walkthroughs                | `docs/contributing/architecture/<slug>.md` (or `docs/contributing/<slug>.md`) | Handwritten. No docspec, no manifest.                                    |
+| Image, diagram, or other binary asset                       | `docspec/assets/<filename>`                                                   | Reference from a docspec body via instruction text (saifdocs#1 pending). |
 
 ## Authoring
 
@@ -74,14 +74,14 @@ Every docspec entry has a YAML frontmatter block. The schema is defined in `vend
 
 ```yaml
 ---
-id: leash-access-control          # kebab-case slug
+id: leash-access-control # kebab-case slug
 explains: how Cedar policies and the Leash sidecar enforce filesystem and network rules at runtime
 learning_outcomes:
   - The two pieces of Leash (Cedar policy + eBPF enforcement) and how they compose.
   - "When Cedar's permit-by-default is appropriate vs. the bundled `deny-network.cedar`."
   - The override surface (--cedar flag, dangerousNoLeash escape hatch).
 analogies:
-  - "Cedar is the policy language; Leash is the bouncer reading the policy at the door."
+  - 'Cedar is the policy language; Leash is the bouncer reading the policy at the door.'
 ---
 ```
 
@@ -89,8 +89,8 @@ analogies:
 
 ```yaml
 ---
-source: src/cli/commands/run.ts   # path the agent will read at gen time
-type: cli-command                 # enum: cli-command | api-method | config-schema
+source: src/cli/commands/run.ts # path the agent will read at gen time
+type: cli-command # enum: cli-command | api-method | config-schema
 ---
 ```
 
@@ -100,11 +100,11 @@ The reference body comes from the agent reading `source:`. **Do not hand-write t
 
 ```yaml
 ---
-id: split-feature-into-phases     # optional; defaults to filename stem
+id: split-feature-into-phases # optional; defaults to filename stem
 persona: feature-author
 tasks:
   - phase-a-large-feature
-goal: "Split a large feature into phases so each phase passes the gauntlet independently."
+goal: 'Split a large feature into phases so each phase passes the gauntlet independently.'
 ---
 ```
 
@@ -116,7 +116,7 @@ id: spec-driven-development
 persona: new-user
 prereq_concepts: [features, gate-reviewer-holdout]
 learns_concepts: [feature-lifecycle, feat-run-loop]
-goal: "Build a small feature end-to-end with `saifctl feat design` and `saifctl feat run`."
+goal: 'Build a small feature end-to-end with `saifctl feat design` and `saifctl feat run`.'
 ---
 ```
 
@@ -127,9 +127,9 @@ Tutorials may have a sibling `tutorials/index.yaml` to declare ordering and prer
 ```yaml
 ---
 prereq_concepts: [features]
-arrival_context: search           # enum: search | readme | docs-link | error-message
-search_terms: ["how to phase a feature", "phased run"]
-user_stage: getting-started       # enum: evaluating | getting-started | established
+arrival_context: search # enum: search | readme | docs-link | error-message
+search_terms: ['how to phase a feature', 'phased run']
+user_stage: getting-started # enum: evaluating | getting-started | established
 ---
 ```
 
@@ -185,15 +185,15 @@ How a docspec change becomes a generated `docs/` page, and the gates that watch 
 
 Six commands. Run from the saifctl project root.
 
-| Command                  | Purpose                                                        | When to run                                          |
-| ------------------------ | -------------------------------------------------------------- | ---------------------------------------------------- |
-| `saifdocs gen`           | Read docspec, build manifest, emit a saifctl feature tree.     | Before a regen; `saifctl feat run` then writes docs. |
-| `saifdocs gen --dry-run` | Build and write the manifest only; no LLM, no feature tree.    | Local validation, CI.                                |
-| `saifdocs update`        | Regenerate a single entry's output.                            | One file changed, full regen overkill.               |
-| `saifdocs validate`      | Schema-only check (no source-of-truth comparison).             | Quick frontmatter pass.                              |
-| `saifdocs audit`         | Coverage / drift report against generated output.              | Sanity check after a regen.                          |
-| `saifdocs clear`         | Delete manifest-tracked files only. Leaves handwritten alone.  | Before a clean regen.                                |
-| `saifdocs review`        | LLM review of generated content against docspec intent.        | After a regen if quality is in question.             |
+| Command                  | Purpose                                                       | When to run                                          |
+| ------------------------ | ------------------------------------------------------------- | ---------------------------------------------------- |
+| `saifdocs gen`           | Read docspec, build manifest, emit a saifctl feature tree.    | Before a regen; `saifctl feat run` then writes docs. |
+| `saifdocs gen --dry-run` | Build and write the manifest only; no LLM, no feature tree.   | Local validation, CI.                                |
+| `saifdocs update`        | Regenerate a single entry's output.                           | One file changed, full regen overkill.               |
+| `saifdocs validate`      | Schema-only check (no source-of-truth comparison).            | Quick frontmatter pass.                              |
+| `saifdocs audit`         | Coverage / drift report against generated output.             | Sanity check after a regen.                          |
+| `saifdocs clear`         | Delete manifest-tracked files only. Leaves handwritten alone. | Before a clean regen.                                |
+| `saifdocs review`        | LLM review of generated content against docspec intent.       | After a regen if quality is in question.             |
 
 The local saifdocs is vendored at `vendor/saifdocs/` (git submodule) and also published as `@safe-ai-factory/saifdocs` on npm. CI uses the vendored copy.
 
@@ -243,7 +243,7 @@ web/src/content/docs/       in safeaifactory.com repo
 safeaifactory.com           live site
 ```
 
-`web/scripts/sync-docs.ts` pulls from three sources: `saifctl` (this repo's `docs/` + `docspec/.manifest.json`), `saifbox` (vendored), and `saifdocs` (vendored). Section ordering on the site is fixed: landing → tutorials → how-tos → concepts → references.
+`web/scripts/sync-docs.ts` pulls from two sources: `saifctl` (this repo's `docs/` + `docspec/.manifest.json`) and `saifdocs` (vendored). Section ordering on the site is fixed: landing → tutorials → how-tos → concepts → references.
 
 The `docs/contributing/` subtree is not synced — it stays in-repo for contributor reference only.
 
@@ -311,7 +311,7 @@ In rough order of how often they actually happen:
 3. **Inventing a `type:` value.** It's a closed enum. See saifdocs#1.
 4. **Forgetting to commit `.manifest.json`.** CI fails. After any docspec structural change, run `saifdocs gen --dry-run` and commit the manifest.
 5. **Putting internal architecture under `docspec/`.** Architecture docs are handwritten contributor content; they live at `docs/contributing/architecture/`, never in docspec.
-6. **Confusing how-tos with concepts.** A how-to has `goal:` and a sequence of steps; a concept has `learning_outcomes:` and explains a model. If unsure, ask: "does the reader want to *do* a specific thing right now?" — yes → how-to, no → concept.
+6. **Confusing how-tos with concepts.** A how-to has `goal:` and a sequence of steps; a concept has `learning_outcomes:` and explains a model. If unsure, ask: "does the reader want to _do_ a specific thing right now?" — yes → how-to, no → concept.
 7. **Missing YAML quotes** on list items containing `: ` or starting with backticks. js-yaml will reject the entry.
 8. **Running `saifdocs clear` and panicking** when generated docs vanish. They're meant to. The handwritten subtree (`docs/contributing/`, `docs/README.md`) is intact.
 9. **Editing `vendor/saifdocs/` to fix a docspec issue.** That's a saifdocs change — bump saifdocs separately, file an issue at the saifdocs repo if needed.

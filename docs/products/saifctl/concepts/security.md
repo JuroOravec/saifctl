@@ -41,11 +41,11 @@ This is a deliberate threat-model contract. The contract covers: **what the agen
 
 saifctl ships three bundled Cedar policies:
 
-| Policy | Description |
-|--------|-------------|
-| `default` | Filesystem isolation on; network unrestricted. |
-| `sandbox` | Filesystem isolation on; outbound network restricted to known registries. |
-| `deny-network` | Filesystem isolation on; all outbound network denied. |
+| Policy         | Description                                                               |
+| -------------- | ------------------------------------------------------------------------- |
+| `default`      | Filesystem isolation on; network unrestricted.                            |
+| `sandbox`      | Filesystem isolation on; outbound network restricted to known registries. |
+| `deny-network` | Filesystem isolation on; all outbound network denied.                     |
 
 Pass `--cedar <policy-name-or-path>` to select a bundled policy or supply your own `.cedar` file. For authoring custom policies, see [concepts/leash-access-control](leash-access-control.md).
 
@@ -54,11 +54,13 @@ Pass `--cedar <policy-name-or-path>` to select a bundled policy or supply your o
 `dangerousNoLeash` disables all Cedar/Leash enforcement. The agent runs inside the container without filesystem, process, or network constraints.
 
 **When it is appropriate:**
+
 - Debugging the Leash integration itself (confirming a policy allows the operations you expect).
 - Performance profiling where policy evaluation overhead is a confounding variable.
 - Iterating on a new Cedar policy — run without Leash first to establish a baseline, then layer constraints in.
 
 **When it is not appropriate:**
+
 - Any run where the workspace contains secrets or credentials.
 - CI pipelines and shared runners.
 - Unattended runs.
@@ -70,11 +72,11 @@ Pass `--cedar <policy-name-or-path>` to select a bundled policy or supply your o
 
 Understand the trade-off before using it:
 
-| | API key | `--claude-max` |
-|---|---------|----------------|
-| Scope | Workspace-scoped | Tied to your personal account |
-| Revocation | Per-project, from Anthropic console | Requires manual account-level revocation |
-| Rate limits | Separate quota | Shares your personal interactive quota |
+|                   | API key                              | `--claude-max`                            |
+| ----------------- | ------------------------------------ | ----------------------------------------- |
+| Scope             | Workspace-scoped                     | Tied to your personal account             |
+| Revocation        | Per-project, from Anthropic console  | Requires manual account-level revocation  |
+| Rate limits       | Separate quota                       | Shares your personal interactive quota    |
 | Compromise impact | Limited to that project's API budget | Full Claude Max plan access until revoked |
 
 **Use API keys for CI, shared, and unattended runs.** Reserve `--claude-max` for personal local development where you are watching the run and can revoke immediately if something goes wrong.

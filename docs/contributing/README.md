@@ -6,16 +6,16 @@ Internal docs for people working on SaifCTL itself — the CLI, the engines, the
 
 Pick the topic you're touching:
 
-| You're working on… | Start here |
-| --- | --- |
-| **The CLI surface** — adding flags, subcommands, fixing parser quirks | [cli-architecture.md](./cli-architecture.md) |
-| **A new agent profile** — wiring a coding-agent CLI into `saifctl feat run --agent <name>` | [adding-agents.md](./adding-agents.md) |
-| **The Docker images** — coder/test images, profile bases, GHCR publishing | [docker.md](./docker.md) |
-| **The infrastructure layer** — what `LiveInfra` tracks, container lifecycle, teardown invariants | [infra.md](./infra.md) |
-| **Hatchet integration** — internals of the in-process mock client and why it exists | [hatchet.md](./hatchet.md) |
-| **Logs the user sees** — `consola` vs. raw container stdout, where formatting happens | [logging.md](./logging.md), [agent-logs.md](./agent-logs.md) |
-| **The inner loop's `stats.jsonl`** — how round-by-round outcomes get recorded for the orchestrator | [inner-round-stats.md](./inner-round-stats.md) |
-| **Naming, voice, marketing copy** — product/CLI/brand-name conventions | [branding.md](./branding.md) |
+| You're working on…                                                                                 | Start here                                                   |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **The CLI surface** — adding flags, subcommands, fixing parser quirks                              | [cli-architecture.md](./cli-architecture.md)                 |
+| **A new agent profile** — wiring a coding-agent CLI into `saifctl feat run --agent <name>`         | [adding-agents.md](./adding-agents.md)                       |
+| **The Docker images** — coder/test images, profile bases, GHCR publishing                          | [docker.md](./docker.md)                                     |
+| **The infrastructure layer** — what `LiveInfra` tracks, container lifecycle, teardown invariants   | [infra.md](./infra.md)                                       |
+| **Hatchet integration** — internals of the in-process mock client and why it exists                | [hatchet.md](./hatchet.md)                                   |
+| **Logs the user sees** — `consola` vs. raw container stdout, where formatting happens              | [logging.md](./logging.md), [agent-logs.md](./agent-logs.md) |
+| **The inner loop's `stats.jsonl`** — how round-by-round outcomes get recorded for the orchestrator | [inner-round-stats.md](./inner-round-stats.md)               |
+| **Naming, voice, marketing copy** — product/CLI/brand-name conventions                             | [branding.md](./branding.md)                                 |
 
 ## Architecture deep-dives
 
@@ -41,4 +41,4 @@ pnpm run test -- --watch      # red-green inner loop
 
 ## Open contributions
 
-External contributions welcome — see the top-level [`CONTRIBUTING.md`](../../CONTRIBUTING.md) for the public-facing workflow (fork, branch, PR, review). This directory is the *deeper* reference once you're past first-PR onboarding.
+External contributions welcome — see the top-level [`CONTRIBUTING.md`](../../CONTRIBUTING.md) for the public-facing workflow (fork, branch, PR, review). This directory is the _deeper_ reference once you're past first-PR onboarding.

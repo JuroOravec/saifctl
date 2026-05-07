@@ -218,11 +218,8 @@ export function formatClaudeSegment(segment: string, linePrefix: AgentLogLinePre
       const delayMs = typeof evt.retry_delay_ms === 'number' ? evt.retry_delay_ms : 0;
       const error = typeof evt.error === 'string' ? evt.error : '';
       const status = typeof evt.error_status === 'number' ? evt.error_status : '';
-      const detail =
-        [error, status ? `HTTP ${status}` : ''].filter(Boolean).join(' ') || 'unknown';
-      process.stdout.write(
-        `[system] retry ${attempt}/${maxRetries} in ${delayMs}ms (${detail})\n`,
-      );
+      const detail = [error, status ? `HTTP ${status}` : ''].filter(Boolean).join(' ') || 'unknown';
+      process.stdout.write(`[system] retry ${attempt}/${maxRetries} in ${delayMs}ms (${detail})\n`);
       return;
     }
     if (subtype === 'plugin_install') {

@@ -36,10 +36,10 @@ sequenceDiagram
 
 ## On-disk location
 
-| Layer | Path |
-| --- | --- |
+| Layer               | Path                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------ |
 | Host (orchestrator) | `{sandboxBasePath}/code/.saifctl/stats.jsonl` — see `roundsStatsPath()` in `src/orchestrator/stats.ts` |
-| Container | `/workspace/.saifctl/stats.jsonl` (workspace is bind-mounted from `code/`) |
+| Container           | `/workspace/.saifctl/stats.jsonl` (workspace is bind-mounted from `code/`)                             |
 
 `coder-start.sh` defaults `SAIFCTL_ROUNDS_STATS_PATH` to `$(dirname "$SAIFCTL_TASK_PATH")/stats.jsonl`. The engine sets `SAIFCTL_TASK_PATH` to `{codePath}/.saifctl/task.md`, so the default stats path aligns with the host helper **as long as** `SAIFCTL_ROUNDS_STATS_PATH` is not overridden to something inconsistent.
 
@@ -49,13 +49,13 @@ If you override `SAIFCTL_ROUNDS_STATS_PATH` in `agent-env`, you must keep the fi
 
 Each non-empty line is one JSON object. The orchestrator only persists rows with `type === "inner_round"` and a known `phase`.
 
-| Field | Meaning |
-| --- | --- |
-| `type` | Must be `"inner_round"`. |
-| `round` | 1-based index within the current outer attempt. |
-| `phase` | `agent_failed` \| `gate_passed` \| `gate_failed` \| `reviewer_passed` \| `reviewer_failed`. |
-| `startedAt` / `completedAt` | ISO 8601 timestamps (UTC) for the round. |
-| `gateOutput` | JSON string (escaped gate/reviewer output on failure), or JSON `null` when there is no body. Truncated in shell (~2000 bytes before encoding). |
+| Field                       | Meaning                                                                                                                                        |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`                      | Must be `"inner_round"`.                                                                                                                       |
+| `round`                     | 1-based index within the current outer attempt.                                                                                                |
+| `phase`                     | `agent_failed` \| `gate_passed` \| `gate_failed` \| `reviewer_passed` \| `reviewer_failed`.                                                    |
+| `startedAt` / `completedAt` | ISO 8601 timestamps (UTC) for the round.                                                                                                       |
+| `gateOutput`                | JSON string (escaped gate/reviewer output on failure), or JSON `null` when there is no body. Truncated in shell (~2000 bytes before encoding). |
 
 Writer implementation: `log_inner_round_summary` in `src/orchestrator/scripts/coder-start.sh` (JSON string encoding via `json_string_from_file`: `jq`, then `python3`, `node`, `perl`, else empty string).
 
@@ -63,11 +63,11 @@ Reader implementation: `readInnerRounds()` in `src/orchestrator/stats.ts`. Malfo
 
 ## Host code touchpoints
 
-| Step | Location |
-| --- | --- |
-| Clear log before agent | `prepareRoundsStatsFile` — `src/orchestrator/loop.ts`, `src/orchestrator/phases/run-agent-phase.ts` |
-| Read after agent | `readInnerRounds(roundsStatsPath(sandboxBasePath))` — `src/orchestrator/loop.ts`, `src/hatchet/workflows/feat-run.workflow.ts` |
-| Outer-attempt rollup | `buildOuterAttemptSummary` — `src/orchestrator/stats.ts` |
+| Step                   | Location                                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Clear log before agent | `prepareRoundsStatsFile` — `src/orchestrator/loop.ts`, `src/orchestrator/phases/run-agent-phase.ts`                            |
+| Read after agent       | `readInnerRounds(roundsStatsPath(sandboxBasePath))` — `src/orchestrator/loop.ts`, `src/hatchet/workflows/feat-run.workflow.ts` |
+| Outer-attempt rollup   | `buildOuterAttemptSummary` — `src/orchestrator/stats.ts`                                                                       |
 
 ## Related types
 

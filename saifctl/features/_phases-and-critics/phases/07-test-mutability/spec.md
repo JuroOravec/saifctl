@@ -31,7 +31,7 @@ See `../../specification.md` §2.6 for the resolved mutability model.
   decision).
 - `src/orchestrator/loop.ts` — after each round, before tests run, do
   the diff inspection: `git diff <round-base>..HEAD -- <immutable
-  paths>`; if non-empty, fail the gate with a message naming
+paths>`; if non-empty, fail the gate with a message naming
   offending paths.
 - `src/cli/args.ts` and feature-level config loader — add `--strict` /
   `--no-strict` flag plumbing; default `true` (strict). Read project
@@ -52,6 +52,7 @@ See `../../specification.md` §2.6 for the resolved mutability model.
 
   Note: phase 01 already lands the validator-side rejection of
   `'read-only'`, so this phase shouldn't re-implement it.
+
 - **Round-base for diff inspection** = the git rev at the start of
   this round (i.e., before the agent ran). Already tracked as
   `perSubtaskPreRoundHead` in the loop. Reuse that.
@@ -71,6 +72,7 @@ classification, wrong base ref for the diff) silently breaks that
 guarantee in a way the user won't notice until trust is already lost.
 
 Specifically:
+
 - `--strict` defaulting to `false` would invert the safety contract
   project-wide. Default MUST be `true` and the resolver MUST never
   silently flip without an explicit input.

@@ -81,11 +81,11 @@ After the next inner round starts, `saifctl run rules list <runId>` continues to
 
 ## Run rules vs. inspect-and-start
 
-| | Run rules | Inspect-and-start |
-|---|---|---|
-| **What you provide** | Plain-language instructions | Direct code edits in the container |
-| **When agent sees it** | Next inner round | On `run start` after your edits |
-| **Requires stopping the run** | No (live mode) | Yes |
+|                               | Run rules                   | Inspect-and-start                  |
+| ----------------------------- | --------------------------- | ---------------------------------- |
+| **What you provide**          | Plain-language instructions | Direct code edits in the container |
+| **When agent sees it**        | Next inner round            | On `run start` after your edits    |
+| **Requires stopping the run** | No (live mode)              | Yes                                |
 
 You can combine both: steer with rules while a run is live, then inspect the container and edit code directly before a resume if the rules alone are not sufficient. See [Inspect a run's sandbox and continue from your edits](./inspect-and-start.md).
 

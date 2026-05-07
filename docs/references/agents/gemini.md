@@ -8,10 +8,10 @@ saifctl feat run --agent gemini
 
 ## Authentication
 
-| Variable | Purpose |
-|---|---|
-| `GEMINI_API_KEY` | Gemini API key (preferred) |
-| `LLM_API_KEY` | Generic fallback when `GEMINI_API_KEY` is unset |
+| Variable         | Purpose                                         |
+| ---------------- | ----------------------------------------------- |
+| `GEMINI_API_KEY` | Gemini API key (preferred)                      |
+| `LLM_API_KEY`    | Generic fallback when `GEMINI_API_KEY` is unset |
 
 `LLM_BASE_URL` is **not** forwarded — Gemini CLI has no base URL override.
 
@@ -31,12 +31,12 @@ gemini --model "$LLM_MODEL_ID" --yolo --output-format stream-json "$(cat "$SAIFC
 
 ## Flags used by the agent script
 
-| Flag | Value | Purpose |
-|---|---|---|
-| `<prompt>` | task text | Runs Gemini non-interactively |
-| `--model` | `$LLM_MODEL_ID` | Override the model for the session |
-| `--yolo` | — | Auto-approve all tool calls; required for headless use |
-| `--output-format` | `stream-json` | Newline-delimited JSON events; compatible with saifctl log parsing |
+| Flag              | Value           | Purpose                                                            |
+| ----------------- | --------------- | ------------------------------------------------------------------ |
+| `<prompt>`        | task text       | Runs Gemini non-interactively                                      |
+| `--model`         | `$LLM_MODEL_ID` | Override the model for the session                                 |
+| `--yolo`          | —               | Auto-approve all tool calls; required for headless use             |
+| `--output-format` | `stream-json`   | Newline-delimited JSON events; compatible with saifctl log parsing |
 
 ## Installation
 

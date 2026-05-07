@@ -15,12 +15,12 @@ Both modes share the same kernel: ephemeral Docker container, Cedar policies enf
 
 You want to run OpenClaw without risking your machine. The sandbox puts openclaw in a container; your project is copied in. The agent cannot touch the host until you say so.
 
-| What you want to do | Where to go |
-|---|---|
-| Run OpenClaw so it can't touch your project | [How-to: Run an agent safely](how-tos/run-agent-safely.md) |
-| Apply the agent's output to your real project | [How-to: Apply agent changes](how-tos/apply-agent-changes.md) |
-| Understand what stays in the container vs the host | [Concept: Docker isolation](concepts/docker-isolation.md) |
-| Walk through your first sandbox run step by step | [Tutorial: First sandbox run](tutorials/first-sandbox-run.md) |
+| What you want to do                                | Where to go                                                   |
+| -------------------------------------------------- | ------------------------------------------------------------- |
+| Run OpenClaw so it can't touch your project        | [How-to: Run an agent safely](how-tos/run-agent-safely.md)    |
+| Apply the agent's output to your real project      | [How-to: Apply agent changes](how-tos/apply-agent-changes.md) |
+| Understand what stays in the container vs the host | [Concept: Docker isolation](concepts/docker-isolation.md)     |
+| Walk through your first sandbox run step by step   | [Tutorial: First sandbox run](tutorials/first-sandbox-run.md) |
 
 ---
 
@@ -28,15 +28,15 @@ You want to run OpenClaw without risking your machine. The sandbox puts openclaw
 
 You want the agent to implement a feature from a spec — writes code, passes tests, survives the reviewer, opens a PR.
 
-| What you want to do | Where to go |
-|---|---|
-| Run your first feature end-to-end | [How-to: Run your first feature](how-tos/run-first-feature.md) |
+| What you want to do                                   | Where to go                                                                     |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Run your first feature end-to-end                     | [How-to: Run your first feature](how-tos/run-first-feature.md)                  |
 | Understand how regressions are mechanically prevented | [How-to: Understand safety guarantees](how-tos/understand-safety-guarantees.md) |
-| Steer a running agent without restarting it | [How-to: Provide feedback with run rules](how-tos/provide-feedback.md) |
-| Step into the container and fix an off-track run | [How-to: Inspect and resume a run](how-tos/inspect-and-start.md) |
-| Diagnose setup errors | [How-to: Troubleshoot setup](how-tos/troubleshoot.md) |
-| Walk through spec-driven development end to end | [Tutorial: Spec-driven development](tutorials/spec-driven-development.md) |
-| Go from spec to open PR | [Tutorial: Spec to PR](tutorials/spec-to-pr.md) |
+| Steer a running agent without restarting it           | [How-to: Provide feedback with run rules](how-tos/provide-feedback.md)          |
+| Step into the container and fix an off-track run      | [How-to: Inspect and resume a run](how-tos/inspect-and-start.md)                |
+| Diagnose setup errors                                 | [How-to: Troubleshoot setup](how-tos/troubleshoot.md)                           |
+| Walk through spec-driven development end to end       | [Tutorial: Spec-driven development](tutorials/spec-driven-development.md)       |
+| Go from spec to open PR                               | [Tutorial: Spec to PR](tutorials/spec-to-pr.md)                                 |
 
 ---
 

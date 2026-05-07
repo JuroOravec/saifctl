@@ -7,21 +7,25 @@ Safe AI Factory (SaifCTL) orchestrates complex, isolated environments for agents
 The `LiveInfra` object is a strict tally of all infrastructure resources created during a run. Rather than querying the host system (e.g., Docker) to guess what might belong to a run, the engine appends to this object synchronously as it creates resources. When it's time to clean up, the engine iterates over the exact list of recorded items and removes them.
 
 This robust tracking enables:
+
 - **Deterministic Teardowns:** We know exactly which containers, networks, and images to remove, even if the run crashed halfway through setup.
 - **Run Pausing and Resuming:** We can save the state of the infrastructure to the persistent run artifact (`RunLiveInfra`) and accurately verify or restore it when a paused run resumes.
 - **Dashboards and Inspection:** We can map active resources (like the coder container or background databases) directly to an active run.
 
 ## `LiveInfra` Types
 
-The exact structure of `LiveInfra` depends on the active Engine (e.g., Docker, Local, or Helm). 
+The exact structure of `LiveInfra` depends on the active Engine (e.g., Docker, Local, or Helm).
 
 ### `DockerLiveInfra`
+
 For the Docker engine, `DockerLiveInfra` tracks:
+
 - `networkName`: The isolated bridge network created specifically for the run.
 - `stagingImages`: Ephemeral Docker images built for the staging application.
 - `containers`: A list of all running or stopped containers (e.g., staging app, test-runner, coder agent).
 
 ### `LocalLiveInfra`
+
 Nothing is tracked when running agent on the host machine.
 
 ## Coding vs Staging

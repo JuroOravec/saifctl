@@ -6,12 +6,12 @@ Statically searches and traces the codebase to produce a full feature specificat
 
 The Shotgun designer delegates to the [`shotgun-sh`](https://github.com/shotgun-sh/shotgun) CLI to generate four spec files inside the feature directory:
 
-| File | Purpose |
-|---|---|
-| `plan.md` | High-level feature plan |
-| `specification.md` | Detailed specification |
-| `research.md` | Codebase research notes |
-| `tasks.md` | Breakdown of implementation tasks |
+| File               | Purpose                           |
+| ------------------ | --------------------------------- |
+| `plan.md`          | High-level feature plan           |
+| `specification.md` | Detailed specification            |
+| `research.md`      | Codebase research notes           |
+| `tasks.md`         | Breakdown of implementation tasks |
 
 The designer is considered complete once all four spec files exist in the feature directory.
 
@@ -40,8 +40,8 @@ The designer reads an optional `proposal.md` from the feature directory. If foun
 
 ## Environment variables
 
-| Variable | Default | Description |
-|---|---|---|
+| Variable         | Default  | Description                                                                                                                                            |
+| ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `SHOTGUN_PYTHON` | `python` | Path to the Python binary that has `shotgun-sh` installed. Use `SHOTGUN_PYTHON=$(uv run which python)` when working inside a `uv` virtual environment. |
 
 ## Behaviour notes
@@ -52,9 +52,9 @@ The designer reads an optional `proposal.md` from the feature directory. If foun
 
 ## Contrast with `poc`
 
-| | `shotgun` | `poc` (default) |
-|---|---|---|
-| Exploration style | Static analysis | Agent-driven |
-| LLM calls | Managed by `shotgun-sh` | Managed by saifctl |
-| Speed | Faster | Slower |
-| Grounding | Code structure | Running code |
+|                   | `shotgun`               | `poc` (default)    |
+| ----------------- | ----------------------- | ------------------ |
+| Exploration style | Static analysis         | Agent-driven       |
+| LLM calls         | Managed by `shotgun-sh` | Managed by saifctl |
+| Speed             | Faster                  | Slower             |
+| Grounding         | Code structure          | Running code       |

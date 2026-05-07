@@ -45,7 +45,7 @@ the wire-up that everything else routes through), which is why
   - neither (existing — fall back to synthesising one subtask from
     `plan.md` + spec via `synthesizePlanSpecSubtaskInputs`)
 
-  Phases are an opinionated abstraction *over* `subtasks.json` (both
+  Phases are an opinionated abstraction _over_ `subtasks.json` (both
   normalize to `RunSubtaskInput[]` before reaching the loop), so
   using both is incoherent. Same for "phases AND plan-only" — phases
   imply plan-only is bypassed.
@@ -65,7 +65,7 @@ the wire-up that everything else routes through), which is why
     to feature-dir sources only (phases/ vs subtasks.json vs neither).
   - **Hide from `feat run --help`** — set the arg's description to
     something terse like `'(internal escape hatch; prefer phases/ or
-    subtasks.json in the feature dir)'`. The flag remains functional
+subtasks.json in the feature dir)'`. The flag remains functional
     for emergency use; documentation does not promote it.
 
 - **Scripts threading.** Each compiled subtask needs `agentScript`,
@@ -77,10 +77,11 @@ the wire-up that everything else routes through), which is why
 
 - **Compiled task content links, doesn't inline.** Implementer subtask
   content reads roughly:
-  > *"Implement `<phase.id>` of feature `<feature.name>` per
+
+  > _"Implement `<phase.id>` of feature `<feature.name>` per
   > `<phase.spec>`. Read `<feature.plan>` for the broader plan. Write
   > code in /workspace; do NOT modify files in /<saifctlDir>/ or in
-  > immutable test paths."*
+  > immutable test paths."_
 
   Critic subtask content is the raw `critics/<id>.md` body until
   phase 04 wires mustache rendering on top.

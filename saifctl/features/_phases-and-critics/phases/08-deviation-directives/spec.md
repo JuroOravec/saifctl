@@ -37,9 +37,9 @@ so it benefits from the tighter boundary phases above.
   transient artifacts, not noteworthy modifications.
 
   Format: `[round N] Agent modified the following plan/spec/test
-  files: <list>`. Non-fatal. Independent of phase 07's mutability
-  enforcement (which fails the gate when *immutable* tests are
-  touched; this warning surfaces *all* such modifications including
+files: <list>`. Non-fatal. Independent of phase 07's mutability
+  enforcement (which fails the gate when _immutable_ tests are
+  touched; this warning surfaces _all_ such modifications including
   permitted ones).
 
   Rationale: surfaces noteworthy changes for unattended overnight
@@ -59,7 +59,7 @@ so it benefits from the tighter boundary phases above.
   the agent runs in a container or on the host. In container mode,
   paths are workspace-relative (resolve under `/workspace/`); in host
   mode (`--engine local`), paths are host absolute. Use a `workspace:
-  AgentWorkspace` parameter on the prompt builder to encode the
+AgentWorkspace` parameter on the prompt builder to encode the
   difference.
 - **Probe before emitting.** Don't emit a deviation directive for a
   plan file that doesn't exist on disk — the agent would then fail to

@@ -6,11 +6,11 @@ Image inventory + build / publish / pull operations. For the architectural pictu
 
 ## Images
 
-| Image             | Default tag                             | Purpose                                                    |
-| ----------------- | --------------------------------------- | ---------------------------------------------------------- |
-| `saifctl-test-*`   | `saifctl-test-<profile>:latest`          | Test runner containers; one per language/framework profile |
-| `saifctl-coder-*`  | `saifctl-coder-<sandbox-profile>:latest` | Built from `Dockerfile.coder` per profile (official Node, Python, golang, rust, or Miniconda base — not the Leash `coder` image). At run time SaifCTL copies orchestration scripts into the sandbox and bind-mounts them as `/saifctl`. |
-| `saifctl-stage-*`  | `saifctl-stage-<sandbox-profile>:latest` | Lightweight staging container for that profile             |
+| Image             | Default tag                              | Purpose                                                                                                                                                                                                                                 |
+| ----------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `saifctl-test-*`  | `saifctl-test-<profile>:latest`          | Test runner containers; one per language/framework profile                                                                                                                                                                              |
+| `saifctl-coder-*` | `saifctl-coder-<sandbox-profile>:latest` | Built from `Dockerfile.coder` per profile (official Node, Python, golang, rust, or Miniconda base — not the Leash `coder` image). At run time SaifCTL copies orchestration scripts into the sandbox and bind-mounts them as `/saifctl`. |
+| `saifctl-stage-*` | `saifctl-stage-<sandbox-profile>:latest` | Lightweight staging container for that profile                                                                                                                                                                                          |
 
 ### Test runner profiles
 

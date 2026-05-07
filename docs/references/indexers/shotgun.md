@@ -29,10 +29,10 @@ where `$SHOTGUN_PYTHON` is the value of the `SHOTGUN_PYTHON` environment variabl
 
 ## Environment variables
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `SHOTGUN_PYTHON` | No | `python` | Path to the Python binary with `shotgun-sh` installed. Example: `SHOTGUN_PYTHON=$(uv run which python)` |
-| `CONTEXT7_API_KEY` | No | — | API key for Context7 documentation lookup inside Shotgun. When set, configures the `set-context7` integration during `init`. |
+| Variable           | Required | Default  | Description                                                                                                                  |
+| ------------------ | -------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `SHOTGUN_PYTHON`   | No       | `python` | Path to the Python binary with `shotgun-sh` installed. Example: `SHOTGUN_PYTHON=$(uv run which python)`                      |
+| `CONTEXT7_API_KEY` | No       | —        | API key for Context7 documentation lookup inside Shotgun. When set, configures the `set-context7` integration during `init`. |
 
 ## Agent tool: `queryCodebaseIndex`
 
@@ -40,8 +40,8 @@ Once indexed, agents can query the graph via the `queryCodebaseIndex` tool.
 
 **Input**
 
-| Field | Type | Description |
-|---|---|---|
+| Field      | Type     | Description                                                                                                 |
+| ---------- | -------- | ----------------------------------------------------------------------------------------------------------- |
 | `question` | `string` | Natural language question about the codebase, e.g. `"where are skills defined?"` or `"how does auth work?"` |
 
 **Behaviour**

@@ -8,12 +8,12 @@ How saifctl turns **raw stdout from the coding container** into readable termina
 
 During a run, a single stdout pipe from the coding container carries:
 
-| What | How we call it | Typical content |
-| ---------------- | ---------------------- | ---------------- |
-| Non-agent work | **`infra`** | Startup scripts, installs, gate output, lines before/after the agent runs |
-| Agent work | **`agent`** | Everything the agent script prints while it runs |
+| What           | How we call it | Typical content                                                           |
+| -------------- | -------------- | ------------------------------------------------------------------------- |
+| Non-agent work | **`infra`**    | Startup scripts, installs, gate output, lines before/after the agent runs |
+| Agent work     | **`agent`**    | Everything the agent script prints while it runs                          |
 
-The factory needs to know which bytes belong to which role so it can prefix or pretty-print *only* the output made by the agent CLI.
+The factory needs to know which bytes belong to which role so it can prefix or pretty-print _only_ the output made by the agent CLI.
 
 ---
 
@@ -38,11 +38,11 @@ So saifctl **buffers and parses** the byte stream: partial lines stay in memory 
 
 ## Three layers (conceptual)
 
-| Layer | Role | Why it exists |
-| ----- | ------ | ------------- |
-| **1. `AgentStdoutStrategy`** (per agent profile) | Split the agent-output region into segments (if needed) and format each segment for the terminal | Some agents emit structured blobs (e.g. OpenHands JSON); others are plain lines. Strategies live under `src/agent-profiles/`; each profile sets `stdoutStrategy` to a strategy object or **`null`**. |
-| **2. `createAgentRunnerStdoutMux`** | Chunked stdout → stream of `AgentLogEvent`s | Implements delimiter tracking, line assembly, and optional hand-off to the strategy’s `appendInsideWindow` / `flushInsideWindow`. |
-| **3. `createDefaultAgentLog` / `defaultAgentLog`** | Event → `process.stdout` | Infra and line-mode agent events get a `[agent]` or `[inspect]` style prefix; non-null strategies delegate agent-phase segments to `formatSegment`. |
+| Layer                                              | Role                                                                                             | Why it exists                                                                                                                                                                                        |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1. `AgentStdoutStrategy`** (per agent profile)   | Split the agent-output region into segments (if needed) and format each segment for the terminal | Some agents emit structured blobs (e.g. OpenHands JSON); others are plain lines. Strategies live under `src/agent-profiles/`; each profile sets `stdoutStrategy` to a strategy object or **`null`**. |
+| **2. `createAgentRunnerStdoutMux`**                | Chunked stdout → stream of `AgentLogEvent`s                                                      | Implements delimiter tracking, line assembly, and optional hand-off to the strategy’s `appendInsideWindow` / `flushInsideWindow`.                                                                    |
+| **3. `createDefaultAgentLog` / `defaultAgentLog`** | Event → `process.stdout`                                                                         | Infra and line-mode agent events get a `[agent]` or `[inspect]` style prefix; non-null strategies delegate agent-phase segments to `formatSegment`.                                                  |
 
 ---
 

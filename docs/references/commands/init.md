@@ -28,24 +28,24 @@ If `saifctl/tests/` already contains another profile's helpers (e.g. `helpers.py
 
 ### `saifctl init`
 
-| Flag | Alias | Type | Required | Default | Description |
-|---|---|---|---|---|---|
-| `--project` | `-p` | string | No | `package.json` `name` | Project name override for the indexer. |
-| `--project-dir` | | string | No | current directory | Project directory. |
-| `--saifctl-dir` | | string | No | `saifctl` | Path to the saifctl config directory. |
-| `--indexer` | | string | No | none | Indexer profile. Pass `shotgun` to use Shotgun, or `none` to disable. |
-| `--test-profile` | | string | No | `node-vitest` | Test profile id. |
-| `--force` | `-f` | boolean | No | `false` | Overwrite existing config / helpers / infra / example files. |
+| Flag             | Alias | Type    | Required | Default               | Description                                                           |
+| ---------------- | ----- | ------- | -------- | --------------------- | --------------------------------------------------------------------- |
+| `--project`      | `-p`  | string  | No       | `package.json` `name` | Project name override for the indexer.                                |
+| `--project-dir`  |       | string  | No       | current directory     | Project directory.                                                    |
+| `--saifctl-dir`  |       | string  | No       | `saifctl`             | Path to the saifctl config directory.                                 |
+| `--indexer`      |       | string  | No       | none                  | Indexer profile. Pass `shotgun` to use Shotgun, or `none` to disable. |
+| `--test-profile` |       | string  | No       | `node-vitest`         | Test profile id.                                                      |
+| `--force`        | `-f`  | boolean | No       | `false`               | Overwrite existing config / helpers / infra / example files.          |
 
 ### `saifctl init tests`
 
-| Flag | Alias | Type | Required | Default | Description |
-|---|---|---|---|---|---|
-| `--project` | `-p` | string | No | `package.json` `name` | Accepted for CLI consistency; not used by `init tests`. |
-| `--project-dir` | | string | No | current directory | Project directory. |
-| `--saifctl-dir` | | string | No | `saifctl` | Path to the saifctl config directory. |
-| `--test-profile` | | string | No | `node-vitest` | Test profile id. |
-| `--force` | `-f` | boolean | No | `false` | Overwrite existing helpers / infra / example files. |
+| Flag             | Alias | Type    | Required | Default               | Description                                             |
+| ---------------- | ----- | ------- | -------- | --------------------- | ------------------------------------------------------- |
+| `--project`      | `-p`  | string  | No       | `package.json` `name` | Accepted for CLI consistency; not used by `init tests`. |
+| `--project-dir`  |       | string  | No       | current directory     | Project directory.                                      |
+| `--saifctl-dir`  |       | string  | No       | `saifctl`             | Path to the saifctl config directory.                   |
+| `--test-profile` |       | string  | No       | `node-vitest`         | Test profile id.                                        |
+| `--force`        | `-f`  | boolean | No       | `false`               | Overwrite existing helpers / infra / example files.     |
 
 ### Test profile resolution
 

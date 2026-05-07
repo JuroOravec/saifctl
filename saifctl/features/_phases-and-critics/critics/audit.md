@@ -21,7 +21,7 @@ omitting planned work, sometimes leaving the old shape next to the new one
 just so the existing tests still pass. Patterns to look out for include:
 
 - **Optional inputs whose defaults elevate access** — e.g. `requireAuth =
-  false` as a default that grants more permission than the user asked for,
+false` as a default that grants more permission than the user asked for,
   or any flag whose default is the easy-but-unsafe path. Defaults that make
   the lazy path the dangerous path are bugs, even if the spec is silent on
   them.

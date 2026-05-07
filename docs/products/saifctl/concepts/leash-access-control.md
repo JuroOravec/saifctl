@@ -25,13 +25,13 @@ This means the boundary holds even when the agent is actively trying to work aro
 
 SaifCTL's bundled policies use the following actions from the Leash Cedar schema:
 
-| Action | What it covers |
-|---|---|
-| `Action::"FileOpen"` | Any file open (read-only semantics) |
-| `Action::"FileOpenReadOnly"` | Explicit read-only open |
-| `Action::"FileOpenReadWrite"` | Any open that permits writing |
-| `Action::"ProcessExec"` | Spawning a process |
-| `Action::"NetworkConnect"` | Outbound TCP/HTTP connection |
+| Action                        | What it covers                      |
+| ----------------------------- | ----------------------------------- |
+| `Action::"FileOpen"`          | Any file open (read-only semantics) |
+| `Action::"FileOpenReadOnly"`  | Explicit read-only open             |
+| `Action::"FileOpenReadWrite"` | Any open that permits writing       |
+| `Action::"ProcessExec"`       | Spawning a process                  |
+| `Action::"NetworkConnect"`    | Outbound TCP/HTTP connection        |
 
 Leash does not use `ReadFile` / `WriteFile` or `Directory::` — those map to the `FileOpen*` family and `Dir::` respectively. Consult the [upstream Leash Cedar spec](https://github.com/strongdm/leash/blob/main/docs/design/CEDAR.md) for the complete action and resource type reference, including `HttpRewrite` and `McpCall`.
 

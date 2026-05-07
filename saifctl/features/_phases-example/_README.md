@@ -10,12 +10,12 @@ runnable, copy-pasteable reference for the full Block 1–4 contract:
   critic list — does not merge),
 - three `critics/<id>.md` templates that between them exercise every
   documented mustache variable plus the `{{> file <path>}}` partial:
-    - `strict.md` — drift / nuance / shortcut detection (uses the partial).
-    - `paranoid.md` — security-first, focused on cross-tenant access and
-      silent failures.
-    - `audit.md` — the daily-driver fusion of the two; the template the
-      project author actually runs against lesser-model output (also uses
-      the partial).
+  - `strict.md` — drift / nuance / shortcut detection (uses the partial).
+  - `paranoid.md` — security-first, focused on cross-tenant access and
+    silent failures.
+  - `audit.md` — the daily-driver fusion of the two; the template the
+    project author actually runs against lesser-model output (also uses
+    the partial).
 
 This is a doc-only example; it intentionally **does not ship**
 `phases/<id>/tests/` directories. Compile output references those paths
@@ -64,21 +64,21 @@ Critic templates can reference these (and only these). Anything else throws
 `CriticPromptRenderError` at runtime — typos surface loudly instead of
 quietly producing empty strings.
 
-| Variable             | Example                                                          |
-|----------------------|------------------------------------------------------------------|
-| `feature.name`       | `_phases-example`                                                |
-| `feature.dir`        | `saifctl/features/_phases-example`                               |
-| `feature.plan`       | `/workspace/saifctl/features/_phases-example/plan.md`            |
-| `phase.id`           | `01-validate-input`                                              |
-| `phase.dir`          | `/workspace/saifctl/features/_phases-example/phases/01-validate-input` |
-| `phase.spec`         | `/workspace/saifctl/features/_phases-example/phases/01-validate-input/spec.md` |
-| `phase.baseRef`      | `abc1234` (git rev at start of phase impl — runtime-captured)    |
-| `phase.tests`        | `/workspace/saifctl/features/_phases-example/phases/01-validate-input/tests` |
-| `critic.id`          | `paranoid`                                                       |
-| `critic.round`       | `1`                                                              |
-| `critic.totalRounds` | `2`                                                              |
-| `critic.step`        | `discover` (or `fix`) — see "Discover/fix split" below            |
-| `critic.findingsPath`| `/workspace/.saifctl/critic-findings/01-validate-input--paranoid--r1.md` |
+| Variable              | Example                                                                        |
+| --------------------- | ------------------------------------------------------------------------------ |
+| `feature.name`        | `_phases-example`                                                              |
+| `feature.dir`         | `saifctl/features/_phases-example`                                             |
+| `feature.plan`        | `/workspace/saifctl/features/_phases-example/plan.md`                          |
+| `phase.id`            | `01-validate-input`                                                            |
+| `phase.dir`           | `/workspace/saifctl/features/_phases-example/phases/01-validate-input`         |
+| `phase.spec`          | `/workspace/saifctl/features/_phases-example/phases/01-validate-input/spec.md` |
+| `phase.baseRef`       | `abc1234` (git rev at start of phase impl — runtime-captured)                  |
+| `phase.tests`         | `/workspace/saifctl/features/_phases-example/phases/01-validate-input/tests`   |
+| `critic.id`           | `paranoid`                                                                     |
+| `critic.round`        | `1`                                                                            |
+| `critic.totalRounds`  | `2`                                                                            |
+| `critic.step`         | `discover` (or `fix`) — see "Discover/fix split" below                         |
+| `critic.findingsPath` | `/workspace/.saifctl/critic-findings/01-validate-input--paranoid--r1.md`       |
 
 ## Discover/fix split
 
@@ -127,7 +127,7 @@ inside a fenced code block. Two consequences worth knowing:
    a referenced file can't accidentally trigger render errors via stale
    tokens, and it keeps the partial mechanism a one-way pipe (template
    pulls from file, never the other direction). If you need a variable
-   in the inlined section, put it in the *template* before/after the
+   in the inlined section, put it in the _template_ before/after the
    `{{> file ...}}` partial, not in the file itself.
 
 A practical implication: if your partial file mentions partial syntax in

@@ -36,8 +36,8 @@ scope wiring, that's a red flag worth surfacing.
 - **Project-level `saifctl/tests/` and feature-level
   `features/<feat>/tests/` run only after the last phase**, not at
   every phase. Rationale (mongo→postgres example): a feature-level
-  test like *"URL `/a/b/c` works on the new app"* in a multi-phase
-  migration *cannot* pass at phase 1 (postgres data duplication) or
+  test like _"URL `/a/b/c` works on the new app"_ in a multi-phase
+  migration _cannot_ pass at phase 1 (postgres data duplication) or
   phase 2 (bare express setup) — it's only meaningful after the API
   is reimplemented at phase 3. Putting feat-level / project-level
   tests in early phases' cumulative scope would block every run on
@@ -57,8 +57,8 @@ scope wiring, that's a red flag worth surfacing.
 - Phase 2 gate: `phases/01/tests/` + `phases/02/tests/`
 - …
 - Phase N (last) gate: all `phases/*/tests/` cumulative
-  + `features/<feat>/tests/`
-  + `saifctl/tests/`
+  - `features/<feat>/tests/`
+  - `saifctl/tests/`
 
 ## What this phase does NOT include
 

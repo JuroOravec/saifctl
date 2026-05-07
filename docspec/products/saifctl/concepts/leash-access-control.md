@@ -6,7 +6,7 @@ learning_outcomes:
   - The Cedar action vocabulary saifctl uses (`FileOpen`, `FileOpenReadWrite`, `ProcessExec`, `NetworkConnect`).
   - Cedar policy syntax basics (`permit` / `forbid`, "forbid beats permit", `Dir::"…/"` directory matching with mandatory trailing slash, `File::"…"` exact-file matching, `Host::"…"` host allowlists).
   - The three bundled policies — `default` (filesystem-isolated, network-permit), `sandbox` (stricter), `deny-network` — and when each is appropriate.
-  - "The `--cedar` flag and how to author a custom policy file (recipe form: start from a bundled policy, adjust)."
+  - 'The `--cedar` flag and how to author a custom policy file (recipe form: start from a bundled policy, adjust).'
   - What the upstream Leash CEDAR spec covers vs. what saifctl wires.
 analogies:
   - allowlist/denylist firewall rules

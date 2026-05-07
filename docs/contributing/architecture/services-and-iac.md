@@ -17,9 +17,9 @@ Real integration tests need real services. Unit tests that mock Postgres tell yo
 
 Two failure modes "give the agent a Postgres" must avoid:
 
-| Failure mode | Concrete |
-|---|---|
-| **Blast radius** | Agent drops a real staging DB, corrupts an integration env, hammers a paid third-party API. |
+| Failure mode           | Concrete                                                                                                                                 |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Blast radius**       | Agent drops a real staging DB, corrupts an integration env, hammers a paid third-party API.                                              |
 | **Environment sprawl** | Every feature's `tests.json` defines its own Postgres / Redis → hundreds of drift-prone container definitions scattered across the repo. |
 
 Saifctl's fix: **never own the service topology**. Orchestrate around services the user already defines in their own IaC — Docker Compose locally, Helm for Kubernetes (when shipped).
@@ -39,10 +39,10 @@ User defines services in `docker-compose.yml` (or Helm chart). Saifctl:
 
 [`src/config/schema.ts`](../../../src/config/schema.ts) defines the configuration. Two distinct environments per project:
 
-| Environment | When | Contains |
-|---|---|---|
-| `environments.coding` | While the agent is writing code (the inner loop in the coder container) | Mocks/stubs the agent's tests run against. Discriminated union: `engine: 'docker' \| 'helm' \| 'local'`. |
-| `environments.staging` | While saifctl is validating the agent's diff (outer-loop test runner) | The "deployed" version of the app + the same services as coding. Discriminated union: `engine: 'docker' \| 'helm'` (no `local` for staging — must be containerized for the test-runner air-gap). |
+| Environment            | When                                                                    | Contains                                                                                                                                                                                         |
+| ---------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `environments.coding`  | While the agent is writing code (the inner loop in the coder container) | Mocks/stubs the agent's tests run against. Discriminated union: `engine: 'docker' \| 'helm' \| 'local'`.                                                                                         |
+| `environments.staging` | While saifctl is validating the agent's diff (outer-loop test runner)   | The "deployed" version of the app + the same services as coding. Discriminated union: `engine: 'docker' \| 'helm'` (no `local` for staging — must be containerized for the test-runner air-gap). |
 
 Both blocks are optional. If absent, saifctl provisions only the core containers (coder, staging, test-runner) on the per-run bridge network — no Compose stack, no extra services. That's the default for simple feature sets.
 
@@ -135,10 +135,10 @@ In both cases, the per-run uniqueness of `<runId>` is what makes parallel runs s
 
 The agent's container is dynamically created by saifctl, not defined in the user's `docker-compose.yml` / Helm chart. Saifctl injects env vars (`DATABASE_URL`, etc.) so the agent can reach the services.
 
-| Engine | Templating |
-|---|---|
-| **Docker** | `agentEnvironment` is flat `Record<string, string>`. Saifctl injects `KEY=value` as-is. Compose's static service hostnames (`postgres-db`, `redis`, …) work because all containers join the same `saifctl-run-<runId>_default` network. |
-| **Helm** | User writes `agentEnvironment` values with Helm's native `{{ }}` syntax (e.g. `'postgres://user:pass@{{ .Release.Name }}-postgres-db:5432/db'`). Saifctl drops the raw string into a temp `ConfigMap.yaml`; `helm install` compiles it through Helm's Go-templating. Saifctl never templates anything itself. |
+| Engine     | Templating                                                                                                                                                                                                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Docker** | `agentEnvironment` is flat `Record<string, string>`. Saifctl injects `KEY=value` as-is. Compose's static service hostnames (`postgres-db`, `redis`, …) work because all containers join the same `saifctl-run-<runId>_default` network.                                                                       |
+| **Helm**   | User writes `agentEnvironment` values with Helm's native `{{ }}` syntax (e.g. `'postgres://user:pass@{{ .Release.Name }}-postgres-db:5432/db'`). Saifctl drops the raw string into a temp `ConfigMap.yaml`; `helm install` compiles it through Helm's Go-templating. Saifctl never templates anything itself. |
 
 The Helm path uses Helm to do the work it was already designed for. Saifctl just dispatches.
 
@@ -150,7 +150,7 @@ The Helm path uses Helm to do the work it was already designed for. Saifctl just
 
 Mitigations:
 
-- The agent doesn't need host-mapped ports — it runs *inside* the Docker network.
+- The agent doesn't need host-mapped ports — it runs _inside_ the Docker network.
 - **Recommend**: Compose files passed to saifctl avoid host-port bindings.
 - **Future**: saifctl could parse YAML before `up -d` and warn / strip `ports:` arrays. Not implemented.
 

@@ -4,12 +4,12 @@ A feature in saifctl moves through four stages — **proposal**, **design**, **b
 
 ## The four stages
 
-| Stage | What happens | How it's driven |
-|---|---|---|
-| **Proposal** | You decide what to build and write a spec | Your editor; no saifctl command yet |
-| **Design** | Specs and TDD tests are placed in the feature directory | Convention: `saifctl/features/<feature-id>/` |
-| **Build** | `saifctl feat run` drives an agent through the convergence loop until every gate passes | `saifctl feat run --feature <feature-id>` |
-| **Ship** | The agent's patch is promoted to a branch and a PR is opened | Automatic on a passing build (if PR creation is enabled) |
+| Stage        | What happens                                                                            | How it's driven                                          |
+| ------------ | --------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| **Proposal** | You decide what to build and write a spec                                               | Your editor; no saifctl command yet                      |
+| **Design**   | Specs and TDD tests are placed in the feature directory                                 | Convention: `saifctl/features/<feature-id>/`             |
+| **Build**    | `saifctl feat run` drives an agent through the convergence loop until every gate passes | `saifctl feat run --feature <feature-id>`                |
+| **Ship**     | The agent's patch is promoted to a branch and a PR is opened                            | Automatic on a passing build (if PR creation is enabled) |
 
 You spend your time on proposal and reviewing the finished PR. Everything in between — writing code, fixing failures, passing the reviewer — is the agent's job.
 
@@ -57,5 +57,5 @@ To allow the agent to modify specs and tests (for example, during a phase that i
 ## Related pages
 
 - [The `feat run` convergence loop](feat-run-loop.md) — how the gate, reviewer, and holdout tests interact within a single loop iteration
-<!-- reference/feat-run.md — forthcoming -->
-<!-- how-to/define-phased-feature.md — forthcoming -->
+  <!-- reference/feat-run.md — forthcoming -->
+  <!-- how-to/define-phased-feature.md — forthcoming -->

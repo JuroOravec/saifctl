@@ -30,35 +30,35 @@ If no slash is present, the provider defaults to `openai` (backwards compatibili
 
 These providers use a dedicated `@ai-sdk/<name>` package.
 
-| Provider | Aliases | API key env var | Default model |
-|---|---|---|---|
-| `anthropic` | `anthropic` | `ANTHROPIC_API_KEY` | `anthropic/claude-sonnet-4-6` |
-| `openai` | `openai` | `OPENAI_API_KEY` | `openai/gpt-5.4` |
-| `google` | `google`, `gemini` | `GEMINI_API_KEY` | `google/gemini-3.1-pro-preview` |
-| `vertex` | `vertex` | `GOOGLE_VERTEX_API_KEY` | `vertex/gemini-3.1-pro-preview` |
+| Provider    | Aliases            | API key env var         | Default model                   |
+| ----------- | ------------------ | ----------------------- | ------------------------------- |
+| `anthropic` | `anthropic`        | `ANTHROPIC_API_KEY`     | `anthropic/claude-sonnet-4-6`   |
+| `openai`    | `openai`           | `OPENAI_API_KEY`        | `openai/gpt-5.4`                |
+| `google`    | `google`, `gemini` | `GEMINI_API_KEY`        | `google/gemini-3.1-pro-preview` |
+| `vertex`    | `vertex`           | `GOOGLE_VERTEX_API_KEY` | `vertex/gemini-3.1-pro-preview` |
 
 ### OpenAI-compatible providers
 
 These providers expose an OpenAI-compatible endpoint; saifctl routes them through `@ai-sdk/openai` with the registered `baseURL`.
 
-| Provider | Aliases | API key env var | Default model | Base URL |
-|---|---|---|---|---|
-| `openrouter` | `openrouter` | `OPENROUTER_API_KEY` | `openrouter/anthropic/claude-sonnet-4-6` | `https://openrouter.ai/api/v1` |
-| `xai` | `xai` | `XAI_API_KEY` | `xai/grok-4-1-fast-reasoning` | `https://api.x.ai/v1` |
-| `mistral` | `mistral` | `MISTRAL_API_KEY` | `mistral/mistral-large-2512` | `https://api.mistral.ai/v1` |
-| `deepseek` | `deepseek` | `DEEPSEEK_API_KEY` | `deepseek/deepseek-chat` | `https://api.deepseek.com/v1` |
-| `groq` | `groq` | `GROQ_API_KEY` | `groq/llama-3.3-70b-versatile` | `https://api.groq.com/openai/v1` |
-| `cohere` | `cohere` | `COHERE_API_KEY` | `cohere/command-a-03-2025` | `https://api.cohere.com/compatibility/v1` |
-| `together` | `together`, `togetherai` | `TOGETHER_API_KEY` | `together/meta-llama/Llama-3.3-70B-Instruct` | `https://api.together.xyz/v1` |
-| `fireworks` | `fireworks` | `FIREWORKS_API_KEY` | `fireworks/accounts/fireworks/models/llama-v3p3-70b-instruct` | `https://api.fireworks.ai/inference/v1` |
-| `deepinfra` | `deepinfra` | `DEEPINFRA_API_KEY` | `deepinfra/meta-llama/Llama-3.3-70B-Instruct` | `https://api.deepinfra.com/v1/openai` |
-| `cerebras` | `cerebras` | `CEREBRAS_API_KEY` | `cerebras/llama3.3-70b` | `https://api.cerebras.ai/v1` |
-| `huggingface` | `huggingface`, `hf` | `HF_TOKEN` | `huggingface/meta-llama/Llama-3.3-70B-Instruct` | `https://router.huggingface.co/v1` |
-| `moonshotai` | `moonshotai`, `moonshot` | `MOONSHOT_API_KEY` | `moonshotai/kimi-k2.5` | `https://api.moonshot.cn/v1` |
-| `alibaba` | `alibaba`, `dashscope` | `DASHSCOPE_API_KEY` | `alibaba/qwen3.5-plus` | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
-| `baseten` | `baseten` | `BASETEN_API_KEY` | `baseten/Qwen/Qwen3-235B-A22B-Instruct-2507` | `https://inference.baseten.co/v1` |
-| `perplexity` | `perplexity` | `PERPLEXITY_API_KEY` | `perplexity/sonar-pro` | `https://api.perplexity.ai` |
-| `ollama` | `ollama` | _(none required)_ | `ollama/llama3.1` | `http://localhost:11434/v1` |
+| Provider      | Aliases                  | API key env var      | Default model                                                 | Base URL                                            |
+| ------------- | ------------------------ | -------------------- | ------------------------------------------------------------- | --------------------------------------------------- |
+| `openrouter`  | `openrouter`             | `OPENROUTER_API_KEY` | `openrouter/anthropic/claude-sonnet-4-6`                      | `https://openrouter.ai/api/v1`                      |
+| `xai`         | `xai`                    | `XAI_API_KEY`        | `xai/grok-4-1-fast-reasoning`                                 | `https://api.x.ai/v1`                               |
+| `mistral`     | `mistral`                | `MISTRAL_API_KEY`    | `mistral/mistral-large-2512`                                  | `https://api.mistral.ai/v1`                         |
+| `deepseek`    | `deepseek`               | `DEEPSEEK_API_KEY`   | `deepseek/deepseek-chat`                                      | `https://api.deepseek.com/v1`                       |
+| `groq`        | `groq`                   | `GROQ_API_KEY`       | `groq/llama-3.3-70b-versatile`                                | `https://api.groq.com/openai/v1`                    |
+| `cohere`      | `cohere`                 | `COHERE_API_KEY`     | `cohere/command-a-03-2025`                                    | `https://api.cohere.com/compatibility/v1`           |
+| `together`    | `together`, `togetherai` | `TOGETHER_API_KEY`   | `together/meta-llama/Llama-3.3-70B-Instruct`                  | `https://api.together.xyz/v1`                       |
+| `fireworks`   | `fireworks`              | `FIREWORKS_API_KEY`  | `fireworks/accounts/fireworks/models/llama-v3p3-70b-instruct` | `https://api.fireworks.ai/inference/v1`             |
+| `deepinfra`   | `deepinfra`              | `DEEPINFRA_API_KEY`  | `deepinfra/meta-llama/Llama-3.3-70B-Instruct`                 | `https://api.deepinfra.com/v1/openai`               |
+| `cerebras`    | `cerebras`               | `CEREBRAS_API_KEY`   | `cerebras/llama3.3-70b`                                       | `https://api.cerebras.ai/v1`                        |
+| `huggingface` | `huggingface`, `hf`      | `HF_TOKEN`           | `huggingface/meta-llama/Llama-3.3-70B-Instruct`               | `https://router.huggingface.co/v1`                  |
+| `moonshotai`  | `moonshotai`, `moonshot` | `MOONSHOT_API_KEY`   | `moonshotai/kimi-k2.5`                                        | `https://api.moonshot.cn/v1`                        |
+| `alibaba`     | `alibaba`, `dashscope`   | `DASHSCOPE_API_KEY`  | `alibaba/qwen3.5-plus`                                        | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| `baseten`     | `baseten`                | `BASETEN_API_KEY`    | `baseten/Qwen/Qwen3-235B-A22B-Instruct-2507`                  | `https://inference.baseten.co/v1`                   |
+| `perplexity`  | `perplexity`             | `PERPLEXITY_API_KEY` | `perplexity/sonar-pro`                                        | `https://api.perplexity.ai`                         |
+| `ollama`      | `ollama`                 | _(none required)_    | `ollama/llama3.1`                                             | `http://localhost:11434/v1`                         |
 
 Ollama requires no API key; saifctl passes the placeholder `sk-none` to satisfy SDK validation.
 
@@ -87,15 +87,15 @@ saifctl run \
 
 ### Supported agent names
 
-| Agent | Description |
-|---|---|
-| `coder` | Writes code inside the coding container |
-| `discovery` | Explores the codebase to plan changes |
-| `reviewer` | Reviews and critiques the coder's output |
+| Agent               | Description                                          |
+| ------------------- | ---------------------------------------------------- |
+| `coder`             | Writes code inside the coding container              |
+| `discovery`         | Explores the codebase to plan changes                |
+| `reviewer`          | Reviews and critiques the coder's output             |
 | `vague-specs-check` | Checks task specs for ambiguity before coding starts |
-| `pr-summarizer` | Summarises pull requests |
-| `tests-catalog` | Catalogues existing tests |
-| `tests-writer` | Writes new tests |
+| `pr-summarizer`     | Summarises pull requests                             |
+| `tests-catalog`     | Catalogues existing tests                            |
+| `tests-writer`      | Writes new tests                                     |
 
 ---
 

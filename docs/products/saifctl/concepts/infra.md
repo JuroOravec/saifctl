@@ -12,7 +12,7 @@ Each phase has its own `environment` block in the feature config. You can run th
 
 ## Engine choices
 
-Three engines are available. Engines determine *where* a phase runs, not what it does. Think of it like a test-runner config (jest / vitest) but for the entire pipeline: the same feature spec can be run with different engine setups depending on whether you're iterating locally or running in production.
+Three engines are available. Engines determine _where_ a phase runs, not what it does. Think of it like a test-runner config (jest / vitest) but for the entire pipeline: the same feature spec can be run with different engine setups depending on whether you're iterating locally or running in production.
 
 ### `docker` (default)
 
@@ -38,11 +38,11 @@ A `docker` engine run can be orchestrated locally (default) or via Hatchet. An e
 
 ## Choosing an engine
 
-| Situation | Recommended engine |
-|---|---|
-| Production [`feat run`](./feat-run-loop.md) (Factory-mode agent run), untrusted agent code | `docker` |
-| Fast inner-loop iteration, trusted code only | `local` |
-| Distributed or remote execution | `helm` (planned) |
+| Situation                                                                                  | Recommended engine |
+| ------------------------------------------------------------------------------------------ | ------------------ |
+| Production [`feat run`](./feat-run-loop.md) (Factory-mode agent run), untrusted agent code | `docker`           |
+| Fast inner-loop iteration, trusted code only                                               | `local`            |
+| Distributed or remote execution                                                            | `helm` (planned)   |
 
 When in doubt, leave the engine at the default (`docker`). The isolation guarantees are enforced mechanically — if Cedar blocks a write, the phase fails cleanly rather than silently corrupting your host.
 
