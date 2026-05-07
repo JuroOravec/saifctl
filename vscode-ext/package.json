@@ -32,6 +32,14 @@
   "engines": {
     "vscode": "^1.86.0"
   },
+  "packageManager": "pnpm@10.32.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@vscode/vsce-sign",
+      "keytar"
+    ]
+  },
   "categories": [
     "AI",
     "Chat",
