@@ -20,7 +20,7 @@ saifctl feat phases validate [options]
 
 | Flag            | Alias | Type   | Default               | Description                                                 |
 | --------------- | ----- | ------ | --------------------- | ----------------------------------------------------------- |
-| `--name`        | `-n`  | string | _(prompted)_          | Feature name (kebab-case). Prompts with a list if omitted.  |
+| `--feature`        | `-e`  | string | _(prompted)_          | Feature name (kebab-case). Prompts with a list if omitted.  |
 | `--project-dir` |       | string | `(current directory)` | Project directory.                                          |
 | `--saifctl-dir` |       | string | `saifctl`             | Path to the saifctl directory relative to the project root. |
 
@@ -36,7 +36,7 @@ saifctl feat phases compile [options]
 
 | Flag            | Alias | Type   | Default               | Description                                                                                                                                             |
 | --------------- | ----- | ------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--name`        | `-n`  | string | _(prompted)_          | Feature name (kebab-case). Prompts with a list if omitted.                                                                                              |
+| `--feature`        | `-e`  | string | _(prompted)_          | Feature name (kebab-case). Prompts with a list if omitted.                                                                                              |
 | `--project-dir` |       | string | `(current directory)` | Project directory.                                                                                                                                      |
 | `--saifctl-dir` |       | string | `saifctl`             | Path to the saifctl directory relative to the project root.                                                                                             |
 | `--gate-script` |       | string | _(placeholder)_       | Path to a gate script to embed on every subtask. When omitted, a fail-loud placeholder is used so the artifact cannot silently bypass gates if misused. |
@@ -50,7 +50,7 @@ The artifact normalises `testScope.include` paths to project-relative POSIX form
 **Validate a phased feature:**
 
 ```bash
-saifctl feat phases validate --name my-feature
+saifctl feat phases validate --feature my-feature
 ```
 
 **Validate, prompting to select the feature:**
@@ -62,17 +62,17 @@ saifctl feat phases validate
 **Compile a feature to review the subtask list:**
 
 ```bash
-saifctl feat phases compile --name my-feature
+saifctl feat phases compile --feature my-feature
 ```
 
 **Compile with a real gate script baked in:**
 
 ```bash
-saifctl feat phases compile --name my-feature --gate-script ./scripts/gate.sh
+saifctl feat phases compile --feature my-feature --gate-script ./scripts/gate.sh
 ```
 
 **Compile for a project in a non-default directory:**
 
 ```bash
-saifctl feat phases compile --name my-feature --project-dir /path/to/project
+saifctl feat phases compile --feature my-feature --project-dir /path/to/project
 ```

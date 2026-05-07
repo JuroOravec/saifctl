@@ -186,7 +186,7 @@ Accepts the same flags as [`start`](#start) (agent, model, sandbox, and run-cont
 
 | Flag     | Short | Type   | Default | Description                                                                                             |
 | -------- | ----- | ------ | ------- | ------------------------------------------------------------------------------------------------------- |
-| `--name` | `-n`  | string | —       | Feature name; must match the source run's feature name (the command exits with an error if it does not) |
+| `--feature` | `-e`  | string | —       | Feature name; must match the source run's feature name (the command exits with an error if it does not) |
 
 ### Example
 

@@ -41,7 +41,7 @@ Place tests the agent must not see under `tests/holdout/`. These are your correc
 ### 4. Run the feature
 
 ```bash
-saifctl feat run --name my-feature
+saifctl feat run --feature my-feature
 ```
 
 saifctl will:
@@ -103,8 +103,8 @@ The gate-and-holdout gauntlet runs per phase; each phase must pass before the ne
 Preview the subtask plan before running:
 
 ```bash
-saifctl feat phases compile --name my-feature
-saifctl feat run --name my-feature
+saifctl feat phases compile --feature my-feature
+saifctl feat run --feature my-feature
 ```
 
 A fully annotated example lives at `saifctl/features/_phases-example/`.

@@ -5,7 +5,7 @@ If you're wondering whether saifctl can accidentally break your existing tests, 
 ## Prerequisites
 
 - A feature directory with specs (`phases/<id>/spec.md` or a root-level spec) and tests.
-- `saifctl feat run --name <feature-id>` — see `feat run` for flags.
+- `saifctl feat run --feature <feature-id>` — see `feat run` for flags.
 
 You do not need to configure the Gate, Reviewer, or Holdout separately; they are part of every `feat run` invocation.
 
@@ -39,7 +39,7 @@ After the Gate passes for a phase, critic rounds run. Each critic is a separate 
 
 To confirm the guarantees are active for your run:
 
-1. Run your feature normally: `saifctl feat run --name <feature-id>`.
+1. Run your feature normally: `saifctl feat run --feature <feature-id>`.
 2. Watch the run log — each iteration shows Gate, Reviewer, and Holdout results. A phase only advances when all three pass.
 3. After the run completes, check the opened PR: the diff should touch only files permitted by the spec.
 

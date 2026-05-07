@@ -83,7 +83,7 @@ describe('saifctl feat phases validate', () => {
     await makePhase('01-core');
     const { errors, exitCode, logs } = await runPhasesSubcommand([
       'validate',
-      '--name',
+      '--feature',
       FEATURE_NAME,
       '--project-dir',
       projectDir,
@@ -98,7 +98,7 @@ describe('saifctl feat phases validate', () => {
     await mkdir(join(featureDir, 'phases', '01-core'), { recursive: true });
     const { errors, exitCode } = await runPhasesSubcommand([
       'validate',
-      '--name',
+      '--feature',
       FEATURE_NAME,
       '--project-dir',
       projectDir,
@@ -114,7 +114,7 @@ describe('saifctl feat phases validate', () => {
     // Feature dir exists, but no phases/ → nothing to validate.
     const { errors, exitCode } = await runPhasesSubcommand([
       'validate',
-      '--name',
+      '--feature',
       FEATURE_NAME,
       '--project-dir',
       projectDir,
@@ -131,7 +131,7 @@ describe('saifctl feat phases compile', () => {
 
     const { errors, exitCode, logs } = await runPhasesSubcommand([
       'compile',
-      '--name',
+      '--feature',
       FEATURE_NAME,
       '--project-dir',
       projectDir,
@@ -153,7 +153,7 @@ describe('saifctl feat phases compile', () => {
 
   it('emits a fail-loud placeholder gate script when --gate-script is omitted', async () => {
     await makePhase('01-core');
-    await runPhasesSubcommand(['compile', '--name', FEATURE_NAME, '--project-dir', projectDir]);
+    await runPhasesSubcommand(['compile', '--feature', FEATURE_NAME, '--project-dir', projectDir]);
     const outPath = compiledPhasesOutputPath({ projectDir, featureSlug: FEATURE_NAME });
     const parsed = JSON.parse(await readFile(outPath, 'utf8')) as Array<{ gateScript?: string }>;
     // Bash shebang stays so the script is syntactically valid.
@@ -180,7 +180,7 @@ describe('saifctl feat phases compile', () => {
 
     await runPhasesSubcommand([
       'compile',
-      '--name',
+      '--feature',
       FEATURE_NAME,
       '--project-dir',
       projectDir,
@@ -207,7 +207,7 @@ describe('saifctl feat phases compile', () => {
 
       const { errors, exitCode } = await runPhasesSubcommand([
         'compile',
-        '--name',
+        '--feature',
         FEATURE_NAME,
         '--project-dir',
         projectDir,
@@ -234,7 +234,7 @@ describe('saifctl feat phases compile', () => {
     await makePhase('01-core');
     await makePhase('02-trigger');
 
-    await runPhasesSubcommand(['compile', '--name', FEATURE_NAME, '--project-dir', projectDir]);
+    await runPhasesSubcommand(['compile', '--feature', FEATURE_NAME, '--project-dir', projectDir]);
     const outPath = compiledPhasesOutputPath({ projectDir, featureSlug: FEATURE_NAME });
     const raw = await readFile(outPath, 'utf8');
     const parsed = JSON.parse(raw) as Array<{
@@ -267,7 +267,7 @@ describe('saifctl feat phases compile', () => {
 
     const { errors, exitCode } = await runPhasesSubcommand([
       'compile',
-      '--name',
+      '--feature',
       FEATURE_NAME,
       '--project-dir',
       projectDir,
@@ -283,7 +283,7 @@ describe('saifctl feat phases compile', () => {
   it('exits 1 when feature has no phases/ directory', async () => {
     const { errors, exitCode } = await runPhasesSubcommand([
       'compile',
-      '--name',
+      '--feature',
       FEATURE_NAME,
       '--project-dir',
       projectDir,
@@ -296,7 +296,7 @@ describe('saifctl feat phases compile', () => {
     await makePhase('01-core');
     const { errors, exitCode } = await runPhasesSubcommand([
       'compile',
-      '--name',
+      '--feature',
       FEATURE_NAME,
       '--project-dir',
       projectDir,
@@ -313,7 +313,7 @@ describe('saifctl feat phases compile', () => {
   // meant the round-trip silently let every gate pass.
   it('compile output rejected by loadSubtasksFromFile when used as `feat run --subtasks` input', async () => {
     await makePhase('01-core');
-    await runPhasesSubcommand(['compile', '--name', FEATURE_NAME, '--project-dir', projectDir]);
+    await runPhasesSubcommand(['compile', '--feature', FEATURE_NAME, '--project-dir', projectDir]);
     const outPath = compiledPhasesOutputPath({ projectDir, featureSlug: FEATURE_NAME });
 
     // Same fixture, real loader.
@@ -338,11 +338,11 @@ describe('saifctl feat phases compile', () => {
     await makePhase('01-core');
     await makePhase('02-trigger');
 
-    await runPhasesSubcommand(['compile', '--name', FEATURE_NAME, '--project-dir', projectDir]);
+    await runPhasesSubcommand(['compile', '--feature', FEATURE_NAME, '--project-dir', projectDir]);
     const outPath = compiledPhasesOutputPath({ projectDir, featureSlug: FEATURE_NAME });
     const first = await readFile(outPath, 'utf8');
 
-    await runPhasesSubcommand(['compile', '--name', FEATURE_NAME, '--project-dir', projectDir]);
+    await runPhasesSubcommand(['compile', '--feature', FEATURE_NAME, '--project-dir', projectDir]);
     const second = await readFile(outPath, 'utf8');
 
     expect(second).toBe(first);

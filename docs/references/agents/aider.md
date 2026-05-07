@@ -60,16 +60,16 @@ The agent runs under an unprivileged user via `runuser`. The working directory i
 # Run with an Anthropic model
 LLM_MODEL=anthropic/claude-sonnet-4-6 \
 LLM_API_KEY=sk-ant-... \
-saifctl feat run --agent aider --name my-feature-id
+saifctl feat run --agent aider --feature my-feature-id
 
 # Run with OpenRouter
 LLM_MODEL=openrouter/anthropic/claude-3-5-sonnet \
 OPENROUTER_API_KEY=sk-or-... \
-saifctl feat run --agent aider --name my-feature-id
+saifctl feat run --agent aider --feature my-feature-id
 
 # Run with a custom base URL (e.g. a proxy)
 LLM_MODEL=openai/gpt-4o \
 LLM_API_KEY=... \
 LLM_BASE_URL=https://my-proxy.example.com/v1 \
-saifctl feat run --agent aider --name my-feature-id
+saifctl feat run --agent aider --feature my-feature-id
 ```

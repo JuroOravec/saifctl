@@ -43,10 +43,10 @@ export const indexerArg = {
     'Indexer profile (optional; default: none). Pass shotgun to use Shotgun, or none to disable.',
 };
 
-/** `--name` / `-n`: kebab-case feature id; prompts when omitted in interactive mode. */
-export const nameArg = {
+/** `--feature` / `-e`: kebab-case feature id; prompts when omitted in interactive mode. */
+export const featureArg = {
   type: 'string' as const,
-  alias: 'n' as const,
+  alias: 'e' as const,
   description: 'Feature name (kebab-case). Prompts with a list if omitted.',
 };
 
@@ -345,11 +345,11 @@ const featRunCoreArgs = {
  * flags and run-only options like `--max-runs`, `--cedar`, and `--strict`.
  */
 export const featRunArgs = {
-  name: nameArg,
+  feature: featureArg,
   ...featRunCoreArgs,
 };
 
-/** Same options as `feat run` except `--name` / `-n` (feature comes from the Run only). */
+/** Same options as `feat run` except `--feature` / `-e` (feature comes from the Run only). */
 export const featFromArtifactArgs = {
   ...featRunCoreArgs,
 };

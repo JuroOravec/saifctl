@@ -29,7 +29,7 @@ import type { SandboxExtractMode } from '../../orchestrator/phases/sandbox-extra
 import { runSandbox, runSandboxInteractive } from '../../orchestrator/sandbox-run.js';
 import type { Feature } from '../../specs/discover.js';
 import { readUtf8 } from '../../utils/io.js';
-import { featFromArtifactArgs, nameArg } from '../args.js';
+import { featFromArtifactArgs } from '../args.js';
 import {
   buildOrchestratorCliInputFromFeatArgs,
   type FeatRunArgs,
@@ -45,7 +45,8 @@ import {
 const sandboxArgs = {
   ...featFromArtifactArgs,
   name: {
-    ...nameArg,
+    type: 'string' as const,
+    alias: 'n' as const,
     description: 'Sandbox label (kebab-case). Default: random id.',
   },
   interactive: {

@@ -89,7 +89,7 @@ describe('feat run pre-flight phases validation (Block 6)', () => {
     await mkdir(join(featureDir, 'phases', '01-core'), { recursive: true });
 
     const { errors, exitCode } = await tryParseRunArgs({
-      name: FEATURE_NAME,
+      feature: FEATURE_NAME,
       'project-dir': projectDir,
     });
 
@@ -106,7 +106,7 @@ describe('feat run pre-flight phases validation (Block 6)', () => {
     await mkdir(join(featureDir, 'phases', '01-core'), { recursive: true });
 
     const { errors } = await tryParseRunArgs({
-      name: FEATURE_NAME,
+      feature: FEATURE_NAME,
       'project-dir': projectDir,
       subtasks: 'nonexistent.json',
     });
@@ -117,7 +117,7 @@ describe('feat run pre-flight phases validation (Block 6)', () => {
   it('SKIPS the pre-flight when no phases/ directory exists (non-phased feature)', async () => {
     // No phases dir at all — pre-flight must short-circuit.
     const { errors } = await tryParseRunArgs({
-      name: FEATURE_NAME,
+      feature: FEATURE_NAME,
       'project-dir': projectDir,
     });
 

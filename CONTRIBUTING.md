@@ -1,44 +1,72 @@
-# Contributing
+# Contributing to saifctl
 
-Thanks for your interest in contributing to this repo. It holds shared Cursor configuration (agents, skills, rules) and imports projects as nested git clones.
+`docs/contributing/` is the source of truth for everything below — this
+file is the entry door, not the manual. Start with
+[`docs/contributing/README.md`](docs/contributing/README.md).
 
-## How to report bugs
+## Reporting bugs
 
-Open an issue, include:
+Open a [GitHub issue](https://github.com/safe-ai-factory/saifctl/issues/new).
+Include:
 
-- What went wrong (skills not triggering, rules ignored, etc.)
-- Steps to reproduce
-- Your environment (Cursor version, OS)
+- What you expected vs. what happened.
+- Steps to reproduce (a minimal `saifctl feat run` invocation is ideal).
+- Your environment: `saifctl --version`, OS, Node version, Docker
+  version. `saifctl doctor` output is the fastest way to capture the
+  preflight state.
 
-## How to propose features
+For security vulnerabilities, follow [`SECURITY.md`](SECURITY.md) — do
+not open public issues.
 
-Open an issue, describe the problem you're solving and how you'd like it to work.
+## Proposing features
 
-## Development setup
+Open a [GitHub issue](https://github.com/safe-ai-factory/saifctl/issues/new)
+describing the problem you're solving and the rough shape of the
+change. Wait for a maintainer's reply before opening a PR for anything
+beyond a small fix — the discussion on the issue is where scope and
+approach get aligned.
 
-1. Clone the root repo:
+## Dev setup
 
-   ```bash
-   git clone https://github.com/safe-ai-factory/saifctl.git
-   cd agents
-   ```
+```bash
+git clone https://github.com/safe-ai-factory/saifctl.git
+cd saifctl
+git submodule update --init --recursive  # vendor/argus, vendor/leash, vendor/saifdocs
+pnpm install
+pnpm run check                            # lint + typecheck + tests; same script CI runs
+```
 
-2. See [docs/development/](docs/development/) for info on this project.
+Requirements: Node 22 LTS, pnpm 9+, Docker. See
+[`docs/contributing/README.md`](docs/contributing/README.md) for the
+full day-to-day dev loop.
 
-## Pull request process
+## Branch + PR conventions
 
-1. Fork the repo.
-2. Create a branch from `main`.
-3. Make your changes.
-4. Open a PR against `main`.
-5. Describe what you changed and why.
+| Step              | Convention                                                                     |
+| ----------------- | ------------------------------------------------------------------------------ |
+| Branch from       | `main`                                                                         |
+| Branch name       | `<type>/<short-slug>` — e.g. `feat/run-resume-fix`, `docs/contributing-rewrite` |
+| Commit message    | imperative mood, present tense (`fix: ...`, `feat: ...`, `docs: ...`)          |
+| PR title          | mirrors the commit-message convention                                          |
+| PR body           | what changed + why; link issues with `Fixes #NNN` / `Refs #NNN`                |
+| Pre-merge check   | `pnpm run check` must pass; CI runs the same script                            |
 
-There is no build or test at root — changes to agents, skills, and rules are markdown/config. Nested projects have their own CI; if you change files inside a nested project, follow that project's contribution guidelines.
+Squash-merge to `main` is the default; the PR title becomes the squash
+commit message, so write it carefully.
 
 ## Code style
 
-This repo uses [EditorConfig](.editorconfig) for basics (indent, line endings). Markdown files should stay readable and consistent.
+Tooling enforces most of it:
+
+- [`.editorconfig`](.editorconfig) — indent, line endings.
+- [`.prettierrc`](.prettierrc) — formatting; run `pnpm run format`.
+- [`eslint.config.js`](eslint.config.js) — lint; run `pnpm run lint`.
+- [`pnpm run check`](package.json) — bundles lint + typecheck + tests.
+
+Architectural conventions (file layout, naming, where new code goes)
+live in [`docs/contributing/architecture/`](docs/contributing/architecture/).
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+By contributing, you agree your contributions are licensed under the
+[MIT License](LICENSE).

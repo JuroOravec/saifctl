@@ -98,7 +98,7 @@ saifctl/features/add-json-flag/
 ### 2. Run the feature
 
 ```bash
-saifctl feat run --name add-json-flag
+saifctl feat run --feature add-json-flag
 ```
 
 saifctl will:

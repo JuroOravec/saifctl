@@ -79,7 +79,7 @@ export async function generateTests(opts: GenerateTestsOpts): Promise<GenerateTe
 
   if (!(await pathExists(catalogPath))) {
     throw new Error(
-      `tests.json not found at ${catalogPath}. Run 'saifctl feat design -n ${feature.name}' first.`,
+      `tests.json not found at ${catalogPath}. Run 'saifctl feat design -e ${feature.name}' first.`,
     );
   }
 

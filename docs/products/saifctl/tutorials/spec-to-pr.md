@@ -118,7 +118,7 @@ phases:
 Before committing run time, see what saifctl will execute:
 
 ```bash
-saifctl feat phases compile --name csv-export
+saifctl feat phases compile --feature csv-export
 ```
 
 This prints the full subtask plan: implementer → gate → reviewer → holdout → critic discover → critic fix, for each phase in order. Use it to catch config mistakes — missing spec files, bad critic references — before the container starts.
@@ -128,7 +128,7 @@ This prints the full subtask plan: implementer → gate → reviewer → holdout
 ## Step 5 — Run the feature
 
 ```bash
-saifctl feat run --name csv-export --push origin --pr
+saifctl feat run --feature csv-export --push origin --pr
 ```
 
 `--push origin --pr` tells saifctl to push the branch and open the PR as soon as the final check passes. Without it, saifctl stops at a passing run but does not touch the remote.

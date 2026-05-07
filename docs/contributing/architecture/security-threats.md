@@ -86,7 +86,7 @@ See [`test-runner.md`](./test-runner.md) for the full sidecar protocol.
 
 **Mitigation**: `validateFeatureName()` at [`src/cli/utils.ts:227`](../../../src/cli/utils.ts#L227) enforces kebab-case / safe path segments at the CLI boundary. Any name containing path-traversal characters, spaces, or shell metacharacters is rejected immediately with a clear error, _before_ any shell command is constructed.
 
-Applied at every entry point: `--name`/`-n` flag (`utils.ts:245`), the `saifctl feat new` interactive prompt, and any internal call sites that construct paths from user input.
+Applied at every entry point: `--feature`/`-e` flag (`utils.ts:245`), the `saifctl feat new` interactive prompt, and any internal call sites that construct paths from user input.
 
 Defense-in-depth: shell commands that _do_ use `featureName` quote paths (`"${sandboxBasePath}"`), but the primary control is the boundary regex.
 

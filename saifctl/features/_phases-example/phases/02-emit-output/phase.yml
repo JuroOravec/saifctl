@@ -3,3 +3,11 @@
 critics:
   - { id: strict, rounds: 1 }
   - { id: paranoid, rounds: 2 }
+
+# Level-1 per-phase override (per-phase-config phase 7.2). The bytes of
+# `stricter-gate.sh` are read at compile time and threaded onto every
+# subtask of this phase; the container reads the script from the bind
+# mount each inner round, so swapping it is free per round (no restart).
+# See `concept per-phase-config` for the lifecycle-cost model.
+gate:
+  script: stricter-gate.sh

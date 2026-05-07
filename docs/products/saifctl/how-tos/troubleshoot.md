@@ -50,7 +50,7 @@ Re-run `saifctl doctor` to confirm Docker is healthy before continuing.
 **Fix:** Confirm outbound HTTPS access to `https://github.com/safe-ai-factory/argus/releases`. If your environment blocks that host, run without the reviewer:
 
 ```bash
-saifctl feat run --no-reviewer --name <feature>
+saifctl feat run --no-reviewer --feature <feature>
 ```
 
 ---

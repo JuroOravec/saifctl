@@ -33,8 +33,8 @@ saifctl feat new [options]
 
 | Flag            | Alias | Type    | Default               | Description                                                 |
 | --------------- | ----- | ------- | --------------------- | ----------------------------------------------------------- |
-| `--name`        | `-n`  | string  | _(prompted)_          | Feature name (kebab-case, e.g. `add-greeting-cmd`).         |
-| `--yes`         | `-y`  | boolean | `false`               | Non-interactive mode. Requires `--name`/`-n`.               |
+| `--feature`        | `-e`  | string  | _(prompted)_          | Feature name (kebab-case, e.g. `add-greeting-cmd`).         |
+| `--yes`         | `-y`  | boolean | `false`               | Non-interactive mode. Requires `--feature`/`-e`.               |
 | `--desc`        |       | string  | _(prompted)_          | Brief description. Skips the description prompt.            |
 | `--project-dir` |       | string  | `(current directory)` | Project directory.                                          |
 | `--saifctl-dir` |       | string  | `saifctl`             | Path to the saifctl directory relative to the project root. |
@@ -53,7 +53,7 @@ saifctl feat design-discovery [options]
 
 | Flag                      | Alias | Type   | Default               | Description                                                                                         |
 | ------------------------- | ----- | ------ | --------------------- | --------------------------------------------------------------------------------------------------- |
-| `--name`                  | `-n`  | string | _(prompted)_          | Feature name (kebab-case).                                                                          |
+| `--feature`                  | `-e`  | string | _(prompted)_          | Feature name (kebab-case).                                                                          |
 | `--discovery-mcp`         |       | string |                       | Named MCP server: `name=http(s)://url`. Comma-separated or repeated. Required format: `name=url`.   |
 | `--discovery-tool`        |       | string |                       | Path to a JS/TS file exporting Mastra tools.                                                        |
 | `--discovery-prompt`      |       | string |                       | Inline heuristic prompt for the discovery agent. Mutually exclusive with `--discovery-prompt-file`. |
@@ -77,8 +77,8 @@ saifctl feat design-specs [options]
 
 | Flag            | Alias | Type    | Default               | Description                                                                             |
 | --------------- | ----- | ------- | --------------------- | --------------------------------------------------------------------------------------- |
-| `--name`        | `-n`  | string  | _(prompted)_          | Feature name (kebab-case).                                                              |
-| `--yes`         | `-y`  | boolean | `false`               | Non-interactive mode. Requires `--name`/`-n`. Assumes redo when designer output exists. |
+| `--feature`        | `-e`  | string  | _(prompted)_          | Feature name (kebab-case).                                                              |
+| `--yes`         | `-y`  | boolean | `false`               | Non-interactive mode. Requires `--feature`/`-e`. Assumes redo when designer output exists. |
 | `--force`       | `-f`  | boolean | `false`               | Always re-run the designer, overwriting existing spec files without prompting.          |
 | `--designer`    |       | string  | _(profile default)_   | Designer profile for spec generation.                                                   |
 | `--model`       |       | string  |                       | LLM model override.                                                                     |
@@ -98,7 +98,7 @@ saifctl feat design-tests [options]
 
 | Flag             | Alias | Type    | Default                 | Description                                                 |
 | ---------------- | ----- | ------- | ----------------------- | ----------------------------------------------------------- |
-| `--name`         | `-n`  | string  | _(prompted)_            | Feature name (kebab-case).                                  |
+| `--feature`         | `-e`  | string  | _(prompted)_            | Feature name (kebab-case).                                  |
 | `--test-profile` |       | string  | `node-vitest`           | Test profile id.                                            |
 | `--indexer`      |       | string  | `none`                  | Indexer profile (`shotgun` or `none`).                      |
 | `--project`      | `-p`  | string  | _(package.json `name`)_ | Project name override for the indexer.                      |
@@ -123,7 +123,7 @@ saifctl feat design-fail2pass [options]
 
 | Flag                 | Alias | Type    | Default                 | Description                                                                |
 | -------------------- | ----- | ------- | ----------------------- | -------------------------------------------------------------------------- |
-| `--name`             | `-n`  | string  | _(prompted)_            | Feature name (kebab-case).                                                 |
+| `--feature`             | `-e`  | string  | _(prompted)_            | Feature name (kebab-case).                                                 |
 | `--test-profile`     |       | string  | `node-vitest`           | Test profile id.                                                           |
 | `--project`          | `-p`  | string  | _(package.json `name`)_ | Project name override.                                                     |
 | `--sandbox-base-dir` |       | string  | _(profile default)_     | Sandbox base directory.                                                    |
@@ -151,8 +151,8 @@ Key flags (see individual subcommands for the full list):
 
 | Flag               | Alias | Type    | Default               | Description                                                                       |
 | ------------------ | ----- | ------- | --------------------- | --------------------------------------------------------------------------------- |
-| `--name`           | `-n`  | string  | _(prompted)_          | Feature name (kebab-case).                                                        |
-| `--yes`            | `-y`  | boolean | `false`               | Non-interactive mode. Requires `--name`/`-n`.                                     |
+| `--feature`           | `-e`  | string  | _(prompted)_          | Feature name (kebab-case).                                                        |
+| `--yes`            | `-y`  | boolean | `false`               | Non-interactive mode. Requires `--feature`/`-e`.                                     |
 | `--force`          | `-f`  | boolean | `false`               | Overwrite existing spec and test files.                                           |
 | `--designer`       |       | string  | _(profile default)_   | Designer profile for spec generation.                                             |
 | `--test-profile`   |       | string  | `node-vitest`         | Test profile id.                                                                  |
@@ -182,7 +182,7 @@ saifctl feat run [options]
 
 | Flag     | Alias | Type   | Default      | Description                |
 | -------- | ----- | ------ | ------------ | -------------------------- |
-| `--name` | `-n`  | string | _(prompted)_ | Feature name (kebab-case). |
+| `--feature` | `-e`  | string | _(prompted)_ | Feature name (kebab-case). |
 
 ### Run loop control
 
@@ -277,53 +277,53 @@ saifctl feat new
 **Create a feature non-interactively:**
 
 ```bash
-saifctl feat new --name add-greeting-cmd --yes --desc "Add a /greet command to the CLI"
+saifctl feat new --feature add-greeting-cmd --yes --desc "Add a /greet command to the CLI"
 ```
 
 **Run the full design workflow for a feature:**
 
 ```bash
-saifctl feat design --name add-greeting-cmd
+saifctl feat design --feature add-greeting-cmd
 ```
 
 **Run design with an MCP server for context gathering:**
 
 ```bash
-saifctl feat design --name add-greeting-cmd --discovery-mcp docs=https://docs.example.com/mcp
+saifctl feat design --feature add-greeting-cmd --discovery-mcp docs=https://docs.example.com/mcp
 ```
 
 **Generate specs only (skip tests):**
 
 ```bash
-saifctl feat design-specs --name add-greeting-cmd
+saifctl feat design-specs --feature add-greeting-cmd
 ```
 
 **Run the agent against a feature:**
 
 ```bash
-saifctl feat run --name add-greeting-cmd
+saifctl feat run --feature add-greeting-cmd
 ```
 
 **Run in non-interactive mode with a time budget:**
 
 ```bash
-saifctl feat run --name add-greeting-cmd --run-timeout 2h --max-runs 3
+saifctl feat run --feature add-greeting-cmd --run-timeout 2h --max-runs 3
 ```
 
 **Run and push a branch + open a PR on success:**
 
 ```bash
-saifctl feat run --name add-greeting-cmd --push origin --pr
+saifctl feat run --feature add-greeting-cmd --push origin --pr
 ```
 
 **Run with the local engine (no Docker):**
 
 ```bash
-saifctl feat run --name add-greeting-cmd --engine local
+saifctl feat run --feature add-greeting-cmd --engine local
 ```
 
 **Preview the subtask plan for a phased feature:**
 
 ```bash
-saifctl feat phases compile --name my-phased-feature
+saifctl feat phases compile --feature my-phased-feature
 ```

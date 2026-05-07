@@ -157,7 +157,7 @@ export interface OrchestratorArgs {
 export interface FeatRunArgs extends OrchestratorArgs {
   'project-dir'?: string;
   'saifctl-dir'?: string;
-  name?: string;
+  feature?: string;
   model?: string;
   'base-url'?: string;
   storage?: string;
@@ -203,7 +203,7 @@ export interface FeatRunArgs extends OrchestratorArgs {
  * Rationale for allowing uppercase:
  *   - `feat new` prompts the user for a name and enforces lowercase
  *     kebab-case there (UX guard for hand-typed names; see feat.ts).
- *   - `feat run --name <id>` accepts names produced by other tools, e.g.
+ *   - `feat run --feature <id>` accepts names produced by other tools, e.g.
  *     `saifdocs gen` emits feature dirs like `saifdocs-2026-05-04T10-30-45-123Z`
  *     — the ISO-8601 `T` and `Z` are legitimate, documented in saifdocs's
  *     README, and should not be rejected by saifctl. The validator's job
@@ -240,8 +240,8 @@ export function validateFeatureName(name: string): void {
 /**
  * Returns the feature name from args if present and valid. Otherwise undefined.
  */
-export function getFeatNameFromArgs(args: { name?: string }): string | undefined {
-  const name = typeof args.name === 'string' ? args.name.trim() : undefined;
+export function getFeatNameFromArgs(args: { feature?: string }): string | undefined {
+  const name = typeof args.feature === 'string' ? args.feature.trim() : undefined;
   if (name) validateFeatureName(name);
   return name || undefined;
 }
@@ -847,7 +847,7 @@ export function shouldRunDiscovery(opts: DiscoveryOptions): boolean {
  * object (name, absolutePath, relativePath).
  */
 export async function getFeatOrPrompt(
-  args: { name?: string; 'saifctl-dir'?: string },
+  args: { feature?: string; 'saifctl-dir'?: string },
   projectDir: string,
 ): Promise<Feature> {
   const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));

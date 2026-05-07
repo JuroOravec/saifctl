@@ -2,7 +2,7 @@
 
 This document tells an agent **how to think about, structure, and incrementally
 write a feature** under `saifctl/features/<name>/`. It captures the working
-methodology used to produce features like `_phases-and-critics` and
+methodology used to author features like `_phases-and-critics` and
 `release-readiness`. If you point a fresh agent at this file with the
 prompt _"continue our feature work using SKILL.md"_, it should be able to
 reproduce the workflow without further hand-holding.
