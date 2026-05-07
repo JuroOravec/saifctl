@@ -12,6 +12,7 @@
  *   start         Start again from a Run (artifact)
  *   test          Re-test a Run's patch (no coding agent)
  *   apply         Create git branch with run's changes and optional push/PR
+ *   merge         Merge a Run's commits into the current branch (safe with dirty/untracked tree)
  *   export        Export run's changes as a single diff
  *   inspect       Open an idle coding container for a Run
  *   rules         Manage user feedback rules on a Run (create, list, get, update, remove)
@@ -31,6 +32,7 @@ import {
   runApply,
   runExport,
   runInspect,
+  runMerge,
   runPause,
   runResume,
   runStop,
@@ -40,6 +42,7 @@ import {
   type OrchestratorCliInput,
   parseLlmOverridesCliDelta,
 } from '../../orchestrator/options.js';
+import type { MergeStrategy } from '../../orchestrator/phases/merge-into-host.js';
 import { forkStoredRun } from '../../runs/fork.js';
 import { RunCannotPauseError, RunCannotStopError, type RunStatus } from '../../runs/types.js';
 import { toRunInfoJson } from '../../runs/utils/run-info.js';
@@ -447,7 +450,7 @@ const forkCommand = defineCommand({
     const nameFromCli = getFeatNameFromArgs(runArgs);
     if (nameFromCli && nameFromCli !== sourceArtifact.config.featureName) {
       consola.error(
-        `Source run is for feature "${sourceArtifact.config.featureName}"; omit --name or use -n ${sourceArtifact.config.featureName}.`,
+        `Source run is for feature "${sourceArtifact.config.featureName}"; omit --feature or use -e ${sourceArtifact.config.featureName}.`,
       );
       process.exit(1);
     }
@@ -799,6 +802,109 @@ const exportCommand = defineCommand({
   },
 });
 
+const VALID_MERGE_STRATEGIES: readonly MergeStrategy[] = ['cherry-pick', 'squash', 'worktree'];
+
+function parseMergeStrategy(raw: unknown): MergeStrategy {
+  const s = typeof raw === 'string' ? raw.trim() : '';
+  if (!s) return 'cherry-pick';
+  if (!(VALID_MERGE_STRATEGIES as readonly string[]).includes(s)) {
+    consola.error(
+      `Invalid --strategy: "${s}". Expected one of: ${VALID_MERGE_STRATEGIES.join(', ')}.`,
+    );
+    process.exit(1);
+  }
+  return s as MergeStrategy;
+}
+
+const mergeCommand = defineCommand({
+  meta: {
+    name: 'merge',
+    description:
+      "Merge a Run's commits into the current branch (or --into <branch>). " +
+      'Safe with dirty/untracked working tree (--allow-dirty stashes & restores).',
+  },
+  args: {
+    ...commonRunArgs,
+    runId: {
+      type: 'positional' as const,
+      description: 'Run ID to merge (from saifctl run ls)',
+      required: true,
+    },
+    strategy: {
+      type: 'string' as const,
+      description:
+        'How to land the commits: cherry-pick (preserve each), squash (one commit), worktree (apply, no commit). Default: cherry-pick.',
+      default: 'cherry-pick',
+    },
+    into: {
+      type: 'string' as const,
+      description: 'Target branch to merge into. Default: current branch.',
+    },
+    'allow-dirty': {
+      type: 'boolean' as const,
+      description:
+        'Permit running with a dirty working tree. Stashes (incl. untracked) before merge, restores via `git stash apply <sha>` (never `pop`); entry stays in stash list as a recovery point.',
+      default: false,
+    },
+    message: {
+      type: 'string' as const,
+      alias: 'm' as const,
+      description:
+        'Commit message for --strategy=squash. Default: "Merge run <runId> (<N> commit(s))".',
+    },
+    author: {
+      type: 'string' as const,
+      description:
+        "Override author (`Name <email>`) for --strategy=squash. Default: your git config / env. Has no effect on cherry-pick (preserves each commit's original author) or worktree (no commit).",
+    },
+    'no-verify': {
+      type: 'boolean' as const,
+      description: 'Skip git commit hooks (--no-verify). Default: false.',
+      default: false,
+    },
+    'dry-run': {
+      type: 'boolean' as const,
+      description: 'Print the plan without mutating state. Default: false.',
+      default: false,
+    },
+  },
+  async run({ args }) {
+    const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
+    const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
+    const config = await loadSaifctlConfig(saifctlDir, projectDir);
+
+    const runStorage = resolveRunStorage(readStorageStringFromCli(args), projectDir, config);
+    if (!runStorage) {
+      consola.error('Run storage is disabled (--storage none). Cannot merge a Run.');
+      process.exit(1);
+    }
+
+    const runId = parseRunId(args);
+    const strategy = parseMergeStrategy(args.strategy);
+    const intoRaw = typeof args.into === 'string' ? args.into.trim() : '';
+    const messageRaw = typeof args.message === 'string' ? args.message.trim() : '';
+    const authorRaw = typeof args.author === 'string' ? args.author.trim() : '';
+
+    consola.log(`\nMerging Run into host: ${runId}`);
+
+    const result = await runMerge({
+      runId,
+      runStorage,
+      projectDir,
+      strategy,
+      intoBranch: intoRaw || undefined,
+      allowDirty: args['allow-dirty'] === true,
+      squashMessage: messageRaw || undefined,
+      squashAuthor: authorRaw || undefined,
+      noVerify: args['no-verify'] === true,
+      dryRun: args['dry-run'] === true,
+    });
+
+    consola.log(`\n${result.message}`);
+    if (result.status !== 'success') process.exit(1);
+  },
+});
+
 const runCommand = defineCommand({
   meta: {
     name: 'run',
@@ -820,6 +926,7 @@ const runCommand = defineCommand({
     inspect: inspectCommand,
     test: testCommand,
     apply: applyCommand,
+    merge: mergeCommand,
     export: exportCommand,
     rules: runRulesCommand,
   },
