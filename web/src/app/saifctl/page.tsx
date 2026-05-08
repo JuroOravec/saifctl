@@ -442,7 +442,7 @@ export default function SaifctlPage() {
                 <span className="w-3 h-3 rounded-full bg-yellow-500/70" />
                 <span className="w-3 h-3 rounded-full bg-green-500/70" />
                 <span className="ml-2 font-mono text-xs text-fg-subtle">
-                  saifctl feat run -n rate-limiting
+                  saifctl feat run -e rate-limiting
                 </span>
               </div>
               <div className="p-6 font-mono text-sm space-y-3">

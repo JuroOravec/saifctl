@@ -13,7 +13,10 @@
     "outDir": "dist",
     "rootDir": ".",
     "isolatedModules": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "paths": {
+      "@safe-ai-factory/saifctl": ["./src/index.ts"]
+    }
   },
   "include": [
     "src",
