@@ -1,6 +1,9 @@
 ---
 id: pure-output-phase
-intent: 'Goal-oriented how-to; reader has a phase that produces files but has no behavioural tests of its own (e.g. a docs/manifests/codegen phase). Tests would be tautological — the agent would test that the file it just wrote contains what it just wrote — so the phase needs the runner bypassed.'
+persona: engineer
+tasks:
+  - configure-a-phase
+goal: 'Mark a pure-output phase (docs, manifests, codegen) with `tests.none: true` so the runner is bypassed instead of spun up for an empty test dir'
 ---
 
 Structure:

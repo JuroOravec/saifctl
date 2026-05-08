@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "createdAt": "2026-05-06T23:44:18.610Z",
+  "version": 2,
+  "createdAt": "2026-05-08T21:18:18.942Z",
   "docspecDir": "/Users/mac/repos/agents/safe-ai-factory/docspec",
   "outputDir": "/Users/mac/repos/agents/safe-ai-factory/docs",
   "projectDir": "/Users/mac/repos/agents/safe-ai-factory",
@@ -20,7 +20,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "20805b8e6a8f73a527d54a7681161e2442c799c6cbd5fa105796570fea071ec3",
+      "inputHashes": [
+        "bfe09c3050cbfd63082ce48dc404e19d04e198a6081061e9819274d94b1cebbd",
+        "4453fd0e7cf58a40b2c24bec2b86aa2d666611edf55de635db73e50d2ba5b404",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--aider",
@@ -37,7 +43,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "0b791e9f58df027a957d4571924a5b1e01980bc3e709567c8eae5672fc39abb6",
+      "inputHashes": [
+        "b8d65c0f700bd11e0a24817d280f1fde9190fa1aa6b6e352680552222eafc1ff",
+        "1c6b9f2a64823d076a23988cc2825cfca5df24972109fbad38f166ab01529f7c",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--claude",
@@ -54,7 +66,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "b0182a5a7822080e22401530aea62d70de54891a2cad6a03ab9aee76f061a046",
+      "inputHashes": [
+        "79df8cea0f0fbf5d4dc7413949a80a85f4097956dad301199a635df79b639403",
+        "eaa7e8473e88704a7edb30d8de56269fa108b9c6110f69f563f6a575b0df95d5",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--codex",
@@ -71,7 +89,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "4159659e41fe902a8d981a10b3c721a1bcd53153459666b528d4e25f21c49c79",
+      "inputHashes": [
+        "5214422b705b882fe48d26f8493c867d23f3225703d919eeae23f41895561665",
+        "5164b1814eb8053952bf4485ac419def5d3255bea67d4b5328fb7affe61bbf22",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--copilot",
@@ -88,7 +112,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "68975d4c9008a4eb6c88424a0e5809e0ec3fdd24256409915403e0ef2670f0a3",
+      "inputHashes": [
+        "b36c5ee63e6a7987dd15081b2bf6031322f25d311cd683b44daf19ae70960116",
+        "987155a5f83700a78ddd775c963070506de99edba23c8fec32488099417a0bf3",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--cursor",
@@ -105,7 +135,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "682ab6df4870cb46d34e3a8a9f4183e6d81e0c6fa6077a45d012752c312bce01",
+      "inputHashes": [
+        "c22e604ac2630d1290a8c9890e3409216107c6a6bb2a057af24e7de5ea120092",
+        "267332dd75215fa43b9cf1f9bc20bb1de10194dc8fef13f9e52c4d0632493f1d",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--debug",
@@ -122,7 +158,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "29733fc7775724fa5de581150bc005cc9d6df56f5eb0dfd27124445a634187f6",
+      "inputHashes": [
+        "f0cac6a28f62c2ad9ed98190cf14e07af9575f41234c1af20fb124a1ff1fc50b",
+        "4db8e194f6a18c3cb27c79edd5f9b5ab28bb159a134ed0383e934437eea268f8",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--deepagents",
@@ -139,7 +181,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "c8018fed966db26d30194e3d5ce17b5d9373161d74443e339ae320c0357dc838",
+      "inputHashes": [
+        "7d0ce890275e16fc6d594f1296608ebae5006bc9917bf8660c1ba008f3b5c206",
+        "0d470672bdea90522bf49501215c7bd163a481a144e08e3201df3efd0dc22022",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--forge",
@@ -156,7 +204,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "1484e241747427020b6fc6e9e01e493cc5ad78ba270d064b188a669ded5b9501",
+      "inputHashes": [
+        "dabe8d6a0e2bd114ed7b1190f4decc08e33013d306676a3bdf250efb2b173bb5",
+        "62a8c44d0ca6ef3889308daa90bbb9a8d6099335c724bf28d565ac49691f4c18",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--gemini",
@@ -173,7 +227,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "146b4529593af08dcd0961564e27784a5c761d7b71a803226a488244de556ac7",
+      "inputHashes": [
+        "ffe5a95611b042c30ec21993f4698433b72c6eba20a7162cd3add474b08bfb39",
+        "5d7d7ddba11f52d1e0d4570a8732eb5c8ebab8a9ff699ad6d50deaf23bd74f91",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--kilocode",
@@ -190,7 +250,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "b2a2ffbab371ed3709e08c5e5b8dc219fefcebc445eb79a109321007be9acc77",
+      "inputHashes": [
+        "33f2e07313b76cfa297c43c30ede0d4e10835e0dd5bec64717016baee9c5fc32",
+        "c8f485a467f0ce18920b1e333c9e965f794927c3a4bb3d9d96b24c870364bb05",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--mini-swe-agent",
@@ -207,7 +273,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "3315572f85cf29678b828746c8782a6b065ef2e968b6afa03e8f1acb551ea1c7",
+      "inputHashes": [
+        "44bcb903bb8f57dc923ef949beaae0cdc9c11fc158f141047fb9c64039bbc629",
+        "5d912e29e5fe11217eaf72f14358c1716709310e5afc533013de32317b863c8f",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--opencode",
@@ -224,7 +296,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "b27208b1c120c98d9c7ecd374e118d652d0ee812a088eee3d8cb937ad08ce8fd",
+      "inputHashes": [
+        "d7408c3238fb6e47ecb4c471b8095b00b2667c2a6fb998833927fda2cd2a5f59",
+        "2dab750936ff6f301f599ea1fd6f851d817f3facb521dae0c44181889b4898e1",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--openhands",
@@ -241,7 +319,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "ce5898114f566a113ec11979d4e1496632e64e05bb744f38ef92f73cab48265b",
+      "inputHashes": [
+        "06af35cd708a646ec8dfd59b1dd12b728c8a9a4b96d7e79c20e195404cdd49c6",
+        "2830b72262a3e13c310799cb2e1306dae1bbc5b950c28d167bee0f26c69c3086",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--qwen",
@@ -258,7 +342,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "ca0d67e49656ae42d5ff3fb7f1bac5dbee972484ed8473551f303ed59131b7ef",
+      "inputHashes": [
+        "19a9becc98abb4f1f5efafd4fd45fe0838504ffdc74a23c23ac1bb1ac8c8e497",
+        "693662633d5dee21ddae674cb74185f39c3b8fc76128ccdf0ce31bb0478f819a",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--agents--terminus",
@@ -275,7 +365,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "c1ed4163bfc461e74e930f9f471ff68574162741b0beb889830aaa5cc304b671",
+      "inputHashes": [
+        "d1d981708dfebfe3c8dea9fa0732a8848efdda1aec687e9b4c31890f96d0f43e",
+        "0eeaf64807d2ceee32beebdcd49537947ef1072bed929feb606ee05f937dc596",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--commands--cache",
@@ -292,7 +388,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "c13d0018a6a098fb39a50d9a2f124f61f0cc0ad64df1e60062768cd505c05fc0",
+      "inputHashes": [
+        "18bd9c2c3e8a8f63a8fff3ecd9cbbdc09963301ea0bb50b800e75e3224b69489",
+        "d9120b6148e675ac5bfdee5eac72c78f665542edfcde4b1b9d7fe171e1a38660",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--commands--doctor",
@@ -309,7 +411,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "47c273ad1fdf71e960d4df33b808640652a6a6114f874e3ac685e5baac83bdf3",
+      "inputHashes": [
+        "4ebe54411140e3f2b8254d2aa2734061431d94007c7dfff80c80128218832fb5",
+        "511f38a9eb10559c433248bc2a28afc2818af73e7b1d896fe5039444d9a02862",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--commands--feat-phases",
@@ -326,7 +434,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "115e6821e9fe8bf5bead41feb9718a8c3b0ef3a6ad7a02ac2a9192fb28247700",
+      "inputHashes": [
+        "a3e6e65fc8eba1f8e7e203ef430e26bcf06b833ba19cea5253da59d0ba9f71db",
+        "e7f4f458240825488da3901937e869e56fa57caf3e7ce783beea60824842176c",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--commands--feat",
@@ -343,7 +457,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "798d649cbf651007ba34f66f79ad44a1c71d8560cf5bc858ae135320dd7616ce",
+      "inputHashes": [
+        "3579b9599373db6f1979ea0969fb009c87eea16301c8bbc392316f54c301a400",
+        "c9e4cb90e0171ed1adf87f0df4bc8e525366b225707f32fd8fe87d1b8cf9dffa",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--commands--init",
@@ -360,7 +480,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "3cd2c6a3d4d7d16950318b8845a35e10af5df2f32878e7e65990ba2653ccf2d7",
+      "inputHashes": [
+        "abd00566cf24baec0dfb5196000de635414b9b5166c0477c632a63cc409b7b5f",
+        "6aa717572522cfc170bb0ec59556e524b8d08d8b2a3fd8c1fb83c7aff09bb13f",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--commands--run-rules",
@@ -377,7 +503,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "21a57d52e14aa5e50b5549f9f0c0f603e048bde729e22517b4690850c309c829",
+      "inputHashes": [
+        "e1598efc385ac190601a7e90b1a6d6e44a3058cc2d8e5b86390fe2a2af8abb85",
+        "5f9a7fc9494cf33fd1fab34265951bd903689674594badab9910af86afdd5719",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--commands--run",
@@ -394,7 +526,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "31241e119e5a04197f145a468066493b1113bd70082fc914ab1b0c725b6a661d",
+      "inputHashes": [
+        "b8f13db4cc93dbbaa8b7897fbe3320f37d32bc46754b302a7738c95dd11f0921",
+        "38e28ea5c4d21d817a02eb84524b859600024b71d64e8ee1d54194c1c6bcd868",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--commands--sandbox",
@@ -411,7 +549,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "f465ac54e4a4af9c9b6dcc99d1b0a52567c73e9fbae8648c530b6c8f0ba57a6e",
+      "inputHashes": [
+        "8e2101d1a5589bcec2125e80813590c82c7922ec36a9f83fcb7c916428f71bba",
+        "f1dec7a8d08dfeec9d0baf4fccfe109daf2f91d7625b0c21c6da68b1c6c0b449",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--commands--version",
@@ -428,7 +572,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "258bd43b684c59c4da7c250c1b1d950cf94acfe7a1284bea4bd5f0f8c777d389",
+      "inputHashes": [
+        "5658e75f63fb7d65780fbc450ed023320f60d6e4b948288a316231be4134d225",
+        "4464bb95fadd50ee28247ec7b9c89e9f800fe60272ea9cbf76fe3c53f22c0e51",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--config",
@@ -445,7 +595,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "8d3a8144381a1d589fd50392c32af655c7e7639fd67bc0661438312b04f20ca7",
+      "inputHashes": [
+        "b6545614184a739022374c52d299c9baef653ae1b60ab886690fa472ffc89cb2",
+        "93f924d40041eb945cfeb5a03de9ef05b1e8fb8a1669863fb7b1db441cbb96c0",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--designers--poc",
@@ -462,7 +618,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "6e4054a7283af51a32c3d2044ffb7861199588734ddf6adb3a283df168f16b38",
+      "inputHashes": [
+        "630a6295fa79ab6d1878a4d9daa9a3b6fcf18673e82aebe2f39c7a5eb9ef8ae3",
+        "6dff637ba3b415a4eb2858235ad51a09f34bb4f905ba5c97ff2cb152741a2ab9",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--designers--shotgun",
@@ -479,7 +641,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "b30270b6c6b778d9cfd55100694160496552aa7886e292addf35b7d6aafa2fc7",
+      "inputHashes": [
+        "e6378645d421fd790ae33711e41007431e1f0fc50f6fa0eaf1d24eaf5e6762e0",
+        "ee6a000a71083f103e847fa13f2912a9da29699c3b1517b8c03620d881b4efff",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--docker-images",
@@ -496,7 +664,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "255c97c87bdf69b240045697c054b8aa11445b699159f571d95ad063ce18328f",
+      "inputHashes": [
+        "b20935615855517782766d02a54b8af3ef4ccae2437c83f375b8925ca0457e55",
+        "ab6fd8396e58f692d3cf1d02496fa8d9788863c8247c2d43e6b9fcff033c9dfc",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--env-vars",
@@ -513,7 +687,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "621e9c83e20495f1c89c5c74e47d00cef469df4ff2ebbffe3d2427b5913965d4",
+      "inputHashes": [
+        "a046f1e23272f0deeddb99616bc3e1a74b87310bc9ddc2e6fc127d38a4864046",
+        "0d866d3a0562f2eaa8aa46f253a19d0e9ab9714ed2bae683eabbf2288c906ebe",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--indexers--shotgun",
@@ -530,7 +710,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "d0314e681d828546cf94b55b0be7e680e871e096f5d4aed89f3aeadbf3cecae6",
+      "inputHashes": [
+        "01299f0cbd879c1c256fa123256c18a2d964de9185a188e40abbf5e7dd39fccd",
+        "455c241463d55f446f4430bbe1754ff721062167a803d03d28bc39cfd78e7b58",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--models",
@@ -547,7 +733,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "da71eb2c1da419ba864cd8f843d5cf9eabe715157e2dd588f7ddb869bfe4c24e",
+      "inputHashes": [
+        "9528a469aafb99c1ed65386d47aeba8f543c39ea1a9ae3a902ae087c698d5000",
+        "331acb1cdaa037c270ba0ba6dad93e1efda99202b886c37eab07a11044df1601",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--sandbox-profiles",
@@ -564,7 +756,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "1083596f04d84be6368c354e7bebe9a5bf2f6ceb14155a5c2b0a0aa2b8840b1d",
+      "inputHashes": [
+        "fae3a64975bb9d06dcce7bceb6999c713e59eb3cb2676e2af8a682dbafb6cc13",
+        "e7d929e9b02a5c73d4a4da476fb658c60ddb71d31c8952f3bea28228c5492fbe",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--storage",
@@ -581,7 +779,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "9e605a9a4c76518c31551f0c7a8ae09fcc40b1f29589460bda9ebb9b204f4d29",
+      "inputHashes": [
+        "dc2bdef8c27631101fde23db3379070519a14023e8b0765834b155589cb9809a",
+        "4ac6a0fd4b2615f0e920d91ed70e7231bda221a7a6b9353c08ea3fb3e72bc16b",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "reference--test-profiles",
@@ -598,7 +802,13 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "4ed63d9feca0e427f8036a6f0859a98cba0f908fd42ce33971d6d0309730e8e0",
+      "inputHashes": [
+        "dc6881753c20ab9ed33dec01229c53fd56f1304f84d34678d1707c961d23df7d",
+        "e2c014c265508e1b00ab9c31a0c1920279e5d8c6c224cfbd03a5ea78ef60f5f3",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "concept--saifctl--docker-isolation",
@@ -619,7 +829,17 @@
       "conceptId": "docker-isolation",
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "0a5591d786674ab8a8ce6ea7b0f4eb60f1a515ee25b739d175a113f42ba7f622",
+      "inputHashes": [
+        "c0719b333ce85b646510130bb3f8a6a49a7384c588ca447b36bb9b2c3e7b273c",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "concept--saifctl--feat-run-loop",
@@ -640,7 +860,17 @@
       "conceptId": "feat-run-loop",
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "0d5182994c500614acce0e95b6fcd8e0ba2b120dabdd95f1c1a384fef1ba5223",
+      "inputHashes": [
+        "1dca6982a294b9db23aef00b96955e3065950706bf7170ffeb9d20fbe25f5546",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "concept--saifctl--feature-lifecycle",
@@ -661,7 +891,17 @@
       "conceptId": "feature-lifecycle",
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "e91f3f6c30ae8a42807d8a2c0a26715b14fdb16058b5a931e6e14cbb7d159256",
+      "inputHashes": [
+        "e9fa8ebac9a5d96eb48a43068c5da1ae7edd7bbe3dc94bf2073a5c64e95f5a25",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "concept--saifctl--features",
@@ -682,7 +922,17 @@
       "conceptId": "features",
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "af361d5fcab1a34ca6ceabfe6d7c4898eb7b3b98b4b809646fd60f1ab4dee86b",
+      "inputHashes": [
+        "226c86524e3ed24f50255ee90ae674170037af0a1e2d1308ea1efb398516ed25",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "concept--saifctl--gate-reviewer-holdout",
@@ -703,7 +953,17 @@
       "conceptId": "gate-reviewer-holdout",
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "dc9df54a9425dab9ddb1df19d0d812b01b90fdb3058b3b2b3c814822e460e338",
+      "inputHashes": [
+        "7d43bcefb26509136b93c71f12470bff3267e74b947c3c8a8d457cad6e85dc5a",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "concept--saifctl--hatchet",
@@ -724,7 +984,17 @@
       "conceptId": "hatchet",
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "0d67294817f099a4674e7defe963aba5c430a3964264c645f3db1b3bd9314160",
+      "inputHashes": [
+        "3d89b9f9da286e17aafab68bd829a7d7b2d18f73d7b4d57a2c2181c89faff053",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "concept--saifctl--infra",
@@ -745,7 +1015,17 @@
       "conceptId": "infra",
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "10a8cdf6759967b40fb0df444d5f287d37bb56ef4e7dc42b94042aa801acd6b6",
+      "inputHashes": [
+        "21253ed9fb1b0abe1f69091fd86f1ff13d3031f4ca5de764204bcd94f2d64743",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "concept--saifctl--leash-access-control",
@@ -766,7 +1046,48 @@
       "conceptId": "leash-access-control",
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "18bace771f7a5f6131ff03d218f5760264a56365386813682a01bf836fef5424",
+      "inputHashes": [
+        "adb3b590e0d6ab2bd922c434b18c1d82d4facd18cc7f9b114214527bfb752c23",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
+    },
+    {
+      "id": "concept--saifctl--per-phase-config",
+      "type": "concepts",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/concepts/per-phase-config.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/per-phase-config.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/claude_user/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/claude_user/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md"
+      ],
+      "productId": "saifctl",
+      "personaId": null,
+      "taskIds": [],
+      "conceptId": "per-phase-config",
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null,
+      "outputHash": null,
+      "inputHashes": [
+        "6d8ae77d98711b3a9ad32a620485fb549f8591b26c27023e3c4ded9784dcd59a",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "concept--saifctl--run-lifecycle",
@@ -787,7 +1108,17 @@
       "conceptId": "run-lifecycle",
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "a0f8a695fde04ffdd13a1ecda4d2c7ed57d2d96e662e486f9c25ca005514ecdf",
+      "inputHashes": [
+        "e075a8365f442f1d2944728192ea6ff3cb5ce3dea3c2c569adbdea1cf5985f36",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "concept--saifctl--sandbox",
@@ -808,7 +1139,17 @@
       "conceptId": "sandbox",
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "137894392013f92ba0b80cc9e8b8841af72523664750e69054d88cce11943d5d",
+      "inputHashes": [
+        "675fcaa9abfceeb2765394a8871bab1c6805898d84803c4a8fc7871179c586a6",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "concept--saifctl--security",
@@ -829,7 +1170,17 @@
       "conceptId": "security",
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "972fbb0afea88b2baeac48f9a187bc82d9785e7f77974fdd88094c96cb93da93",
+      "inputHashes": [
+        "e37fae2e6ed8e70bd0ef0095a114c8b0dd48d35d23349931098b184dc3c21c7b",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "concept--saifctl--services",
@@ -850,7 +1201,17 @@
       "conceptId": "services",
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "e70a637760de20753db3be07778d70aaeef15698d6964bc0293792f050127430",
+      "inputHashes": [
+        "421d5b94d11477cee04469d368ae74dacadec37ba0d051de963872e87212a340",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "concept--saifctl--source-control",
@@ -871,7 +1232,17 @@
       "conceptId": "source-control",
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "a5d3f739a2140448769c980cc8c07ccea83284e4f4066c81ed4345411f44f0f7",
+      "inputHashes": [
+        "3b6336d1b9e6a2f29f424d819464c60996b7f88b5c0bc844c2c1f286585a4add",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20"
+      ]
     },
     {
       "id": "how-to--saifctl--apply-agent-changes",
@@ -930,7 +1301,160 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "f4e25be5e819a60837ac6e8db168eb8f86824959a9b4a85e2e1a6bc4e3bde3dd",
+      "inputHashes": [
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "6eed5f62b0fb79a18bc8a96bb97d2c71f345383d78af5b39cabb9f20ebe106e3",
+        "10e06285c728098a420a41a3a428077f6bfa28c70df22e1d89ad8b859ad26b35",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20",
+        "ef5fa81acb31c4f96e611787f8db34e9c62e73f7beb26d0395e04e4f8fb3b496",
+        "c0719b333ce85b646510130bb3f8a6a49a7384c588ca447b36bb9b2c3e7b273c",
+        "20805b8e6a8f73a527d54a7681161e2442c799c6cbd5fa105796570fea071ec3",
+        "0b791e9f58df027a957d4571924a5b1e01980bc3e709567c8eae5672fc39abb6",
+        "b0182a5a7822080e22401530aea62d70de54891a2cad6a03ab9aee76f061a046",
+        "4159659e41fe902a8d981a10b3c721a1bcd53153459666b528d4e25f21c49c79",
+        "68975d4c9008a4eb6c88424a0e5809e0ec3fdd24256409915403e0ef2670f0a3",
+        "682ab6df4870cb46d34e3a8a9f4183e6d81e0c6fa6077a45d012752c312bce01",
+        "29733fc7775724fa5de581150bc005cc9d6df56f5eb0dfd27124445a634187f6",
+        "c8018fed966db26d30194e3d5ce17b5d9373161d74443e339ae320c0357dc838",
+        "1484e241747427020b6fc6e9e01e493cc5ad78ba270d064b188a669ded5b9501",
+        "146b4529593af08dcd0961564e27784a5c761d7b71a803226a488244de556ac7",
+        "b2a2ffbab371ed3709e08c5e5b8dc219fefcebc445eb79a109321007be9acc77",
+        "3315572f85cf29678b828746c8782a6b065ef2e968b6afa03e8f1acb551ea1c7",
+        "b27208b1c120c98d9c7ecd374e118d652d0ee812a088eee3d8cb937ad08ce8fd",
+        "ce5898114f566a113ec11979d4e1496632e64e05bb744f38ef92f73cab48265b",
+        "ca0d67e49656ae42d5ff3fb7f1bac5dbee972484ed8473551f303ed59131b7ef",
+        "c1ed4163bfc461e74e930f9f471ff68574162741b0beb889830aaa5cc304b671",
+        "c13d0018a6a098fb39a50d9a2f124f61f0cc0ad64df1e60062768cd505c05fc0",
+        "47c273ad1fdf71e960d4df33b808640652a6a6114f874e3ac685e5baac83bdf3",
+        "115e6821e9fe8bf5bead41feb9718a8c3b0ef3a6ad7a02ac2a9192fb28247700",
+        "798d649cbf651007ba34f66f79ad44a1c71d8560cf5bc858ae135320dd7616ce",
+        "3cd2c6a3d4d7d16950318b8845a35e10af5df2f32878e7e65990ba2653ccf2d7",
+        "21a57d52e14aa5e50b5549f9f0c0f603e048bde729e22517b4690850c309c829",
+        "31241e119e5a04197f145a468066493b1113bd70082fc914ab1b0c725b6a661d",
+        "f465ac54e4a4af9c9b6dcc99d1b0a52567c73e9fbae8648c530b6c8f0ba57a6e",
+        "258bd43b684c59c4da7c250c1b1d950cf94acfe7a1284bea4bd5f0f8c777d389",
+        "8d3a8144381a1d589fd50392c32af655c7e7639fd67bc0661438312b04f20ca7",
+        "6e4054a7283af51a32c3d2044ffb7861199588734ddf6adb3a283df168f16b38",
+        "b30270b6c6b778d9cfd55100694160496552aa7886e292addf35b7d6aafa2fc7",
+        "255c97c87bdf69b240045697c054b8aa11445b699159f571d95ad063ce18328f",
+        "621e9c83e20495f1c89c5c74e47d00cef469df4ff2ebbffe3d2427b5913965d4",
+        "d0314e681d828546cf94b55b0be7e680e871e096f5d4aed89f3aeadbf3cecae6",
+        "da71eb2c1da419ba864cd8f843d5cf9eabe715157e2dd588f7ddb869bfe4c24e",
+        "1083596f04d84be6368c354e7bebe9a5bf2f6ceb14155a5c2b0a0aa2b8840b1d",
+        "9e605a9a4c76518c31551f0c7a8ae09fcc40b1f29589460bda9ebb9b204f4d29",
+        "4ed63d9feca0e427f8036a6f0859a98cba0f908fd42ce33971d6d0309730e8e0"
+      ]
+    },
+    {
+      "id": "how-to--saifctl--configure-a-phase",
+      "type": "how-tos",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/configure-a-phase.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/how-tos/configure-a-phase.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/configure-a-phase.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/templates/pages/how-to.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/per-phase-config.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feat-run-loop.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agent-environment.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/aider.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/claude.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/codex.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/copilot.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/cursor.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/debug.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/deepagents.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/forge.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/gemini.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/kilocode.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/mini-swe-agent.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/opencode.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/openhands.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/qwen.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/terminus.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/cache.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/doctor.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/feat-phases.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/feat.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/init.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/run-rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/run.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/sandbox.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/version.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/config.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/designers/poc.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/designers/shotgun.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/docker-images.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/env-vars.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/indexers/shotgun.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/models.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/sandbox-profiles.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/storage.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/test-profiles.md"
+      ],
+      "productId": "saifctl",
+      "personaId": "engineer",
+      "taskIds": [
+        "configure-a-phase"
+      ],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null,
+      "outputHash": null,
+      "inputHashes": [
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "467e60055a74bf15445b4d711b1503ce123608d09addceefa071cdc62effac8a",
+        "bf08f5480ab40fa267c98ca42bb7b9687543e888559fb581ac0ffe22666454d3",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20",
+        "ef5fa81acb31c4f96e611787f8db34e9c62e73f7beb26d0395e04e4f8fb3b496",
+        "6d8ae77d98711b3a9ad32a620485fb549f8591b26c27023e3c4ded9784dcd59a",
+        "1dca6982a294b9db23aef00b96955e3065950706bf7170ffeb9d20fbe25f5546",
+        "20805b8e6a8f73a527d54a7681161e2442c799c6cbd5fa105796570fea071ec3",
+        "0b791e9f58df027a957d4571924a5b1e01980bc3e709567c8eae5672fc39abb6",
+        "b0182a5a7822080e22401530aea62d70de54891a2cad6a03ab9aee76f061a046",
+        "4159659e41fe902a8d981a10b3c721a1bcd53153459666b528d4e25f21c49c79",
+        "68975d4c9008a4eb6c88424a0e5809e0ec3fdd24256409915403e0ef2670f0a3",
+        "682ab6df4870cb46d34e3a8a9f4183e6d81e0c6fa6077a45d012752c312bce01",
+        "29733fc7775724fa5de581150bc005cc9d6df56f5eb0dfd27124445a634187f6",
+        "c8018fed966db26d30194e3d5ce17b5d9373161d74443e339ae320c0357dc838",
+        "1484e241747427020b6fc6e9e01e493cc5ad78ba270d064b188a669ded5b9501",
+        "146b4529593af08dcd0961564e27784a5c761d7b71a803226a488244de556ac7",
+        "b2a2ffbab371ed3709e08c5e5b8dc219fefcebc445eb79a109321007be9acc77",
+        "3315572f85cf29678b828746c8782a6b065ef2e968b6afa03e8f1acb551ea1c7",
+        "b27208b1c120c98d9c7ecd374e118d652d0ee812a088eee3d8cb937ad08ce8fd",
+        "ce5898114f566a113ec11979d4e1496632e64e05bb744f38ef92f73cab48265b",
+        "ca0d67e49656ae42d5ff3fb7f1bac5dbee972484ed8473551f303ed59131b7ef",
+        "c1ed4163bfc461e74e930f9f471ff68574162741b0beb889830aaa5cc304b671",
+        "c13d0018a6a098fb39a50d9a2f124f61f0cc0ad64df1e60062768cd505c05fc0",
+        "47c273ad1fdf71e960d4df33b808640652a6a6114f874e3ac685e5baac83bdf3",
+        "115e6821e9fe8bf5bead41feb9718a8c3b0ef3a6ad7a02ac2a9192fb28247700",
+        "798d649cbf651007ba34f66f79ad44a1c71d8560cf5bc858ae135320dd7616ce",
+        "3cd2c6a3d4d7d16950318b8845a35e10af5df2f32878e7e65990ba2653ccf2d7",
+        "21a57d52e14aa5e50b5549f9f0c0f603e048bde729e22517b4690850c309c829",
+        "31241e119e5a04197f145a468066493b1113bd70082fc914ab1b0c725b6a661d",
+        "f465ac54e4a4af9c9b6dcc99d1b0a52567c73e9fbae8648c530b6c8f0ba57a6e",
+        "258bd43b684c59c4da7c250c1b1d950cf94acfe7a1284bea4bd5f0f8c777d389",
+        "8d3a8144381a1d589fd50392c32af655c7e7639fd67bc0661438312b04f20ca7",
+        "6e4054a7283af51a32c3d2044ffb7861199588734ddf6adb3a283df168f16b38",
+        "b30270b6c6b778d9cfd55100694160496552aa7886e292addf35b7d6aafa2fc7",
+        "255c97c87bdf69b240045697c054b8aa11445b699159f571d95ad063ce18328f",
+        "621e9c83e20495f1c89c5c74e47d00cef469df4ff2ebbffe3d2427b5913965d4",
+        "d0314e681d828546cf94b55b0be7e680e871e096f5d4aed89f3aeadbf3cecae6",
+        "da71eb2c1da419ba864cd8f843d5cf9eabe715157e2dd588f7ddb869bfe4c24e",
+        "1083596f04d84be6368c354e7bebe9a5bf2f6ceb14155a5c2b0a0aa2b8840b1d",
+        "9e605a9a4c76518c31551f0c7a8ae09fcc40b1f29589460bda9ebb9b204f4d29",
+        "4ed63d9feca0e427f8036a6f0859a98cba0f908fd42ce33971d6d0309730e8e0"
+      ]
     },
     {
       "id": "how-to--saifctl--inspect-and-start",
@@ -990,7 +1514,54 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "bb3b76437bddd1cbc73027e10846fe9840d7f71b2e6a4d6d7355c579e595909c",
+      "inputHashes": [
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "37599f30b1a8cd5697c01d415c28db1604b4c008c7765c06f692b726dd6d4395",
+        "99d9bb52e8f964686b08e89dab708b99a40ac1374450ebf2875d63fcade5c28a",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20",
+        "ef5fa81acb31c4f96e611787f8db34e9c62e73f7beb26d0395e04e4f8fb3b496",
+        "1dca6982a294b9db23aef00b96955e3065950706bf7170ffeb9d20fbe25f5546",
+        "e075a8365f442f1d2944728192ea6ff3cb5ce3dea3c2c569adbdea1cf5985f36",
+        "20805b8e6a8f73a527d54a7681161e2442c799c6cbd5fa105796570fea071ec3",
+        "0b791e9f58df027a957d4571924a5b1e01980bc3e709567c8eae5672fc39abb6",
+        "b0182a5a7822080e22401530aea62d70de54891a2cad6a03ab9aee76f061a046",
+        "4159659e41fe902a8d981a10b3c721a1bcd53153459666b528d4e25f21c49c79",
+        "68975d4c9008a4eb6c88424a0e5809e0ec3fdd24256409915403e0ef2670f0a3",
+        "682ab6df4870cb46d34e3a8a9f4183e6d81e0c6fa6077a45d012752c312bce01",
+        "29733fc7775724fa5de581150bc005cc9d6df56f5eb0dfd27124445a634187f6",
+        "c8018fed966db26d30194e3d5ce17b5d9373161d74443e339ae320c0357dc838",
+        "1484e241747427020b6fc6e9e01e493cc5ad78ba270d064b188a669ded5b9501",
+        "146b4529593af08dcd0961564e27784a5c761d7b71a803226a488244de556ac7",
+        "b2a2ffbab371ed3709e08c5e5b8dc219fefcebc445eb79a109321007be9acc77",
+        "3315572f85cf29678b828746c8782a6b065ef2e968b6afa03e8f1acb551ea1c7",
+        "b27208b1c120c98d9c7ecd374e118d652d0ee812a088eee3d8cb937ad08ce8fd",
+        "ce5898114f566a113ec11979d4e1496632e64e05bb744f38ef92f73cab48265b",
+        "ca0d67e49656ae42d5ff3fb7f1bac5dbee972484ed8473551f303ed59131b7ef",
+        "c1ed4163bfc461e74e930f9f471ff68574162741b0beb889830aaa5cc304b671",
+        "c13d0018a6a098fb39a50d9a2f124f61f0cc0ad64df1e60062768cd505c05fc0",
+        "47c273ad1fdf71e960d4df33b808640652a6a6114f874e3ac685e5baac83bdf3",
+        "115e6821e9fe8bf5bead41feb9718a8c3b0ef3a6ad7a02ac2a9192fb28247700",
+        "798d649cbf651007ba34f66f79ad44a1c71d8560cf5bc858ae135320dd7616ce",
+        "3cd2c6a3d4d7d16950318b8845a35e10af5df2f32878e7e65990ba2653ccf2d7",
+        "21a57d52e14aa5e50b5549f9f0c0f603e048bde729e22517b4690850c309c829",
+        "31241e119e5a04197f145a468066493b1113bd70082fc914ab1b0c725b6a661d",
+        "f465ac54e4a4af9c9b6dcc99d1b0a52567c73e9fbae8648c530b6c8f0ba57a6e",
+        "258bd43b684c59c4da7c250c1b1d950cf94acfe7a1284bea4bd5f0f8c777d389",
+        "8d3a8144381a1d589fd50392c32af655c7e7639fd67bc0661438312b04f20ca7",
+        "6e4054a7283af51a32c3d2044ffb7861199588734ddf6adb3a283df168f16b38",
+        "b30270b6c6b778d9cfd55100694160496552aa7886e292addf35b7d6aafa2fc7",
+        "255c97c87bdf69b240045697c054b8aa11445b699159f571d95ad063ce18328f",
+        "621e9c83e20495f1c89c5c74e47d00cef469df4ff2ebbffe3d2427b5913965d4",
+        "d0314e681d828546cf94b55b0be7e680e871e096f5d4aed89f3aeadbf3cecae6",
+        "da71eb2c1da419ba864cd8f843d5cf9eabe715157e2dd588f7ddb869bfe4c24e",
+        "1083596f04d84be6368c354e7bebe9a5bf2f6ceb14155a5c2b0a0aa2b8840b1d",
+        "9e605a9a4c76518c31551f0c7a8ae09fcc40b1f29589460bda9ebb9b204f4d29",
+        "4ed63d9feca0e427f8036a6f0859a98cba0f908fd42ce33971d6d0309730e8e0"
+      ]
     },
     {
       "id": "how-to--saifctl--provide-feedback",
@@ -1049,7 +1620,160 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "9aea260aafee7f5336c307436d201a0497ef0c1bd873a64c742e4aeba967ed38",
+      "inputHashes": [
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3be5bbf81f4907985f2d6ec5eee615e1fa6ae8b9948cc9f82c9b79eb4f7c117e",
+        "761272a1f256bf818ebc9170209a7c43257c01a34b1dde56ccbbef7f405c3677",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20",
+        "ef5fa81acb31c4f96e611787f8db34e9c62e73f7beb26d0395e04e4f8fb3b496",
+        "1dca6982a294b9db23aef00b96955e3065950706bf7170ffeb9d20fbe25f5546",
+        "20805b8e6a8f73a527d54a7681161e2442c799c6cbd5fa105796570fea071ec3",
+        "0b791e9f58df027a957d4571924a5b1e01980bc3e709567c8eae5672fc39abb6",
+        "b0182a5a7822080e22401530aea62d70de54891a2cad6a03ab9aee76f061a046",
+        "4159659e41fe902a8d981a10b3c721a1bcd53153459666b528d4e25f21c49c79",
+        "68975d4c9008a4eb6c88424a0e5809e0ec3fdd24256409915403e0ef2670f0a3",
+        "682ab6df4870cb46d34e3a8a9f4183e6d81e0c6fa6077a45d012752c312bce01",
+        "29733fc7775724fa5de581150bc005cc9d6df56f5eb0dfd27124445a634187f6",
+        "c8018fed966db26d30194e3d5ce17b5d9373161d74443e339ae320c0357dc838",
+        "1484e241747427020b6fc6e9e01e493cc5ad78ba270d064b188a669ded5b9501",
+        "146b4529593af08dcd0961564e27784a5c761d7b71a803226a488244de556ac7",
+        "b2a2ffbab371ed3709e08c5e5b8dc219fefcebc445eb79a109321007be9acc77",
+        "3315572f85cf29678b828746c8782a6b065ef2e968b6afa03e8f1acb551ea1c7",
+        "b27208b1c120c98d9c7ecd374e118d652d0ee812a088eee3d8cb937ad08ce8fd",
+        "ce5898114f566a113ec11979d4e1496632e64e05bb744f38ef92f73cab48265b",
+        "ca0d67e49656ae42d5ff3fb7f1bac5dbee972484ed8473551f303ed59131b7ef",
+        "c1ed4163bfc461e74e930f9f471ff68574162741b0beb889830aaa5cc304b671",
+        "c13d0018a6a098fb39a50d9a2f124f61f0cc0ad64df1e60062768cd505c05fc0",
+        "47c273ad1fdf71e960d4df33b808640652a6a6114f874e3ac685e5baac83bdf3",
+        "115e6821e9fe8bf5bead41feb9718a8c3b0ef3a6ad7a02ac2a9192fb28247700",
+        "798d649cbf651007ba34f66f79ad44a1c71d8560cf5bc858ae135320dd7616ce",
+        "3cd2c6a3d4d7d16950318b8845a35e10af5df2f32878e7e65990ba2653ccf2d7",
+        "21a57d52e14aa5e50b5549f9f0c0f603e048bde729e22517b4690850c309c829",
+        "31241e119e5a04197f145a468066493b1113bd70082fc914ab1b0c725b6a661d",
+        "f465ac54e4a4af9c9b6dcc99d1b0a52567c73e9fbae8648c530b6c8f0ba57a6e",
+        "258bd43b684c59c4da7c250c1b1d950cf94acfe7a1284bea4bd5f0f8c777d389",
+        "8d3a8144381a1d589fd50392c32af655c7e7639fd67bc0661438312b04f20ca7",
+        "6e4054a7283af51a32c3d2044ffb7861199588734ddf6adb3a283df168f16b38",
+        "b30270b6c6b778d9cfd55100694160496552aa7886e292addf35b7d6aafa2fc7",
+        "255c97c87bdf69b240045697c054b8aa11445b699159f571d95ad063ce18328f",
+        "621e9c83e20495f1c89c5c74e47d00cef469df4ff2ebbffe3d2427b5913965d4",
+        "d0314e681d828546cf94b55b0be7e680e871e096f5d4aed89f3aeadbf3cecae6",
+        "da71eb2c1da419ba864cd8f843d5cf9eabe715157e2dd588f7ddb869bfe4c24e",
+        "1083596f04d84be6368c354e7bebe9a5bf2f6ceb14155a5c2b0a0aa2b8840b1d",
+        "9e605a9a4c76518c31551f0c7a8ae09fcc40b1f29589460bda9ebb9b204f4d29",
+        "4ed63d9feca0e427f8036a6f0859a98cba0f908fd42ce33971d6d0309730e8e0"
+      ]
+    },
+    {
+      "id": "how-to--saifctl--pure-output-phase",
+      "type": "how-tos",
+      "output": "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/pure-output-phase.md",
+      "read": [
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/how-tos/pure-output-phase.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/configure-a-phase.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/product.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/templates/pages/how-to.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/per-phase-config.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feat-run-loop.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agent-environment.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/aider.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/claude.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/codex.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/copilot.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/cursor.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/debug.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/deepagents.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/forge.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/gemini.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/kilocode.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/mini-swe-agent.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/opencode.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/openhands.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/qwen.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/agents/terminus.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/cache.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/doctor.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/feat-phases.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/feat.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/init.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/run-rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/run.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/sandbox.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/commands/version.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/config.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/designers/poc.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/designers/shotgun.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/docker-images.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/env-vars.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/indexers/shotgun.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/models.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/sandbox-profiles.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/storage.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/references/test-profiles.md"
+      ],
+      "productId": "saifctl",
+      "personaId": "engineer",
+      "taskIds": [
+        "configure-a-phase"
+      ],
+      "conceptId": null,
+      "tutorialPosition": null,
+      "tutorialThreadLength": null,
+      "generatedAt": null,
+      "outputHash": null,
+      "inputHashes": [
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "d63880abd094be0a8debd623dcb6dcf774abb5a2f48e6f51b0adc6c4eee70976",
+        "bf08f5480ab40fa267c98ca42bb7b9687543e888559fb581ac0ffe22666454d3",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20",
+        "ef5fa81acb31c4f96e611787f8db34e9c62e73f7beb26d0395e04e4f8fb3b496",
+        "6d8ae77d98711b3a9ad32a620485fb549f8591b26c27023e3c4ded9784dcd59a",
+        "1dca6982a294b9db23aef00b96955e3065950706bf7170ffeb9d20fbe25f5546",
+        "20805b8e6a8f73a527d54a7681161e2442c799c6cbd5fa105796570fea071ec3",
+        "0b791e9f58df027a957d4571924a5b1e01980bc3e709567c8eae5672fc39abb6",
+        "b0182a5a7822080e22401530aea62d70de54891a2cad6a03ab9aee76f061a046",
+        "4159659e41fe902a8d981a10b3c721a1bcd53153459666b528d4e25f21c49c79",
+        "68975d4c9008a4eb6c88424a0e5809e0ec3fdd24256409915403e0ef2670f0a3",
+        "682ab6df4870cb46d34e3a8a9f4183e6d81e0c6fa6077a45d012752c312bce01",
+        "29733fc7775724fa5de581150bc005cc9d6df56f5eb0dfd27124445a634187f6",
+        "c8018fed966db26d30194e3d5ce17b5d9373161d74443e339ae320c0357dc838",
+        "1484e241747427020b6fc6e9e01e493cc5ad78ba270d064b188a669ded5b9501",
+        "146b4529593af08dcd0961564e27784a5c761d7b71a803226a488244de556ac7",
+        "b2a2ffbab371ed3709e08c5e5b8dc219fefcebc445eb79a109321007be9acc77",
+        "3315572f85cf29678b828746c8782a6b065ef2e968b6afa03e8f1acb551ea1c7",
+        "b27208b1c120c98d9c7ecd374e118d652d0ee812a088eee3d8cb937ad08ce8fd",
+        "ce5898114f566a113ec11979d4e1496632e64e05bb744f38ef92f73cab48265b",
+        "ca0d67e49656ae42d5ff3fb7f1bac5dbee972484ed8473551f303ed59131b7ef",
+        "c1ed4163bfc461e74e930f9f471ff68574162741b0beb889830aaa5cc304b671",
+        "c13d0018a6a098fb39a50d9a2f124f61f0cc0ad64df1e60062768cd505c05fc0",
+        "47c273ad1fdf71e960d4df33b808640652a6a6114f874e3ac685e5baac83bdf3",
+        "115e6821e9fe8bf5bead41feb9718a8c3b0ef3a6ad7a02ac2a9192fb28247700",
+        "798d649cbf651007ba34f66f79ad44a1c71d8560cf5bc858ae135320dd7616ce",
+        "3cd2c6a3d4d7d16950318b8845a35e10af5df2f32878e7e65990ba2653ccf2d7",
+        "21a57d52e14aa5e50b5549f9f0c0f603e048bde729e22517b4690850c309c829",
+        "31241e119e5a04197f145a468066493b1113bd70082fc914ab1b0c725b6a661d",
+        "f465ac54e4a4af9c9b6dcc99d1b0a52567c73e9fbae8648c530b6c8f0ba57a6e",
+        "258bd43b684c59c4da7c250c1b1d950cf94acfe7a1284bea4bd5f0f8c777d389",
+        "8d3a8144381a1d589fd50392c32af655c7e7639fd67bc0661438312b04f20ca7",
+        "6e4054a7283af51a32c3d2044ffb7861199588734ddf6adb3a283df168f16b38",
+        "b30270b6c6b778d9cfd55100694160496552aa7886e292addf35b7d6aafa2fc7",
+        "255c97c87bdf69b240045697c054b8aa11445b699159f571d95ad063ce18328f",
+        "621e9c83e20495f1c89c5c74e47d00cef469df4ff2ebbffe3d2427b5913965d4",
+        "d0314e681d828546cf94b55b0be7e680e871e096f5d4aed89f3aeadbf3cecae6",
+        "da71eb2c1da419ba864cd8f843d5cf9eabe715157e2dd588f7ddb869bfe4c24e",
+        "1083596f04d84be6368c354e7bebe9a5bf2f6ceb14155a5c2b0a0aa2b8840b1d",
+        "9e605a9a4c76518c31551f0c7a8ae09fcc40b1f29589460bda9ebb9b204f4d29",
+        "4ed63d9feca0e427f8036a6f0859a98cba0f908fd42ce33971d6d0309730e8e0"
+      ]
     },
     {
       "id": "how-to--saifctl--run-first-feature",
@@ -1109,7 +1833,54 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "eb6a0dba1028a166f4dcc9e447b16bd59e26d5c87563b47c82fabf5a82b03267",
+      "inputHashes": [
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "ec0338fd44bf46e91b904f5ec83d8b12146ef04db9ae63760255297b54ec3c8c",
+        "67b3904604febdff8a85fc4395cfe31466892ee770f7c962cd3d65f1f80accc1",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20",
+        "ef5fa81acb31c4f96e611787f8db34e9c62e73f7beb26d0395e04e4f8fb3b496",
+        "1dca6982a294b9db23aef00b96955e3065950706bf7170ffeb9d20fbe25f5546",
+        "7d43bcefb26509136b93c71f12470bff3267e74b947c3c8a8d457cad6e85dc5a",
+        "20805b8e6a8f73a527d54a7681161e2442c799c6cbd5fa105796570fea071ec3",
+        "0b791e9f58df027a957d4571924a5b1e01980bc3e709567c8eae5672fc39abb6",
+        "b0182a5a7822080e22401530aea62d70de54891a2cad6a03ab9aee76f061a046",
+        "4159659e41fe902a8d981a10b3c721a1bcd53153459666b528d4e25f21c49c79",
+        "68975d4c9008a4eb6c88424a0e5809e0ec3fdd24256409915403e0ef2670f0a3",
+        "682ab6df4870cb46d34e3a8a9f4183e6d81e0c6fa6077a45d012752c312bce01",
+        "29733fc7775724fa5de581150bc005cc9d6df56f5eb0dfd27124445a634187f6",
+        "c8018fed966db26d30194e3d5ce17b5d9373161d74443e339ae320c0357dc838",
+        "1484e241747427020b6fc6e9e01e493cc5ad78ba270d064b188a669ded5b9501",
+        "146b4529593af08dcd0961564e27784a5c761d7b71a803226a488244de556ac7",
+        "b2a2ffbab371ed3709e08c5e5b8dc219fefcebc445eb79a109321007be9acc77",
+        "3315572f85cf29678b828746c8782a6b065ef2e968b6afa03e8f1acb551ea1c7",
+        "b27208b1c120c98d9c7ecd374e118d652d0ee812a088eee3d8cb937ad08ce8fd",
+        "ce5898114f566a113ec11979d4e1496632e64e05bb744f38ef92f73cab48265b",
+        "ca0d67e49656ae42d5ff3fb7f1bac5dbee972484ed8473551f303ed59131b7ef",
+        "c1ed4163bfc461e74e930f9f471ff68574162741b0beb889830aaa5cc304b671",
+        "c13d0018a6a098fb39a50d9a2f124f61f0cc0ad64df1e60062768cd505c05fc0",
+        "47c273ad1fdf71e960d4df33b808640652a6a6114f874e3ac685e5baac83bdf3",
+        "115e6821e9fe8bf5bead41feb9718a8c3b0ef3a6ad7a02ac2a9192fb28247700",
+        "798d649cbf651007ba34f66f79ad44a1c71d8560cf5bc858ae135320dd7616ce",
+        "3cd2c6a3d4d7d16950318b8845a35e10af5df2f32878e7e65990ba2653ccf2d7",
+        "21a57d52e14aa5e50b5549f9f0c0f603e048bde729e22517b4690850c309c829",
+        "31241e119e5a04197f145a468066493b1113bd70082fc914ab1b0c725b6a661d",
+        "f465ac54e4a4af9c9b6dcc99d1b0a52567c73e9fbae8648c530b6c8f0ba57a6e",
+        "258bd43b684c59c4da7c250c1b1d950cf94acfe7a1284bea4bd5f0f8c777d389",
+        "8d3a8144381a1d589fd50392c32af655c7e7639fd67bc0661438312b04f20ca7",
+        "6e4054a7283af51a32c3d2044ffb7861199588734ddf6adb3a283df168f16b38",
+        "b30270b6c6b778d9cfd55100694160496552aa7886e292addf35b7d6aafa2fc7",
+        "255c97c87bdf69b240045697c054b8aa11445b699159f571d95ad063ce18328f",
+        "621e9c83e20495f1c89c5c74e47d00cef469df4ff2ebbffe3d2427b5913965d4",
+        "d0314e681d828546cf94b55b0be7e680e871e096f5d4aed89f3aeadbf3cecae6",
+        "da71eb2c1da419ba864cd8f843d5cf9eabe715157e2dd588f7ddb869bfe4c24e",
+        "1083596f04d84be6368c354e7bebe9a5bf2f6ceb14155a5c2b0a0aa2b8840b1d",
+        "9e605a9a4c76518c31551f0c7a8ae09fcc40b1f29589460bda9ebb9b204f4d29",
+        "4ed63d9feca0e427f8036a6f0859a98cba0f908fd42ce33971d6d0309730e8e0"
+      ]
     },
     {
       "id": "how-to--saifctl--troubleshoot",
@@ -1167,7 +1938,52 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "8b29ef4ab48e98434f34616e3d1794d76b03dc8eff061e92749303bfa2d84176",
+      "inputHashes": [
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "94b630176bc15ccf23f044badf5afce012e5dde573699e11de0af2bb77802a62",
+        "052ae7195dd399958a0603d2b8a98e84efa32a6c514f4714ffdfd1978fe8217d",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20",
+        "ef5fa81acb31c4f96e611787f8db34e9c62e73f7beb26d0395e04e4f8fb3b496",
+        "20805b8e6a8f73a527d54a7681161e2442c799c6cbd5fa105796570fea071ec3",
+        "0b791e9f58df027a957d4571924a5b1e01980bc3e709567c8eae5672fc39abb6",
+        "b0182a5a7822080e22401530aea62d70de54891a2cad6a03ab9aee76f061a046",
+        "4159659e41fe902a8d981a10b3c721a1bcd53153459666b528d4e25f21c49c79",
+        "68975d4c9008a4eb6c88424a0e5809e0ec3fdd24256409915403e0ef2670f0a3",
+        "682ab6df4870cb46d34e3a8a9f4183e6d81e0c6fa6077a45d012752c312bce01",
+        "29733fc7775724fa5de581150bc005cc9d6df56f5eb0dfd27124445a634187f6",
+        "c8018fed966db26d30194e3d5ce17b5d9373161d74443e339ae320c0357dc838",
+        "1484e241747427020b6fc6e9e01e493cc5ad78ba270d064b188a669ded5b9501",
+        "146b4529593af08dcd0961564e27784a5c761d7b71a803226a488244de556ac7",
+        "b2a2ffbab371ed3709e08c5e5b8dc219fefcebc445eb79a109321007be9acc77",
+        "3315572f85cf29678b828746c8782a6b065ef2e968b6afa03e8f1acb551ea1c7",
+        "b27208b1c120c98d9c7ecd374e118d652d0ee812a088eee3d8cb937ad08ce8fd",
+        "ce5898114f566a113ec11979d4e1496632e64e05bb744f38ef92f73cab48265b",
+        "ca0d67e49656ae42d5ff3fb7f1bac5dbee972484ed8473551f303ed59131b7ef",
+        "c1ed4163bfc461e74e930f9f471ff68574162741b0beb889830aaa5cc304b671",
+        "c13d0018a6a098fb39a50d9a2f124f61f0cc0ad64df1e60062768cd505c05fc0",
+        "47c273ad1fdf71e960d4df33b808640652a6a6114f874e3ac685e5baac83bdf3",
+        "115e6821e9fe8bf5bead41feb9718a8c3b0ef3a6ad7a02ac2a9192fb28247700",
+        "798d649cbf651007ba34f66f79ad44a1c71d8560cf5bc858ae135320dd7616ce",
+        "3cd2c6a3d4d7d16950318b8845a35e10af5df2f32878e7e65990ba2653ccf2d7",
+        "21a57d52e14aa5e50b5549f9f0c0f603e048bde729e22517b4690850c309c829",
+        "31241e119e5a04197f145a468066493b1113bd70082fc914ab1b0c725b6a661d",
+        "f465ac54e4a4af9c9b6dcc99d1b0a52567c73e9fbae8648c530b6c8f0ba57a6e",
+        "258bd43b684c59c4da7c250c1b1d950cf94acfe7a1284bea4bd5f0f8c777d389",
+        "8d3a8144381a1d589fd50392c32af655c7e7639fd67bc0661438312b04f20ca7",
+        "6e4054a7283af51a32c3d2044ffb7861199588734ddf6adb3a283df168f16b38",
+        "b30270b6c6b778d9cfd55100694160496552aa7886e292addf35b7d6aafa2fc7",
+        "255c97c87bdf69b240045697c054b8aa11445b699159f571d95ad063ce18328f",
+        "621e9c83e20495f1c89c5c74e47d00cef469df4ff2ebbffe3d2427b5913965d4",
+        "d0314e681d828546cf94b55b0be7e680e871e096f5d4aed89f3aeadbf3cecae6",
+        "da71eb2c1da419ba864cd8f843d5cf9eabe715157e2dd588f7ddb869bfe4c24e",
+        "1083596f04d84be6368c354e7bebe9a5bf2f6ceb14155a5c2b0a0aa2b8840b1d",
+        "9e605a9a4c76518c31551f0c7a8ae09fcc40b1f29589460bda9ebb9b204f4d29",
+        "4ed63d9feca0e427f8036a6f0859a98cba0f908fd42ce33971d6d0309730e8e0"
+      ]
     },
     {
       "id": "how-to--saifctl--understand-safety-guarantees",
@@ -1227,7 +2043,54 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "4d338c1e3082626bd03742199311f51ca381e6d457026f4f6d25f1f3158bbcad",
+      "inputHashes": [
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "130b7aa94a9a24461acf345baa315fbd593abae6713afd35457b176fa821b6ba",
+        "de44e8712fb4eb37a1f8cdd6ffd64cfa02ee9a6aed8aa026a31dd6792d61246a",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20",
+        "ef5fa81acb31c4f96e611787f8db34e9c62e73f7beb26d0395e04e4f8fb3b496",
+        "1dca6982a294b9db23aef00b96955e3065950706bf7170ffeb9d20fbe25f5546",
+        "7d43bcefb26509136b93c71f12470bff3267e74b947c3c8a8d457cad6e85dc5a",
+        "20805b8e6a8f73a527d54a7681161e2442c799c6cbd5fa105796570fea071ec3",
+        "0b791e9f58df027a957d4571924a5b1e01980bc3e709567c8eae5672fc39abb6",
+        "b0182a5a7822080e22401530aea62d70de54891a2cad6a03ab9aee76f061a046",
+        "4159659e41fe902a8d981a10b3c721a1bcd53153459666b528d4e25f21c49c79",
+        "68975d4c9008a4eb6c88424a0e5809e0ec3fdd24256409915403e0ef2670f0a3",
+        "682ab6df4870cb46d34e3a8a9f4183e6d81e0c6fa6077a45d012752c312bce01",
+        "29733fc7775724fa5de581150bc005cc9d6df56f5eb0dfd27124445a634187f6",
+        "c8018fed966db26d30194e3d5ce17b5d9373161d74443e339ae320c0357dc838",
+        "1484e241747427020b6fc6e9e01e493cc5ad78ba270d064b188a669ded5b9501",
+        "146b4529593af08dcd0961564e27784a5c761d7b71a803226a488244de556ac7",
+        "b2a2ffbab371ed3709e08c5e5b8dc219fefcebc445eb79a109321007be9acc77",
+        "3315572f85cf29678b828746c8782a6b065ef2e968b6afa03e8f1acb551ea1c7",
+        "b27208b1c120c98d9c7ecd374e118d652d0ee812a088eee3d8cb937ad08ce8fd",
+        "ce5898114f566a113ec11979d4e1496632e64e05bb744f38ef92f73cab48265b",
+        "ca0d67e49656ae42d5ff3fb7f1bac5dbee972484ed8473551f303ed59131b7ef",
+        "c1ed4163bfc461e74e930f9f471ff68574162741b0beb889830aaa5cc304b671",
+        "c13d0018a6a098fb39a50d9a2f124f61f0cc0ad64df1e60062768cd505c05fc0",
+        "47c273ad1fdf71e960d4df33b808640652a6a6114f874e3ac685e5baac83bdf3",
+        "115e6821e9fe8bf5bead41feb9718a8c3b0ef3a6ad7a02ac2a9192fb28247700",
+        "798d649cbf651007ba34f66f79ad44a1c71d8560cf5bc858ae135320dd7616ce",
+        "3cd2c6a3d4d7d16950318b8845a35e10af5df2f32878e7e65990ba2653ccf2d7",
+        "21a57d52e14aa5e50b5549f9f0c0f603e048bde729e22517b4690850c309c829",
+        "31241e119e5a04197f145a468066493b1113bd70082fc914ab1b0c725b6a661d",
+        "f465ac54e4a4af9c9b6dcc99d1b0a52567c73e9fbae8648c530b6c8f0ba57a6e",
+        "258bd43b684c59c4da7c250c1b1d950cf94acfe7a1284bea4bd5f0f8c777d389",
+        "8d3a8144381a1d589fd50392c32af655c7e7639fd67bc0661438312b04f20ca7",
+        "6e4054a7283af51a32c3d2044ffb7861199588734ddf6adb3a283df168f16b38",
+        "b30270b6c6b778d9cfd55100694160496552aa7886e292addf35b7d6aafa2fc7",
+        "255c97c87bdf69b240045697c054b8aa11445b699159f571d95ad063ce18328f",
+        "621e9c83e20495f1c89c5c74e47d00cef469df4ff2ebbffe3d2427b5913965d4",
+        "d0314e681d828546cf94b55b0be7e680e871e096f5d4aed89f3aeadbf3cecae6",
+        "da71eb2c1da419ba864cd8f843d5cf9eabe715157e2dd588f7ddb869bfe4c24e",
+        "1083596f04d84be6368c354e7bebe9a5bf2f6ceb14155a5c2b0a0aa2b8840b1d",
+        "9e605a9a4c76518c31551f0c7a8ae09fcc40b1f29589460bda9ebb9b204f4d29",
+        "4ed63d9feca0e427f8036a6f0859a98cba0f908fd42ce33971d6d0309730e8e0"
+      ]
     },
     {
       "id": "tutorial--saifctl--first-sandbox-run",
@@ -1241,8 +2104,10 @@
         "/Users/mac/repos/agents/safe-ai-factory/docspec/rules.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/docker-isolation.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/apply-agent-changes.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/configure-a-phase.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/inspect-and-start.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/provide-feedback.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/pure-output-phase.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-first-feature.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/troubleshoot.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/understand-safety-guarantees.md"
@@ -1253,7 +2118,24 @@
       "conceptId": null,
       "tutorialPosition": 1,
       "tutorialThreadLength": 1,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "7bb5eef5c49e0e9c8fc1b6397555909c1000075f5b73331506018bc41b6462ac",
+      "inputHashes": [
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "e57d97c323af390a349501934c4cfcce37277d7196ae9ac3968121b1002fd29c",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20",
+        "c0719b333ce85b646510130bb3f8a6a49a7384c588ca447b36bb9b2c3e7b273c",
+        "f4e25be5e819a60837ac6e8db168eb8f86824959a9b4a85e2e1a6bc4e3bde3dd",
+        null,
+        "bb3b76437bddd1cbc73027e10846fe9840d7f71b2e6a4d6d7355c579e595909c",
+        "9aea260aafee7f5336c307436d201a0497ef0c1bd873a64c742e4aeba967ed38",
+        null,
+        "eb6a0dba1028a166f4dcc9e447b16bd59e26d5c87563b47c82fabf5a82b03267",
+        "8b29ef4ab48e98434f34616e3d1794d76b03dc8eff061e92749303bfa2d84176",
+        "4d338c1e3082626bd03742199311f51ca381e6d457026f4f6d25f1f3158bbcad"
+      ]
     },
     {
       "id": "tutorial--saifctl--spec-driven-development",
@@ -1269,8 +2151,10 @@
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feat-run-loop.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/gate-reviewer-holdout.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/apply-agent-changes.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/configure-a-phase.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/inspect-and-start.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/provide-feedback.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/pure-output-phase.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-first-feature.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/troubleshoot.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/understand-safety-guarantees.md"
@@ -1281,7 +2165,26 @@
       "conceptId": null,
       "tutorialPosition": 1,
       "tutorialThreadLength": 2,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "be341adca60ab4158aa2f05bc0201a1f01a7a777c81c4bf3382829820cdd2517",
+      "inputHashes": [
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "bee4ef0b3f73710983d65b7f7ac3e6c8e03209a927b7fd1c7389fc5d0db06749",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20",
+        "226c86524e3ed24f50255ee90ae674170037af0a1e2d1308ea1efb398516ed25",
+        "1dca6982a294b9db23aef00b96955e3065950706bf7170ffeb9d20fbe25f5546",
+        "7d43bcefb26509136b93c71f12470bff3267e74b947c3c8a8d457cad6e85dc5a",
+        "f4e25be5e819a60837ac6e8db168eb8f86824959a9b4a85e2e1a6bc4e3bde3dd",
+        null,
+        "bb3b76437bddd1cbc73027e10846fe9840d7f71b2e6a4d6d7355c579e595909c",
+        "9aea260aafee7f5336c307436d201a0497ef0c1bd873a64c742e4aeba967ed38",
+        null,
+        "eb6a0dba1028a166f4dcc9e447b16bd59e26d5c87563b47c82fabf5a82b03267",
+        "8b29ef4ab48e98434f34616e3d1794d76b03dc8eff061e92749303bfa2d84176",
+        "4d338c1e3082626bd03742199311f51ca381e6d457026f4f6d25f1f3158bbcad"
+      ]
     },
     {
       "id": "tutorial--saifctl--spec-to-pr",
@@ -1296,8 +2199,10 @@
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/feat-run-loop.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/concepts/gate-reviewer-holdout.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/apply-agent-changes.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/configure-a-phase.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/inspect-and-start.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/provide-feedback.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/pure-output-phase.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/run-first-feature.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/troubleshoot.md",
         "/Users/mac/repos/agents/safe-ai-factory/docs/products/saifctl/how-tos/understand-safety-guarantees.md"
@@ -1308,7 +2213,25 @@
       "conceptId": null,
       "tutorialPosition": 2,
       "tutorialThreadLength": 2,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "f6244820157fb5f4d0b057882de3c413f0c69043cd4dd18853820bb488b357ed",
+      "inputHashes": [
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "12ca271c526236ddf98e723c58033c45ca0de4f4df4f6d887134e069334b37e9",
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20",
+        "1dca6982a294b9db23aef00b96955e3065950706bf7170ffeb9d20fbe25f5546",
+        "7d43bcefb26509136b93c71f12470bff3267e74b947c3c8a8d457cad6e85dc5a",
+        "f4e25be5e819a60837ac6e8db168eb8f86824959a9b4a85e2e1a6bc4e3bde3dd",
+        null,
+        "bb3b76437bddd1cbc73027e10846fe9840d7f71b2e6a4d6d7355c579e595909c",
+        "9aea260aafee7f5336c307436d201a0497ef0c1bd873a64c742e4aeba967ed38",
+        null,
+        "eb6a0dba1028a166f4dcc9e447b16bd59e26d5c87563b47c82fabf5a82b03267",
+        "8b29ef4ab48e98434f34616e3d1794d76b03dc8eff061e92749303bfa2d84176",
+        "4d338c1e3082626bd03742199311f51ca381e6d457026f4f6d25f1f3158bbcad"
+      ]
     },
     {
       "id": "landing--saifctl",
@@ -1322,6 +2245,7 @@
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/claude_user/tasks/apply-agent-changes.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/persona.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/rules.md",
+        "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/configure-a-phase.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/fix-agent-mistakes.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/run-first-feature.md",
         "/Users/mac/repos/agents/safe-ai-factory/docspec/products/saifctl/personas/engineer/tasks/steer-the-agent.md",
@@ -1334,7 +2258,23 @@
       "conceptId": null,
       "tutorialPosition": null,
       "tutorialThreadLength": null,
-      "generatedAt": null
+      "generatedAt": "2026-05-08T21:18:18.943Z",
+      "outputHash": "27b88758cef452d6af6c746a20d7daabee39ab2a8d5dc524c927db274895f4e2",
+      "inputHashes": [
+        "2f68ffb167a8440358e924c363c7a9efa8bdd34d2a1d986907bda29701522c0d",
+        "c9b709f00e0a167c57d194bf01fee5db332b4c9682fda0b67f5d84055d3d3c20",
+        "1063c854aa39f332c8c08fbda1199cd43418265ca1e1ea8aa9d08f3f6848a89e",
+        "c7eaa18993ad614af38a35f6ce5ff1dbe9721c58f94f4909e9bf1c87f2b59f02",
+        "10e06285c728098a420a41a3a428077f6bfa28c70df22e1d89ad8b859ad26b35",
+        "760524dfdd53e5b1ea741eeaed10fc027fa7f66217adf2043f0258ca0f4a01c1",
+        "3f78ea6bfc34df563a8f2a82875ed8034ab0d1d4c9d9eae9a940067657cc9644",
+        "bf08f5480ab40fa267c98ca42bb7b9687543e888559fb581ac0ffe22666454d3",
+        "99d9bb52e8f964686b08e89dab708b99a40ac1374450ebf2875d63fcade5c28a",
+        "67b3904604febdff8a85fc4395cfe31466892ee770f7c962cd3d65f1f80accc1",
+        "761272a1f256bf818ebc9170209a7c43257c01a34b1dde56ccbbef7f405c3677",
+        "052ae7195dd399958a0603d2b8a98e84efa32a6c514f4714ffdfd1978fe8217d",
+        "de44e8712fb4eb37a1f8cdd6ffd64cfa02ee9a6aed8aa026a31dd6792d61246a"
+      ]
     }
   ]
 }
