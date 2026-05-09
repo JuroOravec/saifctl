@@ -29,7 +29,11 @@ function makeOpts(fromArtifact: NonNullable<OrchestratorOpts['fromArtifact']>): 
   const stub: Record<string, unknown> = {
     sandboxProfileId: 'vitest',
     agentProfileId: 'openhands',
-    feature: { name: 'f', absolutePath: '/p/saifctl/features/f', relativePath: 'saifctl/features/f' },
+    feature: {
+      name: 'f',
+      absolutePath: '/p/saifctl/features/f',
+      relativePath: 'saifctl/features/f',
+    },
     projectDir: '/p',
     maxRuns: 5,
     llm: {},

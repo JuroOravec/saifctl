@@ -39,8 +39,8 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
@@ -270,7 +270,9 @@ describe('loop wiring — per-phase max-attempts (phase 7.6)', () => {
     // calling it AT THIS POINT would surface a message, but the loop
     // does NOT call it on success. The existence of this test plus the
     // simulator-only test below documents that gap.
-    expect(phaseBudgetExhaustedMessage({ subtask: active, phaseAttemptCount: counts })).not.toBeNull();
+    expect(
+      phaseBudgetExhaustedMessage({ subtask: active, phaseAttemptCount: counts }),
+    ).not.toBeNull();
     // The user-visible behaviour: had the 6th attempt failed, THEN the
     // helper would be consulted and the message produced. Pin that
     // fail-after-overshoot still names the cap correctly.

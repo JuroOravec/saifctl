@@ -10,7 +10,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getGitProvider } from '../../git/index.js';
 import type { IterativeLoopOpts } from '../../orchestrator/loop.js';
 import { resolveTestProfile } from '../../test-profiles/index.js';
-import { deserializeArtifactConfig, type PersistedScriptBundle, serializeArtifactConfig } from './serialize.js';
+import {
+  deserializeArtifactConfig,
+  type PersistedScriptBundle,
+  serializeArtifactConfig,
+} from './serialize.js';
 
 function minimalLoopOpts(
   overrides: Partial<IterativeLoopOpts & PersistedScriptBundle> = {},

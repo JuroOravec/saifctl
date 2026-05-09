@@ -45,7 +45,7 @@ import {
   gitResetHard,
 } from '../../utils/git.js';
 import { writeUtf8 } from '../../utils/io.js';
-import { applyRunCommitInRepo, resolveRunCommitAuthor } from '../patch.js';
+import { applyRunCommitInRepo } from '../patch.js';
 import { SAIFCTL_TEMP_ROOT } from '../sandbox.js';
 import { assertRunCommitsSafeForHost } from './apply-patch.js';
 
