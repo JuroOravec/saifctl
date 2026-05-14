@@ -21,10 +21,7 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import { SENSITIVE_DESCRIBE_TAG, workflowSchema } from '../src/specs/workflow/schema.sketch.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUTPUT_PATH = resolve(
-  __dirname,
-  '../saifctl/features/workflow-api/workflow-schema.json',
-);
+const OUTPUT_PATH = resolve(__dirname, '../saifctl/features/workflow-api/workflow-schema.json');
 
 const jsonSchema = zodToJsonSchema(workflowSchema, {
   name: 'Workflow',

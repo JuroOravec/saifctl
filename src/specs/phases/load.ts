@@ -355,12 +355,7 @@ export function resolvePhaseConfig(opts: {
       phaseDefaults?.container,
       featureConfig?.container,
     ] as const,
-    test: [
-      phaseConfig?.test,
-      inlinePhase?.test,
-      phaseDefaults?.test,
-      featureConfig?.test,
-    ] as const,
+    test: [phaseConfig?.test, inlinePhase?.test, phaseDefaults?.test, featureConfig?.test] as const,
     limits: [
       phaseConfig?.limits,
       inlinePhase?.limits,

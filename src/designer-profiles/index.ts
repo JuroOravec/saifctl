@@ -11,10 +11,14 @@ import type { DesignerProfile, SupportedDesignerProfileId } from './types.js';
 
 export type { DesignerBaseOpts, DesignerProfile, DesignerRunOpts } from './types.js';
 
-const designerProfiles: Record<SupportedDesignerProfileId, DesignerProfile> = {
+/** Registry mapping every supported designer profile id to its {@link DesignerProfile}. */
+export const SUPPORTED_DESIGNER_PROFILES = {
   poc: pocDesignerProfile,
   shotgun: shotgunDesignerProfile,
-};
+} satisfies Record<SupportedDesignerProfileId, DesignerProfile>;
+
+const designerProfiles: Record<SupportedDesignerProfileId, DesignerProfile> =
+  SUPPORTED_DESIGNER_PROFILES;
 
 /** Default designer profile used when no `--designer` flag or config is set (PoC). */
 export const DEFAULT_DESIGNER_PROFILE: DesignerProfile = pocDesignerProfile;

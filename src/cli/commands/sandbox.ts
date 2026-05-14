@@ -12,12 +12,6 @@ import { isAbsolute, join, resolve } from 'node:path';
 
 import { defineCommand, runMain } from 'citty';
 
-import { resolveAgentProfile } from '../../agent-profiles/index.js';
-import {
-  applyConfigToProfileOptionsEnv,
-  recordProfileOptionsFromArgs,
-  validateProfileOptions,
-} from '../../agent-profiles/options-bridge.js';
 import { loadSaifctlConfig } from '../../config/load.js';
 import { getSaifctlRoot } from '../../constants.js';
 import { consola, setVerboseLogging } from '../../logger.js';
@@ -30,6 +24,7 @@ import { runSandbox, runSandboxInteractive } from '../../orchestrator/sandbox-ru
 import type { Feature } from '../../specs/discover.js';
 import { readUtf8 } from '../../utils/io.js';
 import { featFromArtifactArgs } from '../args.js';
+import { wireAgentProfileOptions } from '../profile-options.js';
 import {
   buildOrchestratorCliInputFromFeatArgs,
   type FeatRunArgs,
@@ -94,24 +89,6 @@ const sandboxCommand = defineCommand({
   },
   args: sandboxArgs,
   async run({ args }) {
-    // Resolve profile-specific options (--<id>-<name>): CLI > config > default.
-    // See feat.ts run handler for the full ordering rationale.
-    if (typeof args.agent === 'string' && args.agent.trim()) {
-      const profile = resolveAgentProfile(args.agent.trim());
-      recordProfileOptionsFromArgs(profile, args as Record<string, unknown>);
-      const profileOptsProjectDir = resolveCliProjectDir(readProjectDirFromCli(args));
-      const profileOptsSaifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
-      const profileOptsConfig = await loadSaifctlConfig(
-        profileOptsSaifctlDir,
-        profileOptsProjectDir,
-      );
-      applyConfigToProfileOptionsEnv(
-        profile,
-        profileOptsConfig.defaults?.agentOptions?.[profile.id],
-      );
-      await validateProfileOptions(profile);
-    }
-
     const interactive = args.interactive === true;
     const taskInline = typeof args.task === 'string' ? args.task.trim() : '';
     const taskFile = typeof args['task-file'] === 'string' ? args['task-file'].trim() : '';
@@ -170,6 +147,17 @@ const sandboxCommand = defineCommand({
     const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
     const config = await loadSaifctlConfig(saifctlDir, projectDir);
     setVerboseLogging(args.verbose === true);
+
+    // Wire agent profile-specific options (--<id>-<name> CLI flags +
+    // `agentOptions.<id>.*` config block) into the env-var protocol that
+    // `prepareAgentEnv` reads at run-engine-attempt time. Sandbox has no
+    // feature.yml — pickAgentProfile resolves from CLI > config > built-in
+    // default. Bad inputs fail fast via the validator.
+    await wireAgentProfileOptions({
+      args: args as Record<string, unknown>,
+      config,
+      featureCfg: null,
+    });
 
     const nameRaw = typeof args.name === 'string' ? args.name.trim() : '';
     const baseName = nameRaw || `scratch-${randomBytes(4).toString('hex')}`;

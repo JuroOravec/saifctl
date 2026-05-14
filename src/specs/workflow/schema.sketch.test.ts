@@ -16,10 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { workflowSchema } from './schema.sketch.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const FIXTURES_DIR = resolve(
-  __dirname,
-  '../../../saifctl/features/workflow-api/workflow-fixtures',
-);
+const FIXTURES_DIR = resolve(__dirname, '../../../saifctl/features/workflow-api/workflow-fixtures');
 
 const fixtures = readdirSync(FIXTURES_DIR)
   .filter((f) => f.endsWith('.workflow.json'))

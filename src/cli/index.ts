@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 import { defineCommand, runMain } from 'citty';
 
-import { resolveAgentProfile, SUPPORTED_AGENT_PROFILES } from '../agent-profiles/index.js';
+import { SUPPORTED_AGENT_PROFILES } from '../agent-profiles/index.js';
 import {
   assertNoGlobalCollisions,
   buildProfileCliFlags,
   type ProfileWithOptions,
 } from '../agent-profiles/options-bridge.js';
 import { getSaifctlPackageVersion } from '../constants.js';
-import { resolveDesignerProfile } from '../designer-profiles/index.js';
-import { resolveIndexerProfile } from '../indexer-profiles/index.js';
+import { SUPPORTED_DESIGNER_PROFILES } from '../designer-profiles/index.js';
+import { SUPPORTED_INDEXER_PROFILES } from '../indexer-profiles/index.js';
 import cacheCommand from './commands/cache.js';
 import doctorCommand from './commands/doctor.js';
 import { default as featCommand, featureCommand } from './commands/feat.js';
@@ -38,27 +38,6 @@ const main = defineCommand({
 });
 
 /**
- * Pre-parse a single `--<flag> <value>` (or `--<flag>=<value>`, or alias
- * `-<short> <value>`) from argv. Used to extract `--agent`, `--designer`,
- * and `--indexer` before runMain dispatches.
- */
-function preParseFlagValue(opts: {
-  argv: string[];
-  long: string;
-  short?: string;
-}): string | undefined {
-  const { argv, long, short } = opts;
-  for (let i = 0; i < argv.length; i += 1) {
-    const a = argv[i];
-    const longSwitch = `--${long}`;
-    if (a === longSwitch && i + 1 < argv.length) return argv[i + 1];
-    if (a.startsWith(`${longSwitch}=`)) return a.slice(longSwitch.length + 1);
-    if (short && a === `-${short}` && i + 1 < argv.length) return argv[i + 1];
-  }
-  return undefined;
-}
-
-/**
  * Type for a citty command's `args` field as a mutable record. Citty's TS
  * types narrow `args` to the exact shape declared at `defineCommand` call
  * time, but `defineCommand` is a runtime passthrough (returns its arg
@@ -67,19 +46,29 @@ function preParseFlagValue(opts: {
 type MutableArgs = { args?: Record<string, unknown> };
 
 /**
- * Inject a profile's `options[]` into the given command's `args` record.
- * No-op if the profile is missing or declares no options.
+ * Inject every profile's `options[]` into the given command's `args` record.
+ * No-op for profiles that declare no options.
+ *
+ * Profile option names are prefixed with `<profile.id>-` (per
+ * {@link buildProfileCliFlags}), so flag namespaces are isolated per profile
+ * and won't collide across profile kinds. `assertNoGlobalCollisions`
+ * verifies this at startup over the full set.
  */
-function injectFlagsInto(command: MutableArgs | undefined, profile: ProfileWithOptions): void {
+function injectAllFlagsInto(
+  command: MutableArgs | undefined,
+  profiles: readonly ProfileWithOptions[],
+): void {
   if (!command) return;
-  const flags = buildProfileCliFlags(profile);
-  if (Object.keys(flags).length === 0) return;
-  command.args = { ...(command.args ?? {}), ...flags };
+  for (const profile of profiles) {
+    const flags = buildProfileCliFlags(profile);
+    if (Object.keys(flags).length === 0) continue;
+    command.args = { ...(command.args ?? {}), ...flags };
+  }
 }
 
 /**
- * Inject options from the active agent / designer / indexer profiles into the
- * citty command schemas before runMain dispatches.
+ * Inject options from every agent / designer / indexer profile into the
+ * relevant citty command schemas before runMain dispatches.
  *
  * Citty's `defineCommand` is a passthrough, so mutating `command.args` here
  * is safe — citty parses against the post-mutation shape. This lets
@@ -87,86 +76,66 @@ function injectFlagsInto(command: MutableArgs | undefined, profile: ProfileWithO
  * CLI flags with type validation and help text without saifctl needing
  * profile-specific knowledge at the central CLI definition site.
  *
+ * Why always-inject instead of pre-parsing the selected profile id: the
+ * active profile is resolved with full precedence (CLI > feature.yml >
+ * saifctl/config.ts > built-in) inside the handler, not from argv alone.
+ * Injecting only the CLI-selected profile's flags would silently drop
+ * config- or feature.yml-selected profiles' options. Cost: `--help` lists
+ * a handful of extra `--<id>-<name>` flags per command. Safety: flags for
+ * a profile that doesn't end up being the active one are silently ignored
+ * by {@link readProfileOptionsFromEnv} (it only iterates the active
+ * profile's option set).
+ *
  * Per-profile-kind injection mapping:
  *
- *   --agent <id>     → flags injected into `feat run`, `sandbox`
- *   --designer <id>  → flags injected into `feat design`,
- *                       `feat design-specs`, `feat design-discovery`,
- *                       `feat design-tests`, `feat design-fail2pass`
- *   --indexer <id>   → flags injected into `init`, all `feat design*` commands
- *
- * Each profile is independent — saifctl pre-parses each flag separately and
- * only consults the profile relevant to that flag (no cross-pollination
- * between agent + designer + indexer namespaces).
+ *   agent     → `feat run`, `sandbox`
+ *   designer  → `feat design`, `feat design-specs`, `feat design-discovery`,
+ *               `feat design-tests`, `feat design-fail2pass`
+ *   indexer   → `init`, all `feat design*` commands
  */
-function injectActiveProfileFlags(): void {
-  // Startup-time guard: every shipped agent profile's flags use the
-  // `<id>-` prefix; nothing collides with reserved global flags. Designer
-  // and indexer profiles are validated the same way once they declare
-  // options.
-  const reservedGlobalFlags = new Set<string>([]);
-  assertNoGlobalCollisions(Object.values(SUPPORTED_AGENT_PROFILES), reservedGlobalFlags);
+function injectAllProfileFlags(): void {
+  const agentProfiles = Object.values(SUPPORTED_AGENT_PROFILES);
+  const designerProfiles = Object.values(SUPPORTED_DESIGNER_PROFILES);
+  const indexerProfiles = Object.values(SUPPORTED_INDEXER_PROFILES);
 
-  const argv = process.argv.slice(2);
+  // Startup-time guard: no profile option's CLI name may collide with a
+  // reserved global flag or with another profile's option (different ids
+  // could in principle pick the same `<id>-<name>` if ids weren't unique,
+  // but they are — kept as a defence-in-depth check).
+  const reservedGlobalFlags = new Set<string>([]);
+  assertNoGlobalCollisions(
+    [...agentProfiles, ...designerProfiles, ...indexerProfiles],
+    reservedGlobalFlags,
+  );
+
   type MutableSubCommands = Record<string, MutableArgs>;
   const featSubs = featCommand.subCommands as MutableSubCommands | undefined;
 
   // 1. Agent profile flags → feat run, sandbox
-  const agentId = preParseFlagValue({ argv, long: 'agent', short: 'a' });
-  if (agentId) {
-    try {
-      const agentProfile = resolveAgentProfile(agentId);
-      injectFlagsInto(featSubs?.run, agentProfile);
-      injectFlagsInto(sandboxCommand as MutableArgs, agentProfile);
-    } catch {
-      // Invalid --agent value: let citty surface the error during normal parse.
-    }
-  }
+  injectAllFlagsInto(featSubs?.run, agentProfiles);
+  injectAllFlagsInto(sandboxCommand as MutableArgs, agentProfiles);
 
   // 2. Designer profile flags → all feat design* subcommands
-  const designerId = preParseFlagValue({ argv, long: 'designer' });
-  if (designerId) {
-    try {
-      const designerProfile = resolveDesignerProfile(designerId);
-      for (const sub of [
-        'design',
-        'design-specs',
-        'design-discovery',
-        'design-tests',
-        'design-fail2pass',
-      ] as const) {
-        injectFlagsInto(featSubs?.[sub], designerProfile);
-      }
-    } catch {
-      // Invalid --designer value: let citty surface the error during normal parse.
-    }
+  const designSubs = [
+    'design',
+    'design-specs',
+    'design-discovery',
+    'design-tests',
+    'design-fail2pass',
+  ] as const;
+  for (const sub of designSubs) {
+    injectAllFlagsInto(featSubs?.[sub], designerProfiles);
   }
 
   // 3. Indexer profile flags → init + feat design*
-  const indexerId = preParseFlagValue({ argv, long: 'indexer' });
-  if (indexerId && indexerId !== 'none') {
-    try {
-      const indexerProfile = resolveIndexerProfile(indexerId);
-      if (indexerProfile) {
-        injectFlagsInto(initCommand as MutableArgs, indexerProfile);
-        for (const sub of [
-          'design',
-          'design-specs',
-          'design-discovery',
-          'design-tests',
-          'design-fail2pass',
-        ] as const) {
-          injectFlagsInto(featSubs?.[sub], indexerProfile);
-        }
-      }
-    } catch {
-      // Invalid --indexer value: let citty surface the error during normal parse.
-    }
+  injectAllFlagsInto(initCommand as MutableArgs, indexerProfiles);
+  for (const sub of designSubs) {
+    injectAllFlagsInto(featSubs?.[sub], indexerProfiles);
   }
 }
 
 const cli = () => {
-  injectActiveProfileFlags();
+  injectAllProfileFlags();
   void runMain(main);
 };
 

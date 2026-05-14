@@ -64,19 +64,26 @@ describe('options-bridge', () => {
       ]);
       const flags = buildProfileCliFlags(profile);
       expect(flags).toEqual({
-        'claude-max': { type: 'boolean', description: 'Use Max', default: false },
+        'claude-max': { type: 'boolean', description: 'Use Max' },
         'claude-credentials': { type: 'string', description: 'Path' },
       });
     });
 
-    it('omits default when profile.default is wrong type for option.type', () => {
+    it('does NOT forward opt.default to citty (regression — citty-default-vs-config conflict)', () => {
+      // Why: when the CLI always-injects every profile's flags (not only
+      // the --agent-selected one), citty would otherwise fill args with
+      // the profile's declared default, which recordProfileOptionsFromArgs
+      // then records as if the user had explicitly chosen it — clobbering
+      // any `agentOptions.<id>.<name>` block from `saifctl/config.ts`.
       const profile = stubProfile([
-        // Mistyped default — function should silently drop rather than crash.
-        // (Schema would normally guard this, but be defensive.)
-        { name: 'flag', type: 'boolean', description: 'x', default: 'yes' as unknown as boolean },
+        { name: 'max', type: 'boolean', description: 'x', default: false },
+        { name: 'credentials', type: 'string', description: 'x', default: '/default' },
+        { name: 'num', type: 'number', description: 'x', default: 42 },
       ]);
       const flags = buildProfileCliFlags(profile);
-      expect(flags['claude-flag']).toEqual({ type: 'boolean', description: 'x' });
+      expect(flags['claude-max']).not.toHaveProperty('default');
+      expect(flags['claude-credentials']).not.toHaveProperty('default');
+      expect(flags['claude-num']).not.toHaveProperty('default');
     });
   });
 

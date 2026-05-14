@@ -22,13 +22,7 @@ import { join, resolve } from 'node:path';
 import { cancel, confirm, intro, isCancel, outro, text } from '@clack/prompts';
 import { type CommandDef, defineCommand, runMain } from 'citty';
 
-import { resolveAgentProfile } from '../../agent-profiles/index.js';
-import {
-  applyConfigToProfileOptionsEnv,
-  recordAndValidateProfileOptions,
-  recordProfileOptionsFromArgs,
-  validateProfileOptions,
-} from '../../agent-profiles/options-bridge.js';
+import { recordAndValidateProfileOptions } from '../../agent-profiles/options-bridge.js';
 import { loadSaifctlConfig } from '../../config/load.js';
 import { type SaifctlConfig } from '../../config/schema.js';
 import { runDiscovery } from '../../design-discovery/run.js';
@@ -75,6 +69,7 @@ import {
   saifctlDirArg,
   testProfileArg,
 } from '../args.js';
+import { wireAgentProfileOptions } from '../profile-options.js';
 import {
   buildOrchestratorCliInputFromFeatArgs,
   type FeatRunArgs,
@@ -827,24 +822,11 @@ const runCommand = defineCommand({
   },
   args: featRunArgs,
   async run({ args }) {
-    // Resolve agent profile-specific options (--<id>-<name>) into the
-    // in-process env-var protocol read by the orchestrator. Order:
-    //   1. CLI flags (highest precedence, written here from `args`)
-    //   2. config-file values from `agents.<id>.<name>` (filled in for
-    //      options not already set by CLI)
-    //   3. profile-declared `default` (fallback when env var unset)
-    // Then run validators so bad inputs (bad --claude-credentials path,
-    // unknown profile id, etc.) fail before parseRunArgs prompts for a
-    // feature name and triggers the rest of the orchestrator pipeline.
-    if (typeof args.agent === 'string' && args.agent.trim()) {
-      const profile = resolveAgentProfile(args.agent.trim());
-      recordProfileOptionsFromArgs(profile, args as Record<string, unknown>);
-      const projectDir = resolveCliProjectDir(readProjectDirFromCli(args));
-      const saifctlDir = resolveSaifctlDirRelative(readSaifctlDirFromCli(args));
-      const config = await loadSaifctlConfig(saifctlDir, projectDir);
-      applyConfigToProfileOptionsEnv(profile, config.defaults?.agentOptions?.[profile.id]);
-      await validateProfileOptions(profile);
-    }
+    // Agent profile option-bridge wiring happens inside parseRunArgs after
+    // pickAgentProfile resolves the profile with full precedence (CLI >
+    // feature.yml > saifctl/config.ts > built-in). See wireAgentProfileOptions
+    // for the rationale on why this is post-resolution rather than gated on
+    // `args.agent` being on CLI.
     const runArgs = await parseRunArgs(args);
     const result = await runStart({
       ...runArgs,
@@ -874,6 +856,21 @@ export const parseRunArgs = async (args: CommandArgs<typeof runCommand>) => {
   const config = await loadSaifctlConfig(saifctlDir, projectDir);
 
   const feature = await getFeatOrPrompt(args, projectDir);
+
+  // Wire agent profile-specific options (--<id>-<name> CLI flags +
+  // `agentOptions.<id>.*` config block) into the env-var protocol that
+  // `prepareAgentEnv` reads at run-engine-attempt time. Profile is resolved
+  // with full precedence (CLI > feature.yml > saifctl/config.ts > built-in)
+  // — this is why the wiring lives here (post-config-load), not in the
+  // `feat run` handler before parseRunArgs. Bad inputs (invalid
+  // `--claude-credentials` path, etc.) fail fast via the validator.
+  const featureLoadForProfile = await loadFeatureConfig(feature.absolutePath).catch(() => null);
+  await wireAgentProfileOptions({
+    args: args as Record<string, unknown>,
+    config,
+    featureCfg: featureLoadForProfile?.config ?? null,
+  });
+
   const runArgs = args as FeatRunArgs;
   setVerboseLogging(runArgs.verbose === true);
 

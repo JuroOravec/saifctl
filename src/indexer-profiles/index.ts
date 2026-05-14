@@ -10,9 +10,13 @@ import type { IndexerProfile, SupportedIndexerProfileId } from './types.js';
 
 export type { IndexerGetToolOpts, IndexerInitOpts, IndexerProfile } from './types.js';
 
-const indexerProfiles: Record<SupportedIndexerProfileId, IndexerProfile> = {
+/** Registry mapping every supported indexer profile id to its {@link IndexerProfile}. */
+export const SUPPORTED_INDEXER_PROFILES = {
   shotgun: shotgunIndexerProfile,
-};
+} satisfies Record<SupportedIndexerProfileId, IndexerProfile>;
+
+const indexerProfiles: Record<SupportedIndexerProfileId, IndexerProfile> =
+  SUPPORTED_INDEXER_PROFILES;
 
 /**
  * Resolves an indexer profile by id. Returns `undefined` when id is empty, missing, or `none`.

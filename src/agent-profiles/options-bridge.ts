@@ -55,6 +55,22 @@ type CittyArg =
  *
  * Accepts any {@link ProfileWithOptions} — agent, designer, or indexer
  * profiles all have the same shape for option handling.
+ *
+ * **Deliberately omits citty's `default:` field.** Defaults live on
+ * {@link AgentProfileOption.default} and are resolved by
+ * {@link readProfileOptionsFromEnv} (env-unset → fall back to
+ * `opt.default`). If we forwarded them to citty too, citty would fill
+ * `args['<id>-<name>']` with the default value when the user didn't
+ * pass the flag, and {@link recordProfileOptionsFromArgs} would record
+ * that as if the user had explicitly chosen it — clobbering any
+ * `agentOptions.<id>.<name>` block from `saifctl/config.ts`. The
+ * citty-default vs. config-block conflict surfaced visibly once the
+ * CLI started always-injecting every profile's flags (not only the
+ * `--agent`-selected profile): see the regression in
+ * `src/cli/profile-options.test.ts`.
+ *
+ * Citty's `--help` loses the `(default: <value>)` annotation as a side
+ * effect; descriptions can mention the default in prose when it matters.
  */
 export function buildProfileCliFlags(profile: ProfileWithOptions): Record<string, CittyArg> {
   const flags: Record<string, CittyArg> = {};
@@ -66,25 +82,14 @@ export function buildProfileCliFlags(profile: ProfileWithOptions): Record<string
 }
 
 function buildSingleFlag(opt: AgentProfileOption): CittyArg {
+  // No `default:` — see buildProfileCliFlags doc comment for why.
   switch (opt.type) {
     case 'boolean':
-      return {
-        type: 'boolean',
-        description: opt.description,
-        ...(typeof opt.default === 'boolean' ? { default: opt.default } : {}),
-      };
+      return { type: 'boolean', description: opt.description };
     case 'string':
-      return {
-        type: 'string',
-        description: opt.description,
-        ...(typeof opt.default === 'string' ? { default: opt.default } : {}),
-      };
+      return { type: 'string', description: opt.description };
     case 'number':
-      return {
-        type: 'number',
-        description: opt.description,
-        ...(typeof opt.default === 'number' ? { default: opt.default } : {}),
-      };
+      return { type: 'number', description: opt.description };
   }
 }
 
