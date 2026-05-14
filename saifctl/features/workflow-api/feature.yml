@@ -26,3 +26,5 @@ agent:
   # only. Other defaults (profile: claude, agentOptions.claude.max: true,
   # reviewer: false, resolveAmbiguity: off) inherit from saifctl/config.ts.
   model: anthropic/claude-opus-4-7[1m]
+  options:
+    effort: xhigh

@@ -974,11 +974,14 @@ function buildPhaseLevel1_5Overrides(opts: {
   agent: ResolvedAgentConfig;
   featureName: string;
   phaseId: string;
-}): Pick<RunSubtaskInput, 'agentEnv' | 'agentSecretKeys' | 'reviewerEnabled' | 'llmOverrides'> {
+}): Pick<
+  RunSubtaskInput,
+  'agentEnv' | 'agentSecretKeys' | 'reviewerEnabled' | 'llmOverrides' | 'agentProfileOptions'
+> {
   const { agent, featureName, phaseId } = opts;
   const out: Pick<
     RunSubtaskInput,
-    'agentEnv' | 'agentSecretKeys' | 'reviewerEnabled' | 'llmOverrides'
+    'agentEnv' | 'agentSecretKeys' | 'reviewerEnabled' | 'llmOverrides' | 'agentProfileOptions'
   > = {};
 
   if (agent.env !== undefined && Object.keys(agent.env).length > 0) {
@@ -989,6 +992,13 @@ function buildPhaseLevel1_5Overrides(opts: {
   }
   if (agent.reviewer !== undefined) {
     out.reviewerEnabled = agent.reviewer;
+  }
+  // agent.options (Level-1.5 — per-phase agent-profile option deltas; see
+  // ResolvedAgentConfig.options doc). Emit when any layer set them; the
+  // per-subtask env file (`subtask-env.sh`) translates to
+  // `SAIFCTL_AGENT_OPT_<ID>_<NAME>=value` lines for the active profile.
+  if (agent.options !== undefined && Object.keys(agent.options).length > 0) {
+    out.agentProfileOptions = { ...agent.options };
   }
 
   if (agent.model !== undefined || agent.baseUrl !== undefined) {

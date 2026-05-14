@@ -284,6 +284,26 @@ export interface RunSubtaskInput {
    * values from `docker run -e` apply unchanged.
    */
   llmOverrides?: LlmOverrides;
+  /**
+   * Per-subtask agent-profile option deltas. Sourced from
+   * `agent.options.<name>` on the phase / feature config (compile-time
+   * merge per the agentConfigSchema `options` doc). At runtime the
+   * orchestrator emits each entry as `SAIFCTL_AGENT_OPT_<ID>_<NAME>=value`
+   * into `subtask-env.sh`, sourced fresh on every inner round.
+   *
+   * Layering: this is the FULLY MERGED per-subtask map (project-level +
+   * feature-level + phase-level), not just the phase delta. Emitting the
+   * resolved value on every subtask matches the "always-set" rule the
+   * other per-subtask fields follow, so a later phase that doesn't set
+   * `agent.options.<name>` inherits the run-wide baseline (the merge
+   * resolver carries it forward) rather than getting an `unset` from
+   * the shadow-keys sweep.
+   *
+   * Option names not declared by the resolved {@link agentProfileId} are
+   * silently ignored by the agent — same forwards-compat behavior as
+   * the root `defaults.agentOptions.<id>` block in `saifctl/config.ts`.
+   */
+  agentProfileOptions?: Record<string, string | number | boolean>;
   testScope?: RunSubtaskTestScope;
   /**
    * Phase id this subtask belongs to (Block 4). Set by the phase compiler on
@@ -458,6 +478,8 @@ export interface RunSubtask {
   agentSecretKeys?: string[];
   /** See {@link RunSubtaskInput#llmOverrides}. Round-tripped through the manifest. */
   llmOverrides?: LlmOverrides;
+  /** See {@link RunSubtaskInput#agentProfileOptions}. Round-tripped through the manifest. */
+  agentProfileOptions?: Record<string, string | number | boolean>;
   testScope?: RunSubtaskTestScope;
   /** See {@link RunSubtaskInput#phaseId}. Round-tripped through the manifest. */
   phaseId?: string;

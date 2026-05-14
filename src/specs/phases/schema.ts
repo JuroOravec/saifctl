@@ -194,8 +194,9 @@ export const gateConfigSchema = z
 export type GateConfig = z.infer<typeof gateConfigSchema>;
 
 /**
- * Agent config — mixed Level-1.5 (env / model / base-url / secrets / reviewer)
- * and Level-2 (profile / install / script when changing the installed agent).
+ * Agent config — mixed Level-1.5 (env / model / base-url / secrets / reviewer
+ * / options) and Level-2 (profile / install / script when changing the
+ * installed agent).
  *
  * Per design §3.1, `profile` and explicit `script` / `install` lockstep:
  * setting both is unusual — the explicit value wins, the profile defaults
@@ -218,6 +219,25 @@ export type GateConfig = z.infer<typeof gateConfigSchema>;
  * runs inside the coder container — there's only one reviewer, see §6.6).
  * When unset, the run-level `defaults.agent.reviewer` / `--no-reviewer`
  * baseline applies.
+ *
+ * `options` is a map of agent-profile option names to values, scoped to
+ * the active profile (`agent.profile` or the resolved fallback). The
+ * profile declares the option schema (`AgentProfile.options[]` in
+ * `src/agent-profiles/types.ts`) — names not declared by the active
+ * profile are ignored at runtime, same forwards-compat behavior as the
+ * root-level `defaults.agentOptions.<id>` block in `saifctl/config.ts`.
+ *
+ * Layering for `options`: phase `agent.options.<name>` >
+ * feature `agent.options.<name>` >
+ * `defaults.agentOptions.<profile-id>.<name>` in `saifctl/config.ts` >
+ * profile-declared `default`. Merges sub-key by sub-key (object-valued)
+ * across the inheritance chain — same rule as `env`.
+ *
+ * For the claude profile specifically: `options.max` toggles OAuth
+ * (Claude Max plan) vs API-key auth at container start; `options.effort`
+ * picks the per-subtask thinking tier the agent.sh forwards to the
+ * `--effort` CLI flag. See `src/agent-profiles/claude/profile.ts` for
+ * the canonical option declarations.
  */
 export const agentConfigSchema = z
   .object({
@@ -229,6 +249,7 @@ export const agentConfigSchema = z
     model: z.string().min(1).optional(),
     'base-url': z.string().min(1).optional(),
     reviewer: z.boolean().optional(),
+    options: z.record(z.string().min(1), z.union([z.string(), z.number(), z.boolean()])).optional(),
   })
   .strict();
 

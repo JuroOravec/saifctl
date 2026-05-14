@@ -641,6 +641,26 @@ flips in v1.x).
   replaces (list-valued). `defaults.test.profile` is the
   authoritative profile resolver consumed by the
   profile-required validator below.
+- **`agent.options` pre-shipped** (2026-05-14). The agent
+  block of `agentConfigSchema` accepts an `options` map
+  (`Record<string, string | number | boolean>`) of
+  agent-profile-specific option overrides — already wired
+  end-to-end pre-Block-1.1: `resolveAgent` merges by key
+  across the inheritance chain, `compile.ts` resolves into
+  `RunSubtaskInput.agentProfileOptions`, and the per-subtask
+  env file (`src/orchestrator/per-subtask-env.ts` step 6)
+  emits `SAIFCTL_AGENT_OPT_<ID>_<NAME>=value` for the active
+  subtask. Block 1.1 inherits this for the workflow's
+  `defaults.agent.options` AND step-level `config.agent.options`
+  with no schema-side work — same `agentConfigSchema` import.
+  Run-wide flow lands at container startup via
+  `wireAgentProfileOptions` (CLI > feature.yml `agent.options`
+  > `defaults.agentOptions.<id>` in saifctl/config.ts > profile
+  default). **Known limitation:** cross-phase shadow-keys on
+  the `SAIFCTL_AGENT_OPT_*` prefix isn't shipped; run-wide /
+  feature-level usage is correct, but per-phase overrides may
+  bleed into adjacent phases that don't override the same key.
+  Tracked as a follow-up.
 - **Lockstep validators (per-phase config §6.9 / spec §9).**
   The existing per-phase-config lockstep validators
   (agent-install ↔ agent-profile ↔ agentScript;

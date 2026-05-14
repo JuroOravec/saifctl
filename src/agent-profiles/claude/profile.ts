@@ -50,6 +50,19 @@ export const claudeProfile: AgentProfile = {
         }
       },
     },
+    {
+      name: 'effort',
+      type: 'string',
+      description:
+        'Claude session effort tier; forwarded to `claude --effort <level>`. One of: low | medium | high | xhigh | max. When unset, claude uses its own session default. Honored per-subtask via the subtask-env file (phase `agent.options.effort` wins over feature wins over `agentOptions.claude.effort` in saifctl/config.ts).',
+      validate: async (value) => {
+        if (value === undefined || value === null || value === '') return;
+        const allowed = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+        if (typeof value !== 'string' || !(allowed as readonly string[]).includes(value)) {
+          throw new Error(`must be one of ${allowed.join(' | ')} (got: ${JSON.stringify(value)})`);
+        }
+      },
+    },
   ],
 
   prepareAgentEnv: async ({ options, unprivHome }): Promise<AgentPrepareResult> => {

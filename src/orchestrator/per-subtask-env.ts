@@ -113,8 +113,24 @@ export interface SubtaskEnvBaseline {
 /** Subset of the subtask shape this resolver reads. Accepts manifest + runtime rows. */
 export type SubtaskWithLevel1_5Overrides = Pick<
   RunSubtask | RunSubtaskInput,
-  'agentEnv' | 'agentSecretKeys' | 'llmOverrides' | 'reviewerEnabled'
+  | 'agentEnv'
+  | 'agentSecretKeys'
+  | 'llmOverrides'
+  | 'reviewerEnabled'
+  | 'agentProfileId'
+  | 'agentProfileOptions'
 >;
+
+/**
+ * Translate an agent-profile option name to its env-var protocol key
+ * (`SAIFCTL_AGENT_OPT_<ID>_<NAME>` with id/name uppercased and `-`
+ * replaced with `_`). Mirrors `agent-profiles/options-bridge.ts:envKeyFor`
+ * — inlined here to avoid a cross-cutting import for one function.
+ */
+function profileOptEnvKey(profileId: string, optionName: string): string {
+  const norm = (s: string): string => s.toUpperCase().replace(/-/g, '_');
+  return `SAIFCTL_AGENT_OPT_${norm(profileId)}_${norm(optionName)}`;
+}
 
 /**
  * Reserved factory env keys we never let user-supplied `agent.env`
@@ -291,7 +307,33 @@ export function computeSubtaskEnv(opts: {
     a?.reviewerEnabled !== undefined ? a.reviewerEnabled : baseline.reviewerEnabled;
   out.SAIFCTL_REVIEWER_ENABLED = reviewerEffective ? '1' : null;
 
-  // 6. LLM config (baseline merged with active overrides). ALWAYS emit
+  // 6. Agent-profile options (per-phase `agent.options` deltas). When the
+  // active subtask declares overrides, emit them as
+  // `SAIFCTL_AGENT_OPT_<ID>_<NAME>=value` so the inner round (and any
+  // profile-aware agent.sh that reads the env-var protocol) sees the
+  // per-phase value. The active subtask's `agentProfileId` determines
+  // the env-var prefix.
+  //
+  // **Cross-phase leak — known limitation.** The run-wide baseline
+  // values for `SAIFCTL_AGENT_OPT_*` are set on the coder container at
+  // startup (from `prepareAgentEnv` reading `readProfileOptionsFromEnv`).
+  // When a phase declares an override and a subsequent phase does NOT,
+  // the override survives in the container's shell across the phase
+  // boundary because we don't include `SAIFCTL_AGENT_OPT_*` in the
+  // shadow-keys sweep below. Run-wide + feature-level usage is correct;
+  // proper per-phase isolation needs a follow-up (track + emit the
+  // run-wide baseline + shadow-keys for this prefix, same pattern as
+  // SAIFCTL_REVIEWER_ENABLED). Documented at
+  // saifctl/features/per-phase-config/design.md (followup) and the
+  // agentConfigSchema `options` doc.
+  if (a?.agentProfileOptions && a.agentProfileId) {
+    for (const [name, value] of Object.entries(a.agentProfileOptions)) {
+      const key = profileOptEnvKey(a.agentProfileId, name);
+      out[key] = typeof value === 'string' ? value : String(value);
+    }
+  }
+
+  // 7. LLM config (baseline merged with active overrides). ALWAYS emit
   // the resolved env, regardless of whether overrides are present.
   //
   // Why unconditional: `LLM_*` is in {@link ALWAYS_MANAGED_KEYS}, so the
@@ -309,10 +351,12 @@ export function computeSubtaskEnv(opts: {
   const llmConfig = resolveAgentLlmConfigForContainer('coder', mergedLlm);
   Object.assign(out, llmEnvFromConfig(llmConfig));
 
-  // 7. Shadow-keys sweep. Any key the run might touch but the active
+  // 8. Shadow-keys sweep. Any key the run might touch but the active
   // subtask doesn't resolve gets an explicit `unset`, so prior subtasks'
   // exports don't survive into the active shell. See file header
-  // (cross-phase transition correctness).
+  // (cross-phase transition correctness). NOTE: `SAIFCTL_AGENT_OPT_*`
+  // keys are intentionally NOT in the shadow set today — see the leak
+  // comment in step 6.
   if (opts.shadowKeys) {
     for (const k of opts.shadowKeys) {
       if (!(k in out)) out[k] = null;

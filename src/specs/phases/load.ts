@@ -222,9 +222,9 @@ export interface ResolvedGateConfig {
  * Resolved agent config — see {@link AgentConfig} for the YAML shape and
  * each field's lifecycle level / target threading phase.
  *
- * `env` merges by key across the inheritance chain (most-specific entry
- * wins per key). `secrets` REPLACES at the most-specific layer
- * (list-valued; no key-level merge per design §4.2).
+ * `env` and `options` merge by key across the inheritance chain
+ * (most-specific entry wins per key). `secrets` REPLACES at the
+ * most-specific layer (list-valued; no key-level merge per design §4.2).
  */
 export interface ResolvedAgentConfig {
   profile?: string;
@@ -235,6 +235,17 @@ export interface ResolvedAgentConfig {
   model?: string;
   baseUrl?: string;
   reviewer?: boolean;
+  /**
+   * Per-phase agent-profile option deltas. Sourced from `agent.options`
+   * on each layer (phase.yml > inline > defaults > feature.yml top-level);
+   * the saifctl/config.ts root `defaults.agentOptions.<id>` is NOT part
+   * of this layer chain (it's wired separately as the run-wide baseline
+   * via `wireAgentProfileOptions`). Compile-time merge by key, same
+   * pattern as `env`. The compiler attaches the merged result to
+   * `RunSubtaskInput.agentProfileOptions` so the per-subtask env-file
+   * resolver can emit `SAIFCTL_AGENT_OPT_<ID>_<NAME>=value` lines.
+   */
+  options?: Record<string, string | number | boolean>;
 }
 
 /**
@@ -493,6 +504,18 @@ function resolveAgent(layers: readonly (AgentConfig | undefined)[]): ResolvedAge
   if (baseUrl !== undefined) out.baseUrl = baseUrl;
   const reviewer = pick(layers, 'reviewer');
   if (reviewer !== undefined) out.reviewer = reviewer;
+
+  // options: merge by key (most-specific wins per key) — same pattern as
+  // env. Reverse-walk so least-specific writes first and gets overwritten.
+  let optionsMerged: Record<string, string | number | boolean> | undefined;
+  for (let i = layers.length - 1; i >= 0; i--) {
+    const layerOpts = layers[i]?.options;
+    if (layerOpts === undefined) continue;
+    optionsMerged ??= {};
+    Object.assign(optionsMerged, layerOpts);
+  }
+  if (optionsMerged !== undefined) out.options = optionsMerged;
+
   return out;
 }
 

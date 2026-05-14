@@ -80,11 +80,18 @@ else
 fi
 _TASK_CONTENT="$(cat "$SAIFCTL_TASK_PATH")"
 
+# Surface the resolved effort tier in logs for parity with the runuser-shell
+# claude invocation below. Empty / unset = no `--effort` flag and claude picks
+# its own session default.
+if [[ -n "${SAIFCTL_AGENT_OPT_CLAUDE_EFFORT:-}" ]]; then
+  echo "[agent/claude] Effort: $SAIFCTL_AGENT_OPT_CLAUDE_EFFORT"
+fi
+
 _SAIFCTL_TASK_SNIP="$_TASK_CONTENT"
 if [ "${#_SAIFCTL_TASK_SNIP}" -gt 200 ]; then
   _SAIFCTL_TASK_SNIP="${_SAIFCTL_TASK_SNIP:0:200}..."
 fi
-echo "[agent/claude] About to run (as ${SAIFCTL_UNPRIV_USER}): claude -p \"${_SAIFCTL_TASK_SNIP}\" --model \"${LLM_MODEL_ID}\" --dangerously-skip-permissions --output-format stream-json --verbose --no-session-persistence --disable-slash-commands"
+echo "[agent/claude] About to run (as ${SAIFCTL_UNPRIV_USER}): claude -p \"${_SAIFCTL_TASK_SNIP}\" --model \"${LLM_MODEL_ID}\"${SAIFCTL_AGENT_OPT_CLAUDE_EFFORT:+ --effort \"$SAIFCTL_AGENT_OPT_CLAUDE_EFFORT\"} --dangerously-skip-permissions --output-format stream-json --verbose --no-session-persistence --disable-slash-commands"
 
 # Run claude as the unprivileged user. `runuser -l` resets HOME/PATH/etc.
 # to the target user's login env; we re-export the env vars claude needs.
@@ -134,15 +141,21 @@ SAIFCTL_TASK_CONTENT="$_TASK_CONTENT" \
   SAIFCTL_UNPRIV_NPM_PREFIX="$SAIFCTL_UNPRIV_NPM_PREFIX" \
   "${_env_prefix[@]}" \
   runuser -l "$SAIFCTL_UNPRIV_USER" \
-    --whitelist-environment="$(saifctl_unpriv_env_whitelist),SAIFCTL_TASK_CONTENT" \
+    --whitelist-environment="$(saifctl_unpriv_env_whitelist),SAIFCTL_TASK_CONTENT,SAIFCTL_AGENT_OPT_CLAUDE_EFFORT" \
     -c '
       export PATH="$SAIFCTL_UNPRIV_NPM_PREFIX/bin:$PATH"
       # cd into the workspace; runuser -l defaults cwd to /home/saifctl, but
       # claude resolves task-prompt relative paths against cwd. See the cwd
       # gotcha in /saifctl/saifctl-agent-helpers.sh.
       cd "${SAIFCTL_WORKSPACE_BASE:-/workspace}"
+      # SAIFCTL_AGENT_OPT_CLAUDE_EFFORT is the claude profile `effort` option
+      # (agent.options.effort in feature.yml / phase.yml). When set, forward
+      # to `claude --effort <level>`; when empty, let claude use its session
+      # default. The ${VAR:+...} expansion injects both the flag and its
+      # value as a single quoted-arg sequence only when VAR is non-empty.
       claude -p "$SAIFCTL_TASK_CONTENT" \
         --model "$LLM_MODEL_ID" \
+        ${SAIFCTL_AGENT_OPT_CLAUDE_EFFORT:+--effort "$SAIFCTL_AGENT_OPT_CLAUDE_EFFORT"} \
         --dangerously-skip-permissions \
         --output-format stream-json \
         --verbose \
