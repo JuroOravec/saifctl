@@ -16,6 +16,7 @@ critics:
   - { id: audit, rounds: 2 }
 
 tests:
+  none: true
   mutable: false
 
 gate:
