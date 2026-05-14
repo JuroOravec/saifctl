@@ -190,7 +190,7 @@ export const runTestArgs = {
   'subtask-timeout': {
     type: 'string' as const,
     description:
-      'Per-subtask wall-clock budget. Resets each time a new subtask becomes active. Same value grammar as --run-timeout. Default: 1h. Set to "none" to disable. On expiry, the run is aborted and saved with the offending subtask in the log.',
+      'Per-subtask wall-clock budget. Resets each time a new subtask becomes active. Same value grammar as --run-timeout. Default: 4h. Set to "none" to disable. On expiry, the run is aborted and saved with the offending subtask in the log.',
   },
   'no-reviewer': {
     type: 'boolean' as const,

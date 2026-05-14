@@ -9,7 +9,7 @@
  *
  *   - **Subtask timeout** (`subtaskMs`): wall-clock per individual subtask.
  *     Resets when a new subtask becomes active (prompt-write); fires if the
- *     subtask-done signal isn't received within the budget. Default: 1 hour.
+ *     subtask-done signal isn't received within the budget. Default: 4 hours.
  *     `null` disables the per-subtask timer entirely (only the run timer
  *     remains, if set).
  *
@@ -28,17 +28,24 @@
 export interface TimeoutsConfig {
   /** Total wall-clock budget for the whole run; `null` = unbounded (default). */
   runMs: number | null;
-  /** Per-subtask wall-clock budget; `null` = disabled. Default: 1 hour. */
+  /** Per-subtask wall-clock budget; `null` = disabled. Default: 4 hours. */
   subtaskMs: number | null;
 }
 
 /** User-facing input shape — string duration, raw ms, `'none'`/`null` for unbounded, `undefined` for "use default". */
 export type TimeoutInput = number | string | null | undefined;
 
-/** Built-in defaults. `runMs` is unbounded so users opt in to a hard cap; `subtaskMs` defaults to 1h to catch a hung agent fast. */
+/**
+ * Built-in defaults. `runMs` is unbounded so users opt in to a hard cap;
+ * `subtaskMs` defaults to 4h, which is a reasonable upper bound for a
+ * single subtask of substantial work (heavy schema implementation, full
+ * test suite, agent + multiple critic rounds). The earlier 1h default
+ * was tight against typical phase-impl runs and bit users in workflow-api's
+ * Block 1.1.
+ */
 export const DEFAULT_TIMEOUTS: TimeoutsConfig = {
   runMs: null,
-  subtaskMs: 60 * 60 * 1000,
+  subtaskMs: 4 * 60 * 60 * 1000,
 };
 
 const UNIT_MS: Record<string, number> = {

@@ -12,10 +12,10 @@
  *
  * Custom-keyword channel: per-type credential fields wrap their inner
  * schema in `sensitive(...)`, which encodes a leading tag in the field's
- * description. `scripts/derive-workflow-schema.ts` post-processes the
- * generated JSON Schema to lift the tag into the JSON-Schema-level
- * `x-saifctl-sensitive: true` keyword (matches workflow-api.md §5.3 +
- * implementation-plan.md Block 1.1 metadata).
+ * description. `saifctl/features/workflow-api/derive-workflow-schema.ts`
+ * post-processes the generated JSON Schema to lift the tag into the
+ * JSON-Schema-level `x-saifctl-sensitive: true` keyword (matches
+ * workflow-api.md §5.3 + implementation-plan.md Block 1.1 metadata).
  */
 import { z } from 'zod';
 

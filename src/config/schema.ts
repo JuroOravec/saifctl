@@ -131,7 +131,7 @@ const saifctlConfigDefaultsSchema = z.object({
    *        Default: unbounded.
    *
    * `subtask`: per-subtask wall-clock budget (CLI: `--subtask-timeout`).
-   *            Resets when each subtask becomes active. Default: 1 hour.
+   *            Resets when each subtask becomes active. Default: 4 hours.
    *
    * Either timeout firing aborts the run with the same save-artifact-and-
    * resume semantics as an in-container error. Resume with

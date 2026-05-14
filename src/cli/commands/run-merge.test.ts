@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { runCommand as cittyRunCommand } from 'citty';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import * as loggerModule from '../../logger.js';
 import { git, gitAdd, gitCommit, gitInit } from '../../utils/git.js';
@@ -131,6 +131,29 @@ async function runRunSubcommand(
 
 describe('saifctl run merge', () => {
   const repos: string[] = [];
+
+  // Hermetic git identity for the test's duration. The test's own setup
+  // (makeRepo / captureAddDiff) already passes `gitEnv` to saifctl's git
+  // helpers explicitly, but the CLI handler under test (entered via
+  // citty's `runCommand`) runs in-process and shells out to `git` via
+  // `process.env`. Without these stubs the merge handler's commit /
+  // cherry-pick fails with "please tell me who you are" on machines
+  // without a global gitconfig (CI runners, saifctl sandboxes pre-fix-C).
+  // GIT_CONFIG_GLOBAL/SYSTEM=/dev/null keeps the test independent of any
+  // ambient config that does exist.
+  beforeAll(() => {
+    vi.stubEnv('GIT_AUTHOR_NAME', 'Tester');
+    vi.stubEnv('GIT_AUTHOR_EMAIL', 't@test.dev');
+    vi.stubEnv('GIT_COMMITTER_NAME', 'Tester');
+    vi.stubEnv('GIT_COMMITTER_EMAIL', 't@test.dev');
+    vi.stubEnv('GIT_CONFIG_GLOBAL', '/dev/null');
+    vi.stubEnv('GIT_CONFIG_SYSTEM', '/dev/null');
+  });
+
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
+
   afterEach(async () => {
     for (const r of repos.splice(0)) {
       await rm(r, { recursive: true, force: true });

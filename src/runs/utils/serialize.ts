@@ -262,9 +262,9 @@ export function deserializeArtifactConfig(serialized: DeserializeArtifactConfigI
   } = serialized;
 
   // Pre-timeouts artifacts won't have runTimeoutMs / subtaskTimeoutMs.
-  // Backfill with the defaults: unbounded run / 1h subtask. Resuming an
-  // older run keeps the same loose-bound semantics it had before this
-  // patch landed (no AGENT_TIMEOUT_MS hardcap anymore).
+  // Backfill with the current defaults: unbounded run / 4h subtask.
+  // Resuming an older run keeps the same loose-bound semantics it had
+  // before this patch landed (no AGENT_TIMEOUT_MS hardcap anymore).
   const runTimeoutMs =
     typeof serialized.runTimeoutMs === 'number' || serialized.runTimeoutMs === null
       ? serialized.runTimeoutMs
@@ -272,7 +272,7 @@ export function deserializeArtifactConfig(serialized: DeserializeArtifactConfigI
   const subtaskTimeoutMs =
     typeof serialized.subtaskTimeoutMs === 'number' || serialized.subtaskTimeoutMs === null
       ? serialized.subtaskTimeoutMs
-      : 60 * 60 * 1000;
+      : 4 * 60 * 60 * 1000;
 
   return {
     ...rest,

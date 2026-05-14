@@ -139,8 +139,8 @@ describe('resolveTimeouts', () => {
     expect(r.subtaskMs).toBeNull();
   });
 
-  it('default subtask is 1 hour, default run is unbounded', () => {
-    expect(DEFAULT_TIMEOUTS.subtaskMs).toBe(60 * 60_000);
+  it('default subtask is 4 hours, default run is unbounded', () => {
+    expect(DEFAULT_TIMEOUTS.subtaskMs).toBe(4 * 60 * 60_000);
     expect(DEFAULT_TIMEOUTS.runMs).toBeNull();
   });
 });

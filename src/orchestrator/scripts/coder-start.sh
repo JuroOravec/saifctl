@@ -356,6 +356,18 @@ main() {
   local subtask_exit=1
   trap 'write_subtask_done_signal "${subtask_exit:-1}"' EXIT
 
+  # Default git identity for the sandbox. The saifctl baseline commit sets
+  # its own author/committer via `git commit -c user.email=... -c user.name=...`
+  # (see SAIFCTL_DEFAULT_AUTHOR in src/orchestrator/patch.ts), so the baseline
+  # itself doesn't depend on this. But anything ELSE that shells out to `git`
+  # inside the sandbox — the gate's `pnpm check:agent` running tests that
+  # use git, the agent's own diagnostic `git commit`s, etc. — falls through
+  # to the global config and fails on "please tell me who you are" without
+  # this. Matches `SAIFCTL_DEFAULT_AUTHOR`.
+  echo "[coder-start] Setting default git identity for sandbox."
+  git config --global user.email "saifctl@safeaifactory.com" || true
+  git config --global user.name "saifctl" || true
+
   echo "[coder-start] Running startup script: $SAIFCTL_STARTUP_SCRIPT"
   bash "$SAIFCTL_STARTUP_SCRIPT"
   echo "[coder-start] Startup script completed."

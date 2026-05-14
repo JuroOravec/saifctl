@@ -25,4 +25,4 @@ agent:
   # Override saifctl/config.ts `globalModel` (sonnet-4-6) for this feature
   # only. Other defaults (profile: claude, agentOptions.claude.max: true,
   # reviewer: false, resolveAmbiguity: off) inherit from saifctl/config.ts.
-  model: anthropic/claude-opus-4-7
+  model: anthropic/claude-opus-4-7[1m]

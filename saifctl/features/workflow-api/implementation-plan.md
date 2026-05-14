@@ -340,7 +340,7 @@ no env-var dispatch shim to maintain.
   sketch; full schema lands in Block 1.1).
 - `src/specs/workflow/schema.sketch.test.ts` — new (Block 0.3
   Zod round-trip test against the fixtures).
-- `scripts/derive-workflow-schema.ts` — new (build step that
+- `saifctl/features/workflow-api/derive-workflow-schema.ts` — new (build step that
   runs `zod-to-json-schema` against `schema.sketch.ts`, injects
   the OpenAPI-style `discriminator:` annotation for source /
   sink unions, lifts the `@saifctl:sensitive` describe-tag to
@@ -420,7 +420,7 @@ keyword silently; datamodel-codegen reads it.
 
 **Derived artifact** at
 [`saifctl/features/workflow-api/workflow-schema.json`](./workflow-schema.json).
-Rebuild via `pnpm tsx scripts/derive-workflow-schema.ts`.
+Rebuild via `pnpm tsx saifctl/features/workflow-api/derive-workflow-schema.ts`.
 Regeneration is **not** wired into `pnpm build` yet — that
 lands in Block 1.1 / 2.2 alongside the SDK package build.
 
@@ -517,7 +517,7 @@ three Block 0.3 fixtures through `Workflow.model_validate(...)`.
 
 ```bash
 # 1. Derive JSON Schema from Zod sketch
-pnpm tsx scripts/derive-workflow-schema.ts
+pnpm tsx saifctl/features/workflow-api/derive-workflow-schema.ts
 
 # 2. Generate Pydantic models
 uv tool run --from datamodel-code-generator datamodel-codegen \

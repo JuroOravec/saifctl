@@ -33,7 +33,9 @@ Block 0.3 shipped a minimal Zod sketch at
 [`src/specs/workflow/schema.sketch.ts`](../../../../../src/specs/workflow/schema.sketch.ts)
 (workflow top-level + 2 sources + 2 sinks + leaf step only) along with
 the derive script at
-[`scripts/derive-workflow-schema.ts`](../../../../../scripts/derive-workflow-schema.ts).
+[`../../derive-workflow-schema.ts`](../../derive-workflow-schema.ts)
+(lives inside this feature dir; not wired into `pnpm build` yet — run
+manually via `pnpm tsx saifctl/features/workflow-api/derive-workflow-schema.ts`).
 Per implementation-plan.md §3.3, the sketch is replaced wholesale by
 the full schema; do not grow `schema.sketch.ts` incrementally. Concretely:
 
@@ -45,8 +47,8 @@ the full schema; do not grow `schema.sketch.ts` incrementally. Concretely:
 - **Delete** `src/specs/workflow/schema.sketch.ts` and
   `src/specs/workflow/schema.sketch.test.ts` once `schema.ts` parses
   every fixture the sketch parsed.
-- **Update** `scripts/derive-workflow-schema.ts` to import from
-  `schema.ts` instead of `schema.sketch.ts`. The derived
+- **Update** `saifctl/features/workflow-api/derive-workflow-schema.ts`
+  to import from `schema.ts` instead of `schema.sketch.ts`. The derived
   `workflow-schema.json` (in this feature dir) and the Pydantic codegen
   output under `block-0-pydantic-smoke/` get regenerated from the new
   schema; both should remain green smoke-tests after this phase.
@@ -107,8 +109,8 @@ shipped (per the divergence rules in [`_preamble.md`](../../_preamble.md)).
 - `validate-step-shape.ts` — rejects `sources:` on if-wrappers and
   subworkflow steps per §6.1.
 
-Sketch files deleted; `scripts/derive-workflow-schema.ts` re-pointed
-at the new `schema.ts`.
+Sketch files deleted; `saifctl/features/workflow-api/derive-workflow-schema.ts`
+re-pointed at the new `schema.ts`.
 
 ## Acceptance (full enumeration in §4.1 "Acceptance:")
 

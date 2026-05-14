@@ -1,6 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["src/validation/validate/*.ts!"],
+  "entry": [
+    "src/validation/validate/*.ts!",
+    "saifctl/features/workflow-api/derive-workflow-schema.ts"
+  ],
   "ignoreDependencies": ["@strongdm/leash", "@safe-ai-factory/saifdocs"],
   "ignoreBinaries": ["uv"],
   "ignoreFiles": [

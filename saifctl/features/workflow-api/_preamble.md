@@ -8,6 +8,28 @@ Project conventions (always-needed preamble):
 - Silent failure (`catch {}`, swallowed errors, fallthroughs returning
   success on partial state) is a bug; surface the failure with context.
 
+Delegation:
+
+- When `pnpm check:agent` (or any of its phases — types, lint,
+  format, knip, custom constraints, tests) reports failures,
+  delegate to the **`check-fixer`** subagent rather than fixing
+  inline. It runs on a cheaper model, drives `pnpm check:agent` to
+  green in a fix-and-re-run loop, and returns a structured summary;
+  the parent session keeps its context budget for design and
+  implementation work. The check-fixer's contract is at
+  `.claude/agents/check-fixer.md` — read it once if you need to know
+  what it will and won't do.
+- The check-fixer triages each failure as mechanical-fix vs.
+  escalation. It fixes the mechanical ones inline (lint autofixes,
+  formatting, simple type narrowing, dead-export cleanup, etc.) and
+  loops until the gate passes. If it escalates a finding back
+  ("could not fix mechanically" — typically a type error that
+  reveals a design issue, a test failure that suggests the impl is
+  wrong, or a pre-existing failure on trunk), the parent agent
+  needs to make a real decision. Don't re-delegate the same finding
+  back to the check-fixer; either fix it as a design call or update
+  the spec / plan per the divergence rules above.
+
 Divergence rules (apply to BOTH implementer and critic):
 
 The implementer prompt grants permission to modify
