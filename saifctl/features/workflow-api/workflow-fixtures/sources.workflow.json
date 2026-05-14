@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "metadata": {
+    "name": "with-sources",
+    "labels": { "team": "data" }
+  },
+  "inputs": {
+    "github_token": { "type": "secret" },
+    "aws_key": { "type": "secret" },
+    "aws_secret": { "type": "secret" }
+  },
+  "sources": [
+    {
+      "id": "repo",
+      "type": "github",
+      "url": "foo/bar",
+      "ref": "main",
+      "token": "{{inputs.github_token}}",
+      "saveAs": "/"
+    },
+    {
+      "id": "dataset",
+      "type": "s3",
+      "uri": "s3://my-bucket/q4-2025/2026.xlsx",
+      "region": "us-east-1",
+      "accessKeyId": "{{inputs.aws_key}}",
+      "secretAccessKey": "{{inputs.aws_secret}}",
+      "saveAs": "/data/2026.xlsx"
+    }
+  ],
+  "steps": [
+    {
+      "id": "fetch",
+      "spec": "Verify /workspace/data/2026.xlsx parses; write rowCount.json.",
+      "exports": {
+        "row_count": "number"
+      }
+    }
+  ]
+}

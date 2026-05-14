@@ -47,12 +47,12 @@ describe('KNOWN_PHASE_CONFIG_FIELDS', () => {
       'container.image',
       'container.engine',
       'container.compose-file',
-      'runner.test-profile',
-      'runner.test-image',
-      'runner.test-script',
-      'runner.stage-script',
-      'runner.resolve-ambiguity',
-      'runner.test-retries',
+      'test.profile',
+      'test.image',
+      'test.script',
+      'test.stage-script',
+      'test.resolve-ambiguity',
+      'test.retries',
       'limits.max-attempts',
     ].sort();
     const actual = KNOWN_PHASE_CONFIG_FIELDS.map((f) => f.path).sort();
@@ -111,16 +111,16 @@ describe('isFieldRuntimeSupported', () => {
   });
 
   it('returns true for the Level-4 + tests.none fields shipped by phase 7.3', () => {
-    // Pin the per-phase-config phase 7.3 contract: every runner.* field
+    // Pin the per-phase-config phase 7.3 contract: every test.* field
     // and tests.none must clear the §6.9.8 gate now that their threading
     // has shipped. Same regression rationale as the phase 7.2 pin above.
     expect(isFieldRuntimeSupported('tests.none')).toBe(true);
-    expect(isFieldRuntimeSupported('runner.test-profile')).toBe(true);
-    expect(isFieldRuntimeSupported('runner.test-image')).toBe(true);
-    expect(isFieldRuntimeSupported('runner.test-script')).toBe(true);
-    expect(isFieldRuntimeSupported('runner.stage-script')).toBe(true);
-    expect(isFieldRuntimeSupported('runner.resolve-ambiguity')).toBe(true);
-    expect(isFieldRuntimeSupported('runner.test-retries')).toBe(true);
+    expect(isFieldRuntimeSupported('test.profile')).toBe(true);
+    expect(isFieldRuntimeSupported('test.image')).toBe(true);
+    expect(isFieldRuntimeSupported('test.script')).toBe(true);
+    expect(isFieldRuntimeSupported('test.stage-script')).toBe(true);
+    expect(isFieldRuntimeSupported('test.resolve-ambiguity')).toBe(true);
+    expect(isFieldRuntimeSupported('test.retries')).toBe(true);
   });
 
   it('returns true for the Level-1.5 fields shipped by phase 7.4', () => {

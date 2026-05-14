@@ -105,7 +105,7 @@ const envVarNameSchema = z
  *
  * Note: only `coding`-engine selection is exposed at the phase level for v1.
  * Staging engine is whole-run (test runner is per-attempt; per-phase staging
- * engine override is in scope only insofar as `runner.*` knobs cover it).
+ * engine override is in scope only insofar as `test.*` knobs cover it).
  */
 const engineKindSchema = z.enum(['docker', 'helm', 'local']);
 
@@ -145,7 +145,7 @@ export const testsConfigSchema = z
 export type TestsConfig = z.infer<typeof testsConfigSchema>;
 
 // ---------------------------------------------------------------------------
-// v1 group schemas — gate, agent, container, runner, limits.
+// v1 group schemas — gate, agent, container, test, limits.
 //
 // Each group is object-valued and resolves sub-key by sub-key across the
 // inheritance chain (matches the existing `tests:` rule). List-valued
@@ -275,30 +275,35 @@ export const containerConfigSchema = z
 export type ContainerConfig = z.infer<typeof containerConfigSchema>;
 
 /**
- * Runner config — Level-4 (test runner is recreated each outer attempt;
+ * Test config — Level-4 (test runner is recreated each outer attempt;
  * per-phase is just routing).
  *
  * Each field overrides the run-level equivalent at the active subtask's
  * test runner spin-up. When unset, the run-level value applies.
  *
- * Note: `tests.none: true` (in `testsConfigSchema`) is the "skip the runner
- * entirely for this phase" declaration; it's intentionally placed under
- * `tests:` (alongside mutability / fail2pass) because it's a content
- * declaration, not a runner toggle. See design §6.5.
+ * Note: `tests.none: true` (in `testsConfigSchema`) is the "skip the test
+ * runner entirely for this phase" declaration; it's intentionally placed
+ * under `tests:` (alongside mutability / fail2pass) because it's a
+ * content declaration, not a `test.*` toggle. See design §6.5.
+ *
+ * Schema key is `test:` under `config.` Sub-fields drop the redundant
+ * `test-` prefix that the v0 schema carried under `runner:`
+ * (`profile` / `image` / `script` / `retries`); `stage-script` and
+ * `resolve-ambiguity` are unchanged.
  */
-export const runnerConfigSchema = z
+export const testConfigSchema = z
   .object({
-    'test-profile': z.string().min(1).optional(),
-    'test-image': z.string().min(1).optional(),
-    'test-script': relativePathSchema.optional(),
+    profile: z.string().min(1).optional(),
+    image: z.string().min(1).optional(),
+    script: relativePathSchema.optional(),
     'stage-script': relativePathSchema.optional(),
     'resolve-ambiguity': z.enum(['off', 'prompt', 'ai']).optional(),
-    'test-retries': z.number().int().min(1).optional(),
+    retries: z.number().int().min(1).optional(),
   })
   .strict();
 
-/** Inferred type of {@link runnerConfigSchema}: per-phase test-runner overrides. */
-export type RunnerConfig = z.infer<typeof runnerConfigSchema>;
+/** Inferred type of {@link testConfigSchema}: per-phase test-runner overrides. */
+export type TestConfig = z.infer<typeof testConfigSchema>;
 
 /**
  * Limits config — per-phase outer-attempt cap (loop state).
@@ -329,7 +334,7 @@ export type LimitsConfig = z.infer<typeof limitsConfigSchema>;
  * `spec` is a path relative to the phase directory; defaults to `spec.md` at
  * resolve time.
  *
- * The five group fields (`gate`, `agent`, `container`, `runner`, `limits`)
+ * The five group fields (`gate`, `agent`, `container`, `test`, `limits`)
  * are object-valued and merge sub-key by sub-key across the inheritance
  * chain (matches the existing `tests:` rule). See the per-phase-config
  * design (`saifctl/features/per-phase-config/design.md`) for the full
@@ -350,7 +355,7 @@ export const phaseConfigSchema = z
     gate: gateConfigSchema.optional(),
     agent: agentConfigSchema.optional(),
     container: containerConfigSchema.optional(),
-    runner: runnerConfigSchema.optional(),
+    test: testConfigSchema.optional(),
     limits: limitsConfigSchema.optional(),
   })
   .strict();
@@ -385,7 +390,7 @@ const featurePhasesBlockSchema = z
  * - `tests` at this scope: feature-level mutability config. Applies to
  *   `features/<feat>/tests/`.
  * - `phases`: meaningful only when a `phases/` dir exists.
- * - `gate`, `agent`, `container`, `runner`, `limits` at this scope:
+ * - `gate`, `agent`, `container`, `test`, `limits` at this scope:
  *   feature-level defaults for the v1 groups (per per-phase-config design
  *   §6.8). Apply to non-phased features (single-spec features), and act as
  *   the inheritance root for phased features when neither
@@ -400,7 +405,7 @@ export const featureConfigSchema = z
     gate: gateConfigSchema.optional(),
     agent: agentConfigSchema.optional(),
     container: containerConfigSchema.optional(),
-    runner: runnerConfigSchema.optional(),
+    test: testConfigSchema.optional(),
     limits: limitsConfigSchema.optional(),
   })
   .strict();

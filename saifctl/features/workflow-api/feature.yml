@@ -1,0 +1,28 @@
+# Workflow API — v1 build of the engine spec'd in `workflow-api.md`.
+#
+# Phase structure mirrors the per-week breakdown in `implementation-plan.md`
+# §1.1 (Block list). Each week of work gets TWO phases (`-impl`, `-e2e`).
+# The `-e2e` phase writes the test suite against the as-built impl into
+# the project codebase and overrides `audit` to `rounds: 1` (vs. default
+# 2 — see that phase's `phase.yml`); the test-writing work doesn't need
+# the full adversarial-pass cadence the impl phase gets. See
+# `_preamble.md` for the divergence rule the critic enforces and
+# `plan.md` for the phase ↔ block-week mapping.
+#
+# Block 0 has already shipped to trunk before phased execution begins
+# here; phases enumerate work from Block 1.1 onward.
+
+critics:
+  - { id: audit, rounds: 2 }
+
+tests:
+  mutable: false
+
+gate:
+  script: gate.sh
+
+agent:
+  # Override saifctl/config.ts `globalModel` (sonnet-4-6) for this feature
+  # only. Other defaults (profile: claude, agentOptions.claude.max: true,
+  # reviewer: false, resolveAmbiguity: off) inherit from saifctl/config.ts.
+  model: anthropic/claude-opus-4-7

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "metadata": {
+    "name": "minimal",
+    "description": "Smallest legal workflow under the Block 0.3 sketch."
+  },
+  "steps": [
+    {
+      "id": "hello",
+      "spec": "Write /workspace/hello.txt containing the string 'hi'."
+    }
+  ]
+}

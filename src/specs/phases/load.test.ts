@@ -147,7 +147,7 @@ describe('resolvePhaseConfig — inheritance', () => {
     expect(r.gate).toEqual({});
     expect(r.agent).toEqual({});
     expect(r.container).toEqual({});
-    expect(r.runner).toEqual({});
+    expect(r.test).toEqual({});
     expect(r.limits).toEqual({});
   });
 
@@ -442,21 +442,21 @@ describe('resolvePhaseConfig — v1 group resolution', () => {
     expect(r.container.composeFile).toBe('docker-compose.phase.yml');
   });
 
-  it('runner kebab-case YAML keys land as camelCase on resolved config', () => {
+  it('test config: kebab-case YAML keys land on resolved config (camelCase only for multi-word internal names)', () => {
     const r = resolvePhaseConfig({
       phaseId: 'p1',
       phaseConfig: {
-        runner: {
-          'test-profile': 'pytest',
+        test: {
+          profile: 'pytest',
           'resolve-ambiguity': 'ai',
-          'test-retries': 3,
+          retries: 3,
         },
       },
       featureConfig: null,
     });
-    expect(r.runner.testProfile).toBe('pytest');
-    expect(r.runner.resolveAmbiguity).toBe('ai');
-    expect(r.runner.testRetries).toBe(3);
+    expect(r.test.profile).toBe('pytest');
+    expect(r.test.resolveAmbiguity).toBe('ai');
+    expect(r.test.retries).toBe(3);
   });
 
   it('limits.max-attempts kebab → maxAttempts camel', () => {
@@ -486,7 +486,7 @@ describe('resolvePhaseConfig — v1 group resolution', () => {
     expect(r.gate).toEqual({});
     expect(r.agent).toEqual({});
     expect(r.container).toEqual({});
-    expect(r.runner).toEqual({});
+    expect(r.test).toEqual({});
     expect(r.limits).toEqual({});
   });
 

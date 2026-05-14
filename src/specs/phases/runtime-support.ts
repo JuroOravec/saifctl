@@ -18,7 +18,7 @@
  * Implementation phases (per design §7):
  *   7.1  — schema-and-validate (schema + validators only)
  *   7.2  — level-1-threading (gate.*, agent.script)
- *   7.3  — level-4-threading (runner.*, tests.none)
+ *   7.3  — level-4-threading (test.*, tests.none)
  *   7.4  — level-1.5-fast-path (agent.env, model, base-url, secrets, reviewer)
  *   7.5  — level-2-restart, first half (agent.profile, agent.install,
  *          container.startup / cedar / no-leash) — schema + manifest
@@ -68,7 +68,7 @@ export interface FieldRuntimeSupport {
  * in lockstep with `schema.ts`.
  */
 export const KNOWN_PHASE_CONFIG_FIELDS: readonly FieldRuntimeSupport[] = [
-  // tests.none — Level 4 (runner bypass), ships in 7.3
+  // tests.none — Level 4 (test runner bypass), ships in 7.3
   { path: 'tests.none', level: '4', shipsIn: '7.3-level-4-threading' },
 
   // Level 1 — gate.*
@@ -107,13 +107,13 @@ export const KNOWN_PHASE_CONFIG_FIELDS: readonly FieldRuntimeSupport[] = [
   { path: 'container.engine', level: '3', shipsIn: '7.5b-level-3-mirror' },
   { path: 'container.compose-file', level: '3', shipsIn: '7.5b-level-3-mirror' },
 
-  // Level 4 — runner.*
-  { path: 'runner.test-profile', level: '4', shipsIn: '7.3-level-4-threading' },
-  { path: 'runner.test-image', level: '4', shipsIn: '7.3-level-4-threading' },
-  { path: 'runner.test-script', level: '4', shipsIn: '7.3-level-4-threading' },
-  { path: 'runner.stage-script', level: '4', shipsIn: '7.3-level-4-threading' },
-  { path: 'runner.resolve-ambiguity', level: '4', shipsIn: '7.3-level-4-threading' },
-  { path: 'runner.test-retries', level: '4', shipsIn: '7.3-level-4-threading' },
+  // Level 4 — test.*
+  { path: 'test.profile', level: '4', shipsIn: '7.3-level-4-threading' },
+  { path: 'test.image', level: '4', shipsIn: '7.3-level-4-threading' },
+  { path: 'test.script', level: '4', shipsIn: '7.3-level-4-threading' },
+  { path: 'test.stage-script', level: '4', shipsIn: '7.3-level-4-threading' },
+  { path: 'test.resolve-ambiguity', level: '4', shipsIn: '7.3-level-4-threading' },
+  { path: 'test.retries', level: '4', shipsIn: '7.3-level-4-threading' },
 
   // Loop state — limits.max-attempts
   { path: 'limits.max-attempts', level: 'loop', shipsIn: '7.6-per-phase-max-attempts' },
@@ -137,15 +137,15 @@ const RUNTIME_SUPPORTED_FIELDS: ReadonlySet<string> = new Set<string>([
   'gate.script',
   'gate.retries',
   'agent.script',
-  // Phase 7.3 — level-4-threading: runner.* + tests.none shipped via
+  // Phase 7.3 — level-4-threading: test.* + tests.none shipped via
   // `compile.ts:resolvePhaseLevel4Overrides` + `loop.ts:resolveActiveRunnerOpts`.
   'tests.none',
-  'runner.test-profile',
-  'runner.test-image',
-  'runner.test-script',
-  'runner.stage-script',
-  'runner.resolve-ambiguity',
-  'runner.test-retries',
+  'test.profile',
+  'test.image',
+  'test.script',
+  'test.stage-script',
+  'test.resolve-ambiguity',
+  'test.retries',
   // Phase 7.4 — level-1.5-fast-path: agent.env / agent.secrets /
   // agent.model / agent.base-url / agent.reviewer shipped via
   // `compile.ts:buildPhaseLevel1_5Overrides` +

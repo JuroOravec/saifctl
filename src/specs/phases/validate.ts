@@ -54,7 +54,7 @@ import type {
   GateConfig,
   LimitsConfig,
   PhaseConfig,
-  RunnerConfig,
+  TestConfig,
   TestsConfig,
 } from './schema.js';
 import {
@@ -296,7 +296,7 @@ interface ConfigSource {
   gate?: GateConfig;
   agent?: AgentConfig;
   container?: ContainerConfig;
-  runner?: RunnerConfig;
+  test?: TestConfig;
   limits?: LimitsConfig;
 }
 
@@ -316,7 +316,7 @@ function gatherConfigSources(opts: {
       gate: featureConfig.gate,
       agent: featureConfig.agent,
       container: featureConfig.container,
-      runner: featureConfig.runner,
+      test: featureConfig.test,
       limits: featureConfig.limits,
     });
   }
@@ -329,7 +329,7 @@ function gatherConfigSources(opts: {
       gate: d.gate,
       agent: d.agent,
       container: d.container,
-      runner: d.runner,
+      test: d.test,
       limits: d.limits,
     });
   }
@@ -342,7 +342,7 @@ function gatherConfigSources(opts: {
       gate: p.gate,
       agent: p.agent,
       container: p.container,
-      runner: p.runner,
+      test: p.test,
       limits: p.limits,
     });
   }
@@ -355,7 +355,7 @@ function gatherConfigSources(opts: {
       gate: pc.gate,
       agent: pc.agent,
       container: pc.container,
-      runner: pc.runner,
+      test: pc.test,
       limits: pc.limits,
     });
   }
@@ -400,12 +400,12 @@ function checkLockstepRules(opts: {
     }
   }
 
-  // 6.9.3 — tests.none + runner.* keys: warn.
-  if (source.tests?.none === true && source.runner) {
-    const runnerKeys = listSetKeys(source.runner);
-    if (runnerKeys.length > 0) {
+  // 6.9.3 — tests.none + test.* keys: warn.
+  if (source.tests?.none === true && source.test) {
+    const testKeys = listSetKeys(source.test);
+    if (testKeys.length > 0) {
       warnings.push(
-        `${source.from}: sets \`tests.none: true\` alongside \`runner.${joinKeysForMessage(runnerKeys)}\`. The runner is bypassed for this phase, so \`runner.*\` is inert.`,
+        `${source.from}: sets \`tests.none: true\` alongside \`test.${joinKeysForMessage(testKeys)}\`. The test runner is bypassed for this phase, so \`test.*\` is inert.`,
       );
     }
   }
@@ -668,8 +668,8 @@ async function checkPhaseScriptPaths(opts: {
     { fieldPath: 'container.startup', relativePath: resolved.container.startup },
     { fieldPath: 'container.cedar', relativePath: resolved.container.cedar },
     { fieldPath: 'container.compose-file', relativePath: resolved.container.composeFile },
-    { fieldPath: 'runner.test-script', relativePath: resolved.runner.testScript },
-    { fieldPath: 'runner.stage-script', relativePath: resolved.runner.stageScript },
+    { fieldPath: 'test.script', relativePath: resolved.test.script },
+    { fieldPath: 'test.stage-script', relativePath: resolved.test.stageScript },
   ];
 
   for (const c of checks) {

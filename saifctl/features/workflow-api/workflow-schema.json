@@ -1,0 +1,390 @@
+{
+  "$ref": "#/definitions/Workflow",
+  "definitions": {
+    "Workflow": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": {
+              "type": "string"
+            },
+            "labels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "annotations": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "secret"
+                ]
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "default": {}
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "github"
+                  },
+                  "url": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Repo as `owner/repo` or full URL"
+                  },
+                  "ref": {
+                    "type": "string",
+                    "description": "Branch / tag / commit SHA"
+                  },
+                  "path": {
+                    "type": "string",
+                    "description": "Sparse-checkout sub-path within the repo"
+                  },
+                  "token": {
+                    "type": "string",
+                    "description": "GitHub access token",
+                    "x-saifctl-sensitive": true
+                  },
+                  "saveAs": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Workspace-relative path; no `/workspace/` prefix; no `..` segments (§5.2)"
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "url",
+                  "saveAs"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/definitions/Workflow/properties/sources/items/anyOf/0/properties/id"
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "s3"
+                  },
+                  "uri": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "s3:// URI; trailing `/` denotes a prefix (directory)"
+                  },
+                  "region": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "AWS region"
+                  },
+                  "endpoint": {
+                    "type": "string",
+                    "description": "S3-compatible endpoint (MinIO / Wasabi / Ceph)"
+                  },
+                  "accessKeyId": {
+                    "type": "string",
+                    "description": "AWS access key ID",
+                    "x-saifctl-sensitive": true
+                  },
+                  "secretAccessKey": {
+                    "type": "string",
+                    "description": "AWS secret access key",
+                    "x-saifctl-sensitive": true
+                  },
+                  "sessionToken": {
+                    "type": "string",
+                    "description": "AWS STS session token",
+                    "x-saifctl-sensitive": true
+                  },
+                  "saveAs": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "uri",
+                  "region",
+                  "saveAs"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "discriminator": {
+              "propertyName": "type"
+            }
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/definitions/Workflow/properties/sources/items/anyOf/0/properties/id"
+              },
+              "spec": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Inline spec text OR a path to a spec file (§6.3)"
+              },
+              "if": {
+                "type": "string",
+                "description": "CEL predicate (§6.5)"
+              },
+              "exports": {
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "string",
+                        "number",
+                        "integer",
+                        "boolean",
+                        "array",
+                        "object"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "$ref": "#/definitions/Workflow/properties/steps/items/properties/exports/additionalProperties/anyOf/0"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "spec"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "sinks": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/definitions/Workflow/properties/sources/items/anyOf/0/properties/id"
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "s3"
+                  },
+                  "uri": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "file": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Workspace-source file or directory"
+                  },
+                  "region": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "accessKeyId": {
+                    "type": "string",
+                    "description": "AWS access key ID",
+                    "x-saifctl-sensitive": true
+                  },
+                  "secretAccessKey": {
+                    "type": "string",
+                    "description": "AWS secret access key",
+                    "x-saifctl-sensitive": true
+                  },
+                  "after": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Bare step ref OR CEL predicate (§7.3)"
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "uri",
+                  "file",
+                  "region",
+                  "after"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/definitions/Workflow/properties/sources/items/anyOf/0/properties/id"
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "email"
+                  },
+                  "smtp": {
+                    "type": "object",
+                    "properties": {
+                      "host": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "port": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 65535
+                      },
+                      "secure": {
+                        "type": "boolean",
+                        "description": "true = implicit TLS; default false = STARTTLS"
+                      },
+                      "user": {
+                        "type": "string"
+                      },
+                      "password": {
+                        "type": "string",
+                        "description": "SMTP password",
+                        "x-saifctl-sensitive": true
+                      }
+                    },
+                    "required": [
+                      "host",
+                      "port"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "from": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "to": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1
+                  },
+                  "cc": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "bcc": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "body": {
+                    "type": "string"
+                  },
+                  "bodyHtml": {
+                    "type": "boolean"
+                  },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "after": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "smtp",
+                  "from",
+                  "to",
+                  "after"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "discriminator": {
+              "propertyName": "type"
+            }
+          }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "metadata",
+        "steps"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

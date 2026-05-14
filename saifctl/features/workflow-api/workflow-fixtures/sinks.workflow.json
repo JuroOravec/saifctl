@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "metadata": {
+    "name": "with-sinks",
+    "description": "Workflow exercising both v1 sink types covered by the sketch."
+  },
+  "inputs": {
+    "aws_key": { "type": "secret" },
+    "aws_secret": { "type": "secret" },
+    "smtp_pass": { "type": "secret" }
+  },
+  "steps": [
+    {
+      "id": "report",
+      "spec": "Render /workspace/report.pdf.",
+      "exports": {
+        "page_count": { "type": "integer" }
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "pdf_to_s3",
+      "type": "s3",
+      "uri": "s3://my-bucket/reports/{{run.id}}/report.pdf",
+      "file": "/workspace/report.pdf",
+      "region": "us-east-1",
+      "accessKeyId": "{{inputs.aws_key}}",
+      "secretAccessKey": "{{inputs.aws_secret}}",
+      "after": "report"
+    },
+    {
+      "id": "notify_team",
+      "type": "email",
+      "smtp": {
+        "host": "smtp.example.com",
+        "port": 587,
+        "user": "noreply@example.com",
+        "password": "{{inputs.smtp_pass}}"
+      },
+      "from": "noreply@example.com",
+      "to": ["data-team@example.com"],
+      "subject": "Revenue report ready",
+      "body": "The report is attached.",
+      "attachments": ["/workspace/report.pdf"],
+      "after": "report"
+    }
+  ]
+}

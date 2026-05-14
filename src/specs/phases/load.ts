@@ -27,7 +27,7 @@ import {
   type LimitsConfig,
   type PhaseConfig,
   phaseConfigSchema,
-  type RunnerConfig,
+  type TestConfig,
   type TestsConfig,
 } from './schema.js';
 
@@ -157,7 +157,7 @@ export const BUILT_IN_DEFAULTS = {
  * populated (no optionals) and on the "undefined critics" sentinel being
  * resolved to a concrete decision (run-all vs run-specified vs run-none).
  *
- * The five v1 groups (`gate`, `agent`, `container`, `runner`, `limits`) are
+ * The five v1 groups (`gate`, `agent`, `container`, `test`, `limits`) are
  * surfaced here as `Resolved*` shapes whose fields are still optional —
  * unset means "no per-phase override; fall back to run-level value at the
  * threading site." Each Level's runtime threading (per per-phase-config
@@ -183,7 +183,7 @@ export interface ResolvedPhaseConfig {
   /** Per-phase coder container shape (Level 2 / Level 3). */
   container: ResolvedContainerConfig;
   /** Per-phase test runner overrides (Level 4). */
-  runner: ResolvedRunnerConfig;
+  test: ResolvedTestConfig;
   /** Per-phase budgets (loop state). */
   limits: ResolvedLimitsConfig;
 }
@@ -200,8 +200,9 @@ export interface ResolvedTestsConfig {
   immutableFiles: string[];
   /**
    * Per-phase-config v1 (§6.5 option b): when `true`, this phase has no own
-   * tests. Runner is bypassed for the phase's subtasks; feature/project
-   * tests still gate at the run's last phase. Threading lands in 7.3.
+   * tests. The test runner is bypassed for the phase's subtasks;
+   * feature/project tests still gate at the run's last phase. Threading
+   * lands in 7.3.
    */
   none: boolean;
 }
@@ -251,17 +252,21 @@ export interface ResolvedContainerConfig {
 }
 
 /**
- * Resolved runner config — see {@link RunnerConfig}. All Level-4; threading
+ * Resolved test config — see {@link TestConfig}. All Level-4; threading
  * lands in 7.3 (test runner is recreated per outer attempt, so per-phase
  * is just routing).
+ *
+ * Sub-field names drop the redundant `test-` prefix the v0 schema carried
+ * under `runner:` (now `test.profile` / `.image` / `.script` / `.retries`);
+ * `stageScript` and `resolveAmbiguity` are unchanged.
  */
-export interface ResolvedRunnerConfig {
-  testProfile?: string;
-  testImage?: string;
-  testScript?: string;
+export interface ResolvedTestConfig {
+  profile?: string;
+  image?: string;
+  script?: string;
   stageScript?: string;
   resolveAmbiguity?: 'off' | 'prompt' | 'ai';
-  testRetries?: number;
+  retries?: number;
 }
 
 /**
@@ -350,11 +355,11 @@ export function resolvePhaseConfig(opts: {
       phaseDefaults?.container,
       featureConfig?.container,
     ] as const,
-    runner: [
-      phaseConfig?.runner,
-      inlinePhase?.runner,
-      phaseDefaults?.runner,
-      featureConfig?.runner,
+    test: [
+      phaseConfig?.test,
+      inlinePhase?.test,
+      phaseDefaults?.test,
+      featureConfig?.test,
     ] as const,
     limits: [
       phaseConfig?.limits,
@@ -372,7 +377,7 @@ export function resolvePhaseConfig(opts: {
     gate: resolveGate(groupLayers.gate),
     agent: resolveAgent(groupLayers.agent),
     container: resolveContainer(groupLayers.container),
-    runner: resolveRunner(groupLayers.runner),
+    test: resolveTest(groupLayers.test),
     limits: resolveLimits(groupLayers.limits),
   };
 }
@@ -424,7 +429,7 @@ function resolveTests(opts: {
 }
 
 // ---------------------------------------------------------------------------
-// v1 group resolvers — `gate`, `agent`, `container`, `runner`, `limits`.
+// v1 group resolvers — `gate`, `agent`, `container`, `test`, `limits`.
 //
 // Each resolver follows the same shape as `resolveTests`: walk the layer
 // list (most-specific first), pick the first defined value per sub-key.
@@ -517,20 +522,20 @@ function resolveContainer(
   return out;
 }
 
-function resolveRunner(layers: readonly (RunnerConfig | undefined)[]): ResolvedRunnerConfig {
-  const out: ResolvedRunnerConfig = {};
-  const testProfile = pick(layers, 'test-profile');
-  if (testProfile !== undefined) out.testProfile = testProfile;
-  const testImage = pick(layers, 'test-image');
-  if (testImage !== undefined) out.testImage = testImage;
-  const testScript = pick(layers, 'test-script');
-  if (testScript !== undefined) out.testScript = testScript;
+function resolveTest(layers: readonly (TestConfig | undefined)[]): ResolvedTestConfig {
+  const out: ResolvedTestConfig = {};
+  const profile = pick(layers, 'profile');
+  if (profile !== undefined) out.profile = profile;
+  const image = pick(layers, 'image');
+  if (image !== undefined) out.image = image;
+  const script = pick(layers, 'script');
+  if (script !== undefined) out.script = script;
   const stageScript = pick(layers, 'stage-script');
   if (stageScript !== undefined) out.stageScript = stageScript;
   const resolveAmbiguity = pick(layers, 'resolve-ambiguity');
   if (resolveAmbiguity !== undefined) out.resolveAmbiguity = resolveAmbiguity;
-  const testRetries = pick(layers, 'test-retries');
-  if (testRetries !== undefined) out.testRetries = testRetries;
+  const retries = pick(layers, 'retries');
+  if (retries !== undefined) out.retries = retries;
   return out;
 }
 

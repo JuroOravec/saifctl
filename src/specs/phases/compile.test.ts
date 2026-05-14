@@ -603,12 +603,12 @@ describe('compilePhasesToSubtasks — per-phase Level-1 overrides (phase 7.2)', 
 // ---------------------------------------------------------------------------
 
 describe('compilePhasesToSubtasks — per-phase Level-4 overrides (phase 7.3)', () => {
-  it('threads runner.test-profile / test-image / resolve-ambiguity / test-retries onto every subtask in the phase', async () => {
+  it('threads test.profile / test-image / resolve-ambiguity / test-retries onto every subtask in the phase', async () => {
     await makePhase('01-core');
     await makeCritic('strict', 'be strict');
     await writeFile(
       join(featureDir, 'phases', '01-core', 'phase.yml'),
-      `runner:\n  test-profile: pytest\n  test-image: custom-runner:v1\n  resolve-ambiguity: prompt\n  test-retries: 5\n`,
+      `test:\n  profile: pytest\n  image: custom-runner:v1\n  resolve-ambiguity: prompt\n  retries: 5\n`,
       'utf8',
     );
 
@@ -623,13 +623,13 @@ describe('compilePhasesToSubtasks — per-phase Level-4 overrides (phase 7.3)', 
     }
   });
 
-  it('reads runner.test-script / runner.stage-script content via the script-resolver', async () => {
+  it('reads test.script / test.stage-script content via the script-resolver', async () => {
     const phaseDir = await makePhase('01-core');
     await writeFile(join(phaseDir, 'custom-test.sh'), 'phase-test-content\n', 'utf8');
     await writeFile(join(phaseDir, 'custom-stage.sh'), 'phase-stage-content\n', 'utf8');
     await writeFile(
       join(phaseDir, 'phase.yml'),
-      `runner:\n  test-script: custom-test.sh\n  stage-script: custom-stage.sh\n`,
+      `test:\n  script: custom-test.sh\n  stage-script: custom-stage.sh\n`,
       'utf8',
     );
 
@@ -638,16 +638,16 @@ describe('compilePhasesToSubtasks — per-phase Level-4 overrides (phase 7.3)', 
     expect(out[0]?.stageScript).toBe('phase-stage-content\n');
   });
 
-  it('throws PhaseCompileError when runner.test-script does not resolve', async () => {
+  it('throws PhaseCompileError when test.script does not resolve', async () => {
     await makePhase('01-core');
     await writeFile(
       join(featureDir, 'phases', '01-core', 'phase.yml'),
-      `runner:\n  test-script: missing.sh\n`,
+      `test:\n  script: missing.sh\n`,
       'utf8',
     );
     await expect(compile()).rejects.toMatchObject({
       name: 'PhaseCompileError',
-      message: expect.stringContaining('runner.test-script'),
+      message: expect.stringContaining('test.script'),
     });
   });
 
@@ -669,14 +669,14 @@ describe('compilePhasesToSubtasks — per-phase Level-4 overrides (phase 7.3)', 
   });
 
   // F-A regression: same pattern as the 7.2 agent.sh fix. Phase A overrides
-  // runner.stage-script; phase B does not. Each phase's subtasks must carry
+  // test.stage-script; phase B does not. Each phase's subtasks must carry
   // an explicit stageScript on the manifest so the runtime never has to
   // "leave stage.sh unchanged" between subtasks.
-  it('mixes overridden and non-overridden runner.stage-script across phases', async () => {
+  it('mixes overridden and non-overridden test.stage-script across phases', async () => {
     const aDir = await makePhase('01-with-override');
     await makePhase('02-without-override');
     await writeFile(join(aDir, 'phase-stage.sh'), 'phase-a-stage\n', 'utf8');
-    await writeFile(join(aDir, 'phase.yml'), `runner:\n  stage-script: phase-stage.sh\n`, 'utf8');
+    await writeFile(join(aDir, 'phase.yml'), `test:\n  stage-script: phase-stage.sh\n`, 'utf8');
 
     const out = await compile();
     expect(out).toHaveLength(2);
@@ -686,28 +686,28 @@ describe('compilePhasesToSubtasks — per-phase Level-4 overrides (phase 7.3)', 
     expect(out[1]?.stageScript).toBe('#!/bin/sh\necho stage');
   });
 
-  // F-C regression: bad runner.test-image must fail compile, not surface
+  // F-C regression: bad test.image must fail compile, not surface
   // later when the runner first spins up. The regex matches the run-level
   // `validateImageTag` charset (letters, digits, `_.-:/@`); a tag with a
   // space or `$` violates that.
-  it('throws PhaseCompileError when runner.test-image is malformed (compile-time validation)', async () => {
+  it('throws PhaseCompileError when test.image is malformed (compile-time validation)', async () => {
     await makePhase('01-core');
     await writeFile(
       join(featureDir, 'phases', '01-core', 'phase.yml'),
-      `runner:\n  test-image: 'bad image:tag'\n`,
+      `test:\n  image: 'bad image:tag'\n`,
       'utf8',
     );
     await expect(compile()).rejects.toMatchObject({
       name: 'PhaseCompileError',
-      message: expect.stringContaining('runner.test-image'),
+      message: expect.stringContaining('test.image'),
     });
   });
 
-  it('does NOT fail compile for a valid runner.test-image', async () => {
+  it('does NOT fail compile for a valid test.image', async () => {
     await makePhase('01-core');
     await writeFile(
       join(featureDir, 'phases', '01-core', 'phase.yml'),
-      `runner:\n  test-image: my-runner:v1.2.3\n`,
+      `test:\n  image: my-runner:v1.2.3\n`,
       'utf8',
     );
     const out = await compile();
@@ -1142,7 +1142,7 @@ describe('compilePhasesToSubtasks — per-phase Level-3 overrides (phase 7.5b �
   // unknown sandbox-profile id silently rides on every subtask of a
   // phase and reaches `docker run` arguments once 7.5e wires the
   // runtime side. The Level-4 helper already does this for
-  // `runner.test-image` (per-phase-config 7.3 F-C); these mirror.
+  // `test.image` (per-phase-config 7.3 F-C); these mirror.
   it('rejects an invalid container.image tag at compile time', async () => {
     await makePhase('01-core');
     await writeFile(

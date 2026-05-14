@@ -1,0 +1,3 @@
+# Check the e2e test implementation once
+critics:
+  - { id: audit, rounds: 1 }

@@ -87,7 +87,7 @@ function isSupportedSandboxProfileId(id: string): id is SupportedSandboxProfileI
  * Allowed character set for a docker image tag. Matches the regex used by
  * the run-level `validateImageTag` (which `process.exit`s on mismatch and
  * therefore can't throw); compile-time uses this directly so a bad
- * `runner.test-image` value fails compile with a `PhaseCompileError`
+ * `test.image` value fails compile with a `PhaseCompileError`
  * instead of killing the process. See per-phase-config phase 7.3 review F-C.
  */
 const IMAGE_TAG_REGEX = /^[a-zA-Z0-9_.\-:/@]+$/;
@@ -116,7 +116,7 @@ export interface CompilePhasesOptions {
   agentScript: string;
   /**
    * Run-level stage script content; threaded onto every emitted subtask as
-   * the fallback when no per-phase `runner.stage-script` override applies.
+   * the fallback when no per-phase `test.stage-script` override applies.
    *
    * Required for the same reason as `agentScript`: the staging container
    * reads `<sandbox>/saifctl/stage.sh` from the bind-mount fresh every
@@ -325,12 +325,12 @@ export async function compilePhasesToSubtasks(
 
     // Per-phase Level-4 overrides (per-phase-config phase 7.3). The test
     // runner is recreated each outer attempt; per-phase is just routing.
-    // Compile-time read for `runner.test-script` / `runner.stage-script`
-    // (file content); the YAML field path is `runner.test-script` (a
-    // relative file path) but the manifest field name is `testScript`
-    // (the file's bytes). The helper does the path → body transformation
-    // and validates `runner.test-image` against the same docker-tag rule
-    // the run-level `--test-image` uses.
+    // Compile-time read for `test.script` / `test.stage-script` (file
+    // content); the YAML field path is `test.script` (a relative file
+    // path) but the manifest field name is `testScript` (the file's
+    // bytes). The helper does the path → body transformation and
+    // validates `test.image` against the same docker-tag rule the
+    // run-level `--test-image` uses.
     //
     // `stageScript` is ALWAYS set on every emitted subtask (no conditional
     // spread). Same rationale as `gateScript` / `agentScript` above: the
@@ -339,7 +339,7 @@ export async function compilePhasesToSubtasks(
     // subtask), so a non-overriding subtask following an overriding one
     // MUST carry the run-level fallback explicitly. Otherwise the
     // previous phase's override leaks into the next phase's staging.
-    const runner = await resolvePhaseLevel4Overrides({
+    const testOverrides = await resolvePhaseLevel4Overrides({
       config,
       phaseAbsolutePath: phase.absolutePath,
       featureAbsolutePath,
@@ -347,18 +347,24 @@ export async function compilePhasesToSubtasks(
       featureName,
       phaseId,
     });
-    const phaseStageScript = runner.stageScriptContent ?? stageScript;
-    const phaseRunnerOverrides: Pick<
+    const phaseStageScript = testOverrides.stageScriptContent ?? stageScript;
+    const phaseTestOverrides: Pick<
       RunSubtaskInput,
       'testProfile' | 'testImage' | 'testScript' | 'resolveAmbiguity' | 'testRetries' | 'noRunner'
     > = {
-      ...(runner.testProfile !== undefined ? { testProfile: runner.testProfile } : {}),
-      ...(runner.testImage !== undefined ? { testImage: runner.testImage } : {}),
-      ...(runner.testScriptContent !== undefined ? { testScript: runner.testScriptContent } : {}),
-      ...(runner.resolveAmbiguity !== undefined
-        ? { resolveAmbiguity: runner.resolveAmbiguity }
+      ...(testOverrides.testProfile !== undefined
+        ? { testProfile: testOverrides.testProfile }
         : {}),
-      ...(runner.testRetries !== undefined ? { testRetries: runner.testRetries } : {}),
+      ...(testOverrides.testImage !== undefined ? { testImage: testOverrides.testImage } : {}),
+      ...(testOverrides.testScriptContent !== undefined
+        ? { testScript: testOverrides.testScriptContent }
+        : {}),
+      ...(testOverrides.resolveAmbiguity !== undefined
+        ? { resolveAmbiguity: testOverrides.resolveAmbiguity }
+        : {}),
+      ...(testOverrides.testRetries !== undefined
+        ? { testRetries: testOverrides.testRetries }
+        : {}),
       ...(noPhaseTests ? { noRunner: true } : {}),
     };
 
@@ -501,7 +507,7 @@ export async function compilePhasesToSubtasks(
       ...(phaseGateRetries !== undefined ? { gateRetries: phaseGateRetries } : {}),
       testScope,
       phaseId,
-      ...phaseRunnerOverrides,
+      ...phaseTestOverrides,
       ...phaseLevel1_5Overrides,
       ...phaseLevel2OnImpl,
       ...phaseLevel3OnImpl,
@@ -559,7 +565,7 @@ export async function compilePhasesToSubtasks(
           ...(phaseGateRetries !== undefined ? { gateRetries: phaseGateRetries } : {}),
           testScope,
           phaseId,
-          ...phaseRunnerOverrides,
+          ...phaseTestOverrides,
           ...phaseLevel1_5Overrides,
           ...phaseLevel2OnCritics,
           ...phaseLevel3OnCritics,
@@ -582,7 +588,7 @@ export async function compilePhasesToSubtasks(
           ...(phaseGateRetries !== undefined ? { gateRetries: phaseGateRetries } : {}),
           testScope,
           phaseId,
-          ...phaseRunnerOverrides,
+          ...phaseTestOverrides,
           ...phaseLevel1_5Overrides,
           ...phaseLevel2OnCritics,
           ...phaseLevel3OnCritics,
@@ -823,13 +829,13 @@ async function resolvePhaseLevel1Overrides(opts: {
  * call (per subtask, not per outer attempt). Per-phase is just routing: the
  * active subtask's overrides flow into `prepareTestRunnerOpts` at runtime.
  *
- * Two of the fields are file paths (`runner.test-script`, `runner.stage-script`).
+ * Two of the fields are file paths (`test.script`, `test.stage-script`).
  * The YAML is a relative path; the manifest field is the file body. Naming
  * keeps the YAML form in `*Script*` keys on the resolved config and
  * "*Content" suffixes on this helper's intermediate output, transformed
  * into `testScript` / `stageScript` (bytes) on `RunSubtaskInput`.
  *
- * `runner.test-image` is validated here (not at runtime) via the same
+ * `test.image` is validated here (not at runtime) via the same
  * `validateImageTag` rule as `--test-image`. A bad tag fails compile so
  * the user sees the error before the orchestrator boots.
  *
@@ -866,37 +872,37 @@ async function resolvePhaseLevel4Overrides(opts: {
     sourceLabel: `phase '${opts.phaseId}'`,
   };
 
-  if (opts.config.runner.testProfile !== undefined) {
-    out.testProfile = opts.config.runner.testProfile;
+  if (opts.config.test.profile !== undefined) {
+    out.testProfile = opts.config.test.profile;
   }
-  if (opts.config.runner.testImage !== undefined) {
+  if (opts.config.test.image !== undefined) {
     // Compile-time validation: same charset rule as the run-level
     // `validateImageTag` (which calls `process.exit` for CLI flags and
     // therefore can't throw a typed error). Inlining the regex here lets
     // us surface a clean `PhaseCompileError` attributed to the phase
     // rather than killing the process.
-    if (!IMAGE_TAG_REGEX.test(opts.config.runner.testImage)) {
+    if (!IMAGE_TAG_REGEX.test(opts.config.test.image)) {
       throw new PhaseCompileError(opts.featureName, {
         errors: [
-          `[feature '${opts.featureName}'] phase '${opts.phaseId}': Invalid \`runner.test-image\` value: "${opts.config.runner.testImage}". Image tags must contain only letters, digits, hyphens, underscores, dots, colons, slashes, and @ signs.`,
+          `[feature '${opts.featureName}'] phase '${opts.phaseId}': Invalid \`test.image\` value: "${opts.config.test.image}". Image tags must contain only letters, digits, hyphens, underscores, dots, colons, slashes, and @ signs.`,
         ],
         warnings: [],
       });
     }
-    out.testImage = opts.config.runner.testImage;
+    out.testImage = opts.config.test.image;
   }
-  if (opts.config.runner.resolveAmbiguity !== undefined) {
-    out.resolveAmbiguity = opts.config.runner.resolveAmbiguity;
+  if (opts.config.test.resolveAmbiguity !== undefined) {
+    out.resolveAmbiguity = opts.config.test.resolveAmbiguity;
   }
-  if (opts.config.runner.testRetries !== undefined) {
-    out.testRetries = opts.config.runner.testRetries;
+  if (opts.config.test.retries !== undefined) {
+    out.testRetries = opts.config.test.retries;
   }
 
-  if (opts.config.runner.testScript !== undefined) {
+  if (opts.config.test.script !== undefined) {
     try {
-      const r = await resolveAndReadScript(opts.config.runner.testScript, {
+      const r = await resolveAndReadScript(opts.config.test.script, {
         ...ctx,
-        fieldPath: 'runner.test-script',
+        fieldPath: 'test.script',
       });
       out.testScriptContent = r.content;
     } catch (err) {
@@ -908,11 +914,11 @@ async function resolvePhaseLevel4Overrides(opts: {
     }
   }
 
-  if (opts.config.runner.stageScript !== undefined) {
+  if (opts.config.test.stageScript !== undefined) {
     try {
-      const r = await resolveAndReadScript(opts.config.runner.stageScript, {
+      const r = await resolveAndReadScript(opts.config.test.stageScript, {
         ...ctx,
-        fieldPath: 'runner.stage-script',
+        fieldPath: 'test.stage-script',
       });
       out.stageScriptContent = r.content;
     } catch (err) {
@@ -1321,7 +1327,7 @@ function resolvePhaseLevel3Overrides(opts: {
   // arguments once 7.5e wires the runtime side. Apply the same regex
   // here at compile time so a typo / shell metachar fails compile
   // rather than producing odd runtime behaviour. Mirrors the Level-4
-  // helper's `runner.test-image` validation (per-phase-config 7.3 F-C).
+  // helper's `test.image` validation (per-phase-config 7.3 F-C).
   if (opts.config.container.image !== undefined) {
     if (!IMAGE_TAG_REGEX.test(opts.config.container.image)) {
       throw new PhaseCompileError(opts.featureName, {

@@ -67,6 +67,50 @@ Sequence:
 
 The `.git` directory inside `code/` is the **agent's working git history**. It is wholly separate from the host's `.git` — the host's commits, branches, and remotes are never visible to the agent.
 
+## Bot identities and commit authorship
+
+Saifctl writes commits on behalf of the user from several distinct internal actors (sandbox baseline, downloader, test-writer, PR sink, etc.). Every such commit uses a saifctl-owned identity, never the user's own git identity. The identity format is fixed:
+
+```
+<bot-role> <<bot-role>@safeaifactory.com>
+```
+
+| Slot              | Rule                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------ |
+| **Display name**  | `saifctl` for the generic default; `saifctl-<role>` for every distinct bot.                |
+| **Email local**   | Identical to the display name (so the email and name agree in `git log` / `git shortlog`). |
+| **Email domain**  | `safeaifactory.com` — the project's owned domain. No other domain.                         |
+
+### Why this shape
+
+- **`safeaifactory.com` is the only domain we own.** Using any other domain (including aspirational ones like `saifctl.dev`) creates a name-squatting attack surface for anyone who registers it later.
+- **`saifctl-` prefix scopes the identity to this tool.** Makes it grep-able in `git log` across repositories that aggregate commits from multiple sources.
+- **The `<role>` suffix names what the bot does, not how it's implemented.** `saifctl-downloader` (writes source-resolution commits), `saifctl-test-writer` (writes generated test files), `saifctl` for the catch-all baseline + agent-attributed commits. Renaming the implementation file doesn't break the identity.
+- **Distinct emails per role enable filtering.** `git log --author=saifctl-downloader` returns only downloader-produced commits; provider tools (GitHub contribution graphs, etc.) can distinguish the bots from each other and from the user.
+
+### Current identities
+
+| Identity                                                      | When emitted                                                                                    | Pinned in                                                                                                       |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `saifctl <saifctl@safeaifactory.com>`                         | Sandbox baseline; `RunCommit` replay default; PR-sink default committer; any unattributed case. | [`SAIFCTL_DEFAULT_AUTHOR`](../../../src/orchestrator/patch.ts#L9)                                               |
+| `saifctl-downloader <saifctl-downloader@safeaifactory.com>`   | Source-resolution commits emitted by the downloader container (workflow-level and step-level).  | Workflow API — see [`workflow-api.md` §5.4.4](../../../saifctl/features/workflow-api/workflow-api.md). |
+| `saifctl-test-writer <saifctl-test-writer@safeaifactory.com>` | Test-writer subtask commits that materialise `tests.assert:` blocks into generated test files.  | Workflow API — see [`workflow-api.md` §5.4.12](../../../saifctl/features/workflow-api/workflow-api.md). |
+
+### Adding a new bot identity
+
+When introducing a new internal actor that writes commits:
+
+1. **Confirm a new identity is warranted.** Reach for an existing identity if the new commits are semantically the same actor (e.g. an extension to the downloader uses `saifctl-downloader`, not a new bot). Add a new identity only when filtering by role would genuinely help debugging or audit.
+2. **Pick the role name.** Lowercase, kebab-internal, descriptive of what the bot does (verb-or-noun form, not "agent2" or "helper"). Examples: `saifctl-egress` (a future egress sink container), `saifctl-cleanup` (a hypothetical workspace cleanup actor).
+3. **Pin the constant.** Add it as a sibling export next to `SAIFCTL_DEFAULT_AUTHOR` in [`src/orchestrator/patch.ts`](../../../src/orchestrator/patch.ts) (or the role's own module if it lives elsewhere). Import the constant where commits are emitted — never hardcode the string at the call site.
+4. **Document it.** Append a row to the "Current identities" table above and link from the design doc that introduces the bot.
+5. **Never use `noreply@` or `bot@` generic locals.** They drop the role information and make filtering impossible. Stick to the `<role>@safeaifactory.com` pattern.
+
+### What does NOT use a bot identity
+
+- **User-attributed commits.** When saifctl applies a successful run to the host (`saifctl run apply` / `saifctl run merge`), the commit's author is preserved from the `RunCommit` record, which inherits the agent's identity at run time — not a saifctl bot. The user's working identity is also preserved when a `run merge` lands commits on their HEAD.
+- **PR-creation commit messages.** The PR text doesn't include any saifctl identity in the body — only the commit author field on the actual git commits does.
+
 ## Patch extraction (incremental rounds)
 
 After every agent round (post-`agent.sh`, pre-gate), [`extractIncrementalRoundPatch`](../../../src/orchestrator/sandbox.ts#L1045) converts in-container files to plain-text diffs the host can persist:

@@ -12,7 +12,7 @@ import {
   gateConfigSchema,
   limitsConfigSchema,
   phaseConfigSchema,
-  runnerConfigSchema,
+  testConfigSchema,
   testsConfigSchema,
 } from './schema.js';
 
@@ -197,14 +197,25 @@ describe('featureConfigSchema', () => {
         'sandbox-profile': 'node-pnpm-python',
         engine: 'docker',
       },
-      runner: { 'test-profile': 'pytest', 'test-retries': 3 },
+      // Per §15.14, the YAML key is `test:` (renamed from `runner:`) with
+      // sub-fields dropping the redundant `test-` prefix.
+      test: { profile: 'pytest', retries: 3 },
       limits: { 'max-attempts': 5 },
     });
     expect(r.gate?.script).toBe('gate.sh');
     expect(r.agent?.['base-url']).toBe('https://api.example.com');
     expect(r.container?.['no-leash']).toBe(false);
-    expect(r.runner?.['test-profile']).toBe('pytest');
+    expect(r.test?.profile).toBe('pytest');
+    expect(r.test?.retries).toBe(3);
     expect(r.limits?.['max-attempts']).toBe(5);
+  });
+
+  it('rejects the legacy `runner:` key at feature scope (no compat loader, §10.5)', () => {
+    // `.strict()` on the schema rejects unknown keys; users with v0 YAML get
+    // a clear "unrecognized key 'runner'" error pointing at the rename.
+    expect(() => featureConfigSchema.parse({ runner: { profile: 'pytest' } })).toThrow(
+      /unrecognized.*runner/i,
+    );
   });
 });
 
@@ -341,50 +352,56 @@ describe('containerConfigSchema', () => {
   });
 });
 
-describe('runnerConfigSchema', () => {
+describe('testConfigSchema', () => {
   it('accepts every documented field', () => {
-    const r = runnerConfigSchema.parse({
-      'test-profile': 'pytest',
-      'test-image': 'my-runner:v1',
-      'test-script': 'test.sh',
+    const r = testConfigSchema.parse({
+      profile: 'pytest',
+      image: 'my-runner:v1',
+      script: 'test.sh',
       'stage-script': 'stage.sh',
       'resolve-ambiguity': 'ai',
-      'test-retries': 3,
+      retries: 3,
     });
-    expect(r['test-profile']).toBe('pytest');
+    expect(r.profile).toBe('pytest');
     expect(r['resolve-ambiguity']).toBe('ai');
-    expect(r['test-retries']).toBe(3);
+    expect(r.retries).toBe(3);
   });
 
   it("rejects resolve-ambiguity outside { 'off' | 'prompt' | 'ai' }", () => {
-    expect(() => runnerConfigSchema.parse({ 'resolve-ambiguity': 'maybe' })).toThrow();
+    expect(() => testConfigSchema.parse({ 'resolve-ambiguity': 'maybe' })).toThrow();
   });
 
-  it('rejects test-retries < 1', () => {
-    expect(() => runnerConfigSchema.parse({ 'test-retries': 0 })).toThrow();
+  it('rejects retries < 1', () => {
+    expect(() => testConfigSchema.parse({ retries: 0 })).toThrow();
   });
 
   it('rejects camelCase variants', () => {
-    expect(() => runnerConfigSchema.parse({ testProfile: 'pytest' })).toThrow();
+    expect(() => testConfigSchema.parse({ testProfile: 'pytest' })).toThrow();
+    expect(() => testConfigSchema.parse({ stageScript: 'stage.sh' })).toThrow();
   });
 
-  it('rejects runner.test-script / runner.stage-script with `..` or absolute paths (POSIX, Windows, UNC)', () => {
-    // The shared `relativePathSchema` flows into the runner script fields;
-    // the same defence-in-depth checks that protect `gate.script` and
-    // `agent.script` must apply here. (Per-phase-config phase 7.3 review F-J.)
-    expect(() => runnerConfigSchema.parse({ 'test-script': '../escape/test.sh' })).toThrow();
-    expect(() => runnerConfigSchema.parse({ 'test-script': '/etc/passwd' })).toThrow();
-    expect(() =>
-      runnerConfigSchema.parse({ 'test-script': 'C:\\Windows\\System32\\cmd.exe' }),
-    ).toThrow();
-    expect(() => runnerConfigSchema.parse({ 'test-script': 'C:/Windows/cmd.exe' })).toThrow();
-    expect(() =>
-      runnerConfigSchema.parse({ 'test-script': '\\\\server\\share\\evil.sh' }),
-    ).toThrow();
+  it('rejects legacy v0 `test-*` sub-field names (per §15.14)', () => {
+    // After the §15.14 rename, sub-fields drop the `test-` prefix; the
+    // strict-mode schema rejects the old names with "unrecognized key".
+    expect(() => testConfigSchema.parse({ 'test-profile': 'pytest' })).toThrow();
+    expect(() => testConfigSchema.parse({ 'test-image': 'x' })).toThrow();
+    expect(() => testConfigSchema.parse({ 'test-script': 'test.sh' })).toThrow();
+    expect(() => testConfigSchema.parse({ 'test-retries': 3 })).toThrow();
+  });
 
-    expect(() => runnerConfigSchema.parse({ 'stage-script': '../sibling.sh' })).toThrow();
-    expect(() => runnerConfigSchema.parse({ 'stage-script': '/etc/init' })).toThrow();
-    expect(() => runnerConfigSchema.parse({ 'stage-script': 'D:\\evil.bat' })).toThrow();
+  it('rejects test.script / test.stage-script with `..` or absolute paths (POSIX, Windows, UNC)', () => {
+    // The shared `relativePathSchema` flows into the test-runner script
+    // fields; the same defence-in-depth checks that protect `gate.script`
+    // and `agent.script` must apply here. (Per-phase-config phase 7.3 review F-J.)
+    expect(() => testConfigSchema.parse({ script: '../escape/test.sh' })).toThrow();
+    expect(() => testConfigSchema.parse({ script: '/etc/passwd' })).toThrow();
+    expect(() => testConfigSchema.parse({ script: 'C:\\Windows\\System32\\cmd.exe' })).toThrow();
+    expect(() => testConfigSchema.parse({ script: 'C:/Windows/cmd.exe' })).toThrow();
+    expect(() => testConfigSchema.parse({ script: '\\\\server\\share\\evil.sh' })).toThrow();
+
+    expect(() => testConfigSchema.parse({ 'stage-script': '../sibling.sh' })).toThrow();
+    expect(() => testConfigSchema.parse({ 'stage-script': '/etc/init' })).toThrow();
+    expect(() => testConfigSchema.parse({ 'stage-script': 'D:\\evil.bat' })).toThrow();
   });
 });
 
@@ -408,18 +425,57 @@ describe('phaseConfigSchema — per-phase-config v1 groups', () => {
       gate: { script: 'gate.sh', retries: 3 },
       agent: { profile: 'claude', env: { FOO: 'bar' } },
       container: { engine: 'docker' },
-      runner: { 'test-retries': 2 },
+      test: { retries: 2 },
       limits: { 'max-attempts': 5 },
     });
     expect(r.gate?.script).toBe('gate.sh');
     expect(r.agent?.profile).toBe('claude');
     expect(r.container?.engine).toBe('docker');
-    expect(r.runner?.['test-retries']).toBe(2);
+    expect(r.test?.retries).toBe(2);
     expect(r.limits?.['max-attempts']).toBe(5);
   });
 
   it('rejects unknown sub-keys within a group', () => {
     expect(() => phaseConfigSchema.parse({ gate: { extra: true } })).toThrow();
     expect(() => phaseConfigSchema.parse({ agent: { unknown: 'x' } })).toThrow();
+  });
+});
+
+describe('phaseConfigSchema — `test:` block (§15.14 rename)', () => {
+  it('accepts the full public `test:` block with renamed sub-fields', () => {
+    const r = phaseConfigSchema.parse({
+      test: {
+        profile: 'pytest',
+        image: 'my-runner:v1',
+        script: 'test.sh',
+        'stage-script': 'stage.sh',
+        'resolve-ambiguity': 'ai',
+        retries: 3,
+      },
+    });
+    expect(r.test?.profile).toBe('pytest');
+    expect(r.test?.image).toBe('my-runner:v1');
+    expect(r.test?.script).toBe('test.sh');
+    expect(r.test?.['stage-script']).toBe('stage.sh');
+    expect(r.test?.['resolve-ambiguity']).toBe('ai');
+    expect(r.test?.retries).toBe(3);
+  });
+
+  it('rejects the legacy `runner:` key (no compat loader per §10.5)', () => {
+    // `.strict()` on phaseConfigSchema catches the old key as unrecognized.
+    expect(() => phaseConfigSchema.parse({ runner: { profile: 'pytest' } })).toThrow(
+      /unrecognized.*runner/i,
+    );
+  });
+
+  it('rejects legacy v0 kebab sub-field names inside the `test:` block', () => {
+    // Sub-fields drop the `test-` prefix per §15.14; old names rejected
+    // by the inner schema's `.strict()`.
+    expect(() => phaseConfigSchema.parse({ test: { 'test-profile': 'pytest' } })).toThrow();
+    expect(() => phaseConfigSchema.parse({ test: { 'test-image': 'x' } })).toThrow();
+    expect(() => phaseConfigSchema.parse({ test: { 'test-script': 'test.sh' } })).toThrow();
+    expect(() => phaseConfigSchema.parse({ test: { 'test-retries': 3 } })).toThrow();
+    // camelCase variants also rejected.
+    expect(() => phaseConfigSchema.parse({ test: { testProfile: 'pytest' } })).toThrow();
   });
 });

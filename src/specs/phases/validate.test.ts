@@ -324,12 +324,12 @@ describe('validatePhasedFeature', () => {
     });
   });
 
-  describe('§6.9.3 — tests.none + runner.* (warning)', () => {
-    it('warns with the exact §6.9.3 text when tests.none: true is set with two runner.* keys', async () => {
+  describe('§6.9.3 — tests.none + test.* (warning)', () => {
+    it('warns with the exact §6.9.3 text when tests.none: true is set with two test.* keys', async () => {
       await makePhase('01-core');
       await writeFile(
         join(featureDir, 'feature.yml'),
-        `tests:\n  none: true\nrunner:\n  test-profile: pytest\n  test-retries: 3\n`,
+        `tests:\n  none: true\ntest:\n  profile: pytest\n  retries: 3\n`,
         'utf8',
       );
       const { report } = await validatePhasedFeature({
@@ -337,7 +337,7 @@ describe('validatePhasedFeature', () => {
         projectDir: featureDir,
       });
       expect(report.warnings).toContain(
-        `${featureYmlSource()}: sets \`tests.none: true\` alongside \`runner.{test-profile|test-retries}\`. The runner is bypassed for this phase, so \`runner.*\` is inert.`,
+        `${featureYmlSource()}: sets \`tests.none: true\` alongside \`test.{profile|retries}\`. The test runner is bypassed for this phase, so \`test.*\` is inert.`,
       );
     });
   });
@@ -789,16 +789,16 @@ describe('validatePhasedFeature', () => {
     // The Level-4 field used to be gated by §6.9.8 until phase 7.3
     // landed. Pin instead that the field NO LONGER errors — and that a
     // Level-2 field still does (Level-2 ships in 7.5).
-    it('does NOT error on a Level-4 field that has shipped (runner.test-profile)', async () => {
+    it('does NOT error on a Level-4 field that has shipped (test.profile)', async () => {
       await makePhase('01-core');
-      await writeFile(join(featureDir, 'feature.yml'), `runner:\n  test-profile: pytest\n`, 'utf8');
+      await writeFile(join(featureDir, 'feature.yml'), `test:\n  profile: pytest\n`, 'utf8');
       const { report } = await validatePhasedFeature({
         featureAbsolutePath: featureDir,
         projectDir: featureDir,
       });
       expect(
         report.errors.filter(
-          (e) => e.includes('runner.test-profile') && e.includes('not yet implemented'),
+          (e) => e.includes('test.profile') && e.includes('not yet implemented'),
         ),
       ).toHaveLength(0);
     });
@@ -1022,14 +1022,14 @@ describe('validatePhasedFeature', () => {
     });
 
     // Per-phase-config phase 7.3 review F-F: extend the existence checks
-    // to cover `runner.test-script` and `runner.stage-script`. The
-    // validator already wires both into `checkPhaseScriptPaths`; these
-    // tests pin the contract so a future regression doesn't drop them.
-    it('errors when runner.test-script references a missing file', async () => {
+    // to cover `test.script` and `test.stage-script`. The validator already
+    // wires both into `checkPhaseScriptPaths`; these tests pin the contract
+    // so a future regression doesn't drop them.
+    it('errors when test.script references a missing file', async () => {
       await makePhase('01-core');
       await writeFile(
         join(featureDir, 'phases', '01-core', 'phase.yml'),
-        `runner:\n  test-script: ghost-test.sh\n`,
+        `test:\n  script: ghost-test.sh\n`,
         'utf8',
       );
       const { report } = await validatePhasedFeature({
@@ -1040,17 +1040,17 @@ describe('validatePhasedFeature', () => {
         report.errors.some(
           (e) =>
             e.includes("phase '01-core'") &&
-            e.includes('`runner.test-script: ghost-test.sh`') &&
+            e.includes('`test.script: ghost-test.sh`') &&
             e.includes('could not be located'),
         ),
       ).toBe(true);
     });
 
-    it('errors when runner.stage-script references a missing file', async () => {
+    it('errors when test.stage-script references a missing file', async () => {
       await makePhase('01-core');
       await writeFile(
         join(featureDir, 'phases', '01-core', 'phase.yml'),
-        `runner:\n  stage-script: ghost-stage.sh\n`,
+        `test:\n  stage-script: ghost-stage.sh\n`,
         'utf8',
       );
       const { report } = await validatePhasedFeature({
@@ -1061,19 +1061,19 @@ describe('validatePhasedFeature', () => {
         report.errors.some(
           (e) =>
             e.includes("phase '01-core'") &&
-            e.includes('`runner.stage-script: ghost-stage.sh`') &&
+            e.includes('`test.stage-script: ghost-stage.sh`') &&
             e.includes('could not be located'),
         ),
       ).toBe(true);
     });
 
-    it('does not error when runner.test-script / runner.stage-script resolve against the phase dir', async () => {
+    it('does not error when test.script / test.stage-script resolve against the phase dir', async () => {
       const phaseDir = await makePhase('01-core');
       await writeFile(join(phaseDir, 'test.sh'), 'ok\n', 'utf8');
       await writeFile(join(phaseDir, 'stage.sh'), 'ok\n', 'utf8');
       await writeFile(
         join(phaseDir, 'phase.yml'),
-        `runner:\n  test-script: test.sh\n  stage-script: stage.sh\n`,
+        `test:\n  script: test.sh\n  stage-script: stage.sh\n`,
         'utf8',
       );
       const { report } = await validatePhasedFeature({
@@ -1081,7 +1081,7 @@ describe('validatePhasedFeature', () => {
         projectDir: featureDir,
       });
       expect(
-        report.errors.filter((e) => /runner\.(test|stage)-script.*could not be located/.test(e)),
+        report.errors.filter((e) => /test\.(script|stage-script).*could not be located/.test(e)),
       ).toHaveLength(0);
     });
   });
